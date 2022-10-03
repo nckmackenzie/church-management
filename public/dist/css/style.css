@@ -1,0 +1,58 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@200&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@300&display=swap");
+@font-face {
+  src: url(../fonts/Poppins-ExtraLight.ttf);
+  font-family: Poppins;
+}
+@font-face {
+  src: url(../fonts/Poppins-Regular.ttf);
+  font-family: Poppins-R;
+}
+body {
+  font-family: "Poppins-R", sans-serif;
+  font-weight: normal;
+  font-size: 0.8rem;
+}
+.custom-bold {
+  font-family: "Poppins-R", sans-serif;
+}
+.mandatory {
+  border-left: 2px solid red;
+}
+.custom-readonly {
+  cursor: not-allowed;
+}
+.custom-font {
+  font-size: 0.8rem;
+}
+.custom-success {
+  background: #d4edda;
+}
+.custom-danger {
+  background: #f8d7da;
+}
+.custom-center {
+  text-align: center;
+}
+.custom-brand {
+  font-size: 0.9rem;
+}
+.custom-sm {
+  font-family: "Roboto", sans-serif;
+}
+td.sub-level-3 {
+  padding-left: 30px;
+}
+td.sub-level-4 {
+  padding-left: 40px;
+}
+td.sub-level-5 {
+  padding-left: 50px;
+}
+.table-input {
+  outline: none;
+  border: none;
+}
+.fs-5 {
+  font-size: 0.875rem;
+}
