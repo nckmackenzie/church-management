@@ -67,7 +67,7 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo URLROOT;?>/members/transfer" class="nav-link">
+                    <a href="<?php echo URLROOT;?>/transfers" class="nav-link">
                         <p>Transfer Member</p>
                     </a>
                 </li>
