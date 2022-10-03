@@ -227,3 +227,9 @@ function converttobool($val){
     $converted = filter_var($val, FILTER_VALIDATE_BOOLEAN);
     return $converted;
 }
+//Get value from Database
+function getdbvalue($con,$sql,$arr){
+    $stmt = $con->prepare($sql);
+    $stmt->execute($arr);
+    return $stmt->fetchColumn();
+}
