@@ -233,3 +233,23 @@ function getdbvalue($con,$sql,$arr){
     $stmt->execute($arr);
     return $stmt->fetchColumn();
 }
+//format id to 4 digits
+function formatStringId($val){
+    switch (strlen($val)) {
+        case 1:
+            return '000'.$val;
+            break;
+        case 2:
+            return '00'.$val;
+            break;
+        case 3:
+            return '0'.$val;
+            break;
+        case 2:
+            return $val;
+            break;
+        default:
+            return $val;
+            break;
+    } 
+}
