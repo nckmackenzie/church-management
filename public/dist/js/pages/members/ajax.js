@@ -21,12 +21,12 @@ export async function getDistricts(cid) {
 }
 
 export async function getMembers(did) {
-  let option;
+  let option = '';
   const type = 'members';
   const url = `${fullUrl}/getvalues?type=${type}&district=${did}`;
   const data = await ajaxCall(url);
   data.forEach(dt => {
-    option = option + `<option value="${dt.ID}">${dt.fieldName}</option>`;
+    option = option + `<option value="${dt.id}">${dt.fieldName}</option>`;
   });
   return option;
 }
