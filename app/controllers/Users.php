@@ -209,7 +209,7 @@ class Users extends Controller{
         unset($_SESSION['one']);
         unset($_SESSION['zero']);
         session_destroy();
-        redirect('');
+        redirect('users');
     }
     public function isLoggedIn()
     {
