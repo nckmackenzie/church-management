@@ -5,7 +5,7 @@
   <!-- /.login-logo -->
   <div class="card card-outline card-navy">
     <div class="card-header text-center">
-      <a href="https://pceakalimoniparish.or.ke" target="_blank" class="h2"><b>Kenyatta Rd Parish</b></a>
+      <a href="https://pceakalimoniparish.or.ke" target="_blank" class="h2"><b><?php echo SITENAME;?></b></a>
     </div>
     <div class="card-body">
       <p class="login-box-msg">Sign in to start your session</p>
