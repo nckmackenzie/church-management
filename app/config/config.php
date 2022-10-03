@@ -9,4 +9,4 @@ define('APPROOT',dirname(dirname(__FILE__)));
 //url root
 define('URLROOT','http://localhost/cms');
 //SITE NAME
-define('SITENAME','PCEA Kenyatta Rd Parish');
+define('SITENAME','Kenyatta Rd Parish');
