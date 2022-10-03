@@ -31,4 +31,5 @@
 <script src="<?php echo URLROOT;?>/plugins/CustomDate/dist/DateTimePicker.min.js"></script>
 <script src="<?php echo URLROOT;?>/plugins/bs-multiselect/dist/js/bootstrap-select.min.js"></script>
 <script src="<?php echo URLROOT; ?>/dist/js/adminlte.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
 <script src="<?php echo URLROOT; ?>/dist/js/main.js"></script>
