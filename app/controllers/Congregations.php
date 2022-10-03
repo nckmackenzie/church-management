@@ -48,7 +48,7 @@ class Congregations extends Controller{
     public function create()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'congregationname' => trim($_POST['congregationname']),
                 'contact' => trim($_POST['contact']),
@@ -122,7 +122,7 @@ class Congregations extends Controller{
     public function update()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST= filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);//SANITIZE
+            $_POST= filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);//SANITIZE
             $data = [
                 'id' => $_POST['id'],
                 'congregationname' => trim(strtolower($_POST['congregationname'])),
@@ -165,7 +165,7 @@ class Congregations extends Controller{
     public function delete()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST= filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);//SANITIZE
+            $_POST= filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);//SANITIZE
             $data = [
                 'id' => $_POST['id'],
                 'congregationname' => trim(strtolower($_POST['congregationname'])),

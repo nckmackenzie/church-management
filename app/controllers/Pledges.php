@@ -53,7 +53,7 @@ class Pledges extends Controller{
     public function getpledger()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST =filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST =filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $category = trim($_POST['category']);
             $data = [
                 'pledgers' => ''
@@ -69,7 +69,7 @@ class Pledges extends Controller{
     public function create()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             
             $paymethods = $this->pledgeModel->paymentMethods();
             $banks = $this->pledgeModel->getBanks();
@@ -162,7 +162,7 @@ class Pledges extends Controller{
     public function payment()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $paymethods = $this->pledgeModel->paymentMethods();
             $banks = $this->pledgeModel->getBanks();
             $data = [
@@ -213,7 +213,7 @@ class Pledges extends Controller{
     public function delete()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-           $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+           $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
            $data = [
                 'id' => trim($_POST['id']),
                 'pledger' => trim(strtolower($_POST['pledger']))

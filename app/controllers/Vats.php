@@ -40,7 +40,7 @@ class Vats extends Controller {
     public function create()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'id' => '',
                 'vatname' => trim($_POST['vatname']),
@@ -104,7 +104,7 @@ class Vats extends Controller {
     public function update()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'id' => trim($_POST['id']),
                 'vatname' => trim($_POST['vatname']),
@@ -149,7 +149,7 @@ class Vats extends Controller {
     public function delete()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'id' => trim($_POST['id']),
                 'vatname' => trim($_POST['vatname']),

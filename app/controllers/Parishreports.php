@@ -28,7 +28,7 @@ class Parishreports extends Controller
     public function contributionsrpt()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'congregations' => !empty($_GET['congregations']) ? join(",",$_GET['congregations']) : '',
                 'accounts' => !empty($_GET['accounts']) ? join(",",$_GET['accounts']) : '',
@@ -89,7 +89,7 @@ class Parishreports extends Controller
     public function expensesrpt()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'congregations' => !empty($_GET['congregations']) ? join(",",$_GET['congregations']) : '',
                 'accounts' => !empty($_GET['accounts']) ? join(",",$_GET['accounts']) : '',
@@ -151,7 +151,7 @@ class Parishreports extends Controller
     public function getgroups()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $congregation = trim($_GET['cong']);
             $groups = $this->parishReportModel->GetGroups($congregation);
             // print_r($groups);
@@ -169,7 +169,7 @@ class Parishreports extends Controller
     public function budgetvsexpenserpt()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET =  filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+            $_GET =  filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'type' => trim($_GET['type']),
                 'cong' => trim($_GET['cong']),
@@ -264,7 +264,7 @@ class Parishreports extends Controller
     public function invoicesrpt()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'status' => trim($_GET['status']),
                 'start' => trim($_GET['start']),
@@ -406,7 +406,7 @@ class Parishreports extends Controller
     public function incomestatementrpt()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'cong' => trim($_GET['cong']),
                 'start' => trim($_GET['start']),
@@ -486,7 +486,7 @@ class Parishreports extends Controller
     public function trialbalancerpt()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'cong' => trim($_GET['cong']),
                 'start' => trim($_GET['start']),
@@ -545,7 +545,7 @@ class Parishreports extends Controller
     public function balancesheetrpt()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'cong' => trim($_GET['cong']),
                 'todate' => trim($_GET['todate']),

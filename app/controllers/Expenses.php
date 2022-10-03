@@ -58,7 +58,7 @@ class Expenses extends Controller{
     public function getcostcentre()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-           $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+           $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
            $category = trim($_POST['category']);
            if ($category == 1) {
                echo '<option value="0">CHURCH</option>';
@@ -74,7 +74,7 @@ class Expenses extends Controller{
     public function create()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $accounts = $this->expenseModel->getAccounts();
             $paymethods = $this->expenseModel->paymethods();
             $banks = $this->expenseModel->banks();
@@ -217,7 +217,7 @@ class Expenses extends Controller{
     public function approve()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'id' => trim($_POST['id']),
                 'date' => trim($_POST['date']),
@@ -276,7 +276,7 @@ class Expenses extends Controller{
     public function update()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'id' => trim($_POST['id']),
                 'voucher' => trim($_POST['voucher']),
@@ -332,7 +332,7 @@ class Expenses extends Controller{
     public function delete()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'id' => trim($_POST['id']),
                 'date' => trim($_POST['date']),

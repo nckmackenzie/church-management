@@ -23,7 +23,7 @@ class Reports extends Controller {
     public function memberreport()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $district = trim($_POST['district']);
             $status = trim($_POST['status']);
             $from = !empty($_POST['from']) ? trim($_POST['from']) : NULL;
@@ -110,7 +110,7 @@ class Reports extends Controller {
     public function transferedreport()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'from' => trim($_POST['from']),
                 'to' => trim($_POST['to']),
@@ -164,7 +164,7 @@ class Reports extends Controller {
     public function bystatusreport()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'status' => trim($_POST['status']),
                 'district' => trim($_POST['district']),
@@ -215,7 +215,7 @@ class Reports extends Controller {
     public function residencereport()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $district = trim($_POST['district']);
             $members = $this->reportModel->getResidenceRpt($district);
             $output= '';
@@ -269,7 +269,7 @@ class Reports extends Controller {
     public function familyreport()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $district = trim($_POST['district']);
             $members  = $this->reportModel->getFamily($district);
         
@@ -310,7 +310,7 @@ class Reports extends Controller {
     public function contributionsrpt()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'type' => trim($_GET['type']),
                 'start' => trim($_GET['start']),
@@ -375,7 +375,7 @@ class Reports extends Controller {
     public function expensesrpt()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'type' => trim($_GET['type']),
                 'start' => trim($_GET['start']),
@@ -440,7 +440,7 @@ class Reports extends Controller {
     public function pledgesrpt()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'type' => trim($_GET['type']),
                 'start' => trim($_GET['start']),
@@ -542,7 +542,7 @@ class Reports extends Controller {
     public function budgetvsexpenserpt()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET =  filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+            $_GET =  filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'type' => trim($_GET['type']),
                 'year' => trim($_GET['year']),
@@ -635,7 +635,7 @@ class Reports extends Controller {
     public function incomestatementrpt()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'start' => trim($_GET['start']),
                 'end' => trim($_GET['end'])
@@ -710,7 +710,7 @@ class Reports extends Controller {
     public function trialbalancerpt()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'start' => trim($_GET['start']),
                 'end' => trim($_GET['end']),
@@ -765,7 +765,7 @@ class Reports extends Controller {
     public function balancesheetrpt()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $todate = trim($_GET['todate']);
             $assets = $this->reportModel->GetAssets($todate);
             $liablityequities = $this->reportModel->GetLiablityEquity($todate);

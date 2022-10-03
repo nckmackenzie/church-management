@@ -30,7 +30,7 @@ class Groups extends Controller {
     public function create()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-           $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+           $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
            $data = [
                'name' => trim(strtolower($_POST['groupname'])),
                'active' => isset($_POST['active']) ? 1 : 0,
@@ -76,7 +76,7 @@ class Groups extends Controller {
     public function update()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-           $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+           $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
            $data = [
                'name' => trim(strtolower($_POST['groupname'])),
                'active' => isset($_POST['active']) ? 1 : 0,
@@ -113,7 +113,7 @@ class Groups extends Controller {
     public function delete()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'id' => $_POST['id'],
                 'name' => trim(strtolower($_POST['groupname']))

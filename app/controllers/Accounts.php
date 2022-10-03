@@ -45,7 +45,7 @@ class Accounts extends Controller{
     public function getsubcategory()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST =filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST =filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $main = trim($_POST['main']);
             $accounts = $this->accountModel->getAccounts($main);
             foreach ($accounts as $account ) {
@@ -59,7 +59,7 @@ class Accounts extends Controller{
     public function create()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
            
             $accounttypes = $this->accountModel->getAccountTypes();
             $data = [

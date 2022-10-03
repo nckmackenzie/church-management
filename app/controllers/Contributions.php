@@ -57,7 +57,7 @@ class Contributions extends Controller {
     public function getcontributor()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $category=trim($_POST['category']);
             $data = [
                'contributor' => ''
@@ -158,7 +158,7 @@ class Contributions extends Controller {
     public function checkforgroup()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST =filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST =filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $account = trim($_POST['cont']);
             echo $this->contributionModel->getforgroup($account);
         }
@@ -166,7 +166,7 @@ class Contributions extends Controller {
     public function approve()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'id' => trim($_POST['id']),
                 'date' => trim($_POST['date']),
@@ -183,7 +183,7 @@ class Contributions extends Controller {
     public function delete()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'id' => trim($_POST['id']),
                 'date' => trim($_POST['date']),

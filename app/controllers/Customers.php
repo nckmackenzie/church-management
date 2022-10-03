@@ -46,7 +46,7 @@
             //check method is post
             if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 //SANTIZE STRING
-                $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+                $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
                 $data = [
                     'customername' => trim(strtolower($_POST['customername'])),
                     'contact' => trim($_POST['contact']),
@@ -106,7 +106,7 @@
             //check method is post
             if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 //SANTIZE STRING
-                $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+                $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
                 $data = [
                     'id' => $_POST['id'],
                     'customername' => trim(strtolower($_POST['customername'])),
@@ -160,7 +160,7 @@
             //check method is post
             if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 //SANTIZE STRING
-                $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+                $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
                 $data = [
                     'id' => $_POST['id'],
                     'customername' => trim(strtolower($_POST['customername'])),

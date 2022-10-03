@@ -74,7 +74,7 @@ class Members extends Controller {
     public function create()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $marriagestatus = $this->memberModel->getMarriageStatus();
             $districts = $this->memberModel->getDistricts();
             $positions = $this->memberModel->getPositions();
@@ -156,7 +156,7 @@ class Members extends Controller {
     public function resend()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'id' => $_POST['id'],
                 'contact' => $_POST['contact']
@@ -198,7 +198,7 @@ class Members extends Controller {
     public function delete()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'id' => $_POST['id'],
                 'name' => $_POST['name']
@@ -214,7 +214,7 @@ class Members extends Controller {
     public function update()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $marriagestatus = $this->memberModel->getMarriageStatus();
             $districts = $this->memberModel->getDistricts();
             $positions = $this->memberModel->getPositions();
@@ -301,7 +301,7 @@ class Members extends Controller {
     public function districtchange()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data= [
                 'member' => $_POST['member'],
                 'district' => ''
@@ -316,7 +316,7 @@ class Members extends Controller {
     public function updatedistrict()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'member' => $_POST['member'],
                 'old' => $_POST['old'],
@@ -388,7 +388,7 @@ class Members extends Controller {
     public function getmemberbycong()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST =filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST =filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $congregation = trim($_POST['congregation']);
             $members = $this->memberModel->getMembersByCongregation($congregation);
             // print_r($members);
@@ -400,7 +400,7 @@ class Members extends Controller {
     public function getdistrictbycong()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST =filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST =filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $congregation = trim($_POST['cong']);
             $districts = $this->memberModel->getDistrictsByCongregation($congregation);
             // print_r($districts);
@@ -412,7 +412,7 @@ class Members extends Controller {
     public function transfermember()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST =filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST =filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $congregations = $this->memberModel->getCongregations();
             $data = [
                 'congregations' => $congregations,
@@ -500,7 +500,7 @@ class Members extends Controller {
     public function createfamily()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'membername' => trim($_POST['membername']),
                 'member' => trim($_POST['member']),
@@ -512,7 +512,7 @@ class Members extends Controller {
     public function checkfamily()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $member = trim($_POST['memberid']);
             echo $this->memberModel->checkfamily($member);
         }

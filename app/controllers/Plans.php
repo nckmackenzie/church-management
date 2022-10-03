@@ -70,7 +70,7 @@ class Plans extends Controller
     public function checkname()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-           $_GET = filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+           $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
            $activity = trim($_GET['activity']);
            return $this->planModel->CheckActivityName($activity);
         }else{
@@ -80,7 +80,7 @@ class Plans extends Controller
     public function createactivity()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $activity = trim($_POST['activity']);
             $this->planModel->CreateActivity($activity);
         }else{
@@ -103,7 +103,7 @@ class Plans extends Controller
     public function getcollaborator()
     {
         if($_SERVER['REQUEST_METHOD'] == 'GET'){
-            $_GET = filter_input_array(INPUT_GET,FILTER_SANITIZE_STRING);
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $level = trim($_GET['level']);
             $output = '';
             if ($level == 1) {
@@ -126,7 +126,7 @@ class Plans extends Controller
     public function save()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $years = $this->planModel->GetFiscalYears();
             $currentYear = $this->planModel->GetCurrentYear();
             $activities = $this->planModel->GetActivities();
@@ -398,7 +398,7 @@ class Plans extends Controller
     public function update()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $years = $this->planModel->GetFiscalYears();
             $currentYear = $this->planModel->GetCurrentYear();
             $activities = $this->planModel->GetActivities();
@@ -606,7 +606,7 @@ class Plans extends Controller
     public function delete()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $id = trim($_POST['id']);
             if ($this->planModel->delete($id)) {
                 flash('plan_msg','Deleted Successfully!');

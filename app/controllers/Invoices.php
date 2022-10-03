@@ -43,7 +43,7 @@ class Invoices extends Controller{
     public function fetchcustomerdetails()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $id = trim($_POST['id']);
             $details = $this->invoiceModel->getCustomerDetails($id);
            
@@ -55,7 +55,7 @@ class Invoices extends Controller{
     public function create()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'customerid' => trim($_POST['customerId']),
                 'invoicedate' => trim($_POST['invoicedate']),
@@ -77,7 +77,7 @@ class Invoices extends Controller{
     public function getrate()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $vat = trim($_POST['vat']);
             echo $this->invoiceModel->getRate($vat);
         }
@@ -132,7 +132,7 @@ class Invoices extends Controller{
     public function payment()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             
             $paymethods = $this->invoiceModel->paymethods();
             $banks = $this->invoiceModel->banks();
@@ -206,7 +206,7 @@ class Invoices extends Controller{
     public function newproduct()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'name' => trim($_POST['name']),
                 'desc' => trim($_POST['desc']),
@@ -221,7 +221,7 @@ class Invoices extends Controller{
     public function reloadproducts()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST =filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST =filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $products = $this->invoiceModel->getProducts();
             // print_r($products);
             $output = '';
@@ -235,7 +235,7 @@ class Invoices extends Controller{
     public function getproductrate()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST =filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST =filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $product = trim($_POST['product']);
             $rate = $this->invoiceModel->getProductRate($product);
             echo $rate;
@@ -244,7 +244,7 @@ class Invoices extends Controller{
     public function update()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'id' => trim($_POST['id']),
                 'customerid' => trim($_POST['customerId']),

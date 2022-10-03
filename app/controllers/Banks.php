@@ -42,7 +42,7 @@ class Banks extends Controller{
     {
         //check if post
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'bankname' => trim(strtolower($_POST['bankname'])),
                 'account' => trim(strtolower($_POST['account'])),
@@ -116,7 +116,7 @@ class Banks extends Controller{
     {
          //check if post
          if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $bank = $this->bankModel->getbank($_POST['id']);
             $data = [
                 'bank' => $bank,
@@ -164,7 +164,7 @@ class Banks extends Controller{
     public function delete()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'id' => trim($_POST['id']),
                 'bankname' => trim(strtolower($_POST['bankname'])),

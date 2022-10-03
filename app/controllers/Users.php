@@ -53,7 +53,7 @@ class Users extends Controller{
         //CHECK METHOD
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             //validate errors
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
            
             $districts = $this->userModel->getDistricts();
             $data = [
@@ -125,7 +125,7 @@ class Users extends Controller{
     {
         $congregations = $this->userModel->getCongregation();
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'congregations' => $congregations,
                 'userid' => trim(strtolower($_POST['userid'])),
@@ -247,7 +247,7 @@ class Users extends Controller{
     public function password()
     {
        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-           $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+           $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
            $data = [
                 'old' => trim($_POST['old']),
                 'new' => trim($_POST['new']),
@@ -312,7 +312,7 @@ class Users extends Controller{
     public function activityresult()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'user' => trim($_POST['user']),
                 'start' => $_POST['start'],
@@ -332,7 +332,7 @@ class Users extends Controller{
     public function resendpassword()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'phone' => trim($_POST['phone']),
                 'phone_err' => '',
@@ -395,7 +395,7 @@ class Users extends Controller{
         //CHECK METHOD
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             //validate errors
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             
             $districts = $this->userModel->getDistricts();
             $data = [
@@ -457,7 +457,7 @@ class Users extends Controller{
     public function reset()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'phone' => trim($_POST['contact']),
                 'id' => trim($_POST['id']),
@@ -495,7 +495,7 @@ class Users extends Controller{
     public function getusersrights()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $users = $this->userModel->GetNonAdmins();
             $data = [
                 'users' => $users,
@@ -518,7 +518,7 @@ class Users extends Controller{
     public function assignrights()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'user' => trim($_POST['userid']),
                 'form' => $_POST['fid'],
@@ -557,7 +557,7 @@ class Users extends Controller{
     public function clonemenu()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $users = $this->userModel->GetNonAdmins();
             $data = [
                 'users' => $users,

@@ -31,7 +31,7 @@ class Services extends Controller{
     public function create()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST= filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST= filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data= [
                 'servicename' => trim(strtolower($_POST['servicename'])),
                 'servicetime'=> trim(strtolower($_POST['servicetime'])),
@@ -89,7 +89,7 @@ class Services extends Controller{
     public function update()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST= filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST= filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data= [
                 'servicename' => trim(strtolower($_POST['servicename'])),
                 'servicetime'=> trim(strtolower($_POST['servicetime'])),
@@ -131,7 +131,7 @@ class Services extends Controller{
     public function delete()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST= filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST= filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data= [
                 'servicename' => trim(strtolower($_POST['servicename'])),
                 'id' => $_POST['id']
@@ -191,7 +191,7 @@ class Services extends Controller{
     public function createinfo()
     {
        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-           $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+           $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
            $services = $this->serviceModel->getServices();
            $data = [
                 'services' => $services,
@@ -251,7 +251,7 @@ class Services extends Controller{
     public function updateinfo()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $services = $this->serviceModel->getServices();
             $data = [
                  'services' => $services,
@@ -322,7 +322,7 @@ class Services extends Controller{
     public function deleteinfo()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST= filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST= filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data= [
                 'servicename' => trim(strtolower($_POST['servicename'])),
                 'id' => $_POST['id']

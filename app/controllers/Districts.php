@@ -33,7 +33,7 @@ class Districts extends Controller {
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             //sanitize string
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'name' => trim(strtolower($_POST['districtname'])),
                 'name_err' =>''
@@ -72,7 +72,7 @@ class Districts extends Controller {
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             //sanitize string
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'name' => trim(strtolower($_POST['districtname'])),
                 'id' => $_POST['id'],
@@ -108,7 +108,7 @@ class Districts extends Controller {
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             //sanitize string
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'id' => $_POST['id'],
             ];

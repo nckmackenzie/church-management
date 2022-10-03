@@ -57,7 +57,7 @@ class Officials extends Controller{
            $members = $this->officialModel->getMembers();
            $groups = $this->officialModel->getGroups();
            $years = $this->officialModel->getYears();
-           $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+           $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
            $data = [
                'members' => $members,
                'groups' => $groups,
@@ -124,7 +124,7 @@ class Officials extends Controller{
             $members = $this->officialModel->getMembers();
             $groups = $this->officialModel->getGroups();
             $years = $this->officialModel->getYears();
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'members' => $members,
                 'groups' => $groups,
@@ -155,7 +155,7 @@ class Officials extends Controller{
     public function delete()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_SANITIZE_STRING);
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'id' => $_POST['id'],
                 'groupname' => trim(strtolower($_POST['groupname'])),
