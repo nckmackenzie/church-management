@@ -133,7 +133,7 @@
                 </li>
                 <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/contributions" class="nav-link">
-                        <p>Contributions</p>
+                        <p>Receipts</p>
                     </a>
                 </li>
                 <li class="nav-item">
@@ -260,7 +260,7 @@
             <ul class="nav nav-treeview custom-font">
                 <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/reports/contributions" class="nav-link">
-                        <p>Contributions Reports</p>
+                        <p>Receipts Reports</p>
                     </a>
                 </li>
                 <li class="nav-item">
