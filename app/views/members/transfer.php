@@ -17,7 +17,8 @@
                       <div class="form-group">
                           <label for="congregationfrom">Current Congregation</label>
                           <select name="congregationfrom" id="congregationfrom" 
-                                  class="form-control form-control-sm">
+                                  class="form-control">
+                              <option value="" selected disabled>Select congregation</option>
                               <?php foreach($data['congregations'] as $congregation) : ?>
                                  <option value="<?php echo $congregation->ID;?>"
                                  <?php selectdCheck($data['congregationfrom'],$congregation->ID)?>>
@@ -25,30 +26,23 @@
                                  </option>
                               <?php endforeach; ?>
                           </select>
-                      </div>
-                    </div>
-                    <div class="col-md-4">
-                      <div class="form-group">
-                          <label for="member">Member</label>
-                          <select name="member" id="member" 
-                                  class="form-control form-control-sm">
-                              <?php if(!empty($data['members'])) : ?>
-                                  <?php foreach($data['members'] as $member) : ?>
-                                    <option value="<?php echo $member->ID;?>"
-                                    <?php selectdCheck($data['member'],$member->ID)?>>
-                                      <?php echo $member->memberName;?>
-                                    </option>
-                                  <?php endforeach; ?>
-                              <?php endif;?>
-                          </select>
+                          <span class="invalid-feedback"></span>
                       </div>
                     </div>
                     <div class="col-md-4">
                       <div class="form-group">
                           <label for="district">Current District</label>
                           <select name="district" id="district" 
-                                  class="form-control form-control-sm">
+                                  class="form-control">
                           </select>
+                          <span class="invalid-feedback"></span>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="form-group">
+                          <label for="member">Member(s)</label>
+                          <select id="member" name="member[]"class="form-control"></select>
+                          <span class="invalid-feedback"></span>
                       </div>
                     </div>
                   </div><!--End Of Row-->
@@ -57,8 +51,8 @@
                       <div class="form-group">
                           <label for="newcongregation">New Congregation</label>
                           <select name="newcongregation" id="newcongregation" 
-                                  class="form-control form-control-sm
-                                  <?php echo (!empty($data['newcong_err'])) ? 'is-invalid' : ''?>">
+                                  class="form-control">
+                              <option value="" selected disabled>Select congregation</option>    
                               <?php foreach($data['congregations'] as $congregation) : ?>
                                  <option value="<?php echo $congregation->ID;?>"
                                  <?php selectdCheck($data['newcongregation'],$congregation->ID)?>>
@@ -66,15 +60,14 @@
                                  </option>
                               <?php endforeach; ?>
                           </select>
-                          <span class="invalid-feedback"><?php echo $data['newcong_err'];?></span>
+                          <span class="invalid-feedback"></span>
                       </div>
                     </div>
                     <div class="col-md-4">
                       <div class="form-group">
                           <label for="newdistrict">New District</label>
                           <select name="newdistrict" id="newdistrict" 
-                                  class="form-control form-control-sm mandatory
-                                  <?php echo (!empty($data['newdist_err'])) ? 'is-invalid' : ''?>">
+                                  class="form-control mandatory">
                             <?php if(!empty($data['districts'])) : ?>
                                   <?php foreach($data['districts'] as $district) : ?>
                                     <option value="<?php echo $district->ID;?>"
@@ -84,17 +77,17 @@
                                   <?php endforeach; ?>
                               <?php endif;?>
                           </select>
-                          <span class="invalid-feedback"><?php echo $data['newdist_err'];?></span>
+                          <span class="invalid-feedback"></span>
                       </div>
                     </div>
                     <div class="col-md-4">
                       <div class="form-group">
                            <label for="date">Transfer Date</label>
                            <input type="date" name="date" id="date"
-                                  class="form-control form-control-sm mandatory
+                                  class="form-control mandatory
                                   <?php echo (!empty($data['date_err'])) ? 'is-invalid' : ''?>"
                                   value="<?php echo $data['date'];?>">
-                           <span class="invalid-feedback"><?php echo $data['date_err'];?></span>        
+                           <span class="invalid-feedback"></span>        
                       </div>
                     </div>
                   </div><!--End Of Row-->
@@ -103,12 +96,12 @@
                       <div class="form-group">
                             <label for="reason">Reason For Transfer</label>
                             <input type="text" name="reason" id="reason"  
-                                  class="form-control form-control-sm mandatory
+                                  class="form-control mandatory
                                   <?php echo (!empty($data['reason_err'])) ? 'is-invalid' : ''?>"
                                   value="<?php echo $data['reason'];?>"
                                   placeholder="Enter Reason For Transfer"
                                   autocomplete="off">
-                            <span class="invalid-feedback"><?php echo $data['reason_err'];?></span>
+                            <span class="invalid-feedback"></span>
                       </div>
                     </div>
                   </div><!--End Of Row-->
@@ -128,86 +121,7 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script>
-  $(function(){
-    $('#member').select2();
-
-      $('#congregationfrom').change(function(){
-          listMembers($(this).val());
-          getNames();
-      });
-
-      $('#member').change(function(){
-        var member = $(this).val();
-          $.ajax({
-              url  : '<?php echo URLROOT;?>/members/districtchange',
-              method : 'POST',
-              data : {member : member},
-              success : function(html){
-                // console.log(html);
-                $('#district').html(html);
-              }
-          });
-          getNames();
-      });
-
-      $('#newcongregation').change(function(){
-          var cong = $(this).val();
-          $.ajax({
-              url  : '<?php echo URLROOT;?>/members/getdistrictbycong',
-              method : 'POST',
-              data : {cong : cong},
-              success : function(html){
-                // console.log(html);
-                $('#newdistrict').html(html);
-              }
-          });
-          getNames();
-      });
-      $('#newdistrict').change(function(){
-          // var cong = $(this).val();
-          // console.log(cong);
-          getNames();
-      });
-
-      function listMembers(congregation){
-         $.ajax({
-            url  : '<?php echo URLROOT;?>/members/getmemberbycong',
-            method : 'POST',
-            data : {congregation : congregation},
-            success : function(html){
-              // console.log(html);
-              $('#member').html(html);
-            }
-         });
-      }
-      
-      $('#congregationfrom').val('');
-      $('#newcongregation').val('');
-
-
-      function getNames(){
-        var memberName = $('#member').find('option:selected').text();
-        var currentName = $('#congregationfrom').find('option:selected').text();
-        var newcongregation = $('#newcongregation').find('option:selected').text();
-        $('#membername').val(memberName.trim());
-        $('#currentname').val(currentName.trim());
-        $('#newname').val(newcongregation.trim());
-      }
-    
-      $(document).ready(function(){
-        listMembers($('#congregationfrom').val());
-      });
-     
-    
-      $(window).on('load',function(){
-        listMembers($('#congregationfrom').val());
-      });
-
-      $('#reason').focusout(function(){
-          getNames();
-      });
-  });
-</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-multiselect/1.1.2/js/bootstrap-multiselect.min.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/members/transfers.js"></script>
 </body>
 </html>  
