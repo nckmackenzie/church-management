@@ -44,7 +44,7 @@
                                 <?php endif; ?>
                             </tr>
                             <?php
-                                $con=new PDO('mysql:host=localhost;dbname=bzaadyyq_cms','bzaadyyq_kalimoniadmin','K@limoniParish');
+                                $con=new PDO('mysql:host=localhost;dbname=bzaadyyq_cms',DB_USER,DB_PASS);
                                 $con->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
                                 $sql = 'SELECT t.ID,UCASE(t.accountType) as accountType,
                                                a.accountType as atype,brand_level(t.ID) AS levels,

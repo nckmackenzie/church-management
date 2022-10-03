@@ -1,7 +1,7 @@
 <!-- Admin -->
 <?php
       try{
-        $con=new PDO('mysql:host=localhost;dbname=bzaadyyq_cms','bzaadyyq_kalimoniadmin','K@limoniParish');
+        $con=new PDO('mysql:host=localhost;dbname=bzaadyyq_cms',DB_USER,DB_PASS);
         $con->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
       }catch(PDOException $err){
         echo $err->getmessage();
