@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="<?php echo URLROOT;?>/plugins/bs-multiselect/dist/css/bootstrap-select.min.css">
     <link rel="stylesheet" href="<?php echo URLROOT;?>/plugins/daterangepicker/daterangepicker.css">
     <link rel="stylesheet" href="<?php echo URLROOT; ?>/dist/css/adminlte.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-multiselect/1.1.2/css/bootstrap-multiselect.min.css">
     <link rel="stylesheet" href="<?php echo URLROOT; ?>/dist/css/style.css">
     <style>
         sup {
