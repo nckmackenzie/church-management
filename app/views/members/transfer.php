@@ -11,7 +11,7 @@
           <div class="card bg-light">
             <div class="card-header">Transfer Member</div>
             <div class="card-body">
-              <form action="<?php echo URLROOT;?>/members/transfermember" method="post">
+              <form action="<?php echo URLROOT;?>/members/transfermember" method="post" name="transferForm" id="transferForm">
                   <div class="row">
                     <div class="col-md-4">
                       <div class="form-group">

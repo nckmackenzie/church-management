@@ -13,6 +13,7 @@ const currDistrictSelect = document.getElementById('district');
 const memberSelect = document.getElementById('member');
 const newCongSelect = document.getElementById('newcongregation');
 const newDistrictSelect = document.getElementById('newdistrict');
+const saveBtn = document.getElementById('save');
 
 currCongSelect.addEventListener('change', async function (e) {
   if (!e.target.value || e.target.value === '') return;
