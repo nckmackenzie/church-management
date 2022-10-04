@@ -43,7 +43,7 @@
                                     value="<?php echo $data['description'];?>" autocomplete="off">   
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="<?php echo converttobool($data['isedit']) ? 'col-md-12' : 'col-md-6';?>">
                                 <div class="form-group">
                                     <label for="rate">Selling Price/Rate</label>
                                     <input type="number" name="rate" id="rate"
@@ -54,19 +54,21 @@
                                     <span class="invalid-feedback"><?php echo $data['rate_err'];?></span>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="glaccount">Associated G/L</label>
-                                    <select name="glaccount" id="glaccount" class="form-control form-control-sm mandatory
-                                            <?php echo inputvalidation($data['glaccount'],$data['glaccount_err'],$data['touched']);?>" <?php echo converttobool($data['isedit']) ? 'disabled' : '';?>>
-                                        <option value="">Select G/L Account</option>
-                                        <?php foreach($data['glaccounts'] as $glaccount)  : ?>
-                                            <option value="<?php echo $glaccount->ID;?>" <?php selectdCheck($data['glaccount'],$glaccount->ID);?>><?php echo $glaccount->accountType;?></option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                    <span class="invalid-feedback"><?php echo $data['glaccount_err'];?></span>
+                            <?php if(!$data['isedit']) : ?>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="glaccount">Associated G/L</label>
+                                        <select name="glaccount" id="glaccount" class="form-control form-control-sm mandatory
+                                                <?php echo inputvalidation($data['glaccount'],$data['glaccount_err'],$data['touched']);?>" <?php echo converttobool($data['isedit']) ? 'disabled' : '';?>>
+                                            <option value="">Select G/L Account</option>
+                                            <?php foreach($data['glaccounts'] as $glaccount)  : ?>
+                                                <option value="<?php echo $glaccount->ID;?>" <?php selectdCheck($data['glaccount'],$glaccount->ID);?>><?php echo $glaccount->accountType;?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <span class="invalid-feedback"><?php echo $data['glaccount_err'];?></span>
+                                    </div>
                                 </div>
-                            </div>
+                            <?php endif; ?>
                         </div>
                         <div class="row">
                             <div class="col-md-2 mt-2">
