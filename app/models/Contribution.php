@@ -28,10 +28,7 @@ class Contribution {
     }
     public function receiptNo()
     {
-       $this->db->query('SELECT receiptNo FROM tblcontributions_header
-                        WHERE (congregationId=:cid) ORDER BY receiptNo DESC LIMIT 1'); 
-      $this->db->bind(':cid',$_SESSION['congId']);
-      return ($this->db->getValue()) + 1;
+        return getuniqueid($this->db->dbh,'receiptNo','tblcontributions_header',(int)$_SESSION['congId']);
     }
     public function getAccounts()
     {
