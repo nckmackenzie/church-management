@@ -95,7 +95,7 @@ class Expenses extends Controller{
             'amount' => trim($_POST['amount']),
             'reference' => trim($_POST['reference']),
             'description' => trim($_POST['description']),
-            'file' => $_FILES['file'],
+            'file' => isset($_FILE) ? $_FILES['file'] : false,
             'filename' => '',
             'hasattachment' => 0,
             'date_err' => '',
@@ -109,7 +109,7 @@ class Expenses extends Controller{
             $fileTmpName = '';
             $fileDesination = '';
             
-            if ($data['file']['size'] > 0) {
+            if ($data['file'] && $data['file']['size'] > 0) {
                 $fileName = $data['file']['name'];
                 $fileTmpName = $data['file']['tmp_name'];
                 $fileSize = $data['file']['size'];
