@@ -17,16 +17,16 @@
                     <div class="card-body">
                         <form action="<?php echo URLROOT;?>/contributions/create" method="post" name="form">
                             <div class="row">
-                                <div class="col-md-6">
+                                <div class="col-md-2">
                                     <div class="form-group">
                                         <label for="receipt">Receipt No</label>
-                                        <input type="text" class="form-control form-control-sm mandatory 
+                                        <input type="text" class="form-control form-control-sm 
                                                <?php echo (!empty($data['receipt_err'])) ? 'is-invalid' : ''?>"
-                                        name="receipt" id="receipt" value="<?php echo $data['receiptno'];?>">
+                                        name="receipt" id="receipt" value="<?php echo $data['receiptno'];?>" readonly>
                                         <span class="invalid-feedback"><?php echo $data['receipt_err'];?></span>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-3">
                                     <div class="form-group">
                                         <label for="date">Date</label>
                                         <input type="date" name="date" id="date"
@@ -34,9 +34,7 @@
                                                value="<?php echo $data['date'];?>">
                                     </div>
                                 </div>
-                            </div><!--End Of Row -->
-                            <div class="row">
-                                <div class="col-md-6">
+                                <div class="col-md-3">
                                     <div class="form-group">
                                         <label for="paymethod">Payment Method</label>
                                         <select name="paymethod" id="paymethod"
@@ -50,7 +48,7 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <div class="form-group">
                                         <label for="bank">Bank</label>
                                         <select name="bank" id="bank"
@@ -98,6 +96,7 @@
                                                 <label for="account">Contribution Type</label>
                                                 <select name="account" id="account"
                                                         class="form-control form-control-sm select2">
+                                                    <option value="" selected disabled>Select G/L account...</option>
                                                     <?php foreach($data['accounts'] as $account) : ?>
                                                         <option value="<?php echo $account->ID;?>">
                                                             <?php echo $account->accountType;?>
