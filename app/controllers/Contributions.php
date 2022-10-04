@@ -37,7 +37,7 @@ class Contributions extends Controller {
             'categories' => $categories,
             'banks' => $banks,
             'paymethods' => $paymethods,
-            'receiptno' => '',
+            'receiptno' => $this->contributionModel->receiptNo(),
             'id' => '',
             'isedit' => false,
             'date' => date('Y-m-d'),
