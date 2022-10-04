@@ -46,7 +46,7 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="rate">Selling Price/Rate</label>
-                                    <input number="text" name="rate" id="rate"
+                                    <input type="number" name="rate" id="rate"
                                     class="form-control form-control-sm 
                                     <?php echo inputvalidation($data['rate'],$data['rate_err'],$data['touched']) ;?>"
                                     value="<?php echo $data['rate'];?>"
