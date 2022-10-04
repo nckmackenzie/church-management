@@ -76,6 +76,11 @@
                         <p>Customers</p>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/products" class="nav-link">
+                        <p>Products</p>
+                    </a>
+                </li>
             </ul>
         </li>
         <li class="nav-item">
