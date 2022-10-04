@@ -270,3 +270,39 @@ function checkcenter($cong){
         exit();
     }
 }
+
+//get unique no from database;
+function getuniqueid($con,$field,$table,$cid,$bycenter = true){
+    $sql = "SELECT COUNT(*) FROM $table WHERE Deleted = 0";
+    if($bycenter){
+        $sql .= " AND (congregationId = :cid)";
+    }
+    $stmt = $con->prepare($sql);
+    if($bycenter){
+        $stmt->bindValue(':cid',$cid);
+    }
+    $stmt->execute();
+    if((int)$stmt->fetchColumn() === 0){
+        return 1;
+    }else{
+        $sql = "SELECT 
+                    $field 
+                FROM 
+                    $table 
+                WHERE 
+                    deleted = 0";
+        if($bycenter){
+            $sql .= " AND (congregationId = :cid)";
+        }
+        $sql .=" ORDER BY $field DESC";
+        $stmt = $con->prepare($sql);
+        if($bycenter){
+            $stmt->bindValue(':cid',$cid);
+        }
+        if($stmt->execute()){
+            return (int)$stmt->fetchColumn() + 1;
+        }else{
+            return 0;
+        }
+    }
+}
