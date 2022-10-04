@@ -128,6 +128,22 @@ class Expense {
                 $this->db->execute();
             }
             
+            if((int)$data['expensetype'] === 2){
+                $this->db->query('INSERT INTO tblmmf (TransactionDate,GroupId,Credit,BankId,Reference,Narration,
+                                                      TransactionType,TransactionId,CongregationId) 
+                                  VALUES(:tdate,:gid,:credit,:bid,:reference,:narr,:ttype,:tid,:cid)');
+                $this->db->bind(':tdate',$data['date']);
+                $this->db->bind(':gid',$data['costcentre']);
+                $this->db->bind(':credit',$data['amount']);
+                $this->db->bind(':bid',$data['bank']);
+                $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : null);
+                $this->db->bind(':reference',strtolower($data['reference']));
+                $this->db->bind(':ttype',2);
+                $this->db->bind(':tid',$id);
+                $this->db->bind(':cid',intval($_SESSION['congId']));
+                $this->db->execute();
+            }
+
             saveToLedger($this->db->dbh,$data['date'],$accountname,$data['amount'],0,$data['description'],
                          $accountid,2,$id,$_SESSION['congId']);
             if ($data['paymethod'] == 1 && $data['deductfrom'] === 'petty cash') {
@@ -233,6 +249,20 @@ class Expense {
                 $this->db->bind(':ref',strtolower($data['reference']));
                 $this->db->bind(':narr',strtolower($data['description']));
                 $this->db->bind(':eid',$data['id']);
+                $this->db->execute();
+            }
+
+            if((int)$data['expensetype'] === 2){
+                $this->db->query('UPDATE tblmmf SET TransactionDate=:tdate,GroupId=:gid,Credit=:credit,
+                                                    BankId=:bid,Reference=:reference,Narration=:narr 
+                                  WHERE (TransactionType = 2) AND (TransactionId = :id)');
+                $this->db->bind(':tdate',$data['date']);
+                $this->db->bind(':gid',$data['costcentre']);
+                $this->db->bind(':credit',$data['amount']);
+                $this->db->bind(':bid',$data['bank']);
+                $this->db->bind(':reference',strtolower($data['reference']));
+                $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : null);
+                $this->db->bind(':id',intval($data['id']));
                 $this->db->execute();
             }
             
