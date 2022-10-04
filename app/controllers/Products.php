@@ -121,4 +121,31 @@ class Products extends Controller
         $this->view('products/add',$data);
         exit;
     }
+
+    public function delete()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST'){
+            $id = isset($_POST['id']) ? htmlentities(trim($_POST['id'])) : '';
+
+            if(empty($id)){
+                flash('product_msg','Unable to get selected product!','alert custom-danger alert-dismissible fade show');
+                redirect('products');
+                exit;
+            }
+
+            if(!$this->productmodel->Delete($id)){
+                flash('product_msg','Unable to get delete product!','alert custom-danger alert-dismissible fade show');
+                redirect('products');
+                exit;
+            }
+
+            flash('product_msg','Product deleted successfully');
+            redirect('products');
+            exit;
+
+        }else{
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
 }

@@ -69,4 +69,14 @@ class Product
         $this->db->bind(':id',(int)$id);
         return $this->db->single();
     }
+
+    public function Delete($id)
+    {
+        $this->db->query('UPDATE tblproducts SET deleted = 1 WHERE (ID = :id)');
+        $this->db->bind(':id',(int)$id);
+        if(!$this->db->execute()){
+            return false;
+        }
+        return true;
+    }
 }
