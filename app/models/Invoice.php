@@ -39,7 +39,7 @@ class Invoice {
         $this->db->query('SELECT ID,
                                  UCASE(accountType) as accountType
                           FROM tblaccounttypes
-                          WHERE  (deleted=0) AND (accountTypeId = 1)');
+                          WHERE  (deleted=0) AND (accountTypeId = 1) AND (isSubCategory = 0)');
         return $this->db->resultSet();
     }
     public function getInvoiceNo()
