@@ -47,7 +47,7 @@
                                 <div class="form-group">
                                     <label for="rate">Selling Price/Rate</label>
                                     <input type="number" name="rate" id="rate"
-                                    class="form-control form-control-sm 
+                                    class="form-control form-control-sm mandatory
                                     <?php echo inputvalidation($data['rate'],$data['rate_err'],$data['touched']) ;?>"
                                     value="<?php echo $data['rate'];?>"
                                     autocomplete="off">
@@ -57,7 +57,8 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="glaccount">Associated G/L</label>
-                                    <select name="glaccount" id="glaccount" class="form-control form-control-sm mandatory">
+                                    <select name="glaccount" id="glaccount" class="form-control form-control-sm mandatory
+                                            <?php echo inputvalidation($data['glaccount'],$data['glaccount_err'],$data['touched']);?>" <?php echo converttobool($data['isedit']) ? 'disabled' : '';?>>
                                         <option value="">Select G/L Account</option>
                                         <?php foreach($data['glaccounts'] as $glaccount)  : ?>
                                             <option value="<?php echo $glaccount->ID;?>" <?php selectdCheck($data['glaccount'],$glaccount->ID);?>><?php echo $glaccount->accountType;?></option>
