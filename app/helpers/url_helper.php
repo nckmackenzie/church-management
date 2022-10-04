@@ -262,3 +262,11 @@ function inputvalidation($data,$err,$touch){
         return 'is-valid';
     }
 }
+
+//disable other congregations edit
+function checkcenter($cong){
+    if(intval($_SESSION['congId']) !== intval($cong)){
+        redirect('users/deniedaccess');
+        exit();
+    }
+}
