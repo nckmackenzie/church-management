@@ -253,3 +253,12 @@ function formatStringId($val){
             break;
     } 
 }
+
+//add css classes for data validation
+function inputvalidation($data,$err,$touch){
+    if (!empty($err)){
+        return 'is-invalid';
+    }elseif (empty($err) && !empty($data) && $touch === true){ 
+        return 'is-valid';
+    }
+}
