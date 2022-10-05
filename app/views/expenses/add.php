@@ -1,6 +1,28 @@
 <?php require APPROOT . '/views/inc/header.php';?>
 <?php require APPROOT . '/views/inc/topNav.php';?>
 <?php require APPROOT . '/views/inc/sideNav.php';?>
+<div class="modal fade" id="alertModal" tabindex="-1" role="dialog" aria-labelledby="over-usage" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLongTitle">Account Info</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+            <div class="col-md-9">
+                <label for="">Selected account has already used more than budgeted for</label>
+            </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+     </div>
+  </div>
+</div>
   <!-- Content Wrapper. Contains page content -->
   <div class="content-wrapper">
     <!-- Content Header (Page header) -->
@@ -57,7 +79,8 @@
                                     <div class="form-group">
                                         <label for="account">Account</label>
                                         <select name="account" id="account"
-                                                class="form-control form-control-sm select2">
+                                                class="form-control form-control-sm">
+                                            <option value="" selected disabled>Select account</option>
                                             <?php foreach($data['accounts'] as $account) :?> 
                                                 <option value="<?php echo $account->ID;?>"
                                                 <?php selectdCheck($data['account'],$account->ID)?>>
@@ -71,8 +94,8 @@
                                     <div class="form-group">
                                         <label for="costcentre">Cost Centre</label>
                                         <select name="costcentre" id="costcentre"
-                                                class="form-control form-control-sm select2">
-                                               
+                                                class="form-control form-control-sm">
+                                                <option value="">Select cost center</option>
                                         </select>
                                     </div>
                                 </div>
@@ -222,21 +245,6 @@
         }
     });
 </script>
-<script>
-    const paymethodSelect = document.getElementById('paymethod');
-    const cashtypeSelect = document.getElementById('cashtype');
-
-    paymethodSelect.addEventListener('change', function(e){
-        if(Number(e.target.value) === 1){
-            cashtypeSelect.value = 'petty cash';
-            cashtypeSelect.disabled = false;
-            cashtypeSelect.classList.add('mandatory');
-        }else{
-            cashtypeSelect.value = '';
-            cashtypeSelect.disabled = true;
-            cashtypeSelect.classList.remove('mandatory');
-        }
-    });
-</script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/expenses/add-expense.js"></script>
 </body>
 </html>  
