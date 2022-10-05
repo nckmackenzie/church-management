@@ -306,3 +306,34 @@ function getuniqueid($con,$field,$table,$cid,$bycenter = true){
         }
     }
 }
+
+function checkuserrights($con,$user,$form){
+    $stmt = $con->prepare('SELECT COUNT(*) 
+                           FROM vw_user_rights
+                           WHERE (UserId = ?) AND (FormName = ?)');
+    $stmt->execute([$user,$form]);
+    $count = (int)$stmt->fetchColumn();
+    if($count === 0){
+        return false;
+    }else{
+        return true;
+    }
+}
+
+function checkrights($model,$form){
+    if((int)$_SESSION['userType'] > 2 && (int)$_SESSION['userType'] !== 6 && 
+        !$model->CheckRights($form)){
+        redirect('users/deniedaccess');
+        exit;
+    }
+}
+
+function badgeclasses($status){
+    if((int)$status === 0){
+        echo 'warning';
+    }elseif((int)$status === 1){
+        echo 'success';
+    }else{
+        echo 'danger';
+    }
+}
