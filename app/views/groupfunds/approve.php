@@ -121,6 +121,22 @@
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-group">
+                                        <label for="bank">Bank</label>
+                                        <select name="bank" id="bank"
+                                                class="form-control form-control-sm mandatory">
+                                            <option value="" selected disabled>Select bank...</option>
+                                            <?php foreach($data['banks'] as $bank) :?> 
+                                                <option value="<?php echo $bank->ID;?>"
+                                                <?php selectdCheck($data['bank'],$bank->ID)?>>
+                                                    <?php echo strtoupper($bank->Bank);?>
+                                                </option>
+                                            <?php endforeach; ?>     
+                                        </select>
+                                        <span class="invalid-feedback"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-12">
+                                    <div class="form-group">
                                         <label for="reference">Payment Reference</label>
                                         <input type="text" name="reference" id="reference" 
                                                class="form-control form-control-sm mandatory"
