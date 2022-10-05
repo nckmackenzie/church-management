@@ -25,7 +25,7 @@
                 <div class="card card-light">
                     <div class="card-header"><?php echo $data['title'];?></div>
                     <div class="card-body">
-                        <form action="<?php echo URLROOT;?>/groupfunds/approve" autocomplete="off" method="post">
+                        <form action="<?php echo URLROOT;?>/groupfunds/approvefunds" autocomplete="off" method="post">
                             <div class="row">
                                 <div class="col-md-3">
                                     <div class="form-group">
