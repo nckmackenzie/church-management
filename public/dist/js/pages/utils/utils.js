@@ -22,3 +22,27 @@ export async function sendHttpRequest(
     console.error(error.message);
   }
 }
+
+export function validation() {
+  let errorCount = 0;
+
+  const mandatoryField = document.querySelectorAll('.mandatory');
+  mandatoryField?.forEach(field => {
+    if (!field.value || field.value == '') {
+      field.classList.add('is-invalid');
+      field.nextSibling.nextSibling.textContent = 'Field is required';
+      errorCount++;
+    }
+  });
+
+  return errorCount;
+}
+
+export function clearOnChange(mandatoryField) {
+  mandatoryField?.forEach(field => {
+    field.addEventListener('change', function () {
+      field.classList.remove('is-invalid');
+      field.nextSibling.nextSibling.textContent = '';
+    });
+  });
+}
