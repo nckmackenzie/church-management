@@ -349,3 +349,10 @@ function alert($errormsg)
         </div>
     ';
 }
+
+//LOAD DB Results
+function loadresultset($con,$sql,$arr){
+    $stmt = $con->prepare($sql);
+    $stmt->execute($arr);
+    return $stmt->fetchAll(PDO::FETCH_OBJ);
+}
