@@ -31,9 +31,9 @@ class Groupfund
         return $this->db->resultSet();
     }
 
-    public function GetBalance($data)
+    public function GetBalance($group,$date)
     {
-        return getdbvalue($this->db->dbh,'SELECT getmmfopeningbalbydate(?,?)',[$data['group'],$data['date']]);
+        return getdbvalue($this->db->dbh,'SELECT getmmfopeningbalbydate(?,?)',[$group,$date]);
     }
 
     public function CreateUpdate($data)
@@ -61,5 +61,12 @@ class Groupfund
     public function GetGroupCongregation($gid)
     {
         return getdbvalue($this->db->dbh,'SELECT congregationId FROM tblgroups WHERE ID = ?',[$gid]);
+    }
+
+    public function GetRequest($id)
+    {
+        $this->db->query('SELECT * FROM tblfundrequisition WHERE (ID=:id)');
+        $this->db->bind(':id',(int)$id);
+        return $this->db->single();
     }
 }
