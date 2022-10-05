@@ -189,6 +189,16 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a href="<?php echo URLROOT;?>/groupfunds" class="nav-link">
+                                <p>Group funds requisition</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo URLROOT;?>/groupfunds/approvals" class="nav-link">
+                                <p>Group funds approval</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a href="<?php echo URLROOT;?>/expenses" class="nav-link">
                                 <p>Expenses</p>
                             </a>
@@ -297,6 +307,16 @@
                     <li class="nav-item">
                         <a href="<?php echo URLROOT;?>/mmfreceipts" class="nav-link">
                             <p>MMF Receipts</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="<?php echo URLROOT;?>/groupfunds" class="nav-link">
+                            <p>Group funds requisition</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="<?php echo URLROOT;?>/groupfunds/approvals" class="nav-link">
+                            <p>Group funds approval</p>
                         </a>
                     </li>
                     <li class="nav-item">
