@@ -152,6 +152,13 @@ class Groupfunds extends Controller
                 redirect('groupfunds');
                 exit;
             }
+            //if fund approved or rejected
+            if((int)$this->db->GetRequestStatus($id) !== 0):
+                flash('request_msg', 'Denied! Cannot delete this request','alert custom-danger alert-dismissible fade show');
+                redirect('groupfunds');
+                exit;
+            endif;
+
             //unable to delete
             if(!$this->fundmodel->Delete($id)){
                 flash('request_msg', 'Unable to delete selected request','alert custom-danger alert-dismissible fade show');

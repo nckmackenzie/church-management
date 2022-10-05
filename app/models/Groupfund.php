@@ -79,4 +79,9 @@ class Groupfund
         }
         return true;
     }
+
+    public function GetRequestStatus($id)
+    {
+        return getdbvalue($this->db->dbh,'SELECT `Status` FROM tblfundrequisition WHERE ID = ?',[$id]);
+    }
 }
