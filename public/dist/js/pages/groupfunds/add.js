@@ -14,8 +14,8 @@ const amountAvailable = document.getElementById('availableamount');
 form.addEventListener('submit', function (e) {
   e.preventDefault();
 
-  //   if (validation() > 0) return;
-  //   otherValidation();
+  if (validation() > 0) return;
+  otherValidation();
 
   form.submit();
 });
