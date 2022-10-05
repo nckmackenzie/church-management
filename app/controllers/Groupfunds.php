@@ -26,6 +26,7 @@ class Groupfunds extends Controller
         $data = [
             'title' => 'Add requisition',
             'groups' => $this->fundmodel->GetGroups(),
+            'reqno' => $this->fundmodel->GetReqNo(),
             'id' => '',
             'isedit' => false,
             'availableamount' => '',
@@ -119,12 +120,11 @@ class Groupfunds extends Controller
     public function edit($id)
     {
         $request = $this->fundmodel->GetRequest($id);
-        $cid = $this->fundmodel->GetGroupCongregation($request->GroupId);
         if((int)$request->Status > 0){
             redirect('users/deniedaccess');
             exit;
         }
-        checkcenter($cid);
+        checkcenter($request->CongregationId);
         $data = [
             'title' => 'Edit requisition',
             'groups' => $this->fundmodel->GetGroups(),
@@ -173,5 +173,12 @@ class Groupfunds extends Controller
             redirect('users/deniedaccess');
             exit;
         }
+    }
+
+    public function approvals()
+    {
+        $data = [];
+        $this->view('groupfunds/approvals',$data);
+        exit;
     }
 }
