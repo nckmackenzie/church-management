@@ -17,6 +17,12 @@ class Groupfund
         return getuniqueid($this->db->dbh,'ReqNo','tblfundrequisition',(int)$_SESSION['congId']);
     }
 
+    public function PendingApprovalCount($gid)
+    {
+        $sql = 'SELECT COUNT(*) FROM tblfundrequisition WHERE (GroupId = ?) AND (Deleted = 0) AND (`Status` = 0)';
+        return getdbvalue($this->db->dbh,$sql,[$gid]);
+    }
+
     public function GetRequests()
     {
         $sql = 'SELECT * FROM vw_group_requisitions  
