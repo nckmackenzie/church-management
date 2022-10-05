@@ -55,6 +55,29 @@ class Expenses extends Controller{
         ];
         $this->view('expenses/add',$data);
     }
+
+    public function checkoverspent()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'GET'){
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
+            $data = [
+                'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : '',
+                'aid' =>   isset($_GET['aid']) && !empty(trim($_GET['aid'])) ? (int)trim($_GET['aid']) : '',
+                'type' =>   isset($_GET['type']) && !empty(trim($_GET['type'])) ? (int)trim($_GET['type']) : '',
+                'gid' =>   isset($_GET['gid'])  ? (int)trim($_GET['gid']) : '',
+            ];
+
+            if(empty($data['edate']) || empty($data['aid']) || empty($data['type'])) exit;
+            if($data['type'] === 2 && empty($data['gid'])) exit;
+
+            echo json_encode($this->expenseModel->CheckOverSpent($data));
+            exit;
+
+        }else{
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
     public function getcostcentre()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -85,10 +108,10 @@ class Expenses extends Controller{
             'date' => trim($_POST['date']),
             'expensetype' => trim($_POST['expensetype']),
             'accounts' => $accounts,
-            'account' => trim($_POST['account']),
-            'costcentre' => trim($_POST['costcentre']),
+            'account' => !empty($_POST['account']) ? trim($_POST['account']) : '',
+            'costcentre' => !empty($_POST['costcentre']) ? trim($_POST['costcentre']) : '',
             'paymethods' => $paymethods,
-            'paymethod' => trim($_POST['paymethod']),
+            'paymethod' => !empty($_POST['paymethod']) ? trim($_POST['paymethod']) : '',
             'deductfrom' => !empty($_POST['cashtype']) ? trim($_POST['cashtype']) : '',
             'banks' => $banks,
             'bank' => !empty($_POST['bank']) ? trim($_POST['bank']) : NULL,
