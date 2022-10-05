@@ -20,4 +20,41 @@ class Groupfund
         $this->db->bind(':cid',$_SESSION['congId']);
         return $this->db->resultSet();
     }
+
+    public function GetGroups()
+    {
+        $this->db->query('SELECT ID,UCASE(groupName) as groupName 
+                          FROM tblgroups 
+                          WHERE (active = 1) AND (deleted = 0) AND (congregationId = :cid)
+                          ORDER BY groupName');
+        $this->db->bind(':cid',$_SESSION['congId']);
+        return $this->db->resultSet();
+    }
+
+    public function GetBalance($data)
+    {
+        return getdbvalue($this->db->dbh,'SELECT getmmfopeningbal(?,?)',[$data['group'],$data['date']]);
+    }
+
+    public function CreateUpdate($data)
+    {
+        if(!$data['isedit']){
+            $this->db->query('INSERT INTO tblfundrequisition (RequisitionDate,GroupId,Purpose,AmountRequested) 
+                              VALUES(:rdate,:gid,:purpose,:amount)');
+        }else{
+            $this->db->query('UPDATE tblfundrequisition SET RequisitionDate=:rdate,GroupId=:gid,Purpose=:purpose,AmountRequested=:amount 
+                              WHERE (ID = :id)');
+        }
+        $this->db->bind(':rdate',!empty($data['reqdate']) ? $data['reqdate'] : null);
+        $this->db->bind(':gid',!empty($data['group']) ? $data['group'] : null);
+        $this->db->bind(':purpose',!empty($data['reason']) ? strtolower($data['reason']) : null);
+        $this->db->bind(':amount',!empty($data['amount']) ? $data['amount'] : null);
+        if($data['isedit']){
+            $this->db->bind(':id',$data['id']);
+        }
+        if(!$this->db->execute()){
+            return false;
+        }
+        return true;
+    }
 }
