@@ -69,6 +69,7 @@ class Groupfunds extends Controller
             $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'title' => converttobool($_POST['isedit']) ? 'Edit requisition' : 'Add requisition',
+                'reqno' => trim($_POST['reqno']),
                 'groups' => $this->fundmodel->GetGroups(),
                 'id' => trim($_POST['id']),
                 'isedit' => converttobool($_POST['isedit']) ,
@@ -95,6 +96,12 @@ class Groupfunds extends Controller
             }
 
             if(!empty($data['errmsg'])){
+                $this->view('groupfunds/add',$data);
+                exit;
+            }
+
+            if(!$data['isedit'] && (int)$this->fundmodel->PendingApprovalCount($data['group']) > 0){
+                $data['errmsg'] = 'Group has pending requisition for approval';
                 $this->view('groupfunds/add',$data);
                 exit;
             }
