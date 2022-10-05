@@ -47,6 +47,7 @@
                 <table class="table table-striped table-bordered table-sm" id="reqTable">
                     <thead class="bg-navy">
                         <th class="d-none">ID</th>
+                        <th>Req No</th>
                         <th>Req Date</th>
                         <th>Group Name</th>
                         <th>Amount Requested</th>
@@ -57,6 +58,7 @@
                         <?php foreach($data['requests'] as $request) :?>
                             <tr>
                                 <td class="d-none"><?php echo $request->ID;?></td>
+                                <td><?php echo $request->ReqNo;?></td>
                                 <td><?php echo $request->RequestDate;?></td>
                                 <td><?php echo $request->GroupName;?></td>
                                 <td><?php echo $request->AmountReq;?></td>
@@ -86,7 +88,9 @@
       $('#reqTable').DataTable({
           'ordering' : false,
           'columnDefs' : [
+            {"width" : "10%" , "targets": 1},
             {"width" : "10%" , "targets": 5},
+            {"width" : "10%" , "targets": 6},
           ]
       });
 

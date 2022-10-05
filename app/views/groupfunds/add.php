@@ -27,7 +27,15 @@
                     <div class="card-body">
                         <form action="<?php echo URLROOT;?>/groupfunds/createupdate" autocomplete="off" method="post">
                             <div class="row">
-                                <div class="col-md-6">
+                                <div class="col-md-2">
+                                    <div class="form-group">
+                                        <label for="reqno">Request No</label>
+                                        <input type="text" name="reqno" id="reqno" 
+                                               class="form-control form-control-sm"
+                                               value="<?php echo $data['reqno'];?>" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
                                     <div class="form-group">
                                         <label for="date">Request Date</label>
                                         <input type="date" name="date" id="date" 

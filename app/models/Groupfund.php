@@ -12,6 +12,11 @@ class Groupfund
         return checkuserrights($this->db->dbh,$_SESSION['userId'],$form);
     }
 
+    public function GetReqNo()
+    {
+        return getuniqueid($this->db->dbh,'ReqNo','tblfundrequisition',(int)$_SESSION['congId']);
+    }
+
     public function GetRequests()
     {
         $this->db->query('SELECT * FROM vw_group_requisitions  
@@ -39,8 +44,9 @@ class Groupfund
     public function CreateUpdate($data)
     {
         if(!$data['isedit']){
-            $this->db->query('INSERT INTO tblfundrequisition (RequisitionDate,GroupId,Purpose,AmountRequested) 
-                              VALUES(:rdate,:gid,:purpose,:amount)');
+            $this->db->query('INSERT INTO tblfundrequisition (ReqNo,RequisitionDate,GroupId,Purpose,AmountRequested) 
+                              VALUES(:reqno,:rdate,:gid,:purpose,:amount)');
+            $this->db->bind(':reqno',$this->GetReqNo());
         }else{
             $this->db->query('UPDATE tblfundrequisition SET RequisitionDate=:rdate,GroupId=:gid,Purpose=:purpose,AmountRequested=:amount 
                               WHERE (ID = :id)');
