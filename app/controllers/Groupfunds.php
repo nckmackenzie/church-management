@@ -177,7 +177,9 @@ class Groupfunds extends Controller
 
     public function approvals()
     {
-        $data = [];
+        $data = [
+            'approvals' => $this->fundmodel->GetApprovals(),
+        ];
         $this->view('groupfunds/approvals',$data);
         exit;
     }
