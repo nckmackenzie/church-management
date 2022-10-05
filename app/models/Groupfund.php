@@ -19,11 +19,10 @@ class Groupfund
 
     public function GetRequests()
     {
-        $this->db->query('SELECT * FROM vw_group_requisitions  
-                          WHERE (congregationId = :cid)
-                          ORDER BY `Status`,RequestDate DESC');
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();
+        $sql = 'SELECT * FROM vw_group_requisitions  
+                          WHERE (congregationId = ?)
+                          ORDER BY `Status`,RequestDate DESC';
+        return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
 
     public function GetGroups()
@@ -44,8 +43,8 @@ class Groupfund
     public function CreateUpdate($data)
     {
         if(!$data['isedit']){
-            $this->db->query('INSERT INTO tblfundrequisition (ReqNo,RequisitionDate,GroupId,Purpose,AmountRequested) 
-                              VALUES(:reqno,:rdate,:gid,:purpose,:amount)');
+            $this->db->query('INSERT INTO tblfundrequisition (ReqNo,RequisitionDate,GroupId,Purpose,AmountRequested,CongregationId) 
+                              VALUES(:reqno,:rdate,:gid,:purpose,:amount,:cid)');
             $this->db->bind(':reqno',$this->GetReqNo());
         }else{
             $this->db->query('UPDATE tblfundrequisition SET RequisitionDate=:rdate,GroupId=:gid,Purpose=:purpose,AmountRequested=:amount 
@@ -57,6 +56,8 @@ class Groupfund
         $this->db->bind(':amount',!empty($data['amount']) ? $data['amount'] : null);
         if($data['isedit']){
             $this->db->bind(':id',$data['id']);
+        }else{
+            $this->db->bind(':cid',$_SESSION['congId']);
         }
         if(!$this->db->execute()){
             return false;
@@ -89,5 +90,12 @@ class Groupfund
     public function GetRequestStatus($id)
     {
         return getdbvalue($this->db->dbh,'SELECT `Status` FROM tblfundrequisition WHERE ID = ?',[$id]);
+    }
+
+    public function GetApprovals()
+    {
+        $sql = 'SELECT * FROM vw_requisition_approvals   
+                WHERE (congregationId = ?)';
+        return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
 }
