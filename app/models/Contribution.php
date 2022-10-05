@@ -197,12 +197,13 @@ class Contribution {
                 $this->db->execute();
 
                 if((int)$data['categoriesid'][$i] === 2){
-                    $this->db->query('INSERT INTO tblmmf (TransactionDate,GroupId,Debit,Reference,TransactionType,
-                                                            TransactionId,CongregationId) VALUES(:tdate,:gid,:debit,:ref,:ttype,:tid,:cid)');
+                    $this->db->query('INSERT INTO tblmmf (TransactionDate,GroupId,Debit,Reference,Narration,TransactionType,
+                                                            TransactionId,CongregationId) VALUES(:tdate,:gid,:debit,:ref,:narr,:ttype,:tid,:cid)');
                     $this->db->bind(':tdate',$data['date']);
                     $this->db->bind(':gid',$data['contributorsid'][$i]);
                     $this->db->bind(':debit',$data['amounts'][$i]);
                     $this->db->bind(':ref',$data['receiptno']);
+                    $this->db->bind(':narr','Receipts for ' .date('d-m-Y',strtotime($data['date'])));
                     $this->db->bind(':ttype',1);
                     $this->db->bind(':tid',$tid);
                     $this->db->bind(':cid',$_SESSION['congId']);
