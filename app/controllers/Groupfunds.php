@@ -140,4 +140,31 @@ class Groupfunds extends Controller
         $this->view('groupfunds/add',$data);
         exit;
     }
+
+    public function delete()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST'){
+            $_POST = filter_input_array(INPUT_POST, FILTER_UNSAFE_RAW);
+            $id = isset($_POST['id']) && !empty(trim($_POST['id'])) ? trim($_POST['id']) : '';
+            //no id
+            if(empty($id)){
+                flash('request_msg', 'Unable to get selected request!','alert custom-danger alert-dismissible fade show');
+                redirect('groupfunds');
+                exit;
+            }
+            //unable to delete
+            if(!$this->fundmodel->Delete($id)){
+                flash('request_msg', 'Unable to delete selected request','alert custom-danger alert-dismissible fade show');
+                redirect('groupfunds');
+                exit;
+            }
+
+            flash('request_msg', 'Deleted successfully!');
+            redirect('groupfunds');
+            exit;
+        }else{
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
 }
