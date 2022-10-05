@@ -104,4 +104,14 @@ class Groupfund
                 WHERE (congregationId = ?)';
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
+
+    public function PayMethods()
+    {
+        return paymentMethods($this->db->dbh);
+    }
+
+    public function GetGroupName($id)
+    {
+        return getdbvalue($this->db->dbh,'SELECT groupName FROM tblgroups WHERE ID = ?',[$id]);
+    }
 }
