@@ -19,6 +19,9 @@
     <section class="content">
         <div class="row">
             <div class="col-md-8 mx-auto">
+                <?php if(!empty($data['errmsg'])) : ?>
+                    <?php echo alert($data['errmsg']); ?>
+                <?php endif;?>
                 <div class="card card-light">
                     <div class="card-header"><?php echo $data['title'];?></div>
                     <div class="card-body">
