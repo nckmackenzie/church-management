@@ -80,7 +80,6 @@
                             </div>
                             <div class="row">
                                 <div class="col-md-2 mt-2">
-                                    <input type="hidden" name="touched" value="<?php echo $data['touched'];?>">
                                     <input type="hidden" name="id" value="<?php echo $data['id'];?>">
                                     <input type="hidden" name="isedit" value="<?php echo $data['isedit'];?>">
                                     <button type="submit" class="btn btn-block btn-sm bg-navy custom-font">Save</button>
