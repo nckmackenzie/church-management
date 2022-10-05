@@ -53,7 +53,7 @@ class Groupfunds extends Controller
                 echo json_encode(['message' => 'Provided all requied details']);
             endif;
 
-            echo json_encode($this->fundmodel->GetBalance($data));
+            echo json_encode($this->fundmodel->GetBalance($data['group'],$data['date']));
             exit;
 
         }else{
@@ -114,5 +114,30 @@ class Groupfunds extends Controller
             redirect('users/deniedaccess');
             exit;
         }
+    }
+
+    public function edit($id)
+    {
+        $request = $this->fundmodel->GetRequest($id);
+        $cid = $this->fundmodel->GetGroupCongregation($request->GroupId);
+        if((int)$request->Status > 0){
+            redirect('users/deniedaccess');
+            exit;
+        }
+        checkcenter($cid);
+        $data = [
+            'title' => 'Edit requisition',
+            'groups' => $this->fundmodel->GetGroups(),
+            'id' => $request->ID,
+            'isedit' => true,
+            'reqdate' => $request->RequisitionDate,
+            'group' => $request->GroupId,
+            'amount' => $request->AmountRequested,
+            'availableamount' => floatval($this->fundmodel->GetBalance($request->GroupId,$request->RequisitionDate)),
+            'reason' => strtoupper($request->Purpose),
+            'errmsg' => '',
+        ];
+        $this->view('groupfunds/add',$data);
+        exit;
     }
 }
