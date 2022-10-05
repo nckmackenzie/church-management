@@ -46,3 +46,10 @@ export function clearOnChange(mandatoryField) {
     });
   });
 }
+
+export function numberFormatter(number) {
+  if (number.includes(',')) {
+    return number.replaceAll(',', '');
+  }
+  return number;
+}
