@@ -227,21 +227,27 @@ class Groupfunds extends Controller
         if($_SERVER['REQUEST_METHOD'] === 'POST'){
             $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
+                'title' => 'Approve requisition',
                 'paymethods' => $this->fundmodel->PayMethods(),
                 'banks' => $this->fundmodel->GetBanks(),
+                'reqno' => trim($_POST['reqno']),
                 'id' => isset($_POST['id']) && !empty(trim($_POST['id'])) ? trim($_POST['id']) : '',
                 'group' => isset($_POST['group']) && !empty(trim($_POST['group'])) ? trim($_POST['group']) : '',
                 'reqdate' => isset($_POST['date']) && !empty(trim($_POST['date'])) ? date('Y-m-d',strtotime(trim($_POST['date']))) : '',
                 'paydate' => isset($_POST['paydate']) && !empty(trim($_POST['paydate'])) ? date('Y-m-d',strtotime(trim($_POST['paydate']))) : '',
-                'amountreq' => isset($_POST['amount']) && !empty(trim($_POST['amount'])) ? floatval(trim($_POST['amount'])) : '',
-                'amountapp' => isset($_POST['approved']) && !empty(trim($_POST['approved'])) ? floatval(trim($_POST['approved'])) : '',
-                'paymethod' => isset($_POST['paymethod']) && !empty(trim($_POST['paymethod'])) ? floatval(trim($_POST['paymethod'])) : '',
+                'availableamount' => isset($_POST['availableamount']) && !empty(trim($_POST['availableamount'])) ? floatval(numberFormat($_POST['availableamount'])) : '',
+                'amount' => isset($_POST['amount']) && !empty(trim($_POST['amount'])) ? floatval(numberFormat(trim($_POST['amount']))) : '',
+                'approved' => isset($_POST['approved']) && !empty(trim($_POST['approved'])) ? floatval(trim($_POST['approved'])) : '',
+                'balance' => isset($_POST['balance']) && !empty(trim($_POST['balance'])) ? floatval(trim($_POST['balance'])) : '',
+                'paymethod' => isset($_POST['paymethod']) && !empty(trim($_POST['paymethod'])) ? trim($_POST['paymethod']) : '',
                 'bank' => isset($_POST['bank']) && !empty($_POST['bank']) ? trim($_POST['bank']) : '',
-                'reference' => isset($_POST['reference']) && !empty(trim($_POST['reference'])) ? floatval(trim($_POST['reference'])) : '',
+                'reference' => isset($_POST['reference']) && !empty(trim($_POST['reference'])) ? trim($_POST['reference']) : '',
+                'reason' => trim($_POST['reason']),
                 'errmsg' => '',
             ];
 
-            if(empty($data['paydate']) || empty($data['amountapp']) || empty($data['paymethod']) 
+            
+            if(empty($data['paydate']) || empty($data['approved']) || empty($data['paymethod']) 
                || empty($data['reference']) || empty($data['bank'])){
                 $data['errmsg'] = 'Fill all required field';
             }
@@ -249,7 +255,7 @@ class Groupfunds extends Controller
             if($data['reqdate'] > $data['paydate']){
                 $data['errmsg'] = 'Payment date earlier than Requisition date';
             }
-            if($data['amountapp'] > $data['amountreq']){
+            if($data['approved'] > $data['amount']){
                 $data['errmsg'] = 'Payment amount greater than amount requested';
             }
 
@@ -265,7 +271,7 @@ class Groupfunds extends Controller
             }
 
             flash('approval_msg','Approved successfully!');
-            redirect('groupfunds');
+            redirect('groupfunds/approvals');
             exit;
 
         }else{
