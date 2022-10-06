@@ -155,17 +155,6 @@ class Churchbudgets extends Controller{
         exit;
     }
 
-    public function update()
-    {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $data = [
-                'id' => trim($_POST['id']),
-                'amount' => trim($_POST['amount'])
-            ];
-            $this->budgetModel->update($data);
-        }
-    }
-
     public function delete()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
