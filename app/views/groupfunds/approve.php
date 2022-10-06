@@ -149,6 +149,7 @@
                             <div class="row">
                                 <div class="col-md-2 mt-2">
                                     <input type="hidden" name="id" value="<?php echo $data['id'];?>">
+                                    <input type="hidden" name="groupid" value="<?php echo $data['groupid'];?>">
                                     <button type="submit" class="btn btn-block btn-sm bg-navy custom-font"> Approve </button>
                                 </div>
                             </div>   

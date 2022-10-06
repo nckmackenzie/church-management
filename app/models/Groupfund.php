@@ -129,7 +129,6 @@ class Groupfund
     {
         try {
             $this->db->dbh->beginTransaction();
-
             $desc = strtolower($data['group']) .' funds request approval';
 
             $this->db->query('UPDATE tblfundrequisition 
@@ -141,7 +140,20 @@ class Groupfund
             $this->db->bind(':id',$data['id']);
             $this->db->execute();
 
-            saveToLedger($this->db->dbh,$data['paydate'],'group fund held',$data['approved'],0,$desc,
+            $this->db->query('INSERT INTO tblmmf (TransactionDate,GroupId,Credit,BankId,Reference,Narration,TransactionType,TransactionId,
+                                                  CongregationId) VALUES(:tdate,:gid,:credit,:bid,:reference,:narr,:ttype,:tid,:cid)');
+            $this->db->bind(':tdate',!empty($data['paydate']) ? $data['paydate'] : null);
+            $this->db->bind(':gid',trim($_POST['groupid']));
+            $this->db->bind(':credit',!empty($data['approved']) ? floatval($data['approved']) : null);
+            $this->db->bind(':bid',!empty($data['bank']) ? $data['bank'] : null);
+            $this->db->bind(':reference',!empty($data['reference']) ? strtolower($data['reference']) : null);
+            $this->db->bind(':narr',$data['reason']);
+            $this->db->bind(':ttype',12);
+            $this->db->bind(':tid',$data['id']);
+            $this->db->bind(':cid',$_SESSION['congId']);
+            $this->db->execute();
+
+            saveToLedger($this->db->dbh,$data['paydate'],'groups balances held',$data['approved'],0,$desc,
                          4,12,$data['id'],$_SESSION['congId']);
             if((int)$data['paymethod'] === 1){
                 saveToLedger($this->db->dbh,$data['paydate'],'cash at hand',0,$data['approved'],$desc,
