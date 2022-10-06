@@ -66,11 +66,13 @@
                                 <td><?php echo $receipt->Debit;?></td>
                                 <td><?php echo $receipt->Reference;?></td>
                                 <td>
+                                    <?php if((int)$_SESSION['userType'] <=2 ) : ?>
                                       <div class="btn-group">
                                           <a href="<?php echo URLROOT;?>/cashreceipts/edit/<?php echo $receipt->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
                                           <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
                                       </div>
-                                  </td>     
+                                    <?php endif; ?>
+                                </td>     
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
