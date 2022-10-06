@@ -70,8 +70,9 @@ class Churchbudgets extends Controller{
             $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'title' => converttobool($_POST['isedit']) ? 'Edit budget' : 'Add budget',
+                'years' => $this->budgetModel->getFiscalYears(),
                 'isedit' => converttobool($_POST['isedit']),
-                'year' => isset($_POST['year']) && !empty(trim($_POST['year'])) ? trim($_POST['year']) : '',
+                'year' => !converttobool($_POST['isedit']) ? (isset($_POST['year']) && !empty(trim($_POST['year'])) ? trim($_POST['year']) : '') : '',
                 'id' =>  isset($_POST['id']) && !empty(trim($_POST['id'])) ? trim($_POST['id']) : '',
                 'yeartext' =>  isset($_POST['yeartext']) && !empty(trim($_POST['yeartext'])) ? trim($_POST['yeartext']) : '',
                 'table' => [],
@@ -81,7 +82,7 @@ class Churchbudgets extends Controller{
                 'errmsg' => ''
             ];
 
-            if(empty($data['year'])){
+            if(empty($data['year']) && !$data['isedit']){
                 $data['errmsg'] = 'Select year';
             }else{
                 if((int)$this->budgetModel->CheckYear($data) > 0){

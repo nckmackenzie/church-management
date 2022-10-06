@@ -95,10 +95,44 @@ class Churchbudget {
         }
     }
 
+    public function Update($data)
+    {
+        try {
+            $this->db->dbh->beginTransaction();
+            
+            $this->db->query('DELETE FROM tblchurchbudget_details WHERE (ID = :id)');
+            $this->db->bind(':id',$data['id']);
+            $this->db->execute();
+
+            for($i = 0; $i < count($data['accountsid']); $i++){
+                $this->db->query('INSERT INTO tblchurchbudget_details (ID,accountId,amount) 
+                                  VALUES(:hid,:aid,:amount)');
+                $this->db->bind(':hid',$data['id']);
+                $this->db->bind(':aid',$data['accountsid'][$i]);
+                $this->db->bind(':amount',$data['amounts'][$i]);
+                $this->db->execute();
+            }
+
+            if(!$this->db->dbh->commit()){
+                return false;
+            }else{
+                return true;
+            }
+
+        } catch (Exception $e) {
+            if($this->db->dbh->inTransaction()){
+                $this->db->dbh->rollback();
+            }
+            throw $e;
+        }
+    }
+
     public function CreateUpdate($data)
     {
         if(!$data['isedit']){
             return $this->Save($data);
+        }else{
+            return $this->Update($data);
         }
     }
     
@@ -120,17 +154,8 @@ class Churchbudget {
         $this->db->bind(':id',$id);
         return $this->db->resultSet();
     }
-    public function update($data)
-    {
-        $this->db->query('UPDATE tblchurchbudget_details SET amount=:amount WHERE (tid = :id)');
-        $this->db->bind(':amount',!empty($data['amount']) ? $data['amount'] : NULL);
-        $this->db->bind(':id',$data['id']);
-        if ($this->db->execute()) {
-            return true;
-        }else {
-            return false;
-        }
-    }
+    
+
     public function delete($data)
     {
         try {
