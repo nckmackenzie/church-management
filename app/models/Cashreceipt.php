@@ -142,6 +142,8 @@ class Cashreceipt
     {
         try {
             //begin transaction
+            $this->db->dbh->beginTransaction();
+            
             $this->db->query('DELETE FROM tblpettycash WHERE ID = :id');
             $this->db->bind(':id', $id);
             $this->db->execute();
