@@ -11,7 +11,6 @@ const mandatoryField = document.querySelectorAll('.mandatory');
 const yearSelect = document.getElementById('year');
 const groupSelect = document.getElementById('group');
 const idInput = document.getElementById('id');
-const yearTextInput = document.getElementById('yeartext');
 
 //year change
 yearSelect.addEventListener('change', async function (e) {
@@ -20,7 +19,6 @@ yearSelect.addEventListener('change', async function (e) {
   const result = await checkYear();
   if (!result) return;
   saveBtn.disabled = false;
-  yearTextInput.value = getSelectedText(yearSelect);
 });
 
 //group change
