@@ -2,7 +2,15 @@
 class Churchbudgets extends Controller{
     public function __construct()
     {
+        if(!isset($_SESSION['userId'])){
+            redirect('users');
+            exit;
+        }
         $this->budgetModel = $this->model('Churchbudget');
+
+        if($_SESSION['userType'] > 2 && (int)$_SESSION['userType'] !== 6){
+            checkrights($this->budgetModel,'church budget');
+        }
     }
     public function index()
     {
@@ -33,6 +41,7 @@ class Churchbudgets extends Controller{
             ]);
         }
         $this->view('churchbudgets/add',$data);
+        exit;
     }
     public function checkyear()
     {
@@ -109,35 +118,42 @@ class Churchbudgets extends Controller{
         }
     }
 
-    public function import()
-    {
-        // $data = [
-        //     'year' => trim($_POST['fiscalyear']),
-        //     'file' => $_FILES['formfile']['name']
-        // ];
-        $year = trim($_POST['fiscalyear']);
-        $file = $_FILES['formfile']['name'];
-        if ($this->budgetModel->create($year,$file)) {
-            flash('budget_msg','Budget Imported Successfully!');
-            redirect('churchbudgets');
-        }
-        // print_r($data);
-    }
     public function edit($id)
     {
-        $header = $this->budgetModel->budgetHeader($id);
-        $details = $this->budgetModel->budgetDetails($id);
+        $years = $this->budgetModel->getFiscalYears();
+        $header = $this->budgetModel->BudgetHeader($id);
+        $details = $this->budgetModel->BudgetDetails($id);
+        checkcenter($header->congregationId);
+
+        if($this->budgetModel->CheckYearClosed($header->yearId)){
+            redirect('users/deniedaccess');
+            exit;
+        }
+
         $data = [
             'header' => $header,
-            'details' => $details
+            'details' => $details,
+            'years' => $years,
+            'title' => 'Edit budget',
+            'isedit' => true,
+            'year' => $header->yearId,
+            'id' =>  $header->ID,
+            'yeartext' =>  $header->budgetName,
+            'table' => [],
+            'errmsg' => ''
         ];
-        if ($header->congregationId != $_SESSION['congId'] || $_SESSION['userId'] == 3 
-            || $_SESSION['userId'] == 4) {
-            redirect('mains');
-        }else{
-            $this->view('churchbudgets/edit',$data);
+
+        foreach($details as $detail){
+            array_push($data['table'],[
+                'aid' => $detail->tid,
+                'name' => $detail->accountType,
+                'amount' => $detail->amount
+            ]);
         }
+        $this->view('churchbudgets/add',$data);
+        exit;
     }
+
     public function update()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -148,6 +164,7 @@ class Churchbudgets extends Controller{
             $this->budgetModel->update($data);
         }
     }
+
     public function delete()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
