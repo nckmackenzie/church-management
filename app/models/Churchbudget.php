@@ -5,6 +5,7 @@ class Churchbudget {
     {
         $this->db = new Database;
     }
+
     public function index()
     {
         $this->db->query('SELECT DISTINCT h.ID,
@@ -16,18 +17,81 @@ class Churchbudget {
         $this->db->bind(':id',$_SESSION['congId']);
         return $this->db->resultSet();
     }
+
     public function getFiscalYears()
     {
         $this->db->query('SELECT * FROM tblfiscalyears WHERE (closed=0) AND (deleted=0)');
         return $this->db->resultSet();
     }
+
     public function getAccounts()
     {
         $this->db->query('SELECT * FROM tblaccounttypes 
-                          WHERE (accountTypeId < 3) AND (deleted=0)
-                          ORDER BY accountTypeId,accountType');
+                          WHERE (accountTypeId = 2) AND (deleted=0) AND (isSubCategory =1)
+                          ORDER BY accountType');
         return $this->db->resultSet();
     }
+
+    public function CheckYear($data)
+    {
+        $sql = 'SELECT COUNT(*) FROM tblchurchbudget_header WHERE (yearId = ?) AND (ID <> ?)';
+        return getdbvalue($this->db->dbh,$sql,[$data['year'],$data['id']]);
+    }
+
+    function getnewid(){
+        $sql = 'SELECT COUNT(*) FROM tblchurchbudget_header';
+        $results = getdbvalue($this->db->dbh,$sql,[]);
+        if((int)$results === 0){
+            return 1;
+        }
+        $sql1 = 'SELECT ID FROM tblchurchbudget_header ORDER BY ID DESC LIMIT 1';
+        return getdbvalue($this->db->dbh,$sql1,[]) + 1;
+    }
+
+    public function Save($data)
+    {
+        try {
+            $this->db->dbh->beginTransaction();
+            $id = $this->getnewid();
+
+            $this->db->query('INSERT INTO tblchurchbudget_header (ID,budgetName,yearId,congregationId)
+                              VALUES(:id,:bname,:yid,:cid)');
+            $this->db->bind(':id',$id);
+            $this->db->bind(':bname', !empty($data['yeartext']) ? strtolower($data['yeartext']) : null);
+            $this->db->bind(':yid',!empty($data['year']) ? $data['year'] : null);
+            $this->db->bind(':cid',(int)$_SESSION['congId']);;
+            $this->db->execute();
+
+            for($i = 0; $i < count($data['accountsid']); $i++){
+                $this->db->query('INSERT INTO tblchurchbudget_details (ID,accountId,amount) 
+                                  VALUES(:hid,:aid,:amount)');
+                $this->db->bind(':hid',$id);
+                $this->db->bind(':aid',$data['accountsid'][$i]);
+                $this->db->bind(':amount',$data['amounts'][$i]);
+                $this->db->execute();
+            }
+
+            if(!$this->db->dbh->commit()){
+                return false;
+            }else{
+                return true;
+            }
+
+        } catch (Exception $e) {
+            if($this->db->dbh->inTransaction()){
+                $this->dbh->rollback();
+            }
+            throw $e;
+        }
+    }
+
+    public function CreateUpdate($data)
+    {
+        if(!$data['isedit']){
+            return $this->Save($data);
+        }
+    }
+
     public function create($year,$file)
     {
         $this->db->query('INSERT INTO tblchurchbudget_header (ID,yearId,congregationId)
