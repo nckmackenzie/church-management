@@ -24,6 +24,15 @@
                     <div class="card-body">
                         <form action="<?php echo URLROOT;?>/cashreceipts/createupdate" method="post" autocomplete="off">
                             <div class="row">
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="receiptno">Receipt No</label>
+                                        <input type="number" name="receiptno" id="receiptno" 
+                                                class="form-control form-control-sm"
+                                                value="<?php echo $data['receiptno'];?>"
+                                                readonly>
+                                    </div>
+                                </div>
                                 <div class="col-md-6">
                                     <div class="form-group">
                                         <label for="date">Receipt Date</label>
@@ -34,7 +43,7 @@
                                         <span class="invalid-feedback"><?php echo $data['date_err'];?></span>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-3">
                                     <div class="form-group">
                                         <label for="amount">Amount</label>
                                         <input type="number" name="amount" id="amount" 
