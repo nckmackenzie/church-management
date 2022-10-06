@@ -11,7 +11,7 @@
         </button>
       </div>
       <div class="modal-body">
-          <form action="<?php echo URLROOT;?>/groupfunds/delete" method="post">
+          <form action="<?php echo URLROOT;?>/groupfunds/reverse" method="post">
               <div class="row">
                 <div class="col-md-9">
                   <label for="">Are You Sure You Want To reverse this approval?</label>
@@ -65,8 +65,10 @@
                                         <div class="btn-group">
                                             <?php if((int)$approval->Status === 0) : ?>
                                                 <a href="<?php echo URLROOT;?>/groupfunds/approve/<?php echo $approval->ID;?>" class="btn btn-sm bg-olive custom-font">Approve</a>
-                                            <?php else: ?>    
-                                                <button type="button" class="btn btn-sm btn-warning custom-font btndel">Reverse</button>
+                                            <?php else: ?>
+                                                <?php if((int)$approval->DiffInDate <= 1) : ?>    
+                                                  <button type="button" class="btn btn-sm btn-warning custom-font btndel">Reverse</button>
+                                                <?php endif;?>
                                             <?php endif;?>
                                         </div>
                                     <?php endif; ?>
