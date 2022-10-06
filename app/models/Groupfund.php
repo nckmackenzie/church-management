@@ -135,23 +135,29 @@ class Groupfund
             $this->db->query('UPDATE tblfundrequisition 
                                 SET AmountApproved = :app,ApprovalDate=:appdate,ApprovedBy = :appby,`Status` = 1
                               WHERE (ID = :id)');
-            $this->db->bind(':app',!empty($data['amountapp']) ? $data['amountapp'] : null);
+            $this->db->bind(':app',!empty($data['approved']) ? $data['approved'] : null);
             $this->db->bind(':appdate',date('Y-m-d'));
             $this->db->bind(':appby',(int)$_SESSION['userId']);
             $this->db->bind(':id',$data['id']);
             $this->db->execute();
 
-            saveToLedger($this->db->dbh,$data['paydate'],'group fund held',$data['amountapp'],0,$desc,
+            saveToLedger($this->db->dbh,$data['paydate'],'group fund held',$data['approved'],0,$desc,
                          4,12,$data['id'],$_SESSION['congId']);
             if((int)$data['paymethod'] === 1){
-                saveToLedger($this->db->dbh,$data['paydate'],'cash at hand',0,$data['amountapp'],$desc,
+                saveToLedger($this->db->dbh,$data['paydate'],'cash at hand',0,$data['approved'],$desc,
                          3,12,$data['id'],$_SESSION['congId']);
             }else{
-                saveToLedger($this->db->dbh,$data['paydate'],'cash at bank',0,$data['amountapp'],$desc,
+                saveToLedger($this->db->dbh,$data['paydate'],'cash at bank',0,$data['approved'],$desc,
                              3,12,$data['id'],$_SESSION['congId']);
 
-                saveToBanking($this->db->dbh,$data['bank'],$data['paydate'],0,$data['amountapp'],2,
+                saveToBanking($this->db->dbh,$data['bank'],$data['paydate'],0,$data['approved'],2,
                              $data['reference'],12,$data['id'],$_SESSION['congId']); 
+            }
+
+            if(!$this->db->dbh->commit()){
+                return false;
+            }else{
+                return true;
             }
 
         } catch (Exception $e) {
