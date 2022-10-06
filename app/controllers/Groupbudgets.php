@@ -32,7 +32,6 @@ class Groupbudgets extends Controller{
             'isedit' => false,
             'id' => '',
             'group' => '',
-            'yeartext' => '',
             'year' => '',
             'table' => [],
             'errmsg' => '',
@@ -77,10 +76,11 @@ class Groupbudgets extends Controller{
             $data = [
                 'title' => converttobool($_POST['isedit']) ? 'Edit budget' : 'Add budget',
                 'years' => $this->budgetModel->getFiscalYears(),
+                'groups' => $this->budgetModel->getGroups(),
+                'accounts' => $this->budgetModel->getAccounts(),
                 'isedit' => converttobool($_POST['isedit']),
                 'year' => !converttobool($_POST['isedit']) ? (isset($_POST['year']) && !empty(trim($_POST['year'])) ? trim($_POST['year']) : '') : '',
                 'id' =>  isset($_POST['id']) && !empty(trim($_POST['id'])) ? trim($_POST['id']) : '',
-                'yeartext' =>  isset($_POST['yeartext']) && !empty(trim($_POST['yeartext'])) ? trim($_POST['yeartext']) : '',
                 'table' => [],
                 'group' => !converttobool($_POST['isedit']) ? (isset($_POST['group']) && !empty(trim($_POST['group'])) ? trim($_POST['group']) : '') : '',
                 'accountsid' => isset($_POST['accountsid']) ? $_POST['accountsid'] : '',
@@ -130,31 +130,42 @@ class Groupbudgets extends Controller{
 
     public function edit($id)
     {
-        $header = $this->budgetModel->budgetHeader($id);
-        $details = $this->budgetModel->budgetDetails($id);
+        $header = $this->budgetModel->BudgetHeader($id);
+        $details = $this->budgetModel->BudgetDetails($id);
+        checkcenter($header->congregationId);
+
+        if($this->budgetModel->CheckYearClosed($header->fiscalYearId)){
+            redirect('users/deniedaccess');
+            exit;
+        }
+
         $data = [
             'header' => $header,
-            'details' => $details
+            'details' => $details,
+            'years' => $this->budgetModel->getFiscalYears(),
+            'groups' => $this->budgetModel->getGroups(),
+            'accounts' => $this->budgetModel->getAccounts(),
+            'title' => 'Edit budget',
+            'isedit' => true,
+            'id' => $header->ID,
+            'group' => $header->groupId,
+            'year' => $header->fiscalYearId,
+            'table' => [],
+            'errmsg' => '',
         ];
-        if ($header->congregationId != $_SESSION['congId'] || $_SESSION['userId'] == 3 
-            || $_SESSION['userId'] == 4) {
-            redirect('mains');
-        }else{
-            $this->view('groupbudgets/edit',$data);
+
+        foreach($details as $detail){
+            array_push($data['table'],[
+                'aid' => $detail->tid,
+                'name' => $detail->accountType,
+                'amount' => $detail->amount
+            ]);
         }
+
+        $this->view('groupbudgets/add',$data);
+        exit;
     }
     
-    public function update()
-    {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $data = [
-                'id' => trim($_POST['id']),
-                'amount' => trim($_POST['amount'])
-            ];
-            $this->budgetModel->update($data);
-        }
-    }
-
     public function delete()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -164,7 +175,7 @@ class Groupbudgets extends Controller{
                 'groupname' => trim($_POST['groupname'])
             ];
             if (!empty($data['id'])) {
-                if ($this->budgetModel->delete($data)) {
+                if ($this->budgetModel->Delete($data)) {
                     flash('budget_msg','Deleted Successfully!');
                     redirect('groupbudgets');
                 }

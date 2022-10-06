@@ -25,6 +25,11 @@ class Groupbudget {
         return $this->db->resultSet();
     }
 
+    public function CheckYearClosed($id)
+    {
+        return yearprotection($this->db->dbh,$id);
+    }
+
     public function getFiscalYears()
     {
         $this->db->query('SELECT * FROM tblfiscalyears WHERE (closed=0) AND (deleted=0)');
@@ -135,20 +140,15 @@ class Groupbudget {
         }
     }
 
-    public function budgetHeader($id)
+    public function BudgetHeader($id)
     {
-        $this->db->query('SELECT h.ID,
-                                 ucase(f.yearName) as yearName,
-                                 ucase(g.groupName) as groupName,
-                                 h.congregationId
-                          FROM   tblgroupbudget_header h inner join tblfiscalyears f on h.fiscalYearId=f.ID
-                                 inner join tblgroups g on h.groupId = g.ID
-                          WHERE  (h.ID=:id)');
-        $this->db->bind(':id',decryptId($id));
+        $this->db->query('SELECT * FROM   tblgroupbudget_header 
+                          WHERE  (ID=:id)');
+        $this->db->bind(':id',$id);
         return $this->db->single();
     }
 
-    public function budgetDetails($id)
+    public function BudgetDetails($id)
     {
         $this->db->query('SELECT d.tid,
                                  ucase(a.accountType) as accountType,
@@ -156,11 +156,11 @@ class Groupbudget {
                           FROM   tblgroupbudget_details d inner join tblaccounttypes a on d.accountId=a.ID
                           WHERE  (d.ID=:id)
                           ORDER BY accountType');
-        $this->db->bind(':id',decryptId($id));
+        $this->db->bind(':id',$id);
         return $this->db->resultSet();
     }
     
-    public function delete($data)
+    public function Delete($data)
     {
         try {
             $this->db->dbh->beginTransaction();
