@@ -20,7 +20,6 @@
                             <p class="align-self-center m-0">Add Budget</p>
                             <input type="hidden" name="id" id="id" value="<?php echo $data['id'];?>">
                             <input type="hidden" name="isedit" value="<?php echo $data['isedit'];?>">
-                            <input type="hidden" name="yeartext" id="yeartext" value="<?php echo $data['yeartext'];?>">
                             <button type="submit" class="btn btn-sm bg-navy custom-font ml-auto savebtn">Save</button>
                         </div>
                         <div class="card-body">
