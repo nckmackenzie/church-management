@@ -55,9 +55,7 @@
                         <th>Year</th>
                         <th>Group</th>
                         <th>Total Budgeted Amount</th>
-                        <?php if($_SESSION['userType'] <=2 ) : ?>
-                            <th>Action</th>
-                        <?php endif; ?>
+                        <th>Action</th>
                     </thead>
                     <tbody>
                         <?php foreach($data['budgets'] as $budget) :?>
@@ -66,14 +64,14 @@
                                 <td><?php echo $budget->yearName;?></td>
                                 <td><?php echo $budget->groupName;?></td>
                                 <td><?php echo $budget->BudgetAmount;?></td>
-                                <?php if($_SESSION['userType'] <=2) : ?>
-                                    <td>
-                                        <div class="btn-group">
-                                        <a href="<?php echo URLROOT;?>/groupbudgets/edit/<?php echo encryptId($budget->ID);?>" class="btn btn-sm bg-olive custom-font">Edit</a>
-                                            <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
-                                        </div>
-                                    </td>
-                                <?php endif; ?>
+                                <td>
+                                  <?php if($_SESSION['userType'] <=2) : ?>
+                                    <div class="btn-group">
+                                      <a href="<?php echo URLROOT;?>/groupbudgets/edit/<?php echo $budget->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
+                                      <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
+                                    </div>
+                                  <?php endif; ?>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
