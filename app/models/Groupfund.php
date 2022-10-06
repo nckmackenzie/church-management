@@ -180,4 +180,35 @@ class Groupfund
             // return false;
         }
     }
+    
+    public function Reverse($id)
+    {
+        try {
+            $this->db->dbh->beginTransaction();
+            
+            $this->db->query('UPDATE tblfundrequisition 
+                                SET AmountApproved = null, ApprovalDate = null,ApprovedBy = null,`Status` = 0
+                              WHERE (ID = :id)');
+            $this->db->bind(':id',$id);
+            $this->db->execute();
+
+            $this->db->query('DELETE FROM tblmmf WHERE (TransactionType = 12) AND (TransactionId = :id)');
+            $this->db->bind(':id',$id);
+            $this->db->execute();
+
+            deleteLedgerBanking($this->db->dbh,12,$id);
+
+            if(!$this->db->dbh->commit()){
+                return false;
+            }else{
+                return true;
+            }
+
+        } catch (Exception $e) {
+            if($this->db->dbh->inTransaction()){
+                $this->db->dbh->rollback();
+            }
+            throw $e;
+        }
+    }
 }
