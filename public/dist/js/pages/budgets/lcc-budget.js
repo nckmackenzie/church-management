@@ -3,12 +3,14 @@ import {
   clearOnChange,
   HOST_URL,
   sendHttpRequest,
+  getSelectedText,
 } from '../utils/utils.js';
 const form = document.querySelector('form');
 const saveBtn = document.querySelector('.savebtn');
 const mandatoryField = document.querySelectorAll('.mandatory');
 const yearSelect = document.getElementById('year');
 const idInput = document.getElementById('id');
+const yearTextInput = document.getElementById('yeartext');
 
 //year change
 yearSelect.addEventListener('change', async function (e) {
@@ -17,10 +19,11 @@ yearSelect.addEventListener('change', async function (e) {
   const result = await checkYear();
   if (!result) return;
   saveBtn.disabled = false;
+  yearTextInput.value = getSelectedText(yearSelect);
 });
 
 //form submission
-form.addEventListener('submit', function (e) {
+form.addEventListener('submit', async function (e) {
   e.preventDefault();
   if (validation() > 0) return;
 
@@ -28,7 +31,6 @@ form.addEventListener('submit', function (e) {
   if (!result) return;
 
   form.submit();
-  
 });
 
 clearOnChange(mandatoryField);
