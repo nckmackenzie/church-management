@@ -356,3 +356,10 @@ function loadresultset($con,$sql,$arr){
     $stmt->execute($arr);
     return $stmt->fetchAll(PDO::FETCH_OBJ);
 }
+
+function numberFormat($number){
+    if(strpos($number,',') !== false){
+       return str_replace(',','',$number);
+    }
+    return $number;
+}
