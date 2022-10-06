@@ -363,3 +363,9 @@ function numberFormat($number){
     }
     return $number;
 }
+
+//check if year is closed
+function yearprotection($con,$id){
+    $state = getdbvalue($con,'SELECT closed FROM tblfiscalyears WHERE ID = ?',[$id]);
+    return converttobool($state);
+}
