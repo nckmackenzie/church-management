@@ -27,7 +27,7 @@
                             <div class="row">
                                 <div class="col-12">
                                     <label for="year">Fiscal Year</label>
-                                    <select name="year" id="year" class="form-control form-control-sm mandatory">
+                                    <select name="year" id="year" class="form-control form-control-sm mandatory" <?php echo $data['isedit'] ? 'disabled' : '';?>>
                                         <option value="" selected disabled>Select fiscal year</option>
                                         <?php foreach($data['years'] as $year) : ?>
                                             <option value="<?php echo $year->ID;?>" <?php selectdCheck($year->ID,$data['year']);?>><?php echo $year->yearName;?></option>
