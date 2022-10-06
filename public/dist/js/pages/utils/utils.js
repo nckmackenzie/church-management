@@ -53,3 +53,7 @@ export function numberFormatter(number) {
   }
   return number;
 }
+
+export function getSelectedText(sel) {
+  return sel.options[sel.selectedIndex].text;
+}
