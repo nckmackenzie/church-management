@@ -76,12 +76,10 @@
                             <td>
                                 <div class="btn-group">
                                     <?php if($invoice->status == 0) : ?>
-                                        <a href="<?php echo URLROOT;?>/supplierinvoices/pay/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-dark custom-font">Pay</a>  
                                         <a href="<?php echo URLROOT;?>/supplierinvoices/edit/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm bg-olive custom-font">Edit</a> 
                                         <a href="<?php echo URLROOT;?>/supplierinvoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>
                                         <button class="btn btn-danger btn-sm custom-font btndel">Delete</button>
                                     <?php elseif($invoice->status == 1) : ?>
-                                        <a href="<?php echo URLROOT;?>/supplierinvoices/pay/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-dark custom-font">Pay</a> 
                                         <a href="<?php echo URLROOT;?>/supplierinvoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>
                                     <?php else : ?>
                                         <a href="<?php echo URLROOT;?>/supplierinvoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>    
@@ -92,14 +90,12 @@
                           <td>
                             <div class="btn-group">
                                 <?php if($invoice->status == 0) : ?>
-                                    <a href="<?php echo URLROOT;?>/supplierinvoices/pay/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-dark custom-font">Pay</a>
                                     <!-- Allow edit if created by logged user -->
                                     <?php if($invoice->postedBy == $_SESSION['userId']) : ?>
                                       <a href="<?php echo URLROOT;?>/supplierinvoices/edit/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm bg-olive custom-font">Edit</a>
                                     <?php endif; ?>
                                     <a href="<?php echo URLROOT;?>/supplierinvoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>
                                 <?php elseif($invoice->status == 1) : ?>
-                                    <a href="<?php echo URLROOT;?>/supplierinvoices/pay/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-dark custom-font">Pay</a> 
                                     <a href="<?php echo URLROOT;?>/supplierinvoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>
                                 <?php else : ?>
                                     <a href="<?php echo URLROOT;?>/supplierinvoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a> 
