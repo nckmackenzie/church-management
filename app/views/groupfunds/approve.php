@@ -8,7 +8,7 @@
       <div class="container-fluid">
         <div class="row mb-2">
           <div class="col-sm-6">
-            <a href="<?php echo URLROOT;?>/groupfunds" class="btn btn-dark btn-sm mt-2"><i class="fas fa-backward"></i> Back</a>
+            <a href="<?php echo URLROOT;?>/groupfunds/approvals" class="btn btn-dark btn-sm mt-2"><i class="fas fa-backward"></i> Back</a>
           </div>
           <div class="col-sm-6"></div>
         </div>
