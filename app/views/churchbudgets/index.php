@@ -54,9 +54,7 @@
                         <th>ID</th>
                         <th>Year</th>
                         <th>Total Budgeted Amount</th>
-                        <?php if($_SESSION['userType'] <=2 ) : ?>
-                            <th>Action</th>
-                        <?php endif; ?>
+                        <th>Action</th>
                     </thead>
                     <tbody>
                         <?php foreach($data['budgets'] as $budget) :?>
@@ -64,14 +62,14 @@
                                 <td><?php echo $budget->ID;?></td>
                                 <td><?php echo $budget->yearName;?></td>
                                 <td><?php echo $budget->BudgetAmount;?></td>
-                                <?php if($_SESSION['userType'] <=2) : ?>
-                                    <td>
-                                        <div class="btn-group">
+                                <td>
+                                  <?php if($_SESSION['userType'] <=2) : ?>
+                                    <div class="btn-group">
                                         <a href="<?php echo URLROOT;?>/churchbudgets/edit/<?php echo $budget->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
-                                            <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
-                                        </div>
-                                    </td>
-                                <?php endif; ?>
+                                        <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
+                                    </div>
+                                  <?php endif; ?>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -87,11 +85,7 @@
       $('#budgetsTable').DataTable({
         'pageLength': 25,
         'columnDefs' : [
-            {"visible" : false, "targets": 0},
-            // {"width" : "10%" , "targets": 1},
-            // {"width" : "10%" , "targets": 3},
-            // {"width" : "10%" , "targets": 4},
-            // {"width" : "10%" , "targets": 6},
+            {"visible" : false, "targets": 0}
           ]
       });
 
@@ -107,19 +101,6 @@
           var data1 = $('#budgetsTable').DataTable().row(currentRow).data();
           $('#id').val(data1[0]);
       });
-      // $('#budgetsTable').on('click','.btnapprove',function(){
-      //   $('#approveModalCenter').modal('show');
-      //     $tr = $(this).closest('tr');
-
-      //     let data = $tr.children('td').map(function(){
-      //         return $(this).text();
-      //     }).get();
-      //     $('#adate').val(data[0]);
-      //     $('#acontributor').val(data[4]);
-      //     var currentRow = $(this).closest("tr");
-      //     var data1 = $('#budgetsTable').DataTable().row(currentRow).data();
-      //     $('#aid').val(data1[0]);
-      // });
     });
 </script>
 </body>
