@@ -4,21 +4,18 @@ class Cashreceipts extends Controller
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
-            redirect('');
+            redirect('users');
             exit();
         }
-        else{
-            $this->receiptmodel = $this->model('Cashreceipt');
+        $this->receiptmodel = $this->model('Cashreceipt');
+
+        if((int)$_SESSION['userType'] > 2 && (int)$_SESSION['userType'] !== 6){
+            checkrights($this->receiptmodel,'cash receipts');
         }
     }
 
     public function index()
     {
-        $form = 'Cash Receipt';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->receiptmodel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $receipts = $this->receiptmodel->GetReceipts();
         $data = [
             'receipts' => $receipts
@@ -32,6 +29,7 @@ class Cashreceipts extends Controller
         $data = [
             'banks' => $banks,
             'isedit' => false,
+            'receiptno' => $this->receiptmodel->GetReceiptNo(),
             'id' => '',
             'date' => date('Y-m-d'),
             'bank' => '',
@@ -55,6 +53,7 @@ class Cashreceipts extends Controller
                 'banks' => $banks,
                 'isedit' => converttobool($_POST['isedit']),
                 'id' => trim($_POST['id']),
+                'receiptno' => trim($_POST['receiptno']),
                 'date' => date("Y-m-d", strtotime($_POST['date'])),
                 'bank' => !empty($_POST['bank']) ? trim($_POST['bank']) : '',
                 'amount' => trim($_POST['amount']),
@@ -116,6 +115,7 @@ class Cashreceipts extends Controller
             'banks' => $banks,
             'isedit' => true,
             'id' => $receipt->ID,
+            'receiptno' => $receipt->ReceiptNo,
             'date' => $receipt->TransactionDate,
             'bank' => $receipt->BankId,
             'amount' => $receipt->Debit,
