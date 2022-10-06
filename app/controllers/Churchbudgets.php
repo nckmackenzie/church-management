@@ -86,7 +86,7 @@ class Churchbudgets extends Controller{
                 $data['errmsg'] = 'Select year';
             }else{
                 if((int)$this->budgetModel->CheckYear($data) > 0){
-                    $data['errmsg'] = 'Budget already exists for selected year';;
+                    $data['errmsg'] = 'Budget already exists for selected year';
                 }
             }
 
