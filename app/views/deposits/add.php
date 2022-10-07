@@ -17,8 +17,8 @@
     <!-- Main content -->
     <section class="content">
         <div class="row">
-            <div class="col-md-6 mx-auto">
-                <div class="card  bg-light">
+            <div class="col-md-9 mx-auto">
+                <div class="card bg-light">
                     <div class="card-header"><?php echo $data['title'];?></div>
                     <div class="card-body">    
                         <form action="<?php echo URLROOT;?>/deposits/createupdate" method="post">
@@ -52,13 +52,13 @@
                                         <input type="number" name="amount" id="amount"
                                             class="form-control form-control-sm mandatory 
                                             <?php echo inputvalidation($data['amount'],$data['amount_err'],$data['touched']);?>"
-                                            value="<?php echo $data['amount'];?>" placeholder="eg 45,000">
+                                            value="<?php echo $data['amount'];?>" placeholder="eg 45,000" autocomplete="off">
                                         <span class="invalid-feedback"><?php echo $data['amount_err'];?></span>   
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        <label for="reference">Deposit slip reference #</label>
+                                        <label for="reference">Deposit slip reference No</label>
                                         <input type="text" name="reference" id="reference"
                                         class="form-control form-control-sm"
                                         value="<?php echo $data['reference'];?>" 
