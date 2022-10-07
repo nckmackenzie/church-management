@@ -197,13 +197,13 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo URLROOT;?>/bankbalances" class="nav-link">
-                        <p>Bank Balances</p>
+                    <a href="<?php echo URLROOT;?>/deposits" class="nav-link">
+                        <p>Deposits </p>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo URLROOT;?>/bankpostings" class="nav-link">
-                        <p>Post Bankings</p>
+                    <a href="<?php echo URLROOT;?>/payments" class="nav-link">
+                        <p>Payments</p>
                     </a>
                 </li>
                 <li class="nav-item">

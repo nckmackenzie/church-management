@@ -223,6 +223,36 @@
                                 <p>Invoices</p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="<?php echo URLROOT;?>/invoices" class="nav-link">
+                                <p>Customer Invoices</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo URLROOT;?>/supplierinvoices" class="nav-link">
+                                <p>Supplier Invoices</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo URLROOT;?>/deposits" class="nav-link">
+                                <p>Deposits </p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo URLROOT;?>/payments" class="nav-link">
+                                <p>Payments</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo URLROOT;?>/clearbankings" class="nav-link">
+                                <p>Clear Bankings</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo URLROOT;?>/bankreconcilliations" class="nav-link">
+                                <p>Bank Reconcilliation</p>
+                            </a>
+                        </li>
                     </ul>
                 </li>
                 <li class="nav-item">
@@ -347,6 +377,36 @@
                     <li class="nav-item">
                         <a href="<?php echo URLROOT;?>/journals" class="nav-link">
                             <p>Journal Entry</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="<?php echo URLROOT;?>/invoices" class="nav-link">
+                            <p>Customer Invoices</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="<?php echo URLROOT;?>/supplierinvoices" class="nav-link">
+                            <p>Supplier Invoices</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="<?php echo URLROOT;?>/deposits" class="nav-link">
+                            <p>Deposits </p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="<?php echo URLROOT;?>/payments" class="nav-link">
+                            <p>Payments</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="<?php echo URLROOT;?>/clearbankings" class="nav-link">
+                            <p>Clear Bankings</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="<?php echo URLROOT;?>/bankreconcilliations" class="nav-link">
+                            <p>Bank Reconcilliation</p>
                         </a>
                     </li>
                 </ul>
