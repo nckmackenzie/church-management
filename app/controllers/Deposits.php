@@ -98,4 +98,55 @@ class Deposits extends Controller
             exit;
         }
     }
+
+    public function edit($id)
+    {
+        $deposit = $this->depositmodel->GetDeposit($id);
+        $data= [
+            'banks' => $this->depositmodel->GetBanks(),
+            'title' => 'Edit deposit',
+            'id' => $deposit->ID,
+            'touched' => false,
+            'isedit' => true,
+            'date' => $deposit->DepositDate,
+            'bank' => $deposit->BankId,
+            'reference' => strtoupper($deposit->Reference),
+            'description' => strtoupper($deposit->Description),
+            'amount' => $deposit->Amount,
+            'date_err' => '',
+            'bank_err' => '',
+            'reference_err' => '',
+            'amount_err' => '',
+        ];
+        $this->view('deposits/add',$data);
+        exit;
+    }
+
+    public function delete()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST'){
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
+            $id = trim($_POST['id']);
+
+            if(empty($id)){
+                flash('deposit_msg','Unable to get selected deposit','alert custom-danger alert-dismissible fade show');
+                redirect('deposits');
+                exit;
+            }
+
+            if(!$this->depositmodel->Delete($id)){
+                flash('deposit_msg','Unable to delete selected deposit! Try again or contact admin','alert custom-danger alert-dismissible fade show');
+                redirect('deposits');
+                exit;
+            }
+
+            flash('deposit_msg','Deleted successfully!');
+            redirect('deposits');
+            exit;
+
+        }else{
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
 }

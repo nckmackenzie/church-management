@@ -25,8 +25,13 @@ class Deposit
         {
             $this->db->dbh->beginTransaction();
 
-            $this->db->query('INSERT INTO tbldesposits (DepositDate,BankId,Amount,Reference,`Description`,CongregationId) 
-                              VALUES(:ddate,:bid,:amount,:reference,:narr,:cid)');
+            if($data['isedit']){
+                $this->db->query('UPDATE tbldesposits SET DepositDate=:ddate,BankId=:bid,Amount=:amount,Reference=:reference,`Description`=:narr 
+                                  WHERE (ID=:id)');
+            }else{
+                $this->db->query('INSERT INTO tbldesposits (DepositDate,BankId,Amount,Reference,`Description`,CongregationId) 
+                                  VALUES(:ddate,:bid,:amount,:reference,:narr,:cid)');
+            }
             $this->db->bind(':ddate',$data['date']);
             $this->db->bind(':bid',$data['bank']);
             $this->db->bind(':amount',$data['amount']);
@@ -50,7 +55,45 @@ class Deposit
                          3,13,$tid,$_SESSION['congId']);
             saveToLedger($this->db->dbh,$data['date'],'cash at hand',0,$data['amount'],$narr,
                          3,13,$tid,$_SESSION['congId']);
+
+            saveToBanking($this->db->dbh,$data['bank'],$data['date'],$data['amount'],0,1,
+                          !empty($data['reference']) ? $data['reference'] : NULL,13,$tid,$_SESSION['congId']);
             
+            if(!$this->db->dbh->commit()){
+                return false;
+            }
+             
+            return true;
+
+        }catch(Exception $e)
+        {
+            if($this->db->dbh->inTransaction()){
+                $this->db->dbh->rollback();
+            }
+            throw $e;
+        }
+    }
+
+    public function GetDeposit($id)
+    {
+        $this->db->query('SELECT * FROM tbldesposits WHERE (ID=:id)');
+        $this->db->bind(':id',$id);
+        return $this->db->single();
+    }
+
+    public function Delete($id)
+    {
+        try
+        {
+            $this->db->dbh->beginTransaction();
+
+            $this->db->query('UPDATE tbldesposits SET Deleted = 1 
+                              WHERE (ID=:id)');
+            $this->db->bind(':id',$id);
+            $this->db->execute();
+
+            softdeleteLedgerBanking($this->db->dbh,13,$id);
+                     
             if(!$this->db->dbh->commit()){
                 return false;
             }
