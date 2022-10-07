@@ -301,7 +301,7 @@ function getuniqueid($con,$field,$table,$cid,$bycenter = true){
                 FROM 
                     $table 
                 WHERE 
-                    deleted = 0";
+                    Deleted = 0";
         if($bycenter){
             $sql .= " AND (congregationId = :cid)";
         }
