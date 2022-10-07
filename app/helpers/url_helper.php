@@ -100,6 +100,17 @@ function deleteLedgerBanking($connection,$type,$tid){
         $stmt->execute([$type,$tid]);
     }
 }
+
+function softdeleteLedgerBanking($connection,$type,$tid){
+    $sql = 'UPDATE tblledger SET deleted = 1 WHERE (transactionType=?) AND (transactionId=?)';
+    $stmt=$connection->prepare($sql);
+    if ($stmt->execute([$type,$tid])) {
+        $sql = 'UPDATE tblbankpostings SET deleted = 1 WHERE (transactionType=?) AND (transactionId=?)';
+        $stmt=$connection->prepare($sql);
+        $stmt->execute([$type,$tid]);
+    }
+}
+
 function generateId($sql,$connection,$param)
 {
     $stmt = $connection->prepare($sql);
