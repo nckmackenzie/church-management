@@ -62,10 +62,12 @@
                                 <td><?php echo $mmf->Debit;?></td>
                                 <td><?php echo $mmf->Reference;?></td>
                                 <td>
+                                   <?php if((int)$_SESSION['userType'] < 3 || (int)$_SESSION['userType'] === 6) : ?>
                                     <div class="btn-group">
                                         <a href="<?php echo URLROOT;?>/mmfreceipts/edit/<?php echo $mmf->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
                                         <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
                                     </div>
+                                  <?php endif; ?>
                                 </td>     
                             </tr>
                         <?php endforeach; ?>
