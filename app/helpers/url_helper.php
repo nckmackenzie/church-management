@@ -78,12 +78,13 @@ function getRecordExists($sql,$connection,$param)
     $stmt->execute([$param]);
     return $stmt->fetchColumn();
 }
-function saveToLedger($connection,$date,$account,$debit,$credit,$narration,$accountId,$type,$tid,$cong){
-    $sql = "INSERT INTO tblledger (transactionDate,account,debit,credit,narration,accountId,
-            transactionType,transactionId,congregationId) VALUES(?,?,?,?,?,?,?,?,?)";
+function saveToLedger($connection,$date,$account,$parent,$debit,$credit,$narration,$accountId,$type,$tid,$cong){
+    $sql = "INSERT INTO tblledger (transactionDate,account,parentaccount,debit,credit,narration,accountId,
+            transactionType,transactionId,congregationId) VALUES(?,?,?,?,?,?,?,?,?,?)";
     $stmt = $connection->prepare($sql);
-    $stmt->execute([$date,$account,$debit,$credit,$narration,$accountId,$type,$tid,$cong]);
+    $stmt->execute([$date,$account,$parent,$debit,$credit,$narration,$accountId,$type,$tid,$cong]);
 }
+
 function saveToBanking($connection,$bank,$date,$debit,$credit,$method,$reference,$type,$tid,$cong){
     $sql = 'INSERT INTO tblbankpostings (bankId,transactionDate,debit,credit,transactionMethod,reference
             ,transactionType,transactionId,congregationId) VALUES(?,?,?,?,?,?,?,?,?)';
