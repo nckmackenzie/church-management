@@ -381,3 +381,11 @@ function yearprotection($con,$id){
     $state = getdbvalue($con,'SELECT closed FROM tblfiscalyears WHERE ID = ?',[$id]);
     return converttobool($state);
 }
+
+//function to get the parent G/L Account
+function getparentgl($con,$childgl)
+{
+    $sql = 'SELECT parentId FROM tblaccounttypes WHERE (accountType = ?)';
+    $parentid = getdbvalue($con,$sql,[$childgl]);
+    return trim(getdbvalue($con,'SELECT accountType FROM tblaccounttypes WHERE (ID = ?)',[$parentid]));
+}
