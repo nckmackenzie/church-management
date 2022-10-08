@@ -3,30 +3,21 @@ class Pledges extends Controller{
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
-            redirect('');
+            redirect('users');
         }
-        else{
-            $this->pledgeModel = $this->model('Pledge');
-        }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'pledges');
+        $this->pledgeModel = $this->model('Pledge');
+        
     }
     public function index()
     {
-        $form = 'Pledges';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->pledgeModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $pledges = $this->pledgeModel->index();
         $data = ['pledges' => $pledges];
         $this->view('pledges/index',$data);
     }
     public function add()
     {
-        $form = 'Pledges';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->pledgeModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $pledgers = $this->pledgeModel->getPledger(1);
         $paymethods = $this->pledgeModel->paymentMethods();
         $banks = $this->pledgeModel->getBanks();
