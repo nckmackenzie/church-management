@@ -5,14 +5,7 @@ class Contribution {
     {
         $this->db =  new Database;
     }
-    public function CheckRights($form)
-    {
-        if (getUserAccess($this->db->dbh,$_SESSION['userId'],$form,$_SESSION['isParish']) > 0) {
-            return true;
-        }else{
-            return false;
-        }
-    }
+
     public function getContributions()
     {
         $this->db->query("SELECT h.ID,
@@ -20,31 +13,24 @@ class Contribution {
                                  DATE_FORMAT(d.contributionDate,'%d/%m/%y') AS contributionDate,
                                  FORMAT(SUM(d.amount),2) As Total
                           FROM   tblcontributions_header h inner join tblcontributions_details d on h.ID = d.HeaderId
-                          WHERE  (h.congregationId = :cid)
+                          WHERE  (h.congregationId = :cid) AND (h.deleted = 0)
                           GROUP BY h.ID,h.receiptNo,d.contributionDate
                           ORDER BY d.contributionDate DESC");
         $this->db->bind(':cid',$_SESSION['congId']);
         return $this->db->resultSet();
     }
+
     public function receiptNo()
     {
         return getuniqueid($this->db->dbh,'receiptNo','tblcontributions_header',(int)$_SESSION['congId']);
     }
-    public function getAccounts()
-    {
-        $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
-                          WHERE (accountTypeId = 1) AND (deleted=0) AND (isBank = 0) AND (parentId <> 0) AND (isSubCategory = 1) ORDER BY accountType');
-        return $this->db->resultSet();                  
-    }
-    public function paymentMethods()
-    {
-       return paymentMethods($this->db->dbh);
-    }
+    
     public function getCategories()
     {
         $this->db->query('SELECT ID,UCASE(categoryName) AS category FROM tblcontributioncategories');
         return $this->db->resultSet();
     }
+
     public function getBanks()
     {
        if ($_SESSION['isParish'] == 1) {
@@ -208,20 +194,24 @@ class Contribution {
                     $this->db->bind(':tid',$tid);
                     $this->db->bind(':cid',$_SESSION['congId']);
                     $this->db->execute();
+
+                    $gbhparent = getparentgl($this->db->dbh,'groups balances held'); 
                     
-                    saveToLedger($this->db->dbh,$data['date'],'groups balances held',0,$data['amounts'][$i]
+                    saveToLedger($this->db->dbh,$data['date'],'groups balances held',$gbhparent,0,$data['amounts'][$i]
                         ,$data['description'],4,1,$tid,$_SESSION['congId']);
                 }else{
-                    saveToLedger($this->db->dbh,$data['date'],strtolower($data['accountsname'][$i]),0,$data['amounts'][$i]
+                    $accountparent = getparentgl($this->db->dbh,trim($data['accountsname'][$i]));
+                    saveToLedger($this->db->dbh,$data['date'],strtolower($data['accountsname'][$i]),$accountparent,0,$data['amounts'][$i]
                         ,$data['description'],$accountid,1,$tid,$_SESSION['congId']);
                 }
             } 
-                
+            
+            $cashparent = getparentgl($this->db->dbh,'cash at bank');
             if ($data['paymethod'] == 1) {
-                saveToLedger($this->db->dbh,$data['date'],'cash at hand',$data['totalamount'],0,$data['description'],3,1,
+                saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cashparent,$data['totalamount'],0,$data['description'],3,1,
                             $tid,$_SESSION['congId']);
             }else{
-                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$data['totalamount'],0,$data['description'],3,1,
+                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,$data['totalamount'],0,$data['description'],3,1,
                             $tid,$_SESSION['congId']);
                 saveToBanking($this->db->dbh,$data['bank'],$data['date'],$data['totalamount'],0
                              ,1,$data['reference'],1,$tid,$_SESSION['congId']);            
@@ -243,7 +233,7 @@ class Contribution {
             if ($this->db->dbh->inTransaction()) {
                 $this->db->dbh->rollback();
             }
-            throw $e;
+            error_log($e->getMessage(),0);
             return false;
         }
     }
@@ -280,19 +270,22 @@ class Contribution {
             return false;
         }
     }
+
+    public function YearIsClosed($id) 
+    {
+        $yearid = getdbvalue($this->db->dbh,'SELECT fiscalYearId FROM tblcontributions_header WHERE ID = ?',[$id]);
+        return yearprotection($this->db->dbh,$yearid);
+    }
+
     public function delete($data)
     {
         $this->db->query('UPDATE tblcontributions_header SET deleted=:del WHERE (ID=:id)');
         $this->db->bind(':del',1);
         $this->db->bind(':id',$data['id']);
         if ($this->db->execute()) {
-            $this->db->query('UPDATE tblledger SET deleted=:del 
-                             WHERE (transactionType=1) AND (transactionId=:id)');
-            $this->db->bind(':del',1);
-            $this->db->bind(':id',$data['id']);
-            $this->db->execute();
-            $act = 'Deleted Contribution For '.$data['contributor']. ' For Date '.$data['date'];
-            saveLog($this->db->dbh,$act);
+            softdeleteLedgerBanking($this->db->dbh,1,$data['id']);
+            // $act = 'Deleted Contribution For '.$data['contributor']. ' For Date '.$data['date'];
+            // saveLog($this->db->dbh,$act);
             return true;
         }
         else{
@@ -303,6 +296,7 @@ class Contribution {
     {
         $this->db->query('SELECT 
                             h.receiptNo,
+                            `fiscalYearId`,
                             `contributionDate`,
                             `paymentMethodId`,
                             `bankId`,
@@ -386,19 +380,22 @@ class Contribution {
                     $this->db->bind(':cid',$_SESSION['congId']);
                     $this->db->execute();
 
-                    saveToLedger($this->db->dbh,$data['date'],'groups balances held',0,$data['amounts'][$i]
+                    $gbhparent = getparentgl($this->db->dbh,'groups balances held'); 
+                    saveToLedger($this->db->dbh,$data['date'],'groups balances held',$gbhparent,0,$data['amounts'][$i]
                         ,$data['description'],4,1,$data['id'],$_SESSION['congId']);
                 }else{
-                    saveToLedger($this->db->dbh,$data['date'],strtolower($data['accountsname'][$i]),0,$data['amounts'][$i]
+                    $accountparent = getparentgl($this->db->dbh,trim($data['accountsname'][$i]));
+                    saveToLedger($this->db->dbh,$data['date'],strtolower($data['accountsname'][$i]),$accountparent,0,$data['amounts'][$i]
                         ,$data['description'],$accountid,1,$data['id'],$_SESSION['congId']);
                 }
             } 
-                
+            
+            $cashparent = getparentgl($this->db->dbh,'cash at bank');
             if ($data['paymethod'] == 1) {
-                saveToLedger($this->db->dbh,$data['date'],'cash at hand',$data['totalamount'],0,$data['description'],3,1,
+                saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cashparent,$data['totalamount'],0,$data['description'],3,1,
                             $data['id'],$_SESSION['congId']);
             }else{
-                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$data['totalamount'],0,$data['description'],3,1,
+                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,$data['totalamount'],0,$data['description'],3,1,
                             $data['id'],$_SESSION['congId']);
                 saveToBanking($this->db->dbh,$data['bank'],$data['date'],$data['totalamount'],0
                              ,1,$data['reference'],1,$data['id'],$_SESSION['congId']);            
@@ -415,7 +412,7 @@ class Contribution {
             if ($this->db->dbh->inTransaction()) {
                 $this->db->dbh->rollback();
             }
-            throw $e;
+            error_log($e->getMessage(),0);
             return false;
         }
     }

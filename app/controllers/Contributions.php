@@ -3,34 +3,26 @@ class Contributions extends Controller {
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
-            redirect('');
+            redirect('users');
+            exit;
         }
-        else{
-            $this->contributionModel = $this->model('Contribution');
-        }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'receipts');
+        $this->reusemodel = $this->model('Reusables');
+        $this->contributionModel = $this->model('Contribution');
     }
     public function index()
     {
-        $form = 'Contributions';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->contributionModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $contributions = $this->contributionModel->getContributions();
         $data = ['contributions' => $contributions];
         $this->view('contributions/index',$data);
+        exit;
     }
     public function add()
     {
-        $form = 'Contributions';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->contributionModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
-        
-        $accounts = $this->contributionModel->getAccounts();
-        $paymethods = $this->contributionModel->paymentMethods();
-        $banks = $this->contributionModel->getBanks();
+        $accounts = $this->reusemodel->GetAccounts(1);
+        $paymethods = $this->reusemodel->PaymentMethods();
+        $banks = $this->reusemodel->GetBanks();
         $categories = $this->contributionModel->getCategories();
         $data = [
             'accounts' => $accounts,
@@ -54,11 +46,12 @@ class Contributions extends Controller {
         ];
         $this->view('contributions/add',$data);
     }
+
     public function getcontributor()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-            $category=trim($_POST['category']);
+        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
+            $category=trim($_GET['category']);
             $data = [
                'contributor' => ''
             ];
@@ -71,17 +64,18 @@ class Contributions extends Controller {
             }
         }
     }
+
     public function create()
     {
        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
            $receiptNo = $this->contributionModel->receiptNo();
-           $accounts = $this->contributionModel->getAccounts();
-           $paymethods = $this->contributionModel->paymentMethods();
-           $banks = $this->contributionModel->getBanks();
+           $accounts = $this->reusemodel->GetAccounts(1);
+           $paymethods = $this->reusemodel->PaymentMethods();
+           $banks = $this->reusemodel->GetBanks();
            $categories = $this->contributionModel->getCategories();
            $data = [
-                'receiptno' => trim($_POST['receipt']),
+                'receiptno' => $receiptNo,
                 'id' => trim($_POST['id']),
                 'isedit' => converttobool(trim($_POST['isedit'])),
                 'date' => !empty($_POST['date']) ? date('Y-m-d',strtotime($_POST['date'])) : date('Y-m-d'),
@@ -93,7 +87,7 @@ class Contributions extends Controller {
                 'categories' => $categories,
                 'category' => 3,
                 'reference' => trim($_POST['reference']),
-                'description' => trim($_POST['description']),
+                'description' => !empty(trim($_POST['description'])) ? trim($_POST['description']) : NULL,
                 'table' => [],
                 'accountsid' => $_POST['accountsid'],
                 'accountsname' => $_POST['accountsname'],
@@ -186,13 +180,19 @@ class Contributions extends Controller {
             $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
                 'id' => trim($_POST['id']),
-                'date' => trim($_POST['date']),
-                'contributor' => trim($_POST['contributor'])
             ];
+
+            if($this->contributionModel->YearIsClosed($data['id'])){
+                flash('contribution_msg','Cannot delete transactions for closed year','alert custom-danger alert-dismissible fade show');
+                redirect('contributions');
+                exit;
+            }
+
             if (!empty($data['id'])) {
                 if ($this->contributionModel->delete($data)) {
                     flash('contribution_msg','Deleted Successfully');
                     redirect('contributions');
+                    exit;
                 }
             }
         }
@@ -201,11 +201,16 @@ class Contributions extends Controller {
     {
        $header = $this->contributionModel->contributionHeader(trim($id));
        $details = $this->contributionModel->getContribution($id);
-       $accounts = $this->contributionModel->getAccounts();
-       $paymethods = $this->contributionModel->paymentMethods();
-       $banks = $this->contributionModel->getBanks();
+       $accounts = $this->reusemodel->GetAccounts(1);
+       $paymethods = $this->reusemodel->PaymentMethods();
+       $banks = $this->reusemodel->GetBanks();
        $categories = $this->contributionModel->getCategories();
-      
+       checkcenter($header->congregationId);
+       if($this->reusemodel->CheckYearClosed($header->fiscalYearId)) :
+         flash('contribution_msg','Cannot edit transactions for closed year','alert custom-danger alert-dismissible fade show');
+         redirect('contributions');
+         exit;
+       endif; 
        $data = [
            'receiptno' => $header->receiptNo,
            'id' => $header->ID,

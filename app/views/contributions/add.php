@@ -57,7 +57,7 @@
                                             <?php foreach($data['banks'] as $bank) : ?>
                                                 <option value="<?php echo $bank->ID;?>"
                                                 <?php selectdCheck($data['bank'],$bank->ID)?>>
-                                                    <?php echo strtoupper($bank->accountType);?>
+                                                    <?php echo strtoupper($bank->Bank);?>
                                                 </option>
                                             <?php endforeach;?>     
                                         </select>
@@ -199,7 +199,7 @@
            
             $.ajax({
                 url : '<?php echo URLROOT;?>/contributions/getcontributor',
-                method : 'POST',
+                method : 'GET',
                 data : {category : category},
                 success : function(html){
                     // console.log(html);
@@ -218,30 +218,17 @@
             var today = now.getFullYear()+"-"+(month)+"-"+(day) ;
             $('#date').val(today);
             $('#bank').val('');
-            checkForGroups();
-            getAccountName();
         });
         $('#paymethod').change(function(){
             var paym = $(this).val();
             if (paym > 2) {
                 $('#bank').attr('disabled',false);
                 $('#bank').prop("selectedIndex", 0);
-                var bank = $('#bank').find('option:selected').text().trim();
-                // console.log(bank);
-                $('#bankname').val(bank);
             }
             else{
                 $('#bank').attr('disabled',true);
                 $('#bank').val('');
             }
-        });
-        $('#bank').change(function(){
-            var bank = $('#bank').find('option:selected').text().trim();
-            $('#bankname').val(bank);
-        });
-        $('#contributor').focusout(function(){
-            var bank = $('#bank').find('option:selected').text().trim();
-            $('#bankname').val(bank);
         });
         function checkForGroups(){
             var forgroup ='';
@@ -267,16 +254,6 @@
                 }
             });
         }
-        function getAccountName(){
-            // var account = $('#account').find('option:selected').text();
-            var data=$('#account').select2('data');
-            var selectedText = (data[0].text).trim();
-            $('#accountname').val(selectedText);
-        }
-        $('#account').change(function(){
-            checkForGroups();
-            getAccountName();
-        });
     });
 </script>
 <script src="<?php echo URLROOT;?>/dist/js/pages/contributions.js"></script>
