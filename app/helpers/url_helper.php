@@ -386,6 +386,6 @@ function yearprotection($con,$id){
 function getparentgl($con,$childgl)
 {
     $sql = 'SELECT parentId FROM tblaccounttypes WHERE (accountType = ?)';
-    $parentid = getdbvalue($con,$sql,[$childgl]);
+    $parentid = getdbvalue($con,$sql,[trim(strtolower($childgl))]);
     return trim(getdbvalue($con,'SELECT accountType FROM tblaccounttypes WHERE (ID = ?)',[$parentid]));
 }
