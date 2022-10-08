@@ -8,15 +8,6 @@ class Mmfreceipt
         $this->db = new Database;
     }
 
-    public function CheckRights($form)
-    {
-        if (getUserAccess($this->db->dbh,$_SESSION['userId'],$form,$_SESSION['isParish']) > 0) {
-            return true;
-        }else{
-            return false;
-        }
-    }
-
     public function GetMMFs()
     {
         $this->db->query("SELECT m.ID,
@@ -95,10 +86,13 @@ class Mmfreceipt
                 deleteLedgerBanking($this->db->dbh,11,$tid);
             }
 
-            saveToLedger($this->db->dbh,$data['tdate'],'groups balances held',$data['amount'],0,
+            $gbhparent = getparentgl($this->db->dbh,'groups balances held');
+            $cashparent = getparentgl($this->db->dbh,'groups balances held');
+
+            saveToLedger($this->db->dbh,$data['tdate'],'groups balances held',$gbhparent,$data['amount'],0,
                          $data['reference'],4,11,$tid,$_SESSION['congId']);
             
-            saveToLedger($this->db->dbh,$data['tdate'],'cash at bank',0,$data['amount'],
+            saveToLedger($this->db->dbh,$data['tdate'],'cash at bank',$cashparent,0,$data['amount'],
                          $data['reference'],3,11,$tid,$_SESSION['congId']);
 
             saveToBanking($this->db->dbh,$data['bank'],$data['tdate'],0,$data['amount'],2,
@@ -114,7 +108,7 @@ class Mmfreceipt
             if ($this->db->dbh->inTransaction()) {
                 $this->db->dbh->rollback();
             }
-            throw $e;
+            error_log($e->getMessage(),0);
             return false;
         }
     }
@@ -141,12 +135,29 @@ class Mmfreceipt
 
     public function Delete($id)
     {
-        $this->db->query('DELETE FROM tblmmf WHERE (ID = :id)');
-        $this->db->bind(':id',intval($id));
-        if(!$this->db->execute()){
+        try {
+            
+            $this->db->dbh->beginTransaction();
+
+            $this->db->query('DELETE FROM tblmmf 
+                              WHERE  (ID = :id)');
+            $this->db->bind(':id',intval($id));
+            $this->db->execute();
+
+            deleteLedgerBanking($this->db->dbh,11,$id);
+           
+            if(!$this->db->dbh->commit()){
+                return false;
+            }else{
+                return true;
+            }
+
+        } catch (\Exception $e) {
+            if ($this->db->dbh->inTransaction()) {
+                $this->db->dbh->rollback();
+            }
+            error_log($e->getMessage(),0);
             return false;
-        }else{
-            return true;
         }
     }
 }

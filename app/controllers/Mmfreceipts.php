@@ -7,16 +7,13 @@ class Mmfreceipts extends Controller
             redirect('users');
             exit();
         }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'mmf Receipts');
         $this->mmfmodel = $this->model('Mmfreceipt');
     }
 
     public function index()
     {
-        $form = 'MMF Receipts';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->mmfmodel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $mmfs = $this->mmfmodel->GetMMFs();
         $data = [
             'mmfs' => $mmfs,
