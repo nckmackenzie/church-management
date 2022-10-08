@@ -3,34 +3,27 @@ class Expenses extends Controller{
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
-            redirect('');
+            redirect('users');
         }
-        else{
-            $this->expenseModel = $this->model('Expense');
-        }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'expenses');
+        $this->expenseModel = $this->model('Expense');
+        $this->reusemodel = $this->model('Reusables');
     }
+
     public function index()
     {
-        $form = 'Expenses';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->expenseModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $expenses = $this->expenseModel->getExpenses();
         $data = ['expenses' => $expenses];
         $this->view('expenses/index',$data);
     }
+
     public function add()
     {
-        $form = 'Expenses';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->expenseModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
-        $accounts = $this->expenseModel->getAccounts();
-        $paymethods = $this->expenseModel->paymethods();
-        $banks = $this->expenseModel->banks();
-        $voucherno = $this->expenseModel->receiptNo();
+        $accounts = $this->reusemodel->GetAccounts(2);
+        $paymethods = $this->reusemodel->PaymentMethods();
+        $banks = $this->reusemodel->GetBanks();
+        $voucherno = $this->expenseModel->VoucherNo();
         $data = [
             'voucherno' => $voucherno,
             'date' => '',
@@ -54,6 +47,7 @@ class Expenses extends Controller{
             'filename_err' => ''
         ];
         $this->view('expenses/add',$data);
+        exit;
     }
 
     public function checkoverspent()
@@ -94,14 +88,15 @@ class Expenses extends Controller{
            }
         }
     }
+
     public function create()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-            $accounts = $this->expenseModel->getAccounts();
-            $paymethods = $this->expenseModel->paymethods();
-            $banks = $this->expenseModel->banks();
-            $voucherno = $this->expenseModel->receiptNo();
+            $accounts = $this->reusemodel->GetAccounts(2);
+            $paymethods = $this->reusemodel->PaymentMethods();
+            $banks = $this->reusemodel->GetBanks();
+            $voucherno = $this->expenseModel->VoucherNo();
             $data = [
             'voucherno' => $voucherno,
             'voucher' => trim($_POST['voucher']),
@@ -211,32 +206,11 @@ class Expenses extends Controller{
             }
         }
         else{
-            $accounts = $this->expenseModel->getAccounts();
-            $paymethods = $this->expenseModel->paymethods();
-            $banks = $this->expenseModel->banks();
-            $voucherno = $this->expenseModel->receiptNo();
-            $data = [
-                'voucherno' => $voucherno,
-                'date' => '',
-                'accounts' => $accounts,
-                'expensetype' => '',
-                'account' => '',
-                'paymethods' => $paymethods,
-                'paymethod' => '',
-                'banks' => $banks,
-                'bank' => '',
-                'amount' => '',
-                'reference' => '',
-                'description' => '',
-                'date_err' => '',
-                'amount_err' => '',
-                'ref_err' => '',
-                'desc_err' => '',
-                'bank_err' => ''
-            ];
-            $this->view('expenses/add',$data);
+            redirect('users/deniedaccess');
+            exit;
         }
     }
+
     public function approve()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -254,18 +228,20 @@ class Expenses extends Controller{
             }
         }
     }
+
     public function edit($id)
     {
-        // $form = 'Expenses';
-        // if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->expenseModel->CheckRights($form)) {
-        //     redirect('users/deniedaccess');
-        //     exit();
-        // }
         $expense = $this->expenseModel->getExpense($id);
-        $accounts = $this->expenseModel->getAccounts();
-        $paymethods = $this->expenseModel->paymethods();
-        $banks = $this->expenseModel->banks();
+        $accounts = $this->reusemodel->GetAccounts(2);
+        $paymethods = $this->reusemodel->PaymentMethods();
+        $banks = $this->reusemodel->GetBanks();
         $groups = $this->expenseModel->getGroup();
+        checkcenter($expense->congregationId);
+        if($this->reusemodel->CheckYearClosed($expense->fiscalYearId)) :
+         flash('contribution_msg','Cannot edit transactions for closed year','alert custom-danger alert-dismissible fade show');
+         redirect('contributions');
+         exit;
+       endif; 
         $data = [
             'expense' => $expense,
             'voucher' => '',
@@ -289,13 +265,10 @@ class Expenses extends Controller{
             'desc_err' => '',
             'bank_err' => ''
         ];
-        if ($data['expense']->congregationId != $_SESSION['congId'] || $_SESSION['userType'] > 2) {
-           redirect('expenses');
-        }
-        else{
-            $this->view('expenses/edit',$data);
-        }
+        $this->view('expenses/edit',$data);
+        exit;
     }
+
     public function update()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -352,6 +325,7 @@ class Expenses extends Controller{
             redirect('expenses');
         }
     }
+
     public function delete()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -361,6 +335,13 @@ class Expenses extends Controller{
                 'date' => trim($_POST['date']),
                 'voucher' => trim($_POST['voucherno'])
             ];
+
+            if($this->expenseModel->YearIsClosed($data['id'])){
+                flash('expense_msg','Cannot delete transactions for closed year','alert custom-danger alert-dismissible fade show');
+                redirect('contributions');
+                exit;
+            }
+
             if (!empty($data['id'])) {
                 if ($this->expenseModel->delete($data)) {
                     flash('expense_msg',"Expense Updated Successfully!");
@@ -372,6 +353,7 @@ class Expenses extends Controller{
             redirect('expenses');
         }
     }
+
     public function print($id)
     {
         $expense = $this->expenseModel->getExpenseFull($id);

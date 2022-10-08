@@ -5,14 +5,6 @@ class Expense {
     {
         $this->db = new Database;
     }
-    public function CheckRights($form)
-    {
-        if (getUserAccess($this->db->dbh,$_SESSION['userId'],$form,$_SESSION['isParish']) > 0) {
-            return true;
-        }else{
-            return false;
-        }
-    }
     public function getExpenses()
     {
         $this->db->query('SELECT * FROM vw_getexpenses WHERE (congregationId=:cid)
@@ -20,35 +12,15 @@ class Expense {
         $this->db->bind(':cid',$_SESSION['congId']);
         return $this->db->resultSet();                  
     }
-    public function getAccounts()
-    {
-        $this->db->query('SELECT ID,UCASE(accountType) AS accountType
-                          FROM tblaccounttypes 
-                          WHERE (deleted=0) AND (parentId <> 0) AND (isSubCategory = 1) 
-                                AND (accountTypeId = 2) AND (congregationId=:cid OR congregationId=0)
-                          ORDER BY accountType');
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();                  
-    }
-    public function receiptNo()
+    
+    public function VoucherNo()
     {
        $this->db->query('SELECT voucherNo FROM tblexpenses
                         WHERE (congregationId=:cid) ORDER BY voucherNo DESC LIMIT 1'); 
       $this->db->bind(':cid',$_SESSION['congId']);
       return ($this->db->getValue()) + 1;
     }
-    public function paymethods()
-    {
-        return paymentMethods($this->db->dbh);
-    }
-    public function banks()
-    {
-        if ($_SESSION['isParish'] == 1) {
-            return getBanksAll($this->db->dbh);
-        }else{
-            return getBanks($this->db->dbh,$_SESSION['congId']);
-        }
-    }
+   
     public function getGroup()
     {
         if ($_SESSION['isParish'] == 1) {
@@ -115,11 +87,6 @@ class Expense {
         $this->db->bind(':id',$data['account']);
         $accountid = $this->db->getValue();
         //
-        if (!empty($data['bank']) || $data['bank'] != NULL) {
-            $this->db->query('SELECT accountType FROM tblaccounttypes WHERE (ID=:id)');
-            $this->db->bind(':id',trim($data['bank']));
-            $bankname = strtolower($this->db->getValue());
-        }
         $id = getLastId($this->db->dbh,'tblexpenses');
         $fid = getYearId($this->db->dbh,$data['date']);
         $today = date('Y-m-d');
@@ -180,21 +147,22 @@ class Expense {
             //     $this->db->bind(':cid',intval($_SESSION['congId']));
             //     $this->db->execute();
             // }
-
-            saveToLedger($this->db->dbh,$data['date'],$accountname,$data['amount'],0,$data['description'],
+            $cashparent = getparentgl($this->db->dbh,'cash at bank');
+            $accparent = getparentgl($this->db->dbh,$accountname);
+            saveToLedger($this->db->dbh,$data['date'],$accountname,$accparent,$data['amount'],0,$data['description'],
                          $accountid,2,$id,$_SESSION['congId']);
             if ($data['paymethod'] == 1 && $data['deductfrom'] === 'petty cash') {
-                saveToLedger($this->db->dbh,$data['date'],'petty cash',0,$data['amount'],$data['description'],
+                saveToLedger($this->db->dbh,$data['date'],'petty cash',$cashparent,0,$data['amount'],$data['description'],
                              3,2,$id,$_SESSION['congId']);
             }elseif($data['paymethod'] == 1 && $data['deductfrom'] === 'cash at hand'){
-                saveToLedger($this->db->dbh,$data['date'],'cash at hand',0,$data['amount'],$data['description'],
+                saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cashparent,0,$data['amount'],$data['description'],
                              3,2,$id,$_SESSION['congId']);
             }
             elseif ($data['paymethod'] == 2) {
-                saveToLedger($this->db->dbh,$data['date'],'cash at bank',0,$data['amount'],$data['description'],
+                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,0,$data['amount'],$data['description'],
                              3,2,$id,$_SESSION['congId']);
             }else{
-                saveToLedger($this->db->dbh,$data['date'],'cash at bank',0,$data['amount'],$data['description'],
+                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,0,$data['amount'],$data['description'],
                              3,2,$id,$_SESSION['congId']);
                 saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],2,
                               $data['reference'],2,$id,$_SESSION['congId']);             
@@ -211,7 +179,7 @@ class Expense {
             if ($this->db->dbh->inTransaction()) {
                 $this->db->dbh->rollback();
             }
-            throw $e;
+            error_log($e->getMessage(),0);
         }
     }
     public function approve($data)
@@ -249,14 +217,9 @@ class Expense {
         $this->db->query('SELECT accountTypeId FROM tblaccounttypes WHERE (ID=:id)');
         $this->db->bind(':id',$data['account']);
         $accountid = $this->db->getValue();
-        //
-        if (!empty($data['bank']) || $data['bank'] != NULL) {
-            $this->db->query('SELECT accountType FROM tblaccounttypes WHERE (ID=:id)');
-            $this->db->bind(':id',trim($data['bank']));
-            $bankname = strtolower($this->db->getValue());
-        }
+
         $fid = getYearId($this->db->dbh,$data['date']);
-        $today = date('Y-m-d');
+        
         try {
             //begin transaction
             $this->db->dbh->beginTransaction();
@@ -304,21 +267,23 @@ class Expense {
             // }
             
             deleteLedgerBanking($this->db->dbh,2,$data['id']);
+            $cashparent = getparentgl($this->db->dbh,'cash at bank');
+            $accparent = getparentgl($this->db->dbh,$accountname);
 
-            saveToLedger($this->db->dbh,$data['date'],$accountname,$data['amount'],0,$data['description'],
+            saveToLedger($this->db->dbh,$data['date'],$accountname,$accparent,$data['amount'],0,$data['description'],
                          $accountid,2,$data['id'],$_SESSION['congId']);
             if ($data['paymethod'] == 1 && $data['deductfrom'] === 'petty cash') {
-                saveToLedger($this->db->dbh,$data['date'],'petty cash',0,$data['amount'],$data['description'],
+                saveToLedger($this->db->dbh,$data['date'],'petty cash',$cashparent,0,$data['amount'],$data['description'],
                              3,2,$data['id'],$_SESSION['congId']);
             }elseif($data['paymethod'] == 1 && $data['deductfrom'] === 'cash at hand'){
-                saveToLedger($this->db->dbh,$data['date'],'cash at hand',0,$data['amount'],$data['description'],
+                saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cashparent,0,$data['amount'],$data['description'],
                              3,2,$data['id'],$_SESSION['congId']);
             }
             elseif ($data['paymethod'] == 2) {
-                saveToLedger($this->db->dbh,$data['date'],'cash at bank',0,$data['amount'],$data['description'],
+                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,0,$data['amount'],$data['description'],
                              3,2,$data['id'],$_SESSION['congId']);
             }else{
-                saveToLedger($this->db->dbh,$data['date'],'cash at bank',0,$data['amount'],$data['description'],
+                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,0,$data['amount'],$data['description'],
                              3,2,$data['id'],$_SESSION['congId']);
                 saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],2,
                               $data['reference'],2,$data['id'],$_SESSION['congId']);             
@@ -335,7 +300,7 @@ class Expense {
             if ($this->db->dbh->inTransaction()) {
                 $this->db->dbh->rollback();
             }
-            throw $e;
+            error_log($e->getMessage(),0);
         }
     }
     public function delete($data)
@@ -343,15 +308,15 @@ class Expense {
         try {
             //begin transaction
             $this->db->dbh->beginTransaction();
-            $this->db->query('DELETE FROM tblexpenses WHERE (ID=:id)');
+            $this->db->query('UPDATE tblexpenses SET deleted = 0 WHERE (ID=:id)');
             $this->db->bind(':id',$data['id']); 
             $this->db->execute();
             
-            $this->db->query('DELETE FROM tblpettycash WHERE (ExpenseId=:eid)');
+            $this->db->query('UPDATE tblpettycash SET Deleted = 0 WHERE (ExpenseId=:eid)');
             $this->db->bind(':eid',$data['id']);
             $this->db->execute();
                    
-            deleteLedgerBanking($this->db->dbh,2,$data['id']);
+            softdeleteLedgerBanking($this->db->dbh,2,$data['id']);
 
             $act = 'Deleted Expense For '.$data['date'] . ' Voucher No '.$data['voucher'];
             saveLog($this->db->dbh,$act);
@@ -365,7 +330,13 @@ class Expense {
             if ($this->db->dbh->inTransaction()) {
                 $this->db->dbh->rollback();
             }
-            throw $e;
+            error_log($e->getMessage(),0);
         }
+    }
+
+    public function YearIsClosed($id) 
+    {
+        $yearid = getdbvalue($this->db->dbh,'SELECT fiscalYearId FROM tblexpenses WHERE ID = ?',[$id]);
+        return yearprotection($this->db->dbh,$yearid);
     }
 }
