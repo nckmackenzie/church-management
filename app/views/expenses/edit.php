@@ -132,7 +132,7 @@
                                                 <?php foreach($data['banks'] as $bank) :?> 
                                                     <option value="<?php echo $bank->ID;?>"
                                                     <?php selectdCheckEdit($data['bank'],$data['expense']->bankId,$bank->ID)?>>
-                                                        <?php echo strtoupper($bank->accountType);?>
+                                                        <?php echo strtoupper($bank->Bank);?>
                                                     </option>
                                                 <?php endforeach; ?>
                                               
