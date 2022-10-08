@@ -7,11 +7,9 @@ class Cashreceipts extends Controller
             redirect('users');
             exit();
         }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'cash receipts');
         $this->receiptmodel = $this->model('Cashreceipt');
-
-        if((int)$_SESSION['userType'] > 2 && (int)$_SESSION['userType'] !== 6){
-            checkrights($this->receiptmodel,'cash receipts');
-        }
     }
 
     public function index()
