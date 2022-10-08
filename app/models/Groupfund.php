@@ -153,13 +153,15 @@ class Groupfund
             $this->db->bind(':cid',$_SESSION['congId']);
             $this->db->execute();
 
-            saveToLedger($this->db->dbh,$data['paydate'],'groups balances held',$data['approved'],0,$desc,
+            $gbhparent = getparentgl($this->db->dbh,'groups balances held');
+            $cashparent = getparentgl($this->db->dbh,'cash at hand');
+            saveToLedger($this->db->dbh,$data['paydate'],'groups balances held',$gbhparent,$data['approved'],0,$desc,
                          4,12,$data['id'],$_SESSION['congId']);
             if((int)$data['paymethod'] === 1){
-                saveToLedger($this->db->dbh,$data['paydate'],'cash at hand',0,$data['approved'],$desc,
+                saveToLedger($this->db->dbh,$data['paydate'],'cash at hand',$cashparent,0,$data['approved'],$desc,
                          3,12,$data['id'],$_SESSION['congId']);
             }else{
-                saveToLedger($this->db->dbh,$data['paydate'],'cash at bank',0,$data['approved'],$desc,
+                saveToLedger($this->db->dbh,$data['paydate'],'cash at bank',$cashparent,0,$data['approved'],$desc,
                              3,12,$data['id'],$_SESSION['congId']);
 
                 saveToBanking($this->db->dbh,$data['bank'],$data['paydate'],0,$data['approved'],2,
@@ -176,8 +178,7 @@ class Groupfund
             if($this->db->dbh->inTransaction()){
                 $this->db->dbh->rollback();
             }
-            throw $e;
-            // return false;
+           error_log($e->getMessage(),0);
         }
     }
     
@@ -208,7 +209,7 @@ class Groupfund
             if($this->db->dbh->inTransaction()){
                 $this->db->dbh->rollback();
             }
-            throw $e;
+            error_log($e->getMessage(),0);
         }
     }
 }
