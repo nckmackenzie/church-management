@@ -128,6 +128,11 @@ td.sub-level-5 {
   animation: animate 0.8s linear infinite;
 }
 
+.spinner.md {
+  width: 36px;
+  height: 36px;
+}
+
 @keyframes animate {
   from {
     transform: rotate(0deg);
