@@ -8,11 +8,6 @@ class Cashreceipt
         $this->db = new Database;
     }
 
-    public function CheckRights($form)
-    {
-        return checkuserrights($this->db->dbh,$_SESSION['userId'],$form);
-    }
-
     public function GetReceipts()
     {
         $this->db->query('SELECT * FROM vw_cashreceipts WHERE CongregationId = :id');
@@ -53,11 +48,12 @@ class Cashreceipt
             $this->db->execute();
 
             $tid = $this->db->dbh->lastInsertId();
+            $cabparent = getparentgl($this->db->dbh,'cash at bank');
 
-            saveToLedger($this->db->dbh,$data['date'],'petty cash',$data['amount'],0,$narr ,
+            saveToLedger($this->db->dbh,$data['date'],'petty cash',$cabparent,$data['amount'],0,$narr ,
                          3,10,$tid,$_SESSION['congId']);
 
-            saveToLedger($this->db->dbh,$data['date'],'cash at bank',0,$data['amount'],$narr ,
+            saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,0,$data['amount'],$narr ,
                          3,10,$tid,$_SESSION['congId']);
 
             saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],2,
@@ -74,7 +70,7 @@ class Cashreceipt
             if ($this->db->dbh->inTransaction()) {
                 $this->db->dbh->rollback();
             }
-            throw $e;
+            error_log($e->getMessage(),0);
             return false;
         }
     }
@@ -97,10 +93,11 @@ class Cashreceipt
 
             deleteLedgerBanking($this->db->dbh,10,$data['id']);
 
-            saveToLedger($this->db->dbh,$data['date'],'petty cash',$data['amount'],0,$narr,
+            $cabparent = getparentgl($this->db->dbh,'cash at bank');
+            saveToLedger($this->db->dbh,$data['date'],'petty cash',$cabparent,$data['amount'],0,$narr,
                          3,10,$data['id'],$_SESSION['congId']);
 
-            saveToLedger($this->db->dbh,$data['date'],'cash at bank',0,$data['amount'],$narr,
+            saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,0,$data['amount'],$narr,
                          3,10,$data['id'],$_SESSION['congId']);
             
             saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],2,
@@ -144,11 +141,11 @@ class Cashreceipt
             //begin transaction
             $this->db->dbh->beginTransaction();
             
-            $this->db->query('DELETE FROM tblpettycash WHERE ID = :id');
+            $this->db->query('UPDATE tblpettycash SET Deleted = 0 WHERE ID = :id');
             $this->db->bind(':id', $id);
             $this->db->execute();
 
-            deleteLedgerBanking($this->db->dbh,10,$id);
+            softdeleteLedgerBanking($this->db->dbh,10,$id);
                     
             if ($this->db->dbh->commit()) {
                 return true;
@@ -161,7 +158,7 @@ class Cashreceipt
             if ($this->db->dbh->inTransaction()) {
                 $this->db->dbh->rollback();
             }
-            throw $e;
+            error_log($e->getMessage(),0);
             return false;
         }
     }
