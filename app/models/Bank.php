@@ -63,9 +63,11 @@ class Bank {
                     $this->db->execute();
                 }
 
-                saveToLedger($this->db->dbh,$data['asof'],$param,0,$data['openingbal'],$param,6,8,
+                $cabparent = getparentgl($this->db->dbh,'cash at bank'); //cash at bank parent
+
+                saveToLedger($this->db->dbh,$data['asof'],$param,NULL,0,$data['openingbal'],$param,6,8,
                              $tid,$_SESSION['congId']);
-                saveToLedger($this->db->dbh,$data['asof'],$data['bankname'],$data['openingbal'],0,$param,3,8,
+                saveToLedger($this->db->dbh,$data['asof'],'cash at bank',$cabparent,$data['openingbal'],0,$param,3,8,
                              $tid,$_SESSION['congId']);
                 saveToBanking($this->db->dbh,$tid,$data['asof'],$data['openingbal'],0,4,$param,8,
                               $tid,$_SESSION['congId']);             
@@ -85,7 +87,7 @@ class Bank {
             if ($this->db->dbh->inTransaction()) {
                 $this->db->dbh->rollback();
             }
-            throw $e;
+            error_log($e->getMessage(),0);
         }
     }
     public function getbank($id)
