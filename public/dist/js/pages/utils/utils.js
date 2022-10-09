@@ -3,7 +3,7 @@ export const mandatoryFields = document.querySelectorAll('.mandatory');
 //display alert
 export function displayAlert(elm, message, status = 'danger') {
   const html = `
-    <div class="alert alert-${status}" role="alert">
+    <div class="alert custom-${status}" role="alert">
       ${message}
     </div>
   `;
