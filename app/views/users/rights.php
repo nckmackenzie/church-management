@@ -6,32 +6,58 @@
     <!-- Main content -->
     <section class="content">
          <div class="row">
-             <div class="col-md-9 mx-auto mt-2">
-                <form action="<?php echo URLROOT;?>/users/getusersrights" method="post">
-                    <div class="card bg-light">
-                        <div class="card-header">
-                            <div class="row">
-                                <div class="col-sm-6">
-                                    <select name="user" id="user" class="form-control form-control-sm 
-                                            <?php echo (!empty($data['user_err'])) ? 'is-invalid' : '' ?>">
-                                        <option value="0">Select User</option>
-                                        <?php foreach($data['users'] as $user) :?>
-                                            <option value="<?php echo $user->ID;?>"><?php echo $user->UserName;?></option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                    <span class="invalid-feedback"><?php echo $data['user_err'];?></span>
-                                </div>
-                                <div class="col-sm-3">
-                                    <button type="submit" class="btn btn-sm btn-success">Load</button>
+            <div class="col-12" id="alertBox"></div>
+            <div class="col-md-6 col-lg-4 mx-auto mt-2">
+                <div class="card">
+                    <div class="card-body">
+                        <label for="user">Select user</label>
+                        <select style="width: 100%" name="user" id="user" class="form-control form-control-sm select2">
+                            <option value="" selected disabled>Select user</option>
+                            <?php foreach($data['users'] as $user) : ?>
+                                <option value="<?php echo $user->ID;?>"><?php echo $user->UserName;?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+            </div>
+         </div>
+         <div class="spinner-container justify-content-center">
+            
+         </div>
+         <div class="row d-none" id="table-area">
+            <div class="col-md-8 mx-auto">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="row">
+                            <div class="col-sm-2">
+                            <button class="btn btn-sm bg-navy btn-block">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="table-responsive">
+                                    <table class="table table-sm" id="rights-table">
+                                        <thead class="bg-navy">
+                                            <tr>
+                                                <th class="d-none">ID</th>
+                                                <th>Access</th>
+                                                <th>Form</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
-                    </div><!--</Card -->
-                </form>
-             </div>
+                    </div>
+                </div>
+            </div>
          </div>
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/users/userrights.js"></script>
 </body>
 </html>  
