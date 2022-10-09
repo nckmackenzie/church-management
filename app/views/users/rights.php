@@ -11,12 +11,13 @@
                 <div class="card">
                     <div class="card-body">
                         <label for="user">Select user</label>
-                        <select style="width: 100%" name="user" id="user" class="form-control form-control-sm select2">
+                        <select style="width: 100%" name="user" id="user" class="form-control form-control-sm select2 mandatory">
                             <option value="" selected disabled>Select user</option>
                             <?php foreach($data['users'] as $user) : ?>
                                 <option value="<?php echo $user->ID;?>"><?php echo $user->UserName;?></option>
                             <?php endforeach; ?>
                         </select>
+                        <span class="invalid-feedback"></span>
                     </div>
                 </div>
             </div>
@@ -31,7 +32,7 @@
                         <div class="card-header">
                             <div class="row">
                                 <div class="col-sm-2">
-                                    <button type="submit" class="btn btn-sm bg-navy btn-block">Save</button>
+                                    <button type="submit" class="btn btn-sm bg-navy btn-block btnsave">Save</button>
                                 </div>
                             </div>
                         </div>
