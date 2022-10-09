@@ -288,12 +288,12 @@ class User {
             $this->db->bind(':user',$data['user']);
             $this->db->execute();
             //reenter selected rights
-            for ($i=0; $i < count($data['form']); $i++) {
-                if ($data['access'][$i] == 1) {
+            for ($i=0; $i < count($data['rights']); $i++) {
+                if ((int)$data['rights'][$i]->access === 1) {
                     $this->db->query('INSERT INTO tbluserrights (UserId,FormId,access) VALUES(:user,:fid,:access)');
                     $this->db->bind(':user',$data['user']);
-                    $this->db->bind(':fid',$data['form'][$i]);
-                    $this->db->bind(':access',$data['access'][$i]);
+                    $this->db->bind(':fid',$data['rights'][$i]->formId);
+                    $this->db->bind(':access',$data['rights'][$i]->access);
                     $this->db->execute();
                 }
             }
@@ -308,13 +308,7 @@ class User {
             if ($this->db->dbh->inTransaction()) {
                 $this->db->dbh->rollBack();
             }
-            throw $e;
-        }
-        $count = 0;
-        
-        if ($count > 0) {
-            return true;
-        }else {
+            error_log($e->getMessage(),0);
             return false;
         }
     }
@@ -337,9 +331,10 @@ class User {
                          0 as access
                  FROM    tblforms
                  WHERE   (ParishNav = :pnav) AND ID NOT IN (SELECT FormId FROM tbluserrights WHERE (UserId = :userid))';
+        $sql .= ' ORDER BY FormName';
         $this->db->query($sql);
         $this->db->bind(':pnav',$_SESSION['isParish']);
-        $this->db->bind(':userid',decryptId($id));
+        $this->db->bind(':userid',$id);
         return $this->db->resultSet();
     }
     public function CheckRightsAssigned($id)

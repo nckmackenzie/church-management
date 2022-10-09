@@ -517,20 +517,50 @@ class Users extends Controller{
     }
     public function assignrights()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $fields = json_decode(file_get_contents('php://input'));
             $data = [
-                'user' => trim($_POST['userid']),
-                'form' => $_POST['fid'],
-                'access' => $_POST['access']
+                'user' => isset($fields->user) && !empty($fields->user) ? (int)$fields->user : null,
+                'rights' => is_countable($fields->tableData) ? $fields->tableData : null,
             ];
-            if ($this->userModel->rights($data)) {
-                redirect('users/all');
+
+            //validate
+            if(is_null($data['user']) || is_null($data['rights'])){
+                http_response_code(400);
+                echo json_encode(['message' => 'Fill all required details']);
+                exit;
             }
+
+            //unable to save
+            if(!$this->userModel->rights($data)){
+                http_response_code(500);
+                echo json_encode(['message' => 'Unable to save! Retry or contact admin']);
+                exit;
+            }
+
+            http_response_code(200);
+            echo json_encode(['message' => 'Saved Successfully','success' => true]);
+            exit;
+
+
         }else {
             redirect('users');
         }
     }
+
+    public function loadrights()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'GET')
+        {
+            $id = htmlentities(trim($_GET['userid']));
+            
+            echo json_encode($this->userModel->GetRights($id));
+        }else{
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
+
     public function getrights($id)
     {
         $user = $this->userModel->getUser($id);
