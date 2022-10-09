@@ -6,7 +6,7 @@
     <!-- Main content -->
     <section class="content">
          <div class="row">
-            <div class="col-12" id="alertBox"></div>
+            <div class="col-12 mt-2" id="alertBox"></div>
             <div class="col-md-6 col-lg-4 mx-auto mt-2">
                 <div class="card">
                     <div class="card-body">
