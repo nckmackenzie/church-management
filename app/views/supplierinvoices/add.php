@@ -12,13 +12,14 @@
         </button>
       </div>
       <div class="modal-body">
-          <form action="<?php echo URLROOT;?>/invoices/newproduct" method="post">
+          <form action="<?php echo URLROOT;?>/invoices/newproduct" method="post" autocomplete="off" id="productForm">
                <div class="row">
+                <div class="col-12 modalAlert"></div>
                    <div class="col-md-12">
                         <div class="form-group">
                             <label for="name">Name</label>
                             <input type="text" name="name" id="name"
-                                   class="form-control form-control-sm mandatory"
+                                   class="form-control form-control-sm modalrequired"
                                    placeholder="Enter Product Name"
                                    autocomplete="off">
                             <span class="invalid-feedback" id="name_err"></span>
@@ -41,15 +42,17 @@
                        <div class="form-group">
                             <label for="sellingprice">Selling Price/Rate</label>
                             <input type="number" name="sellingprice" id="sellingprice"
-                                   class="form-control form-control-sm mandatory"
-                                   autocomplete="off">
+                                   class="form-control form-control-sm modalrequired"
+                                   autocomplete="off"
+                                   placeholder="eg 5,000">
                             <span id="account_err" class="invalid-feedback"></span>
                        </div>
                    </div>
                    <div class="col-md-6">
                        <div class="form-group">
                             <label for="account">Income Account</label>
-                            <select name="account" id="account" class="form-control form-control-sm mandatory">
+                            <select name="account" id="account" class="form-control form-control-sm modalrequired">
+                                <option value="">Select account</option>
                                 <?php foreach($data['accounts'] as $account) : ?>
                                     <option value="<?php echo $account->ID;?>">
                                         <?php echo $account->accountType;?>
@@ -62,7 +65,7 @@
                </div>
                <div class="modal-footer">
                     <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary btn-sm" id="newproduct">Save</button>
+                    <button type="submit" class="btn btn-primary btn-sm" id="newproduct">Save</button>
                </div>
           </form>   
       </div>
@@ -167,7 +170,7 @@
                                        <select name="product" id="product" 
                                                 class="form-control form-control-sm">
                                                 <option value="" selected disabled>Select product</option>
-                                            <option value="0" style="background-color: #6ee7b7; color :black;"><span class="selectspan">Add NEW</span></option>    
+                                            <option value="0" style="background-color: #a7f3d0; color :black;"><span class="selectspan">Add NEW</span></option>    
                                             <?php foreach($data['products'] as $product) : ?>
                                                 <option value="<?php echo $product->ID;?>">
                                                     <?php echo $product->productName;?>
