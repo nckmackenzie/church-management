@@ -104,15 +104,6 @@ class Supplierinvoices extends Controller
         }
     }
 
-    public function getrate()
-    {
-        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $vat = trim($_POST['vat']);
-            echo $this->invoicemodel->getRate($vat);
-        }
-    }
-
     public function create()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
