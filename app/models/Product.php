@@ -79,4 +79,9 @@ class Product
         }
         return true;
     }
+
+    public function GetRate($id)
+    {
+        return getdbvalue($this->db->dbh,'SELECT rate FROM tblproducts WHERE ID = ?',[$id]);
+    }
 }

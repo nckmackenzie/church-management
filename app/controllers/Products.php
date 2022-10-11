@@ -148,4 +148,17 @@ class Products extends Controller
             exit;
         }
     }
+
+    public function getrate()
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            $pid = isset($_GET['pid']) && !empty(trim($_GET['pid'])) ? (int)trim($_GET['pid']) : null;
+            if(is_null($pid)){
+                http_response_code(400);
+                echo json_encode(['message' => 'Select product']);
+            exit;
+            }
+            echo json_encode($this->productmodel->GetRate($pid));
+        }
+    }
 }
