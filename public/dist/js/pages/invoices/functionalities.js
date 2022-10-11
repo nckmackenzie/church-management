@@ -5,9 +5,12 @@ import {
   grossInput,
   table,
   productSelect,
+  vatTypeSelect,
+  totalsInput,
 } from './supplier.js';
 
-import { getSelectedText } from '../utils/utils.js';
+import { getSelectedText, numberFormatter } from '../utils/utils.js';
+const vatamountInput = document.getElementById('vatamount');
 
 export function addDays(date, days) {
   const result = new Date(date);
@@ -60,4 +63,19 @@ export function addToTable() {
   const tbody = table.getElementsByTagName('tbody')[0];
   let newRow = tbody.insertRow(tbody.rows.length);
   newRow.innerHTML = html;
+}
+
+export function calculateVat() {
+  if (!totalsInput.value || !vatTypeSelect.value) return;
+  if (+vatTypeSelect.value === 1) {
+    vatamountInput.value = 0;
+  } else if (+vatTypeSelect.value === 2) {
+    const total = numberFormatter(totalsInput.value);
+    const excAmount = total / 1.16;
+    vatamountInput.value = (total - excAmount).toFixed(2);
+  } else {
+    const total = numberFormatter(totalsInput.value);
+    const amountInc = total * ((100 + 16) / 100);
+    vatamountInput.value = (amountInc - total).toFixed(2);
+  }
 }
