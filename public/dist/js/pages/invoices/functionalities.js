@@ -16,6 +16,8 @@ import {
 
 import { getSelectedText, numberFormatter } from '../utils/utils.js';
 const vatamountInput = document.getElementById('vatamount');
+const idInput = document.getElementById('id');
+const isEditInput = document.getElementById('isedit');
 
 export function addDays(date, days) {
   const result = new Date(date);
@@ -93,6 +95,8 @@ export function header() {
     vatType: vatTypeSelect.value,
     vat: vatSelect.value,
     invoiceNo: invoiceNoInput.value,
+    id: idInput.value,
+    isEditInput: isEditInput.value,
   };
 }
 
