@@ -82,7 +82,7 @@
                 <div class="card bg-light">
                     <div class="card-header">Add Invoice</div>
                     <div class="card-body">
-                        <form action="<?php echo URLROOT;?>/supplierinvoices/create" method="post">
+                        <form action="" method="post" id="invoiceForm">
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group">
@@ -164,11 +164,11 @@
                             </div><!--End Of Row -->
                             <hr>
                             <div class="row">
-                                <div class="col-md-6">
+                                <div class="col-md-5">
                                     <div class="form-group">
                                        <label for="product">Product</label>
                                        <select name="product" id="product" 
-                                                class="form-control form-control-sm">
+                                                class="form-control form-control-sm addcontrol">
                                                 <option value="" selected disabled>Select product</option>
                                             <option value="0" style="background-color: #a7f3d0; color :black;"><span class="selectspan">Add NEW</span></option>    
                                             <?php foreach($data['products'] as $product) : ?>
@@ -177,18 +177,21 @@
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
+                                        <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-2">
                                     <div class="form-group">
                                         <label for="">Qty</label>
-                                        <input type="number" class="form-control form-control-sm" id="qty">
+                                        <input type="number" class="form-control form-control-sm addcontrol" id="qty">
+                                        <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-2">
                                     <div class="form-group">
                                         <label for="rate">Rate</label>
-                                        <input type="number" id="rate" class="form-control form-control-sm">
+                                        <input type="number" id="rate" class="form-control form-control-sm addcontrol">
+                                        <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-2">
@@ -198,14 +201,6 @@
                                            id="gross" readonly>
                                     </div>
                                 </div>
-                            </div><!--End Of Row -->
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="description">Description</label>
-                                        <input type="text" id="description" class="form-control form-control-sm" autocomplete="off">        
-                                    </div>
-                                </div>
                                 <div class="col-md-1">
                                     <div class="form-group">
                                         <label for="description" style="color: #F4F6F9;">Description</label>
@@ -213,9 +208,8 @@
                                         class="btn btn-sm btn-success custom-font form-control form-control-sm">Add</button>        
                                     </div>
                                 </div>
-                                <div class="col-md-1">
-                                
-                                </div>
+                            </div><!--End Of Row -->
+                            <div class="row">
                                 <div class="col-md-2">
                                     <div class="form-group">
                                         <label for="total">Total</label>
@@ -237,18 +231,15 @@
                                     <table id="details" class="table table-bordered table-sm table-striped">
                                         <thead class="bg-navy">
                                             <tr>
-                                                <th style="display: none;">Product</th>
+                                                <th class="d-none">Product</th>
                                                 <th width="20%">Product</th>
-                                                <th width="20%">Desc</th>
                                                 <th width="5%">Qty</th>
                                                 <th width="10%">Rate</th>
                                                 <th width="10%">Gross</th>
                                                 <th width="5%"></th>
                                             </tr>
                                         </thead>
-                                        <tbody>
-                                        
-                                        </tbody>
+                                        <tbody></tbody>
                                     </table>            
                                </div>
                            </div>
