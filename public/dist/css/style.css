@@ -133,7 +133,8 @@ td.sub-level-5 {
   height: 36px;
 }
 
-.tablebtn {
+.tablebtn,
+.tablebtn:focus {
   outline: none;
   border: none;
   font-weight: 500;
