@@ -1,6 +1,6 @@
 export const HOST_URL = 'http://localhost/cms';
 export const mandatoryFields = document.querySelectorAll('.mandatory');
-export const alertBox = document.getElementById('#alertBox');
+export const alertBox = document.getElementById('alertBox');
 //display alert
 export function displayAlert(elm, message, status = 'danger') {
   const html = `
