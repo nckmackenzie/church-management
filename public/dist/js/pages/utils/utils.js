@@ -101,3 +101,18 @@ export function resetLoadingState(btn, btnText = 'Submit') {
   btn.disabled = false;
   btn.textContent = btnText;
 }
+
+//get totals - table
+export function updateSubTotal(table, cell, elementType, element) {
+  let sumVal = 0;
+  for (var i = 1; i < table.rows.length; i++) {
+    const rowValue = parseFloat(table.rows[i].cells[cell].innerText) || 0;
+    sumVal = sumVal + rowValue;
+  }
+
+  if (elementType === 'input') {
+    element.value = numberWithCommas(sumVal.toFixed(2));
+  } else {
+    element.innerText = numberWithCommas(sumVal.toFixed(2));
+  }
+}
