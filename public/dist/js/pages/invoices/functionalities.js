@@ -7,6 +7,11 @@ import {
   productSelect,
   vatTypeSelect,
   totalsInput,
+  supplierSelect,
+  invoiceDateInput,
+  dueDateInput,
+  invoiceNoInput,
+  vatSelect,
 } from './supplier.js';
 
 import { getSelectedText, numberFormatter } from '../utils/utils.js';
@@ -78,4 +83,28 @@ export function calculateVat() {
     const amountInc = total * ((100 + 16) / 100);
     vatamountInput.value = (amountInc - total).toFixed(2);
   }
+}
+
+export function header() {
+  return {
+    supplier: supplierSelect.value,
+    invoiceDate: invoiceDateInput.value,
+    dueDate: dueDateInput.value,
+    vatType: vatTypeSelect.value,
+    vat: vatSelect.value,
+    invoiceNo: invoiceNoInput.value,
+  };
+}
+
+export function tableData() {
+  const tableData = [];
+  const trs = table.getElementsByTagName('tbody')[0].querySelectorAll('tr');
+  trs.forEach(tr => {
+    const pid = tr.querySelector('pid');
+    const qty = tr.querySelector('qty');
+    const rate = tr.querySelector('rate');
+    const gross = tr.querySelector('gross');
+    tableData.push({ pid, qty, rate, gross });
+  });
+  return tableData;
 }
