@@ -2,11 +2,17 @@ import {
   mandatoryFields,
   clearOnChange,
   updateSubTotal,
+  validation,
+  displayAlert,
+  alertBox,
+  setLoadingState,
+  resetLoadingState,
 } from '../utils/utils.js';
 import {
   getSupplierDetails,
   saveProduct,
   getProductRate,
+  saveForm,
 } from './ajax-requests.js';
 import {
   formatDate,
@@ -14,16 +20,19 @@ import {
   validateModal,
   calcGrossValue,
   addToTable,
+  calculateVat,
+  header,
+  tableData,
 } from './functionalities.js';
 
-const supplierSelect = document.getElementById('supplier');
-const invoiceDateInput = document.getElementById('idate');
-const dueDateInput = document.getElementById('duedate');
-const invoiceNoInput = document.getElementById('invoiceno');
+export const supplierSelect = document.getElementById('supplier');
+export const invoiceDateInput = document.getElementById('idate');
+export const dueDateInput = document.getElementById('duedate');
+export const invoiceNoInput = document.getElementById('invoiceno');
 const pinInput = document.getElementById('pin');
 const emailInput = document.getElementById('email');
-const vatTypeSelect = document.getElementById('vattype');
-const vatSelect = document.getElementById('vat');
+export const vatTypeSelect = document.getElementById('vattype');
+export const vatSelect = document.getElementById('vat');
 export const productSelect = document.getElementById('product');
 const modalForm = document.getElementById('productForm');
 const modalBtn = document.getElementById('newproduct');
@@ -33,10 +42,11 @@ export const rateInput = document.getElementById('rate');
 export const qtyInput = document.getElementById('qty');
 export const grossInput = document.getElementById('gross');
 const addBtn = document.getElementById('add');
-const totalsInput = document.getElementById('totals');
+export const totalsInput = document.getElementById('totals');
 export const table = document.getElementById('details');
 const addInputControls = document.querySelectorAll('.addcontrol');
 const invoiceForm = document.getElementById('invoiceForm');
+const saveBtn = document.getElementById('save');
 // export const descriptionInput = document.getElementById('description');
 
 //fetch supplier details
@@ -50,6 +60,8 @@ supplierSelect.addEventListener('change', async function (e) {
 invoiceDateInput.addEventListener('change', function (e) {
   if (e.target.value == '' || !e.target.value) return;
   dueDateInput.value = formatDate(addDays(e.target.value, 30));
+  dueDateInput.classList.remove('is-invalid');
+  dueDateInput.nextSibling.nextSibling.textContent = '';
 });
 
 vatTypeSelect.addEventListener('change', function (e) {
@@ -61,6 +73,7 @@ vatTypeSelect.addEventListener('change', function (e) {
     vatSelect.disabled = true;
     vatSelect.value = '';
   }
+  calculateVat();
 });
 
 productSelect.addEventListener('change', async function (e) {
@@ -123,6 +136,7 @@ addBtn.addEventListener('click', function () {
   if (error > 0) return;
   addToTable();
   updateSubTotal(table, 4, 'input', totalsInput);
+  calculateVat();
   productSelect.value =
     qtyInput.value =
     rateInput.value =
@@ -136,6 +150,23 @@ table.addEventListener('click', function (e) {
   const btn = e.target;
   btn.closest('tr').remove();
   updateSubTotal(table, 4, 'input', totalsInput);
+  calculateVat();
+});
+
+invoiceForm.addEventListener('submit', async function (e) {
+  e.preventDefault();
+  if (validation() > 0) return;
+  const tbodyRow = table.getElementsByTagName('tbody')[0];
+  if (+tbodyRow.rows.length === 0) {
+    displayAlert(alertBox, 'Enter products');
+    return;
+  }
+  const formData = { header: header(), table: tableData() };
+  setLoadingState(saveBtn, 'Saving...');
+  const res = await saveForm(formData);
+  if (res && res?.success) {
+    window.location.replace(`${HOST_URL}/supplierinvoices`);
+  }
 });
 
 clearOnChange(mandatoryFields);

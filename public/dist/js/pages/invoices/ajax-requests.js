@@ -33,3 +33,14 @@ export async function getProductRate(pid) {
   );
   return res;
 }
+
+export async function saveForm(data) {
+  const res = await sendHttpRequest(
+    `${HOST_URL}/supplierinvoices/createupdate`,
+    'POST',
+    JSON.stringify(data),
+    { 'Content-Type': 'application/json' },
+    alertBox
+  );
+  return res;
+}
