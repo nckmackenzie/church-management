@@ -97,6 +97,7 @@ export function header() {
     invoiceNo: invoiceNoInput.value,
     id: idInput.value,
     isEditInput: isEditInput.value,
+    total: numberFormatter(totalsInput.value),
   };
 }
 
