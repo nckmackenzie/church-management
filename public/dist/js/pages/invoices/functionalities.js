@@ -1,4 +1,10 @@
-import { modalRequired } from './supplier.js';
+import {
+  modalRequired,
+  rateInput,
+  qtyInput,
+  grossInput,
+  descriptionInput,
+} from './supplier.js';
 
 export function addDays(date, days) {
   const result = new Date(date);
@@ -29,4 +35,10 @@ export function validateModal() {
   });
 
   return errorCount;
+}
+
+export function calcGrossValue() {
+  if (!rateInput.value || !qtyInput.value) return;
+  const gross = parseFloat(rateInput.value) * parseFloat(qtyInput.value);
+  grossInput.value = gross;
 }
