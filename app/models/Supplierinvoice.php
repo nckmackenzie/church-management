@@ -118,6 +118,17 @@ class Supplierinvoice
         return ($this->db->getValue()) / 100;
     }
 
+    public function CheckInvoiceNo($invoice,$id)
+    {
+        $sql = 'SELECT COUNT(*) FROM tblinvoice_header_suppliers WHERE (invoiceNo = ?) AND (congregationId = ?) AND (ID <> ?)';
+        $count = getdbvalue($this->db->dbh,$sql,[strtolower($invoice),$_SESSION['congId'], $id]);
+        if((int)$count > 0){
+            return false;
+        }else{
+            return true; 
+        }
+    }
+
     public function create($data)
     {
         $yearid = getYearId($this->db->dbh,$data['invoicedate']);
@@ -129,13 +140,13 @@ class Supplierinvoice
                                           fiscalYearId,vattype,vatId,exclusiveVat,vat,inclusiveVat,
                                           postedBy,congregationId)
                               VALUES(:idate,:ddate,:cid,:inv,:fid,:vtype,:vid,:evat,:vat,:ivat,:pby,:cong)');
-            $this->db->bind(':idate',!empty($data['invoicedate']) ? $data['invoicedate'] : NULL);
-            $this->db->bind(':ddate',!empty($data['duedate']) ? $data['duedate'] : NULL);
-            $this->db->bind(':cid',$data['supplierId']);
-            $this->db->bind(':inv',$data['invoice']);
+            $this->db->bind(':idate',$data['idate']);
+            $this->db->bind(':ddate',$data['ddate']);
+            $this->db->bind(':cid',$data['supplier']);
+            $this->db->bind(':inv',$data['invoiceno']);
             $this->db->bind(':fid',$yearid);
-            $this->db->bind(':vtype',!empty($data['vattype']) ? $data['vattype'] : NULL);
-            $this->db->bind(':vid',$vatId);
+            $this->db->bind(':vtype',$data['vattype']);
+            $this->db->bind(':vid',!is_null($data['vat']) ? $vatId : null);
             $this->db->bind(':evat',calculateVat($data['vattype'],$data['totals'])[0]);
             $this->db->bind(':vat',calculateVat($data['vattype'],$data['totals'])[1]);
             $this->db->bind(':ivat',calculateVat($data['vattype'],$data['totals'])[2]);
@@ -144,24 +155,27 @@ class Supplierinvoice
             $this->db->execute();
             //details
             $tid = $this->db->dbh->lastInsertId();
-            $sql = 'INSERT INTO tblinvoice_details_suppliers (header_id,productId,qty,rate,gross,`description`)
-                    VALUES(?,?,?,?,?,?)';
-            for ($i=0; $i < count($data['details']); $i++) { 
-                $pid = $data['details'][$i]['pid'];
+
+            for($i = 0; $i < count($data['table']); $i++){
+                $this->db->query('INSERT INTO tblinvoice_details_suppliers (header_id,productId,qty,rate,gross)
+                                  VALUES(:hid,:pid,:qty,:rate,:gross)');
+                $this->db->bind(':hid',$tid);
+                $this->db->bind(':pid',$data['table'][$i]->pid);
+                $this->db->bind(':qty',$data['table'][$i]->qty);
+                $this->db->bind(':rate',$data['table'][$i]->rate);
+                $this->db->bind(':gross',$data['table'][$i]->gross);
+                $this->db->execute();
+
+                $pid = $data['details'][$i]->pid;
                 $pname = $this->getAccountName($pid)[0];
                 $singleAccountId = $this->getAccountName($pid)[1];
-                // $pname = trim(strtolower($data['details'][$i]['pname']));
-                $qty = $data['details'][$i]['qty'];
-                $rate = $data['details'][$i]['rate'];
-                $gross = $data['details'][$i]['gross'];
-                $desc = strtolower($data['details'][$i]['desc']);
-                $stmt = $this->db->dbh->prepare($sql);
-                $stmt->execute([$tid,$pid,$qty,$rate,$gross,$desc]);
                 $parentaccountname = getparentgl($this->db->dbh,$pname);
+                $narr = 'supplier invoice no '.$data['invoiceno'];
                 saveToLedger($this->db->dbh,$data['invoicedate'],$pname,$parentaccountname,
-                             calculateVat($data['vattype'],$gross)[2],0
-                            ,$desc,$singleAccountId,6,$tid,$_SESSION['congId']);
+                             calculateVat($data['vattype'],$data['table'][$i]->gross)[2],0
+                            ,$narr,$singleAccountId,6,$tid,$_SESSION['congId']);
             }
+
             $account = 'accounts payable';
             $narr = 'Invoice #'.$data['invoice'];
             $parentaccount = 'payables and accruals';
@@ -171,12 +185,26 @@ class Supplierinvoice
                         ,$narr,$three,6,$tid,$_SESSION['congId']); 
             //save to logs
             saveLog($this->db->dbh,$narr);
-            $this->db->dbh->commit();
+            if(!$this->db->dbh->commit()){
+                return false;
+            }else{
+                return true;
+            }
         } catch (\Exception $e) {
             if ($this->db->dbh->inTransaction()) {
                 $this->db->dbh->rollBack();
             }
-            throw $e;
+            error_log($e->getMessage(),0);
+            return false;
+        }
+    }
+
+    public function CreateUpdate($data)
+    {
+        if(!$data['isedit']){
+            return $this->create($data);
+        }else{
+            
         }
     }
 
