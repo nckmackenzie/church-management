@@ -54,7 +54,7 @@ export function addToTable() {
       <td class="qty">${qtyInput.value}</td>
       <td class="rate">${rateInput.value}</td>
       <td class="gross">${grossInput.value}</td>
-      <td class="btnremove"><button class="tablebtn text-danger btnremove">Remove</button></td>
+      <td class="btnremove"><button type="button" class="tablebtn text-danger btnremove">Remove</button></td>
     </tr>
   `;
   const tbody = table.getElementsByTagName('tbody')[0];
