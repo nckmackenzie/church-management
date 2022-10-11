@@ -248,6 +248,8 @@
                                 <div class="col-3">
                                     <button type="submit" id="save" class="btn btn-sm bg-navy custom-font">Save</button>
                                     <input type="hidden" id="vrate" name="vrate">
+                                    <input type="hidden" id="id" name="id" value="<?php echo $data['id'];?>">
+                                    <input type="hidden" id="isedit" name="isedit" value="<?php echo $data['isedit'];?>">
                                 </div>
                            </div>
                         </form>
