@@ -22,3 +22,14 @@ export async function saveProduct(data) {
   );
   return res;
 }
+
+export async function getProductRate(pid) {
+  const res = await sendHttpRequest(
+    `${HOST_URL}/products/getrate?pid=${pid}`,
+    'GET',
+    undefined,
+    {},
+    alertBox
+  );
+  return res;
+}
