@@ -30,7 +30,9 @@ class Supplierinvoices extends Controller
             'suppliers' => $suppliers,
             'products' => $products,
             'accounts' => $accounts,
-            'vats' => $vats
+            'vats' => $vats,
+            'isedit' => false,
+            'id' => ''
         ];
         $this->view('supplierinvoices/add',$data);
         exit;
@@ -104,28 +106,66 @@ class Supplierinvoices extends Controller
         }
     }
 
-    public function create()
+    public function createupdate()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $fields = json_decode(file_get_contents('php://input'));
+            $header = $fields->header;
+            $table = $fields->table;
             $data = [
-                'supplierId' => trim($_POST['supplierId']),
-                'invoicedate' => trim($_POST['invoicedate']),
-                'invoice' => trim($_POST['invoice']),
-                'duedate' => trim($_POST['duedate']),
-                'vattype' => trim($_POST['vattype']),
-                'vat' => !empty($_POST['vat']) ? trim($_POST['vat']) : NULL,
-                'totals' => trim($_POST['totals']),
-                'details' => $_POST['table_data'],
+                'id' => !empty($header->id) ? trim($header->id) : null,
+                'supplier' => !empty($header->supplier) ? trim($header->supplier) : null,
+                'idate' => !empty($header->invoiceDate) ? date('Y-m-d',strtotime(trim($header->invoiceDate))) : null,
+                'ddate' => !empty($header->dueDate) ? date('Y-m-d',strtotime(trim($header->dueDate))) : null,
+                'vattype' => !empty($header->vatType) ? (int)trim($header->vatType) : null,
+                'vat' => !empty($header->vat) ? trim($header->vat) : null,
+                'invoiceno' => !empty($header->invoiceNo) ? trim($header->invoiceNo) : null,
+                'isedit' => converttobool($header->isedit),
+                'table' => is_countable($table) ? $table : null,
+                'totals' => floatval($header->total)
             ];
-            if (!empty($data['invoice'])) {
-                $this->invoicemodel->create($data);
+
+            //validate
+            if(is_null($data['supplier']) || is_null($data['idate']) || is_null($data['ddate']) 
+               || is_null($data['vattype']) || is_null($data['invoiceno'])){
+                http_response_code(400);
+                echo json_encode(['message' => 'Provide all required information']);
+                exit;
             }
+
+            if($data['idate'] > $data['ddate']){
+                http_response_code(400);
+                echo json_encode(['message' => 'Invoice date cannot be greater than due date']);
+                exit;
+            }
+
+            if($data['vattype'] > 1 && is_null($data['vat'])){
+                http_response_code(400);
+                echo json_encode(['message' => 'Select vat']);
+                exit;
+            }
+
+            if(!is_null($data['invoiceno']) && !$this->invoicemodel->CheckInvoiceNo($data['invoiceno'],$data['id'])){
+                http_response_code(400);
+                echo json_encode(['message' => 'Invoice no already exists']);
+                exit;
+            }
+
+            if(!$this->invoicemodel->CreateUpdate($data)){
+                http_response_code(500);
+                echo json_encode(['message' => 'Unable to save. Retry or contact admin']);
+                exit;
+            }
+
+            echo json_encode(['message' => 'Invoice saved successfully', 'success' => true]);
+            exit;
         }
         else {
-            redirect('supplierinvoices');
+            redirect('users/deniedaccess');
+            exit;
         }
     }
+
     public function edit($id)
     {
         $header = $this->invoicemodel->getInvoiceHeader(trim($id));
