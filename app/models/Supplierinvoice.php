@@ -88,6 +88,29 @@ class Supplierinvoice
         return $this->db->single();
     }
 
+    public function SaveProduct($data)
+    {
+        $this->db->query('INSERT INTO tblproducts (productName,`description`,rate,accountId,congregationId) 
+                          VALUES(:pname,:narr,:rate,:account,:cid)');
+        $this->db->bind(':pname',strtolower($data['productname']));
+        $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : NULL);
+        $this->db->bind(':rate',$data['rate']);
+        $this->db->bind(':account',(int)$data['account']);
+        $this->db->bind(':cid',(int)$_SESSION['congId']);
+        $id = $this->db->dbh->lastInsertId(); //get last inserted id
+      
+        if(!$this->db->execute()){
+            return [false,''];
+        }
+        return [true,$id];
+    }
+
+    public function GetProductId()
+    {
+        $sql = 'SELECT ID FROM tblproducts WHERE congregationId = ? AND Deleted = 0 ORDER BY ID DESC LIMIT 1';
+        return getdbvalue($this->db->dbh,$sql,[$_SESSION['congId']]);
+    }
+
     public function getRate($vat)
     {
         $this->db->query('SELECT rate FROM tblvats WHERE (ID=:id)');

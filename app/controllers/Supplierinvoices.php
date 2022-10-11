@@ -60,6 +60,50 @@ class Supplierinvoices extends Controller
             exit;
         }
     }
+
+    public function saveproduct()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST')
+        {
+            $fields = json_decode(file_get_contents('php://input'));
+            $data = [
+                'productname' => isset($fields->productName) && !empty(trim($fields->productName)) ? trim($fields->productName) : NULL,
+                'description' => isset($fields->description) && !empty(trim($fields->description)) ? trim($fields->description) : NULL,
+                'rate' => isset($fields->rate) && !empty(trim($fields->rate)) ? floatval(trim($fields->rate)) : NULL,
+                'account' => isset($fields->account) && !empty(trim($fields->account)) ? trim($fields->account) : NULL,
+            ];
+
+            //validate
+            if(is_null($data['productname']) || is_null($data['rate']) || is_null($data['account'])){
+                http_response_code(400);
+                echo json_encode(['message' => 'Provide all required fields']);
+                exit;
+            }
+
+            $product = $this->invoicemodel->SaveProduct($data);
+            
+            if(!converttobool($product[0])){
+                http_response_code(500);
+                echo json_encode(['message' => 'Unable to save product. Retry or contact admin']);
+                exit;
+            }
+
+            $productid = $this->invoicemodel->GetProductId();
+            
+            $output = '';
+            $output .='<option value="0" style="background-color: #a7f3d0; color :black;"><span class="selectspan">Add NEW</span></option>';
+            foreach ($this->invoicemodel->getProducts() as $product ) {
+                $output .= '<option value="'.$product->ID.'">'.$product->productName.'</option>';
+            }
+
+            echo json_encode(['productid' => $productid,'products' => $output]);
+
+        }else{
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
+
     public function getrate()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
@@ -68,6 +112,7 @@ class Supplierinvoices extends Controller
             echo $this->invoicemodel->getRate($vat);
         }
     }
+
     public function create()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
