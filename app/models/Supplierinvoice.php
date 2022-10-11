@@ -8,21 +8,13 @@ class Supplierinvoice
         $this->db = new Database;
     }
     
-    public function CheckRights($form)
-    {
-        if (getUserAccess($this->db->dbh,$_SESSION['userId'],$form,$_SESSION['isParish']) > 0) {
-            return true;
-        }else{
-            return false;
-        }
-    }
-    
     public function index()
     {
         $this->db->query('CALL spGetInvoices_suppliers(:congid)');
         $this->db->bind(':congid',$_SESSION['congId']);
         return $this->db->resultSet();
     }
+
     public function getSuppliers()
     {
         $this->db->query('SELECT ID,
@@ -33,6 +25,7 @@ class Supplierinvoice
         $this->db->bind(':cid',$_SESSION['congId']);
         return $this->db->resultSet();
     }
+
     public function getProducts()
     {
         $this->db->query('SELECT ID,
@@ -42,6 +35,7 @@ class Supplierinvoice
         $this->db->bind(':cid',$_SESSION['congId']);
         return $this->db->resultSet();
     }
+
     public function getAccountName($account)
     {
         $this->db->query('SELECT accountId FROM tblproducts WHERE (ID=:id)');
@@ -61,6 +55,7 @@ class Supplierinvoice
 
         return $accountDetails;
     }
+
     public function getVats()
     {
         $this->db->query('SELECT ID,
@@ -69,6 +64,7 @@ class Supplierinvoice
                           FROM tblvats WHERE (deleted=0) AND (active=1)');
         return $this->db->resultSet();
     }
+
     public function getAccounts()
     {
         $this->db->query('SELECT ID,
@@ -77,24 +73,28 @@ class Supplierinvoice
                           WHERE  (deleted=0) AND (brand_level(t.ID) = 2)');
         return $this->db->resultSet();
     }
+    
     public function getVatId($vat)
     {
         $this->db->query('SELECT ID FROM tblvats WHERE (vatName=:nam)');
         $this->db->bind(':nam',$vat);
         return $this->db->getValue();
     }
+
     public function getSupplierDetails($id)
     {
         $this->db->query('SELECT * FROM tblsuppliers WHERE (ID=:id)');
         $this->db->bind(':id',$id);
         return $this->db->single();
     }
+
     public function getRate($vat)
     {
         $this->db->query('SELECT rate FROM tblvats WHERE (ID=:id)');
         $this->db->bind(':id',$vat);
         return ($this->db->getValue()) / 100;
     }
+
     public function create($data)
     {
         $yearid = getYearId($this->db->dbh,$data['invoicedate']);
@@ -134,14 +134,16 @@ class Supplierinvoice
                 $desc = strtolower($data['details'][$i]['desc']);
                 $stmt = $this->db->dbh->prepare($sql);
                 $stmt->execute([$tid,$pid,$qty,$rate,$gross,$desc]);
-                saveToLedger($this->db->dbh,$data['invoicedate'],$pname,
+                $parentaccountname = getparentgl($this->db->dbh,$pname);
+                saveToLedger($this->db->dbh,$data['invoicedate'],$pname,$parentaccountname,
                              calculateVat($data['vattype'],$gross)[2],0
                             ,$desc,$singleAccountId,6,$tid,$_SESSION['congId']);
             }
             $account = 'accounts payable';
             $narr = 'Invoice #'.$data['invoice'];
+            $parentaccount = 'payables and accruals';
             $three = 4;
-            saveToLedger($this->db->dbh,$data['invoicedate'],$account,0,
+            saveToLedger($this->db->dbh,$data['invoicedate'],$account,$parentaccount,0,
                          calculateVat($data['vattype'],$data['totals'])[2]
                         ,$narr,$three,6,$tid,$_SESSION['congId']); 
             //save to logs
@@ -154,6 +156,7 @@ class Supplierinvoice
             throw $e;
         }
     }
+
     public function getInvoiceHeader($id)
     {
         $this->db->query('SELECT ID,
@@ -171,6 +174,7 @@ class Supplierinvoice
         $this->db->bind(':id',decryptId($id));
         return $this->db->single();
     }
+
     public function getInvoiceDetails($id)
     {
         $this->db->query('SELECT productId,
@@ -185,6 +189,7 @@ class Supplierinvoice
         $this->db->bind(':id',decryptId($id));
         return $this->db->resultSet();
     }
+
     public function update($data)
     {
         $yearid = getYearId($this->db->dbh,$data['invoicedate']);
@@ -233,14 +238,16 @@ class Supplierinvoice
                 $desc = strtolower($data['details'][$i]['desc']);
                 $stmt = $this->db->dbh->prepare($sql);
                 $stmt->execute([$tid,$pid,$qty,$rate,$gross,$desc]);
-                saveToLedger($this->db->dbh,$data['invoicedate'],$pname,
+                $parentaccountname = getparentgl($this->db->dbh,$pname);
+                saveToLedger($this->db->dbh,$data['invoicedate'],$pname,$parentaccountname,
                              calculateVat($data['vattype'],$gross)[2],0
                             ,$desc,$singleAccountId,6,$tid,$_SESSION['congId']);
             }
             $account = 'accounts payable';
             $narr = 'Invoice #'.$data['invoice'];
+            $parentaccount = 'payables and accruals';
             $three = 4;
-            saveToLedger($this->db->dbh,$data['invoicedate'],$account,0,
+            saveToLedger($this->db->dbh,$data['invoicedate'],$account,$parentaccount,0,
                          calculateVat($data['vattype'],$data['totals'])[2]
                         ,$narr,$three,6,$tid,$_SESSION['congId']); 
             //save to logs
@@ -253,6 +260,7 @@ class Supplierinvoice
             throw $e;
         }
     }
+
     public function fillInvoiceDetails($id)
     {
         $this->db->query('SELECT   h.ID,
@@ -267,10 +275,12 @@ class Supplierinvoice
         $this->db->bind(':id',decryptId($id));
         return $this->db->single();
     }
+
     public function paymethods()
     {
         return paymentMethods($this->db->dbh);
     }
+
     public function banks()
     {
         if ($_SESSION['isParish'] == 1) {
@@ -279,62 +289,7 @@ class Supplierinvoice
             return getBanks($this->db->dbh,$_SESSION['congId']);
         }
     }
-    public function payment($data)
-    {
-        try {
-            //begin transaction
-            $this->db->dbh->beginTransaction();
-            //invoice payments
-            $this->db->query('INSERT INTO tblinvoice_payments_suppliers (invoice_id,paymentDate,amount,paymentId,bankId,
-                                          paymentReference)
-                              VALUES(:iid,:pdate,:amount,:pid,:bid,:ref)');
-            $this->db->bind(':iid',$data['id']);
-            $this->db->bind(':pdate',$data['paydate']);
-            $this->db->bind(':amount',$data['amount']);
-            $this->db->bind(':pid',$data['paymethod']);
-            $this->db->bind(':bid',$data['bank']);
-            $this->db->bind(':ref',!empty($data['reference']) ? strtolower($data['reference']) : NULL);
-            $this->db->execute();
-            //update invoice table
-            $tid = $this->db->dbh->lastInsertId();
-            if (floatval($data['amount']) < floatval($data['balance'])) {
-                $status = 1;
-            } else {
-                $status = 2;
-            }
-            $this->db->query('UPDATE tblinvoice_header_suppliers SET `status`=:stat WHERE (ID=:id)');
-            $this->db->bind(':stat',$status);
-            $this->db->bind(':id',$data['id']);
-            $this->db->execute();
-            //ledgers
-            $account = 'accounts payable';
-            $narr = 'Invoice '.$data['invoiceno'] .' Payment';
-            saveToLedger($this->db->dbh,$data['paydate'],$account,$data['amount'],0
-                        ,$narr,4,7,$tid,$_SESSION['congId']);
-            if ($data['paymethod'] == 1) {
-                saveToLedger($this->db->dbh,$data['paydate'],'cash at hand',0,$data['amount']
-                        ,$narr,3,7,$tid,$_SESSION['congId']);
-            }else {
-                saveToLedger($this->db->dbh,$data['paydate'],'cash at bank',0,$data['amount']
-                        ,$narr,3,7,$tid,$_SESSION['congId']);
-                saveToBanking($this->db->dbh,$data['bank'],$data['paydate'],0,$data['amount'],2,
-                              $data['reference'],7,$tid,$_SESSION['congId']);
-            }
-            //log
-            saveLog($this->db->dbh,$narr);
-            if ($this->db->dbh->commit()) {
-                return true;
-            }else {
-                return false;
-            }
-
-        } catch (\Exception $e) {
-            if ($this->db->dbh->inTransaction()) {
-                $this->db->dbh->rollBack();
-            }
-            throw $e;
-        }
-    }
+ 
     public function getCongregationInfo()
     {
         $this->db->query('SELECT ucase(CongregationName) as CongregationName,
@@ -346,6 +301,7 @@ class Supplierinvoice
         $this->db->bind(':id',$_SESSION['congId']);
         return $this->db->single();
     }
+
     public function getSupplierInfo($id)
     {
         $this->db->query('SELECT UCASE(supplierName) as supplierName,

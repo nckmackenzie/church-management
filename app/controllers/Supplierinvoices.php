@@ -5,28 +5,27 @@ class Supplierinvoices extends Controller
     public function __construct()
     {
         if (!isset($_SESSION['userId']) ) {
-            redirect('');
-        }else {
-            $this->invoiceModel = $this->model('Supplierinvoice');
+            redirect('users');
+            exit;
         }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'supplier invoices');
+        $this->invoicemodel = $this->model('Supplierinvoice');
     }
+    
     public function index()
     {
-        $form = 'Supplier Invoice';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->invoiceModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
-        $invoices = $this->invoiceModel->index();
+        $invoices = $this->invoicemodel->index();
         $data = ['invoices' => $invoices];
         $this->view('supplierinvoices/index',$data);
     }
+
     public function add()
     {
-        $suppliers  = $this->invoiceModel->getSuppliers();
-        $products  = $this->invoiceModel->getProducts();
-        $accounts  = $this->invoiceModel->getAccounts();
-        $vats  = $this->invoiceModel->getVats();
+        $suppliers  = $this->invoicemodel->getSuppliers();
+        $products  = $this->invoicemodel->getProducts();
+        $accounts  = $this->invoicemodel->getAccounts();
+        $vats  = $this->invoicemodel->getVats();
         $data = [
             'suppliers' => $suppliers,
             'products' => $products,
@@ -34,17 +33,31 @@ class Supplierinvoices extends Controller
             'vats' => $vats
         ];
         $this->view('supplierinvoices/add',$data);
+        exit;
     }
+    
     public function fetchsupplierdetails()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-            $id = trim($_POST['id']);
-            $details = $this->invoiceModel->getSupplierDetails($id);
-           
-            $output['email'] = trim($details->email);
-            $output['pin'] = trim(strtoupper($details->pin));
-            echo json_encode($output);
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
+            $id = isset($_GET['sid']) && !empty($_GET['sid']) ? trim($_GET['sid']) : NULL;
+
+            if(is_null($id)){
+                http_response_code(400);
+                echo json_encode(['message' => 'Select supplier']);
+                exit;
+            }
+            $details = $this->invoicemodel->getSupplierDetails($id);
+
+            $data = [
+                'email' => is_null($details->email) ? '' : $details->email,
+                'pin' => is_null($details->pin) ? '' : strtoupper( $details->pin),
+            ];
+
+            echo json_encode($data);
+        }else{
+            redirect('users/deniedaccess');
+            exit;
         }
     }
     public function getrate()
@@ -52,7 +65,7 @@ class Supplierinvoices extends Controller
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $vat = trim($_POST['vat']);
-            echo $this->invoiceModel->getRate($vat);
+            echo $this->invoicemodel->getRate($vat);
         }
     }
     public function create()
@@ -70,7 +83,7 @@ class Supplierinvoices extends Controller
                 'details' => $_POST['table_data'],
             ];
             if (!empty($data['invoice'])) {
-                $this->invoiceModel->create($data);
+                $this->invoicemodel->create($data);
             }
         }
         else {
@@ -79,11 +92,11 @@ class Supplierinvoices extends Controller
     }
     public function edit($id)
     {
-        $header = $this->invoiceModel->getInvoiceHeader(trim($id));
-        $details = $this->invoiceModel->getInvoiceDetails(trim($id));
-        $suppliers  = $this->invoiceModel->getSuppliers();
-        $products  = $this->invoiceModel->getProducts();
-        $vats  = $this->invoiceModel->getVats();
+        $header = $this->invoicemodel->getInvoiceHeader(trim($id));
+        $details = $this->invoicemodel->getInvoiceDetails(trim($id));
+        $suppliers  = $this->invoicemodel->getSuppliers();
+        $products  = $this->invoicemodel->getProducts();
+        $vats  = $this->invoicemodel->getVats();
         $data = [
             'suppliers' => $suppliers,
             'products' => $products,
@@ -109,7 +122,7 @@ class Supplierinvoices extends Controller
                 'details' => $_POST['table_data'],
             ];
             if (!empty($data['invoice'])) {
-                $this->invoiceModel->update($data);
+                $this->invoicemodel->update($data);
             }
         }
         else {
@@ -118,10 +131,10 @@ class Supplierinvoices extends Controller
     }
     public function pay($id)
     {
-        $invoice = $this->invoiceModel->fillInvoiceDetails(trim($id));
-        $paymethods = $this->invoiceModel->paymethods();
-        $banks = $this->invoiceModel->banks();
-        // $invoice = $this->invoiceModel->getInvoiceDetails(trim($id));
+        $invoice = $this->invoicemodel->fillInvoiceDetails(trim($id));
+        $paymethods = $this->invoicemodel->paymethods();
+        $banks = $this->invoicemodel->banks();
+        // $invoice = $this->invoicemodel->getInvoiceDetails(trim($id));
         $data = [
             'id' => '',
             'invoice' => $invoice,
@@ -144,8 +157,8 @@ class Supplierinvoices extends Controller
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             
-            $paymethods = $this->invoiceModel->paymethods();
-            $banks = $this->invoiceModel->banks();
+            $paymethods = $this->invoicemodel->paymethods();
+            $banks = $this->invoicemodel->banks();
             $data = [
                 'id' => trim($_POST['id']),
                 'invoice' => '',
@@ -163,7 +176,7 @@ class Supplierinvoices extends Controller
                 'bank_err' => '',
                 'ref_err' => ''
             ];
-            $invoice = $this->invoiceModel->fillInvoiceDetails(encryptId($data['id']));
+            $invoice = $this->invoicemodel->fillInvoiceDetails(encryptId($data['id']));
             $data['invoice'] = $invoice;
             
             if (empty($data['paydate'])) {
@@ -180,7 +193,7 @@ class Supplierinvoices extends Controller
             }
             if (empty($data['date_err']) && empty($data['amount_err']) && empty($data['bank_err']) 
                 && empty($data['ref_err'])) {
-                if ($this->invoiceModel->payment($data)) {
+                if ($this->invoicemodel->payment($data)) {
                     redirect('supplierinvoices');
                 }
             }
@@ -194,10 +207,10 @@ class Supplierinvoices extends Controller
     }
     public function print($id)
     {
-        $header = $this->invoiceModel->getInvoiceHeader(trim($id));
-        $details = $this->invoiceModel->getInvoiceDetails(trim($id));
-        $congregationinfo = $this->invoiceModel->getCongregationInfo();
-        $supplierinfo = $this->invoiceModel->getSupplierInfo($header->supplierId); 
+        $header = $this->invoicemodel->getInvoiceHeader(trim($id));
+        $details = $this->invoicemodel->getInvoiceDetails(trim($id));
+        $congregationinfo = $this->invoicemodel->getCongregationInfo();
+        $supplierinfo = $this->invoicemodel->getSupplierInfo($header->supplierId); 
         $data = [
             'congregationinfo' => $congregationinfo,
             'header' => $header,
