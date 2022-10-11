@@ -3,8 +3,11 @@ import {
   rateInput,
   qtyInput,
   grossInput,
-  descriptionInput,
+  table,
+  productSelect,
 } from './supplier.js';
+
+import { getSelectedText } from '../utils/utils.js';
 
 export function addDays(date, days) {
   const result = new Date(date);
@@ -41,4 +44,20 @@ export function calcGrossValue() {
   if (!rateInput.value || !qtyInput.value) return;
   const gross = parseFloat(rateInput.value) * parseFloat(qtyInput.value);
   grossInput.value = gross;
+}
+
+export function addToTable() {
+  const html = `
+    <tr>
+      <td class="d-none pid">${productSelect.value}</td>
+      <td>${getSelectedText(productSelect)}</td>
+      <td class="qty">${qtyInput.value}</td>
+      <td class="rate">${rateInput.value}</td>
+      <td class="gross">${grossInput.value}</td>
+      <td class="btnremove"><button class="tablebtn text-danger btnremove">Remove</button></td>
+    </tr>
+  `;
+  const tbody = table.getElementsByTagName('tbody')[0];
+  let newRow = tbody.insertRow(tbody.rows.length);
+  newRow.innerHTML = html;
 }
