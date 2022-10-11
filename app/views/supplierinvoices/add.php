@@ -246,7 +246,7 @@
                            <hr>
                            <div class="row">
                                 <div class="col-3">
-                                    <button id="save" class="btn btn-sm bg-navy custom-font">Save</button>
+                                    <button type="submit" id="save" class="btn btn-sm bg-navy custom-font">Save</button>
                                     <input type="hidden" id="vrate" name="vrate">
                                 </div>
                            </div>
