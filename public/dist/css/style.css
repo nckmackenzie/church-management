@@ -52,6 +52,7 @@ td.sub-level-5 {
 .table-input {
   outline: none;
   border: none;
+  background-color: transparent;
 }
 .fs-5 {
   font-size: 0.875rem;
