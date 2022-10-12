@@ -12,3 +12,15 @@ export async function getBankings(bank, start, end) {
 
   return res;
 }
+
+export async function clearBankings(data) {
+  const res = await sendHttpRequest(
+    `${HOST_URL}/clearbankings/clear`,
+    'POST',
+    JSON.stringify(data),
+    { 'Content-Type': 'application/json' },
+    alertBox
+  );
+
+  return res;
+}
