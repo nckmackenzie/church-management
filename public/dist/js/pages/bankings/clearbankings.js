@@ -1,11 +1,11 @@
 // prettier-ignore
-import { clearOnChange, validation, mandatoryFields,validateDate, numberWithCommas } from '../utils/utils.js';
+import { clearOnChange, validation, mandatoryFields,validateDate, numberWithCommas,displayAlert,alertBox } from '../utils/utils.js';
 // prettier-ignore
-import { addBtn,fromDateInput,toDateInput,bankSelect,despositsInput,withdrawalsInput,table,balanceInput } from './elements.js';
+import {clearForm, addBtn,fromDateInput,toDateInput,bankSelect,despositsInput,withdrawalsInput,table,balanceInput } from './elements.js';
 //prettier-ignore
 import { getBankings } from './ajax-requests.js';
 //prettier-ignore
-import {setLoadingSpinner,removeLoadingSpinner,appendData,updateSubTotal, calculateVariance} from './functionalities.js'
+import {setLoadingSpinner,removeLoadingSpinner,appendData,updateSubTotal, calculateVariance,tableData} from './functionalities.js'
 
 let selectedBankings = 0;
 let initialDeposits = 0;
@@ -15,6 +15,7 @@ addBtn.addEventListener('click', async function () {
   if (validation() > 0) return;
 
   if (!validateDate(fromDateInput, toDateInput)) return;
+  table.getElementsByTagName('tbody')[0].innerHTML = '';
   const fromValue = fromDateInput.value;
   const toValue = toDateInput.value;
   const bankValue = bankSelect.value;
@@ -59,5 +60,15 @@ table.addEventListener('click', function (e) {
 });
 
 balanceInput.addEventListener('blur', calculateVariance);
+
+clearForm.addEventListener('submit', async function (e) {
+  e.preventDefault();
+
+  if (selectedBankings === 0) {
+    displayAlert(alertBox, 'No transactions selected for clearing');
+    return;
+  }
+  console.log(tableData());
+});
 
 clearOnChange(mandatoryFields);
