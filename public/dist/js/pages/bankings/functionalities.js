@@ -7,6 +7,7 @@ import {
   despositsInput,
   balanceInput,
   varianceInput,
+  bankSelect,
 } from './elements.js';
 export function setLoadingSpinner() {
   tableArea.classList.add('d-none');
@@ -31,10 +32,16 @@ export function appendData(data) {
                     <label for="${dt.id}"></label>
                 </div>  
             </td>
-            <td><input type="date" class="table-input w-100 tdate" value="${dt.transactionDate}" readonly></td>
+            <td><input type="date" class="table-input w-100 tdate" value="${
+              dt.transactionDate
+            }" readonly></td>
             <td><input type="" class="table-input w-100 cleardate" readonly></td>
-            <td><input type="number" class="table-input w-100 amount" value="${dt.amount}" readonly></td>
-            <td><input type="text" class="table-input w-100 reference" value="${dt.reference}" readonly></td>
+            <td><input type="text" class="table-input w-100 amount" value="${numberWithCommas(
+              dt.amount
+            )}" readonly></td>
+            <td><input type="text" class="table-input w-100 reference" value="${
+              dt.reference
+            }" readonly></td>
             <td><button class="tablebtn text-danger">Remove</button></td>
         </tr>
     `;
@@ -48,13 +55,23 @@ export function updateSubTotal(table, initialDeposits, InitialWidthrawals) {
   let withdrawalTotal = 0;
   for (var i = 1; i < table.rows.length; i++) {
     if (table.rows[i].cells[1].children[0].children[0].checked) {
-      if (parseFloat(table.rows[i].cells[4].children[0].value) > 0) {
+      if (
+        parseFloat(numberFormatter(table.rows[i].cells[4].children[0].value)) >
+        0
+      ) {
         const rowValue =
-          parseFloat(table.rows[i].cells[4].children[0].value) || 0;
+          parseFloat(
+            numberFormatter(table.rows[i].cells[4].children[0].value)
+          ) || 0;
         depositsTotal = depositsTotal + rowValue;
-      } else if (parseFloat(table.rows[i].cells[4].children[0].value) < 0) {
+      } else if (
+        parseFloat(numberFormatter(table.rows[i].cells[4].children[0].value)) <
+        0
+      ) {
         const rowValue =
-          parseFloat(table.rows[i].cells[4].children[0].value) || 0;
+          parseFloat(
+            numberFormatter(table.rows[i].cells[4].children[0].value)
+          ) || 0;
         withdrawalTotal = withdrawalTotal + rowValue;
       }
     }
@@ -81,11 +98,24 @@ export function tableData() {
 
   trs.forEach(tr => {
     if (tr.querySelector('.chkbx').checked) {
+      const txnDate = tr.querySelector('.tdate').value;
       const clearDate = tr.querySelector('.cleardate').value;
       const id = tr.querySelector('.bid').innerText;
-      tableData.push({ id, clearDate });
+      tableData.push({ id, txnDate, clearDate });
     }
   });
 
   return tableData;
+}
+
+export function clear() {
+  table.getElementsByTagName('tbody')[0].innerHTML = '';
+  tableArea.classList.add('d-none');
+  bankSelect.value = '';
+  document
+    .querySelector('.card-body')
+    .querySelectorAll('input')
+    .forEach(input => {
+      input.value = '';
+    });
 }
