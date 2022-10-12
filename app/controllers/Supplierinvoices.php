@@ -120,7 +120,7 @@ class Supplierinvoices extends Controller
                 'vattype' => !empty($header->vatType) ? (int)trim($header->vatType) : null,
                 'vat' => !empty($header->vat) ? trim($header->vat) : null,
                 'invoiceno' => !empty($header->invoiceNo) ? trim($header->invoiceNo) : null,
-                'isedit' => converttobool($header->isedit),
+                'isedit' => converttobool($header->isEdit),
                 'table' => is_countable($table) ? $table : null,
                 'totals' => floatval($header->total)
             ];

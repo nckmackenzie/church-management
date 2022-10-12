@@ -131,7 +131,7 @@ class Supplierinvoice
 
     public function create($data)
     {
-        $yearid = getYearId($this->db->dbh,$data['invoicedate']);
+        $yearid = getYearId($this->db->dbh,$data['idate']);
         $vatId = $this->getVatId($data['vat']);
         try {
             //begin transaction
@@ -166,21 +166,21 @@ class Supplierinvoice
                 $this->db->bind(':gross',$data['table'][$i]->gross);
                 $this->db->execute();
 
-                $pid = $data['details'][$i]->pid;
+                $pid = $data['table'][$i]->pid;
                 $pname = $this->getAccountName($pid)[0];
                 $singleAccountId = $this->getAccountName($pid)[1];
                 $parentaccountname = getparentgl($this->db->dbh,$pname);
                 $narr = 'supplier invoice no '.$data['invoiceno'];
-                saveToLedger($this->db->dbh,$data['invoicedate'],$pname,$parentaccountname,
+                saveToLedger($this->db->dbh,$data['idate'],$pname,$parentaccountname,
                              calculateVat($data['vattype'],$data['table'][$i]->gross)[2],0
                             ,$narr,$singleAccountId,6,$tid,$_SESSION['congId']);
             }
 
             $account = 'accounts payable';
-            $narr = 'Invoice #'.$data['invoice'];
+            $narr = 'Invoice #'.$data['invoiceno'];
             $parentaccount = 'payables and accruals';
             $three = 4;
-            saveToLedger($this->db->dbh,$data['invoicedate'],$account,$parentaccount,0,
+            saveToLedger($this->db->dbh,$data['idate'],$account,$parentaccount,0,
                          calculateVat($data['vattype'],$data['totals'])[2]
                         ,$narr,$three,6,$tid,$_SESSION['congId']); 
             //save to logs
