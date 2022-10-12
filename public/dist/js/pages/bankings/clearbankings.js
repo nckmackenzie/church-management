@@ -1,11 +1,15 @@
 // prettier-ignore
-import { clearOnChange, validation, mandatoryFields,validateDate, numberWithCommas,displayAlert,alertBox } from '../utils/utils.js';
+import { clearOnChange, validation, mandatoryFields,validateDate, numberWithCommas,
+        displayAlert,alertBox,setLoadingState,resetLoadingState } from '../utils/utils.js';
 // prettier-ignore
-import {clearForm, addBtn,fromDateInput,toDateInput,bankSelect,despositsInput,withdrawalsInput,table,balanceInput } from './elements.js';
+import {clearForm, addBtn,fromDateInput,toDateInput,bankSelect,despositsInput,
+        withdrawalsInput,table,balanceInput,saveBtn } from './elements.js';
 //prettier-ignore
-import { getBankings } from './ajax-requests.js';
+import { clearBankings, getBankings } from './ajax-requests.js';
 //prettier-ignore
-import {setLoadingSpinner,removeLoadingSpinner,appendData,updateSubTotal, calculateVariance,tableData} from './functionalities.js'
+import {setLoadingSpinner,removeLoadingSpinner,appendData,updateSubTotal, calculateVariance,
+        tableData,
+        clear} from './functionalities.js'
 
 let selectedBankings = 0;
 let initialDeposits = 0;
@@ -68,7 +72,19 @@ clearForm.addEventListener('submit', async function (e) {
     displayAlert(alertBox, 'No transactions selected for clearing');
     return;
   }
-  console.log(tableData());
+
+  const formData = { table: tableData() };
+  setLoadingState(saveBtn, 'Saving...');
+  const data = await clearBankings(formData);
+  resetLoadingState(saveBtn, 'Clear selected');
+  if (data && data?.success) {
+    displayAlert(
+      alertBox,
+      'Successfully cleared all selected transactions',
+      'success'
+    );
+    clear();
+  }
 });
 
 clearOnChange(mandatoryFields);
