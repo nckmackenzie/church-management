@@ -67,8 +67,14 @@ class Bankreconcilliations extends Controller
                             <td>'.number_format($unclearedDeposits,2).'</td>
                         </tr>
                         <tr>
-                            <td>Uncleared Withdrawals</td>
-                            <td>'.number_format($unclearedWithdrawals,2).'</td>
+                            <td>Uncleared Withdrawals</td>';
+                            if(floatval($unclearedWithdrawals) != 0){
+                                $route = URLROOT .'/bankreconcilliations/uncleared?type=withdraw&bank='.$data['bank'].'&sdate='.$data['from'].'&edate='.$data['to'].'';
+                                $output .= '<td><a href="'.$route.'" class="" target="_blank">'.number_format($unclearedWithdrawals,2).'</a></td>';
+                            }else{
+                                $output .= '<td>'.number_format($unclearedWithdrawals,2).'</td>';
+                            }
+                        $output .='    
                         </tr>
                         <tr>
                             <td>Expected Balance</td>
@@ -83,6 +89,48 @@ class Bankreconcilliations extends Controller
         }else{
             redirect('users/deniedaccess');
             exit();
+        }
+    }
+
+    public function uncleared()
+    {
+        $data = [];
+        $this->view('bankreconcilliations/uncleared', $data);
+        exit;
+    }
+
+    public function unclearedreport()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'GET'){
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
+            $data = [
+                'type' => isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : null,
+                'bankid' => isset($_GET['bank']) && !empty(trim($_GET['bank'])) ? trim($_GET['bank']) : null,
+                'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
+                'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
+                'results' => []
+            ];
+
+            if(is_null($data['bankid']) || is_null($data['sdate']) || is_null($data['edate']) || is_null($data['type'])){
+                http_response_code(400);
+                echo json_encode(['message' => 'Invalid parameters provided for this report']);
+                exit;
+            }
+
+            foreach($this->bankreconModel->UnclearedReport($data) as $item){
+                array_push($data['results'],[
+                    'transactionDate' => date('d-m-Y',strtotime($item->transactionDate)),
+                    'amount' => $item->amount,
+                    'reference' => $item->reference,
+                ]);
+            }
+            
+            echo json_encode(['success' => true,'results' => $data['results']]);
+            exit;
+
+        }else{
+            redirect('users/deniedaccess');
+            exit;
         }
     }
 }
