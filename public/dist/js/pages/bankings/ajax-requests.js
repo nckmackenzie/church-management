@@ -24,3 +24,15 @@ export async function clearBankings(data) {
 
   return res;
 }
+
+export async function getUnclearedReport(bank, sdate, edate, type) {
+  const res = await sendHttpRequest(
+    `${HOST_URL}/bankreconcilliations/unclearedreport?bank=${bank}&sdate=${sdate}&edate=${edate}&type=${type}`,
+    'GET',
+    undefined,
+    {},
+    alertBox
+  );
+
+  return res;
+}
