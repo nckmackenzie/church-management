@@ -30,17 +30,14 @@
 </div>
 <!-- Content Wrapper. Contains page content -->
 <div class="content-wrapper">
-    
     <!-- Content Header (Page header) -->
     <section class="content-header">
       <div class="container-fluid">
-        <?php flash('bankings_msg');?> 
         <div class="row mb-2">
-            
+            <div class="col-12" id="alertBox"></div>
         </div>
       </div><!-- /.container-fluid -->
     </section>
-
     <!-- Main content -->
     <section class="content">
         <div class="row">
@@ -51,7 +48,7 @@
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="bank">Bank</label>
-                                    <select name="bank" id="bank" class="form-control form-control-sm">
+                                    <select name="bank" id="bank" class="form-control form-control-sm mandatory">
                                         <option value="">Select Bank</option>
                                         <?php foreach($data['banks'] as $bank) : ?>
                                             <option value="<?php echo $bank->ID;?>"><?php echo $bank->Bank;?></option>
@@ -63,14 +60,14 @@
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="from">From</label>
-                                    <input type="date" name="from" id="from" class="form-control form-control-sm">
+                                    <input type="date" name="from" id="from" class="form-control form-control-sm mandatory">
                                     <span class="invalid-feedback" id="from_err"></span>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="to">To</label>
-                                    <input type="date" name="to" id="to" class="form-control form-control-sm">
+                                    <input type="date" name="to" id="to" class="form-control form-control-sm mandatory">
                                     <span class="invalid-feedback" id="to_err"></span>
                                 </div>
                             </div>
@@ -83,28 +80,27 @@
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="balance">Balance</label>
-                                    <input type="hidden" id="balance" class="form-control form-control-sm" readonly>
-                                    <input type="text" id="balanced" class="form-control form-control-sm" readonly>
+                                    <input type="number" id="balance" class="form-control form-control-sm">
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="deposits">Cleared deposits</label>
-                                    <input type="hidden" id="deposits" class="form-control form-control-sm" readonly>      
-                                    <input type="text" id="depositsd" class="form-control form-control-sm" readonly>      
+                                    <input type="text" id="deposits" class="form-control form-control-sm" readonly>      
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="withdrawals">Cleared withdrawals</label>
-                                    <input type="hidden" id="withdrawals" class="form-control form-control-sm" readonly>       
-                                    <input type="text" id="withdrawalsd" class="form-control form-control-sm" readonly>       
+                                    <input type="text" id="withdrawals" class="form-control form-control-sm" readonly>     
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="variance">Variance</label>
                                     <input type="text" id="variance" class="form-control form-control-sm" readonly>
+                                    <input type="hidden" id="depothidden" class="form-control form-control-sm" readonly>
+                                    <input type="hidden" id="withdhidden" class="form-control form-control-sm" readonly>
                                 </div>
                             </div>
                         </div>
@@ -113,10 +109,32 @@
             </div>
         </div>
         <div class="row">
-            <div class="col-md-12 table-responsive">
-                <form action="<?php echo URLROOT;?>/clearbankings/clear">
-                    <button type="submit" id="save" class="btn btn-sm bg-navy custom-font">Clear Selected</button>
-                    <div id="results"></div>
+            <div class="spinner-container d-flex justify-content-center"></div>
+            <div class="col-md-12 table-responsive d-none">
+                <form action="<?php echo URLROOT;?>/clearbankings/clear" id="clear-form">
+                    <button type="submit" id="save" class="btn btn-sm bg-navy custom-font mb-3">Clear Selected</button>
+                    <div id="results">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="table-responsive">
+                                    <table class="table-sm table-bordered table" id="clear-banking">
+                                         <thead class="bg-nay">
+                                            <tr>
+                                                <th class="d-none">ID</th>
+                                                <th>Select</th>
+                                                <th>Txn Date</th>
+                                                <th>Clear Date</th>
+                                                <th>Amount</th>
+                                                <th>Reference</th>
+                                                <th>Action</th>
+                                            </tr>
+                                         </thead>
+                                         <tbody></tbody>   
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </form>    
             </div>
         </div><!--End of row -->
@@ -124,185 +142,6 @@
     <!-- </form> -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-
-<script>
-$(function () {
-    function numberWithCommas(x) {
-        return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    }
-    function removeCommas(x) {
-        return x.toString().replace(",", "");
-    }
-    $('.fetch').click(function(){
-        var from_err = '';
-        var to_err = '';
-        var bank_err = '';
-
-        if ($('#bank').val() == '') {
-            bank_err = 'Select Bank';
-            $('#bank_err').text(bank_err);
-            $('#bank').addClass('is-invalid');
-        } else {
-        bank_err = '';
-            $('#bank_err').text(bank_err);
-            $('#bank').removeClass('is-invalid');
-        }
-
-        if ($('#from').val() == '') {
-            from_err = 'Select Start Date';
-            $('#from_err').text(from_err);
-            $('#from').addClass('is-invalid');
-        } else {
-            from_err = '';
-            $('#from_err').text(from_err);
-            $('#from').removeClass('is-invalid');
-        }
-
-        if ($('#to').val() == '') {
-            to_err = 'Select End Date';
-            $('#to_err').text(to_err);
-            $('#to').addClass('is-invalid');
-        } else {
-        to_err = '';
-            $('#to_err').text(to_err);
-            $('#to').removeClass('is-invalid');
-        }
-
-        if (from_err !== '' || to_err !== '' || bank_err !== '') return;
-        var bank = $('#bank').val();
-        var from = $('#from').val();
-        var to = $('#to').val();
-
-        $.ajax({
-            url: '<?php echo URLROOT;?>/clearbankings/fetch',
-            method: 'GET',
-            data: { bank: bank, from: from, to: to },
-            success: function (data) {
-                // console.log(data);
-                $('#results').html(data);
-                table = $('#bankingsTable').DataTable({
-                    pageLength : 100,
-                    ordering : false,
-                    searching : false,
-                    bLengthChange: false,
-                    "responsive" : true,
-                    'columnDefs' : [
-                        {"visible" : false , "targets": 0},
-                    ],
-                });
-                //fetch details
-                $.ajax({
-                    url: '<?php echo URLROOT;?>/clearbankings/getValues',
-                    method: 'GET',
-                    data: { bank: bank, from: from, to: to },
-                    dataType : 'json',
-                    success : function(values){
-                        // console.log(values.debits);
-                        $('#deposits').val(values.debits);
-                        $('#depositsd').val(numberWithCommas(values.debits));
-                        $('#withdrawals').val(values.credits);
-                        $('#withdrawalsd').val(numberWithCommas(values.credits));
-                        $('#balance').val(values.balance);
-                        $('#balanced').val(numberWithCommas(values.balance));
-                        $('#variance').val(numberWithCommas(values.variance));
-                    }
-                });
-            }
-        });
-    });
-
-    $('#results').on('click','#cleared',function(){
-        var debitsTotal = 0;
-        var creditsTotal = 0;
-        var variance = 0;
-        var checkedItems = $('#bankingsTable input[type="checkbox"]:checked').each(
-            function () {
-                $tr = $(this).closest('tr');
-
-                let data = $tr
-                .children('td')
-                .map(function () {
-                    return $(this).text();
-                })
-                .get();
-
-                // console.log(removeCommas(data[2]),Number(removeCommas(data[2])) >= 0);
-                
-                if(Number(removeCommas(data[2])) >= 0){
-                    debitsTotal += Number(removeCommas(data[2]))
-                }else{
-                    creditsTotal += Number(removeCommas(data[2]))
-                } 
-            }
-        );
-
-        var initialDebits = Number($('#deposits').val());
-        var initialCredits = Number($('#withdrawals').val());
-        var balance = Number($('#balance').val());
-        var totalDebits = initialDebits + debitsTotal;
-        var totalCredits = initialCredits + creditsTotal;
-        var runningVariance = balance - (totalDebits - totalCredits);
-        $('#variance').val(numberWithCommas(runningVariance));
-        $('#depositsd').val(numberWithCommas(totalDebits));
-        $('#withdrawalsd').val(numberWithCommas(totalCredits));
-        // console.log(initialDebits,initialCredits);
-    })
-
-    $('#save').click(function(e){
-        e.preventDefault();
-        var table_data = [];
-        var checkedItems = $('#bankingsTable input[type="checkbox"]:checked').each(
-            function () {
-                $tr = $(this).closest('tr');
-
-                let data = $tr
-                .children('td')
-                .map(function () {
-                    return $(this).text();
-                })
-                .get();
-                table_data.push(data[0]);
-                // console.log($(this).parent('tr').find('.data-selector').val());
-            }
-        );
-        if (table_data.length === 0) {
-            alert('Nothing Selected');
-            return;
-        }
-        $.ajax({
-            url: '<?php echo URLROOT;?>/clearbankings/clear',
-            method: 'POST',
-            data: {
-                table_data: table_data,
-            },
-            success: function (data) {
-                window.location.href = '<?php echo URLROOT;?>/clearbankings';
-            },
-        });
-    });
-
-    $('#results').on('click','.btndel',function(){
-        $('#deleteModalCenter').modal('show');
-        $tr = $(this).closest('tr');
-
-        let data = $tr.children('td').map(function(){
-              return $(this).text();
-        }).get();
-
-        var currentRow = $(this).closest("tr");
-        var data1 = $('#bankingsTable').DataTable().row(currentRow).data();
-        $('#id').val(data1[0]);
-
-        // let data = $tr
-        // .children('td')
-        // .map(function () {
-        //     return $(this).text();
-        // })
-        // .get();
-        // $('#id').val(data[0]);
-    });
-    
-});
-</script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/bankings/clearbankings.js"></script>
 </body>
 </html> 
