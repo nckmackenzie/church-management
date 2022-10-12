@@ -63,8 +63,14 @@ class Bankreconcilliations extends Controller
                             <td>'.number_format($variance,2).'</td>
                         </tr>
                         <tr>
-                            <td>Uncleared Deposits</td>
-                            <td>'.number_format($unclearedDeposits,2).'</td>
+                            <td>Uncleared Deposits</td>';
+                            if(floatval($unclearedDeposits) != 0){
+                                $route = URLROOT .'/bankreconcilliations/uncleared?type=deposit&bank='.$data['bank'].'&sdate='.$data['from'].'&edate='.$data['to'].'';
+                                $output .= '<td><a href="'.$route.'" class="" target="_blank">'.number_format($unclearedDeposits,2).'</a></td>';
+                            }else{
+                                $output .= '<td>'.number_format($unclearedDeposits,2).'</td>';
+                            }
+                        $output .='    
                         </tr>
                         <tr>
                             <td>Uncleared Withdrawals</td>';
@@ -124,7 +130,7 @@ class Bankreconcilliations extends Controller
                     'reference' => $item->reference,
                 ]);
             }
-            
+
             echo json_encode(['success' => true,'results' => $data['results']]);
             exit;
 
