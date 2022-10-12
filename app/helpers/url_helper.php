@@ -385,6 +385,12 @@ function yearprotection($con,$id){
 //function to get the parent G/L Account
 function getparentgl($con,$childgl)
 {
+    $subcheckqry = 'SELECT isSubCategory FROM tblaccounttypes WHERE (accountType = ?)';
+    $isSub = getdbvalue($con,$subcheckqry,[trim(strtolower($childgl))]);
+    if(!converttobool($isSub)){
+        return $childgl;
+    }
+
     $sql = 'SELECT parentId FROM tblaccounttypes WHERE (accountType = ?)';
     $parentid = getdbvalue($con,$sql,[trim(strtolower($childgl))]);
     return trim(getdbvalue($con,'SELECT accountType FROM tblaccounttypes WHERE (ID = ?)',[$parentid]));
