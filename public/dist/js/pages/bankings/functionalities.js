@@ -24,7 +24,7 @@ export function appendData(data) {
   data.forEach(dt => {
     let html = `
         <tr>
-            <td class="d-none">${dt.id}</td>
+            <td class="d-none bid">${dt.id}</td>
             <td>
                 <div class="check-group">
                     <input type="checkbox" class="chkbx" id="${dt.id}">
@@ -72,4 +72,20 @@ export function calculateVariance() {
   let deposits = numberFormatter(despositsInput.value) || 0;
   const runningVariance = balance - (deposits - withdrawals);
   varianceInput.value = numberWithCommas(runningVariance.toFixed(2));
+}
+
+export function tableData() {
+  const tableData = [];
+
+  const trs = table.getElementsByTagName('tbody')[0].querySelectorAll('tr');
+
+  trs.forEach(tr => {
+    if (tr.querySelector('.chkbx').checked) {
+      const clearDate = tr.querySelector('.cleardate').value;
+      const id = tr.querySelector('.bid').innerText;
+      tableData.push({ id, clearDate });
+    }
+  });
+
+  return tableData;
 }
