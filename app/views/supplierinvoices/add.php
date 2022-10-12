@@ -91,7 +91,7 @@
                                                 class="form-control form-control-sm mandatory">
                                             <option value="" selected disabled>Select Supplier</option>
                                             <?php foreach($data['suppliers'] as $supplier) : ?>
-                                                <option value="<?php echo $supplier->ID;?>">
+                                                <option value="<?php echo $supplier->ID;?>" <?php selectdCheck($data['supplier'],$supplier->ID);?>>
                                                     <?php echo $supplier->supplierName; ?>
                                                 </option>
                                             <?php endforeach; ?>
@@ -103,14 +103,14 @@
                                     <div class="form-group">
                                         <label for="email">Email</label>
                                         <input type="text" id="email"
-                                               class="form-control form-control-sm" readonly>
+                                               class="form-control form-control-sm" value="<?php echo $data['email'];?>" readonly>
                                     </div>
                                 </div>
                                 <div class="col-md-2">
                                     <div class="form-group">
                                         <label for="pin">PIN</label>
                                         <input type="text" id="pin"
-                                               class="form-control form-control-sm" readonly>
+                                               class="form-control form-control-sm" value="<?php echo $data['pin'];?>" readonly>
                                     </div>
                                 </div>
                             </div><!--end of row -->
@@ -119,7 +119,7 @@
                                     <div class="form-group">
                                         <label for="idate">Invoice Date</label>
                                         <input type="date" name="idate" id="idate"
-                                               class="form-control form-control-sm mandatory">
+                                               class="form-control form-control-sm mandatory" value="<?php echo $data['idate'];?>">
                                         <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
@@ -127,7 +127,7 @@
                                     <div class="form-group">
                                         <label for="duedate">Due Date</label>
                                         <input type="date" name="duedate" id="duedate" 
-                                               class="form-control form-control-sm mandatory">
+                                               class="form-control form-control-sm mandatory" value="<?php echo $data['ddate'];?>">
                                         <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
@@ -136,9 +136,9 @@
                                         <label for="vtype">V.A.T Type</label>
                                         <select name="vattype" id="vattype" 
                                                 class="form-control form-control-sm">
-                                            <option value="1">No Vat</option>
-                                            <option value="2">Inclusive</option>
-                                            <option value="3">Exclusive</option>
+                                            <option value="1" <?php selectdCheck($data['vattype'],1);?>>No Vat</option>
+                                            <option value="2" <?php selectdCheck($data['vattype'],2);?>>Inclusive</option>
+                                            <option value="3" <?php selectdCheck($data['vattype'],3);?>>Exclusive</option>
                                         </select>
                                     </div>
                                 </div>
@@ -157,7 +157,7 @@
                                 <div class="col-md-2">
                                     <div class="form-group">
                                         <label for="invoiceno">Invoice #</label>
-                                        <input type="text" class="form-control form-control-sm mandatory" name="invoiceno" id="invoiceno">
+                                        <input type="text" class="form-control form-control-sm mandatory" name="invoiceno" id="invoiceno" value="<?php echo $data['invoiceno'];?>">
                                         <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
@@ -239,7 +239,18 @@
                                                 <th width="5%"></th>
                                             </tr>
                                         </thead>
-                                        <tbody></tbody>
+                                        <tbody>
+                                            <?php foreach($data['table'] as $detail) : ?>
+                                                <tr>
+                                                    <td class="d-none pid"><?php echo $detail['pid'];?></td>
+                                                    <td><?php echo $detail['pname'];?></td>
+                                                    <td class="qty"><?php echo $detail['qty'];?></td>
+                                                    <td class="rate"><?php echo $detail['rate'];?></td>
+                                                    <td class="gross"><?php echo $detail['gross'];?></td>
+                                                    <td class="btnremove"><button type="button" class="tablebtn text-danger btnremove">Remove</button></td>
+                                                </tr>
+                                            <?php endforeach;?>
+                                        </tbody>
                                     </table>            
                                </div>
                            </div>
