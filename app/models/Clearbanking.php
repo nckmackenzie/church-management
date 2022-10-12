@@ -21,16 +21,38 @@ class Clearbanking
         return loadresultset($this->db->dbh,$sql,[$data['bank'],$data['from'],$data['to']]);
     }
 
-    public function clear($data)
+    public function Clear($data)
     {
-        $today = date('Y-m-d');
-        for ($i=0; $i < count($data['details']); $i++) {
-            $id = $data['details'][$i];
-            $this->db->query('UPDATE tblbankpostings SET cleared=1,clearedDare=:tdate WHERE ID=:id');
-            $this->db->bind(':id',$id);
-            $this->db->bind(':tdate',$today);
-            $this->db->execute();
-        }    
+        try {
+
+            $this->db->dbh->beginTransaction();
+
+            for ($i=0; $i < count($data['table']); $i++) {
+                $id = $data['table'][$i]->id;
+                $cleardate = $data['table'][$i]->clearDate;
+                $this->db->query('UPDATE tblbankpostings SET cleared=1,clearedDare=:tdate WHERE ID=:id');
+                $this->db->bind(':id',$id);
+                $this->db->bind(':tdate',!empty($cleardate) ? date('Y-m-d',strtotime($cleardate)) : NULL);
+                $this->db->execute();
+            }    
+
+            if(!$this->db->dbh->commit()){
+                return false;
+            }else{
+                return true;
+            }
+            
+        } catch (PDOException $e) {
+            if($this->db->dbh->inTransaction()){
+                $this->db->dbh->rollBack();
+            }
+            error_log($e->getMessage(),0);
+            return false;
+        }catch (Exception $e) {
+            error_log($e->getMessage(),0);
+            return false;
+        }
+            
     }
     
     public function delete($id)
