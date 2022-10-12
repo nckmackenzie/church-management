@@ -46,7 +46,7 @@
     <section class="content">
         <table class="table table-striped table-bordered table-sm" id="invoicesTable">
             <thead class="bg-navy">
-                <th>ID</th>
+                <th class="d-none">ID</th>
                 <th>Date</th>
                 <th>No</th>
                 <th>Supplier</th>
@@ -58,7 +58,7 @@
             <tbody>
                 <?php foreach($data['invoices'] as $invoice) :?>
                     <tr>
-                        <td><?php echo $invoice->ID;?></td>
+                        <td class="d-none"><?php echo $invoice->ID;?></td>
                         <td><?php echo $invoice->invoiceDate;?></td>
                         <td><?php echo $invoice->invoiceNo;?></td>
                         <td><?php echo $invoice->supplier;?></td>
@@ -117,7 +117,7 @@
           'pageLength' : 50,
           'ordering' : false,
           'columnDefs' : [
-            {"visible" : false, "targets": 0},
+            // {"visible" : false, "targets": 0},
             {"width" : "10%" , "targets": 1},
             {"width" : "10%" , "targets": 2},
             {"width" : "10%" , "targets": 4},
