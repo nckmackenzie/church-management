@@ -34,7 +34,7 @@
     <!-- Content Header (Page header) -->
     <section class="content-header">
       <div class="container-fluid">
-        
+        <?php flash('supplierinvoice_msg');?>
         <div class="row mb-2">
           <div class="col-sm-6">
             <a href="<?php echo URLROOT;?>/supplierinvoices/add" class="btn btn-sm btn-success custom-font">Add New</a>
