@@ -126,7 +126,6 @@
                                                 <th>Clear Date</th>
                                                 <th>Amount</th>
                                                 <th>Reference</th>
-                                                <th>Action</th>
                                             </tr>
                                          </thead>
                                          <tbody></tbody>   
