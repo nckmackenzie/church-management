@@ -139,3 +139,26 @@ export function formatDate(date) {
   const formattedToday = dd + '/' + mm + '/' + yyyy;
   return formattedToday;
 }
+
+export function setdatatable(tbl, columnDefs = []) {
+  $(document).ready(function () {
+    'use strict';
+    var table = $(`#${tbl}`).DataTable();
+    table.destroy();
+    table = $(`#${tbl}`)
+      .DataTable({
+        lengthChange: !1,
+        buttons: ['print', 'excel', 'pdf'],
+        columnDefs: columnDefs,
+        ordering: false,
+        drawCallback: function () {
+          $('.dataTables_paginate > .pagination').addClass(
+            'pagination-rounded'
+          );
+        },
+      })
+      .buttons()
+      .container()
+      .appendTo(`#${tbl}_wrapper .col-md-6:eq(0)`);
+  });
+}
