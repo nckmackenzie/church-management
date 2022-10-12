@@ -26,7 +26,7 @@ export function addDays(date, days) {
 }
 
 export function formatDate(date) {
-  const d = new Date(date),
+  let d = new Date(date),
     month = '' + (d.getMonth() + 1),
     day = '' + d.getDate(),
     year = d.getFullYear();
@@ -96,7 +96,7 @@ export function header() {
     vat: vatSelect.value,
     invoiceNo: invoiceNoInput.value,
     id: idInput.value,
-    isEditInput: isEditInput.value,
+    isEdit: isEditInput.value,
     total: numberFormatter(totalsInput.value),
   };
 }
@@ -105,10 +105,10 @@ export function tableData() {
   const tableData = [];
   const trs = table.getElementsByTagName('tbody')[0].querySelectorAll('tr');
   trs.forEach(tr => {
-    const pid = tr.querySelector('pid');
-    const qty = tr.querySelector('qty');
-    const rate = tr.querySelector('rate');
-    const gross = tr.querySelector('gross');
+    const pid = tr.querySelector('.pid').innerText;
+    const qty = tr.querySelector('.qty').innerText;
+    const rate = tr.querySelector('.rate').innerText;
+    const gross = tr.querySelector('.gross').innerText;
     tableData.push({ pid, qty, rate, gross });
   });
   return tableData;
