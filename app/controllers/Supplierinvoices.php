@@ -42,6 +42,7 @@ class Supplierinvoices extends Controller
             'id' => '',
             'email' => '',
             'pin' => '',
+            'table' => []
         ];
         $this->view('supplierinvoices/add',$data);
         exit;
@@ -182,6 +183,7 @@ class Supplierinvoices extends Controller
         checkcenter($header->congregationId);
         if($this->reusemodel->CheckYearClosed($header->fiscalYearId)){
             flash('supplierinvoice_msg','Cannot edit for closed year','custom-danger alert-dismissible fade show');
+            redirect('supplierinvoices');
             exit;
         }
         $suppliers  = $this->invoicemodel->getSuppliers();
@@ -232,5 +234,38 @@ class Supplierinvoices extends Controller
             'details' => $details
         ];
         $this->view('supplierinvoices/print',$data);
+    }
+
+    public function delete()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST'){
+            $id = isset($_POST['id']) && !empty(trim($_POST['id'])) ? trim($_POST['id']) : '';
+
+            if(empty($id)){
+                flash('supplierinvoice_msg','Unable to find selected invoice','custom-danger alert-dismissible fade show');
+                redirect('supplierinvoices');
+                exit;
+            }
+
+            if($this->invoicemodel->YearIsClosed($id)){
+                flash('supplierinvoice_msg','Cannot delete transaction for closed year','custom-danger alert-dismissible fade show');
+                redirect('supplierinvoices');
+                exit;
+            }
+
+            if(!$this->invoicemodel->Delete($id)){
+                flash('supplierinvoice_msg','Unable to delete selected year. Retry or contact admin','custom-danger alert-dismissible fade show');
+                redirect('supplierinvoices');
+                exit;
+            }
+
+            flash('supplierinvoice_msg','Deleted successfully');
+            redirect('supplierinvoices');
+            exit;
+
+        }else{
+            redirect('users/deniedaccess');
+            exit;
+        }
     }
 }

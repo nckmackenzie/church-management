@@ -223,9 +223,8 @@ class Supplierinvoice
             $this->db->bind(':pby',$_SESSION['userId']);
             $this->db->bind(':id',$data['id']);
             $this->db->execute();
-            //details
-            $tid = $this->db->dbh->lastInsertId();
 
+            //details
             $this->db->query('DELETE FROM tblinvoice_details_suppliers WHERE (header_id=:id)');
             $this->db->bind(':id',$data['id']);
             $this->db->execute();
@@ -235,7 +234,7 @@ class Supplierinvoice
             for($i = 0; $i < count($data['table']); $i++){
                 $this->db->query('INSERT INTO tblinvoice_details_suppliers (header_id,productId,qty,rate,gross)
                                   VALUES(:hid,:pid,:qty,:rate,:gross)');
-                $this->db->bind(':hid',$tid);
+                $this->db->bind(':hid',$data['id']);
                 $this->db->bind(':pid',$data['table'][$i]->pid);
                 $this->db->bind(':qty',$data['table'][$i]->qty);
                 $this->db->bind(':rate',$data['table'][$i]->rate);
@@ -249,7 +248,7 @@ class Supplierinvoice
                 $narr = 'supplier invoice no '.$data['invoiceno'];
                 saveToLedger($this->db->dbh,$data['idate'],$pname,$parentaccountname,
                              calculateVat($data['vattype'],$data['table'][$i]->gross)[2],0
-                            ,$narr,$singleAccountId,6,$tid,$_SESSION['congId']);
+                            ,$narr,$singleAccountId,6,$data['id'],$_SESSION['congId']);
             }
 
             $account = 'accounts payable';
@@ -258,7 +257,7 @@ class Supplierinvoice
             $three = 4;
             saveToLedger($this->db->dbh,$data['idate'],$account,$parentaccount,0,
                          calculateVat($data['vattype'],$data['totals'])[2]
-                        ,$narr,$three,6,$tid,$_SESSION['congId']); 
+                        ,$narr,$three,6,$data['id'],$_SESSION['congId']); 
             //save to logs
             saveLog($this->db->dbh,$narr);
             if(!$this->db->dbh->commit()){
@@ -371,5 +370,39 @@ class Supplierinvoice
                           WHERE  (ID=:id)');
         $this->db->bind(':id',$id);
         return $this->db->single();
+    }
+
+    public function YearIsClosed($id) 
+    {
+        $yearid = getdbvalue($this->db->dbh,'SELECT fiscalYearId FROM tblinvoice_header_suppliers WHERE ID = ?',[$id]);
+        return yearprotection($this->db->dbh,$yearid);
+    }
+
+    public function Delete($id)
+    {
+        try {
+            //begin transaction
+            $this->db->dbh->beginTransaction();
+
+            $this->db->query('UPDATE tblinvoice_header_suppliers SET deleted = 1
+                              WHERE (ID = :id)');
+            $this->db->bind(':id',$id);
+            $this->db->execute();
+           
+            softdeleteLedgerBanking($this->db->dbh,6,$id);
+
+            if(!$this->db->dbh->commit()){
+                return false;
+            }else{
+                return true;
+            }
+            
+        } catch (\Exception $e) {
+            if ($this->db->dbh->inTransaction()) {
+                $this->db->dbh->rollBack();
+            }
+            error_log($e->getMessage(),0);
+            return false;
+        }
     }
 }
