@@ -7,6 +7,7 @@ import {
   alertBox,
   setLoadingState,
   resetLoadingState,
+  HOST_URL,
 } from '../utils/utils.js';
 import {
   getSupplierDetails,
@@ -167,6 +168,7 @@ invoiceForm.addEventListener('submit', async function (e) {
   if (res && res?.success) {
     window.location.replace(`${HOST_URL}/supplierinvoices`);
   }
+  resetLoadingState(saveBtn, 'Save');
 });
 
 clearOnChange(mandatoryFields);
