@@ -10,6 +10,7 @@ class Supplierinvoices extends Controller
         }
         $this->authmodel = $this->model('Auth');
         checkrights($this->authmodel,'supplier invoices');
+        $this->reusemodel = $this->model('Reusables');
         $this->invoicemodel = $this->model('Supplierinvoice');
     }
     
@@ -31,8 +32,16 @@ class Supplierinvoices extends Controller
             'products' => $products,
             'accounts' => $accounts,
             'vats' => $vats,
+            'supplier' => '',
+            'idate' => '',
+            'ddate' => '',
+            'vattype' => '',
+            'vat' => '',
+            'invoiceno' => '',
             'isedit' => false,
-            'id' => ''
+            'id' => '',
+            'email' => '',
+            'pin' => '',
         ];
         $this->view('supplierinvoices/add',$data);
         exit;
@@ -170,117 +179,46 @@ class Supplierinvoices extends Controller
     {
         $header = $this->invoicemodel->getInvoiceHeader(trim($id));
         $details = $this->invoicemodel->getInvoiceDetails(trim($id));
+        checkcenter($header->congregationId);
+        if($this->reusemodel->CheckYearClosed($header->fiscalYearId)){
+            flash('supplierinvoice_msg','Cannot edit for closed year','custom-danger alert-dismissible fade show');
+            exit;
+        }
         $suppliers  = $this->invoicemodel->getSuppliers();
         $products  = $this->invoicemodel->getProducts();
         $vats  = $this->invoicemodel->getVats();
+        $supplierdetails = $this->invoicemodel->getSupplierDetails($header->supplierId);
         $data = [
+            'accounts'  => $this->invoicemodel->getAccounts(),
             'suppliers' => $suppliers,
+            'email' => $supplierdetails->email,
+            'pin' => strtoupper($supplierdetails->pin),
             'products' => $products,
             'vats' => $vats,
-            'header' => $header,
-            'details' => $details
+            'details' => $details,
+            'isedit' => true,
+            'supplier' => $header->supplierId,
+            'idate' => $header->invoiceDate,
+            'ddate' => $header->duedate,
+            'vattype' => $header->vattype,
+            'vat' => $header->vat,
+            'invoiceno' => $header->invoiceNo,
+            'id' => $header->ID,
+            'table' => [],
         ];
-        $this->view('supplierinvoices/edit',$data);
-    }
-    public function update()
-    {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-            $data = [
-                'id' => trim($_POST['id']),
-                'supplierId' => trim($_POST['supplierId']),
-                'invoicedate' => trim($_POST['invoicedate']),
-                'invoice' => trim($_POST['invoice']),
-                'duedate' => trim($_POST['duedate']),
-                'vattype' => trim($_POST['vattype']),
-                'vat' => !empty($_POST['vat']) ? trim($_POST['vat']) : NULL,
-                'totals' => trim($_POST['totals']),
-                'details' => $_POST['table_data'],
-            ];
-            if (!empty($data['invoice'])) {
-                $this->invoicemodel->update($data);
-            }
+        foreach($details as $detail){
+            array_push($data['table'],[
+                'pid' => $detail->productId,
+                'pname' => $detail->accountType,
+                'qty' => $detail->qty,
+                'rate' => $detail->rate,
+                'gross' => $detail->gross
+            ]);
         }
-        else {
-            redirect('supplierinvoices');
-        }
+        $this->view('supplierinvoices/add',$data);
+        exit;
     }
-    public function pay($id)
-    {
-        $invoice = $this->invoicemodel->fillInvoiceDetails(trim($id));
-        $paymethods = $this->invoicemodel->paymethods();
-        $banks = $this->invoicemodel->banks();
-        // $invoice = $this->invoicemodel->getInvoiceDetails(trim($id));
-        $data = [
-            'id' => '',
-            'invoice' => $invoice,
-            'paydate' => '',
-            'amount' => '',
-            'paymethods' => $paymethods,
-            'paymethod' => 3,
-            'banks' => $banks,
-            'bank' => '',
-            'reference' => '',
-            'date_err' => '',
-            'amount_err' => '',
-            'bank_err' => '',
-            'ref_err' => ''
-        ];
-        $this->view('supplierinvoices/pay',$data);
-    }
-    public function payment()
-    {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-            
-            $paymethods = $this->invoicemodel->paymethods();
-            $banks = $this->invoicemodel->banks();
-            $data = [
-                'id' => trim($_POST['id']),
-                'invoice' => '',
-                'invoiceno' => trim($_POST['invoiceno']),
-                'balance' => trim($_POST['balance']),
-                'paydate' => trim($_POST['paydate']),
-                'amount' => trim($_POST['amount']),
-                'paymethods' => $paymethods,
-                'paymethod' => trim($_POST['paymethod']),
-                'banks' => $banks,
-                'bank' => !empty($_POST['bank']) ? trim($_POST['bank']) : NULL,
-                'reference' => trim($_POST['reference']),
-                'date_err' => '',
-                'amount_err' => '',
-                'bank_err' => '',
-                'ref_err' => ''
-            ];
-            $invoice = $this->invoicemodel->fillInvoiceDetails(encryptId($data['id']));
-            $data['invoice'] = $invoice;
-            
-            if (empty($data['paydate'])) {
-                $data['date_err'] = 'Select Date';
-            }
-            if (empty($data['amount'])) {
-                $data['amount_err'] = 'Enter Amount';
-            }
-            if ($data['paymethod'] > 2 && (empty($data['bank']) || $data['bank'] == NULL)) {
-                $data['bank_err'] = 'Select Bank';
-            }
-            if ($data['paymethod'] > 1 && empty($data['reference'])) {
-                $data['ref_err'] = 'Enter Reference';
-            }
-            if (empty($data['date_err']) && empty($data['amount_err']) && empty($data['bank_err']) 
-                && empty($data['ref_err'])) {
-                if ($this->invoicemodel->payment($data)) {
-                    redirect('supplierinvoices');
-                }
-            }
-            else{
-                $this->view('supplierinvoices/pay',$data);
-            }
-        }
-        else {
-           redirect('supplierinvoices');
-        }
-    }
+
     public function print($id)
     {
         $header = $this->invoicemodel->getInvoiceHeader(trim($id));

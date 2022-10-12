@@ -199,12 +199,88 @@ class Supplierinvoice
         }
     }
 
+    public function update($data)
+    {
+        $yearid = getYearId($this->db->dbh,$data['idate']);
+        $vatId = $this->getVatId($data['vat']);
+        try {
+            //begin transaction
+            $this->db->dbh->beginTransaction();
+            $this->db->query('UPDATE tblinvoice_header_suppliers SET invoiceDate = :idate,duedate= :ddate, supplierId = :cid,invoiceNo =:inv,
+                                     fiscalYearId=:fid,vattype=:vtype,vatId=:vid,exclusiveVat=:evat,vat=:vat,inclusiveVat=:ivat,
+                                     postedBy =:pby
+                              WHERE (ID = :id)');
+            $this->db->bind(':idate',$data['idate']);
+            $this->db->bind(':ddate',$data['ddate']);
+            $this->db->bind(':cid',$data['supplier']);
+            $this->db->bind(':inv',$data['invoiceno']);
+            $this->db->bind(':fid',$yearid);
+            $this->db->bind(':vtype',$data['vattype']);
+            $this->db->bind(':vid',!is_null($data['vat']) ? $vatId : null);
+            $this->db->bind(':evat',calculateVat($data['vattype'],$data['totals'])[0]);
+            $this->db->bind(':vat',calculateVat($data['vattype'],$data['totals'])[1]);
+            $this->db->bind(':ivat',calculateVat($data['vattype'],$data['totals'])[2]);
+            $this->db->bind(':pby',$_SESSION['userId']);
+            $this->db->bind(':id',$data['id']);
+            $this->db->execute();
+            //details
+            $tid = $this->db->dbh->lastInsertId();
+
+            $this->db->query('DELETE FROM tblinvoice_details_suppliers WHERE (header_id=:id)');
+            $this->db->bind(':id',$data['id']);
+            $this->db->execute();
+
+            deleteLedgerBanking($this->db->dbh,6,$data['id']);
+
+            for($i = 0; $i < count($data['table']); $i++){
+                $this->db->query('INSERT INTO tblinvoice_details_suppliers (header_id,productId,qty,rate,gross)
+                                  VALUES(:hid,:pid,:qty,:rate,:gross)');
+                $this->db->bind(':hid',$tid);
+                $this->db->bind(':pid',$data['table'][$i]->pid);
+                $this->db->bind(':qty',$data['table'][$i]->qty);
+                $this->db->bind(':rate',$data['table'][$i]->rate);
+                $this->db->bind(':gross',$data['table'][$i]->gross);
+                $this->db->execute();
+
+                $pid = $data['table'][$i]->pid;
+                $pname = $this->getAccountName($pid)[0];
+                $singleAccountId = $this->getAccountName($pid)[1];
+                $parentaccountname = getparentgl($this->db->dbh,$pname);
+                $narr = 'supplier invoice no '.$data['invoiceno'];
+                saveToLedger($this->db->dbh,$data['idate'],$pname,$parentaccountname,
+                             calculateVat($data['vattype'],$data['table'][$i]->gross)[2],0
+                            ,$narr,$singleAccountId,6,$tid,$_SESSION['congId']);
+            }
+
+            $account = 'accounts payable';
+            $narr = 'Invoice #'.$data['invoiceno'];
+            $parentaccount = 'payables and accruals';
+            $three = 4;
+            saveToLedger($this->db->dbh,$data['idate'],$account,$parentaccount,0,
+                         calculateVat($data['vattype'],$data['totals'])[2]
+                        ,$narr,$three,6,$tid,$_SESSION['congId']); 
+            //save to logs
+            saveLog($this->db->dbh,$narr);
+            if(!$this->db->dbh->commit()){
+                return false;
+            }else{
+                return true;
+            }
+        } catch (\Exception $e) {
+            if ($this->db->dbh->inTransaction()) {
+                $this->db->dbh->rollBack();
+            }
+            error_log($e->getMessage(),0);
+            return false;
+        }
+    }
+
     public function CreateUpdate($data)
     {
         if(!$data['isedit']){
             return $this->create($data);
         }else{
-            
+            return $this->update($data);
         }
     }
 
@@ -219,7 +295,9 @@ class Supplierinvoice
                                  vatId,
                                  exclusiveVat,
                                  vat,
-                                 inclusiveVat
+                                 inclusiveVat,
+                                 fiscalYearId,
+                                 congregationId
                           FROM   tblinvoice_header_suppliers
                           WHERE  (ID=:id)');
         $this->db->bind(':id',decryptId($id));
@@ -239,77 +317,6 @@ class Supplierinvoice
                           WHERE  (header_id = :id)');
         $this->db->bind(':id',decryptId($id));
         return $this->db->resultSet();
-    }
-
-    public function update($data)
-    {
-        $yearid = getYearId($this->db->dbh,$data['invoicedate']);
-        $vatId = $this->getVatId($data['vat']);
-        try {
-            //begin transaction
-            $this->db->dbh->beginTransaction();
-            $this->db->query('UPDATE tblinvoice_header_suppliers SET invoiceDate=:idate,duedate=:ddate,
-                                     supplierId=:cid,invoiceNo=:inv,fiscalYearId=:fid,vattype=:vtype
-                                     ,vatId=:vid,exclusiveVat=:evat,vat=:vat,inclusiveVat=:ivat
-                              WHERE  (ID=:id)');
-            $this->db->bind(':idate',!empty($data['invoicedate']) ? $data['invoicedate'] : NULL);
-            $this->db->bind(':ddate',!empty($data['duedate']) ? $data['duedate'] : NULL);
-            $this->db->bind(':cid',$data['supplierId']);
-            $this->db->bind(':inv',$data['invoice']);
-            $this->db->bind(':fid',$yearid);
-            $this->db->bind(':vtype',!empty($data['vattype']) ? $data['vattype'] : NULL);
-            $this->db->bind(':vid',$vatId);
-            $this->db->bind(':evat',calculateVat($data['vattype'],$data['totals'])[0]);
-            $this->db->bind(':vat',calculateVat($data['vattype'],$data['totals'])[1]);
-            $this->db->bind(':ivat',calculateVat($data['vattype'],$data['totals'])[2]);
-            $this->db->bind(':id',$data['id']);
-            $this->db->execute();
-            //delete existing
-            $this->db->query('DELETE FROM tblinvoice_details_suppliers WHERE header_id=:id');
-            $this->db->bind(':id',$data['id']);
-            $this->db->execute();
-            //delete ledge
-            $this->db->query('DELETE FROM tblledger WHERE (transactionType=:ttype) AND (transactionId=:tid)');
-            $this->db->bind(':ttype',6);
-            $this->db->bind(':tid',$data['id']);
-            $this->db->execute();
-
-            //details
-            $tid = $data['id'];
-            $sql = 'INSERT INTO tblinvoice_details_suppliers (header_id,productId,qty,rate,gross,`description`)
-                    VALUES(?,?,?,?,?,?)';
-            for ($i=0; $i < count($data['details']); $i++) { 
-                $pid = $data['details'][$i]['pid'];
-                $pname = $this->getAccountName($pid)[0];
-                $singleAccountId = $this->getAccountName($pid)[1];
-                // $pname = trim(strtolower($data['details'][$i]['pname']));
-                $qty = $data['details'][$i]['qty'];
-                $rate = $data['details'][$i]['rate'];
-                $gross = $data['details'][$i]['gross'];
-                $desc = strtolower($data['details'][$i]['desc']);
-                $stmt = $this->db->dbh->prepare($sql);
-                $stmt->execute([$tid,$pid,$qty,$rate,$gross,$desc]);
-                $parentaccountname = getparentgl($this->db->dbh,$pname);
-                saveToLedger($this->db->dbh,$data['invoicedate'],$pname,$parentaccountname,
-                             calculateVat($data['vattype'],$gross)[2],0
-                            ,$desc,$singleAccountId,6,$tid,$_SESSION['congId']);
-            }
-            $account = 'accounts payable';
-            $narr = 'Invoice #'.$data['invoice'];
-            $parentaccount = 'payables and accruals';
-            $three = 4;
-            saveToLedger($this->db->dbh,$data['invoicedate'],$account,$parentaccount,0,
-                         calculateVat($data['vattype'],$data['totals'])[2]
-                        ,$narr,$three,6,$tid,$_SESSION['congId']); 
-            //save to logs
-            saveLog($this->db->dbh, 'Updated '. $narr);
-            $this->db->dbh->commit();
-        } catch (\Exception $e) {
-            if ($this->db->dbh->inTransaction()) {
-                $this->db->dbh->rollBack();
-            }
-            throw $e;
-        }
     }
 
     public function fillInvoiceDetails($id)
