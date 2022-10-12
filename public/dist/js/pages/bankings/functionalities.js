@@ -42,7 +42,6 @@ export function appendData(data) {
             <td><input type="text" class="table-input w-100 reference" value="${
               dt.reference
             }" readonly></td>
-            <td><button class="tablebtn text-danger">Remove</button></td>
         </tr>
     `;
     tbody.insertAdjacentHTML('beforeend', html);
