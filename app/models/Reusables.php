@@ -37,4 +37,11 @@ class Reusables
     {
         return yearprotection($this->db->dbh,$yearid);
     }
+
+    public function GetCongregationDetails()
+    {
+        $this->db->query("SELECT * FROM tblcongregation WHERE ID = :id");
+        $this->db->bind(':id',$_SESSION['congId']);
+        return $this->db->single();
+    }
 }
