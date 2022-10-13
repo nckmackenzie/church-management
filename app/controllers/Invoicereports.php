@@ -66,4 +66,19 @@ class Invoicereports extends Controller
             exit;
         }
     }
+
+    public function fetchinvoicenos()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'GET'){
+
+            $output = '<option value="" selected disabled>Select Invoice No</option>';
+            foreach($this->reportmodel->GetInvoiceNos() as $invoiceno) {
+                $output .= '<option value="'.$invoiceno->invoiceNo.'">'.$invoiceno->invoiceNo.'</option>';
+            }
+            echo json_encode($output);
+        }else{
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
 }
