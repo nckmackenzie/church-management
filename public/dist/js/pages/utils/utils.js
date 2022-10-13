@@ -140,7 +140,7 @@ export function formatDate(date) {
   return formattedToday;
 }
 
-export function setdatatable(tbl, columnDefs = []) {
+export function setdatatable(tbl, columnDefs = [], pageLength) {
   $(document).ready(function () {
     'use strict';
     var table = $(`#${tbl}`).DataTable();
@@ -148,6 +148,7 @@ export function setdatatable(tbl, columnDefs = []) {
     table = $(`#${tbl}`)
       .DataTable({
         lengthChange: !1,
+        pageLength: pageLength || 25,
         buttons: ['print', 'excel', 'pdf'],
         columnDefs: columnDefs,
         ordering: false,
@@ -161,4 +162,16 @@ export function setdatatable(tbl, columnDefs = []) {
       .container()
       .appendTo(`#${tbl}_wrapper .col-md-6:eq(0)`);
   });
+}
+
+export function getColumnTotal(table, cell) {
+  let sumVal = 0;
+  const tbody = table.getElementsByTagName('tbody')[0];
+  for (var i = 1; i < tbody.rows.length + 1; i++) {
+    const rowValue =
+      parseFloat(numberFormatter(table.rows[i].cells[cell].innerText)) || 0;
+    sumVal = sumVal + rowValue;
+  }
+
+  return numberWithCommas(sumVal.toFixed(2));
 }
