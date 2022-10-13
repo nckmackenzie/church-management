@@ -12,11 +12,14 @@ class Payments extends Controller
         checkrights($this->authmodel,'payments');
         $this->paymentmodel = $this->model('Payment');
         $this->depositmodel = $this->model('Deposit');
+        $this->reusemodel = $this->model('Reusables');
     }
 
     public function index()
     {
-        $data = [];
+        $data = [
+            'payments' => $this->paymentmodel->GetPayments(),
+        ];
         $this->view('payments/index',$data);
         exit;
     }
@@ -96,5 +99,23 @@ class Payments extends Controller
             redirect('users/deniedaccess');
             exit;
         }
+    }
+
+    public function print($id)
+    {
+        $params = explode('-', $id);
+        $paymentNo = $params[0];
+        $supplier = $params[1];
+        
+        $data = [
+            'paymentno' => $paymentNo,
+            'congregationinfo' => $this->reusemodel->GetCongregationDetails(),
+            'supplier' => $this->paymentmodel->GetSupplierDetails($supplier),
+            'paymentdate' => date('d-m-Y',strtotime($this->paymentmodel->GetPaymentDate($paymentNo))),
+            'invoicedetails' => $this->paymentmodel->GetInvoicedetails($paymentNo,$supplier),
+            'total' => $this->paymentmodel->GetPaymentSupplierValue($paymentNo,$supplier)
+        ];
+        $this->view('payments/print',$data);
+        exit;
     }
 }
