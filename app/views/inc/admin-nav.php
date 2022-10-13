@@ -299,6 +299,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/reports/invoicereports" class="nav-link">
+                        <p>Invoice Reports</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/reports/banking" class="nav-link">
                         <p>Banking Reports</p>
                     </a>
