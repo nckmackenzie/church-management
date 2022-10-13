@@ -120,7 +120,8 @@ class Supplierinvoice
 
     public function CheckInvoiceNo($invoice,$id)
     {
-        $sql = 'SELECT COUNT(*) FROM tblinvoice_header_suppliers WHERE (invoiceNo = ?) AND (congregationId = ?) AND (ID <> ?)';
+        $sql = 'SELECT COUNT(*) FROM tblinvoice_header_suppliers 
+                WHERE (invoiceNo = ?) AND (congregationId = ?) AND (ID <> ?) AND (deleted = 0)';
         $count = getdbvalue($this->db->dbh,$sql,[strtolower($invoice),$_SESSION['congId'], $id]);
         if((int)$count > 0){
             return false;
