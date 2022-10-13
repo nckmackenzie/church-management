@@ -10,7 +10,7 @@ class Payment
 
     public function GetPayments()
     {
-        $sql = 'SELECT * FROM vw_supplier_payments  WHERE congregationId = ?';
+        $sql = 'SELECT * FROM vw_supplierpayments  WHERE congregationId = ?';
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
 
