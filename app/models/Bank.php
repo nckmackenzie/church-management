@@ -65,7 +65,7 @@ class Bank {
 
                 $cabparent = getparentgl($this->db->dbh,'cash at bank'); //cash at bank parent
 
-                saveToLedger($this->db->dbh,$data['asof'],$param,NULL,0,$data['openingbal'],$param,6,8,
+                saveToLedger($this->db->dbh,$data['asof'],$param,$param,0,$data['openingbal'],$param,6,8,
                              $tid,$_SESSION['congId']);
                 saveToLedger($this->db->dbh,$data['asof'],'cash at bank',$cabparent,$data['openingbal'],0,$param,3,8,
                              $tid,$_SESSION['congId']);
