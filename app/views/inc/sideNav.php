@@ -446,7 +446,7 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo URLROOT;?>/reports/invoicereports" class="nav-link">
+                            <a href="<?php echo URLROOT;?>/invoicereports" class="nav-link">
                                 <p>Invoice Reports</p>
                             </a>
                         </li>
