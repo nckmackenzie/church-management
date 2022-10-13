@@ -59,6 +59,10 @@ class Invoicereports extends Controller
                 $results = $this->reportmodel->GetInvoicesWithBalance();
             }elseif($data['type'] === 'byinvoice'){
                 $results = $this->reportmodel->GetPaymentPayInvoice($data['criteria']);
+            }elseif($data['type'] === 'bysupplier'){
+                $results = $this->reportmodel->GetPaymentPaySupplier($data);
+            }elseif($data['type'] === 'all'){
+                $results = $this->reportmodel->GetAllPayments($data);
             }
 
             echo json_encode(['results' => $results, 'success' => true]);
@@ -69,14 +73,24 @@ class Invoicereports extends Controller
         }
     }
 
-    public function fetchinvoicenos()
+    public function fetchselectoptions()
     {
         if($_SERVER['REQUEST_METHOD'] === 'GET'){
+            $type = htmlentities(trim($_GET['type']));
+            $output = '';
 
-            $output = '<option value="" selected disabled>Select Invoice No</option>';
-            foreach($this->reportmodel->GetInvoiceNos() as $invoiceno) {
-                $output .= '<option value="'.$invoiceno->invoiceNo.'">'.$invoiceno->invoiceNo.'</option>';
+            if($type === 'invoiceno'){
+                $output = '<option value="" selected disabled>Select Invoice No</option>';
+                foreach($this->reportmodel->GetInvoiceNos() as $invoiceno) {
+                    $output .= '<option value="'.$invoiceno->invoiceNo.'">'.$invoiceno->invoiceNo.'</option>';
+                }
+            }elseif($type === 'supplier'){
+                $output = '<option value="" selected disabled>Select supplier</option>';
+                foreach($this->reportmodel->GetSuppliers() as $supplier) {
+                    $output .= '<option value="'.$supplier->ID.'">'.$supplier->supplierName.'</option>';
+                }
             }
+            
             echo json_encode($output);
         }else{
             redirect('users/deniedaccess');
