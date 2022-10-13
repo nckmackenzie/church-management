@@ -3,7 +3,7 @@ import { btnPreview, sdateInput, edateInput,reportTypeSelect,resultsDiv } from '
 //prettier-ignore
 import {mandatoryFields,validation,clearOnChange,setdatatable,getColumnTotal,numberWithCommas} from '../../utils/utils.js';
 import { invoiceReports, getInvoiceNo } from '../ajax.js';
-import { withBalancesTable } from './table.js';
+import { withBalancesTable, paymentByInvoice } from './table.js';
 const criteriaSelect = document.querySelector('#criteria');
 let reportType;
 //report type change
@@ -56,20 +56,33 @@ btnPreview.addEventListener('click', async function () {
   resultsDiv.innerHTML = '';
 
   let data;
+  let criteriaValue;
+  //fetch data
   if (reportType === 'balances') {
     data = await invoiceReports('balances');
+  } else if (reportType === 'byinvoice') {
+    criteriaValue = criteriaSelect.value;
+    data = await invoiceReports('byinvoice', criteriaValue);
   }
+
+  //records found
   if (data && data?.success) {
     const { results } = data;
-    resultsDiv.innerHTML = withBalancesTable(results);
-    const table = document.getElementById('invoicereport');
+
     if (reportType === 'balances') {
+      resultsDiv.innerHTML = withBalancesTable(results);
+      const table = document.getElementById('invoicereport');
       const invoicevalth = document.getElementById('invoiceval');
       const paid = document.getElementById('paid');
       const bal = document.getElementById('bal');
       invoicevalth.innerText = getColumnTotal(table, 4);
       paid.innerText = getColumnTotal(table, 5);
       bal.innerText = getColumnTotal(table, 6);
+    } else if (reportType === 'byinvoice') {
+      resultsDiv.innerHTML = paymentByInvoice(results);
+      const table = document.getElementById('invoicereport');
+      const paid = document.getElementById('paid');
+      paid.innerText = getColumnTotal(table, 2);
     }
 
     setdatatable('invoicereport', undefined, 50);

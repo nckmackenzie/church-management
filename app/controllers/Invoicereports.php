@@ -57,6 +57,8 @@ class Invoicereports extends Controller
             $results = null;
             if($data['type'] === 'balances'){
                 $results = $this->reportmodel->GetInvoicesWithBalance();
+            }elseif($data['type'] === 'byinvoice'){
+                $results = $this->reportmodel->GetPaymentPayInvoice($data['criteria']);
             }
 
             echo json_encode(['results' => $results, 'success' => true]);

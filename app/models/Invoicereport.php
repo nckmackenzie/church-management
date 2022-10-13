@@ -23,4 +23,9 @@ class Invoicereport
                 ORDER By invoiceNo';
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
+
+    public function GetPaymentPayInvoice($invoice)
+    {
+        return loadresultset($this->db->dbh,'CALL sp_get_payments_by_invoiceno(?)',[$invoice]);
+    }
 }
