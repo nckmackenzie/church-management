@@ -1,18 +1,13 @@
 //prettier-ignore
 import { btnPreview, sdateInput, edateInput,reportTypeSelect,resultsDiv } from '../utils.js';
-import {
-  mandatoryFields,
-  validation,
-  clearOnChange,
-  setdatatable,
-  getColumnTotal,
-  numberWithCommas,
-} from '../../utils/utils.js';
-import { invoiceReports } from '../ajax.js';
+//prettier-ignore
+import {mandatoryFields,validation,clearOnChange,setdatatable,getColumnTotal,numberWithCommas} from '../../utils/utils.js';
+import { invoiceReports, getInvoiceNo } from '../ajax.js';
+import { withBalancesTable } from './table.js';
 const criteriaSelect = document.querySelector('#criteria');
 let reportType;
 //report type change
-reportTypeSelect.addEventListener('change', function (e) {
+reportTypeSelect.addEventListener('change', async function (e) {
   const type = String(e.target.value).trim();
   reportType = type;
   criteriaSelect.innerHTML = '';
@@ -30,6 +25,7 @@ reportTypeSelect.addEventListener('change', function (e) {
     criteriaSelect.disabled = false;
     removeMandatory();
     criteriaSelect.classList.add('mandatory');
+    criteriaSelect.innerHTML = await getInvoiceNo();
   } else if (type === 'bysupplier') {
     sdateInput.value = edateInput.value = criteriaSelect.value = '';
     sdateInput.disabled = false;
@@ -56,6 +52,7 @@ function removeMandatory() {
 
 btnPreview.addEventListener('click', async function () {
   if (validation() > 0) return;
+  removeErrorState();
   resultsDiv.innerHTML = '';
 
   let data;
@@ -66,58 +63,25 @@ btnPreview.addEventListener('click', async function () {
     const { results } = data;
     resultsDiv.innerHTML = withBalancesTable(results);
     const table = document.getElementById('invoicereport');
-    const invoicevalth = document.getElementById('invoiceval');
-    const paid = document.getElementById('paid');
-    const bal = document.getElementById('bal');
-    invoicevalth.innerText = getColumnTotal(table, 4);
-    paid.innerText = getColumnTotal(table, 5);
-    bal.innerText = getColumnTotal(table, 6);
+    if (reportType === 'balances') {
+      const invoicevalth = document.getElementById('invoiceval');
+      const paid = document.getElementById('paid');
+      const bal = document.getElementById('bal');
+      invoicevalth.innerText = getColumnTotal(table, 4);
+      paid.innerText = getColumnTotal(table, 5);
+      bal.innerText = getColumnTotal(table, 6);
+    }
 
     setdatatable('invoicereport', undefined, 50);
   }
 });
 
-function withBalancesTable(data) {
-  let html = `
-    <table class="table table-striped table-bordered table-sm" id="invoicereport">
-       <thead>
-          <tr>
-            <th>Supplier</th>
-            <th>Invoice No</th>
-            <th>Invoice Date</th>
-            <th>Due Date</th>
-            <th>Invoice Amount</th>
-            <th>Amount Paid</th>
-            <th>Balance</th>
-          </tr>
-       </thead>
-       <tbody>`;
-  data.forEach(dt => {
-    html += `
-            <tr>
-              <td>${dt.supplierName}</td>
-              <td>${dt.invoiceNo}</td>
-              <td>${dt.invoiceDate}</td>
-              <td>${dt.dueDate}</td>
-              <td>${numberWithCommas(dt.inclusiveVat)}</td>
-              <td>${numberWithCommas(dt.amountPaid)}</td>
-              <td>${numberWithCommas(dt.Balance)}</td>
-            </tr>
-         `;
-  });
-
-  html += `</tbody>
-  <tfoot>
-    <tr>
-        <th colspan="4" style="text-align:center">Total:</th>
-        <th id="invoiceval"></th>
-        <th id="paid"></th>
-        <th id="bal"></th>
-    </tr>
-  </tfoot>
-    </table>
-  `;
-  return html;
-}
-
 clearOnChange(mandatoryFields);
+function removeErrorState() {
+  document.querySelectorAll('.mandatory').forEach(field => {
+    if (field.value != '') {
+      field.classList.remove('is-invalid');
+      field.nextSibling.nextSibling.textContent = '';
+    }
+  });
+}
