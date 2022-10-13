@@ -123,7 +123,7 @@ class Supplierinvoices extends Controller
             $header = $fields->header;
             $table = $fields->table;
             $data = [
-                'id' => !empty($header->id) ? trim($header->id) : null,
+                'id' => !empty($header->id) ? trim($header->id) : '',
                 'supplier' => !empty($header->supplier) ? trim($header->supplier) : null,
                 'idate' => !empty($header->invoiceDate) ? date('Y-m-d',strtotime(trim($header->invoiceDate))) : null,
                 'ddate' => !empty($header->dueDate) ? date('Y-m-d',strtotime(trim($header->dueDate))) : null,
@@ -135,7 +135,8 @@ class Supplierinvoices extends Controller
                 'totals' => floatval($header->total)
             ];
 
-            //validate
+            
+            // validate
             if(is_null($data['supplier']) || is_null($data['idate']) || is_null($data['ddate']) 
                || is_null($data['vattype']) || is_null($data['invoiceno'])){
                 http_response_code(400);
