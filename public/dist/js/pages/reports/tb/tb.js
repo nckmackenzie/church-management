@@ -1,5 +1,6 @@
 //prettier-ignore
-import {mandatoryFields,clearOnChange,validation,validateDate,numberWithCommas,getColumnTotal} from '../../utils/utils.js'
+import {mandatoryFields,clearOnChange,validation,validateDate,numberWithCommas,
+        getColumnTotal,setdatatable} from '../../utils/utils.js'
 import {
   btnPreview,
   sdateInput,
@@ -18,6 +19,7 @@ btnPreview.addEventListener('click', async function () {
   if (validation() > 0) return;
   if (!validateDate(sdateInput, edateInput)) return;
   resultsDiv.classList.add('d-none');
+  table.getElementsByTagName('tbody')[0].innerHTML = '';
   setLoadingSpinner();
   const sdateVal = sdateInput.value;
   const edateVal = edateInput.value;
@@ -25,20 +27,23 @@ btnPreview.addEventListener('click', async function () {
   const data = await getTrialBalance(reportType, sdateVal, edateVal);
   removeLoadingSpinner(resultsDiv);
   if (data && data.success) {
-    appendTbody(data.results);
+    appendTbody(data.results, reportType);
     const debitTotal = document.getElementById('debittotal');
     const creditTotal = document.getElementById('credittotal');
     debitTotal.innerText = getColumnTotal(table, 1);
     creditTotal.innerText = getColumnTotal(table, 2);
+    setdatatable('table', undefined, 50);
   }
 });
 
-function appendTbody(data) {
+function appendTbody(data, type) {
   const tbody = table.getElementsByTagName('tbody')[0];
   data.forEach(dt => {
     let html = `
         <tr>
-            <td>${String(dt.account).toUpperCase()}</td>
+            <td>${String(
+              type === 'detailed' ? dt.account : dt.parentaccount
+            ).toUpperCase()}</td>
             <td class="text-center">${numberWithCommas(dt.Debit)}</td>
             <td class="text-center">${
               isNaN(parseFloat(dt.credit))
