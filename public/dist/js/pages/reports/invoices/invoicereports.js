@@ -1,5 +1,6 @@
 //prettier-ignore
-import { btnPreview, sdateInput, edateInput,reportTypeSelect,resultsDiv } from '../utils.js';
+import { btnPreview, sdateInput, edateInput,reportTypeSelect,resultsDiv,
+         createSpinnerContainer,setLoadingSpinner,removeLoadingSpinner } from '../utils.js';
 //prettier-ignore
 import {mandatoryFields,validation,clearOnChange,setdatatable,getColumnTotal,validateDate} from '../../utils/utils.js';
 import { invoiceReports, getSelectOptions } from '../ajax.js';
@@ -67,6 +68,8 @@ btnPreview.addEventListener('click', async function () {
   let sdate;
   let edate;
   //fetch data
+
+  setLoadingSpinner();
   if (reportType === 'balances') {
     data = await invoiceReports('balances');
   } else if (reportType === 'byinvoice') {
@@ -82,7 +85,7 @@ btnPreview.addEventListener('click', async function () {
     edate = edateInput.value;
     data = await invoiceReports('all', null, sdate, edate);
   }
-
+  removeLoadingSpinner();
   //records found
   if (data && data?.success) {
     const { results } = data;
@@ -126,3 +129,5 @@ function removeErrorState() {
     }
   });
 }
+
+createSpinnerContainer();
