@@ -314,7 +314,7 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo URLROOT;?>/reports/trialbalance" class="nav-link">
+                    <a href="<?php echo URLROOT;?>/trialbalance" class="nav-link">
                         <p>Trial Balance</p>
                     </a>
                 </li>
