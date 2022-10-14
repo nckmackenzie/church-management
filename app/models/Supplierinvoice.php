@@ -156,7 +156,7 @@ class Supplierinvoice
             $this->db->execute();
             //details
             $tid = $this->db->dbh->lastInsertId();
-            $totals = 0;
+           
 
             for($i = 0; $i < count($data['table']); $i++){
                 $this->db->query('INSERT INTO tblinvoice_details_suppliers (header_id,productId,qty,rate,gross)
@@ -167,7 +167,7 @@ class Supplierinvoice
                 $this->db->bind(':rate',$data['table'][$i]->rate);
                 $this->db->bind(':gross',$data['table'][$i]->gross);
                 $this->db->execute();
-                $totals = $totals + floatval($data['table'][$i]->gross);
+                
 
                 $pid = $data['table'][$i]->pid;
                 $pname = $this->getAccountName($pid)[0];
@@ -184,7 +184,7 @@ class Supplierinvoice
             $parentaccount = 'payables and accruals';
             $three = 4;
             saveToLedger($this->db->dbh,$data['idate'],$account,$parentaccount,0,
-                         calculateVat($data['vattype'],$totals)[2]
+                         calculateVat($data['vattype'],$data['totals'])[2]
                         ,$narr,$three,6,$tid,$_SESSION['congId']); 
             //save to logs
             saveLog($this->db->dbh,$narr);
@@ -233,7 +233,7 @@ class Supplierinvoice
             $this->db->execute();
 
             deleteLedgerBanking($this->db->dbh,6,$data['id']);
-            $totals = 0;
+           
 
             for($i = 0; $i < count($data['table']); $i++){
                 $this->db->query('INSERT INTO tblinvoice_details_suppliers (header_id,productId,qty,rate,gross)
@@ -244,7 +244,7 @@ class Supplierinvoice
                 $this->db->bind(':rate',$data['table'][$i]->rate);
                 $this->db->bind(':gross',$data['table'][$i]->gross);
                 $this->db->execute();
-                $totals = $totals + floatval($data['table'][$i]->gross);
+                
 
                 $pid = $data['table'][$i]->pid;
                 $pname = $this->getAccountName($pid)[0];
@@ -261,7 +261,7 @@ class Supplierinvoice
             $parentaccount = 'payables and accruals';
             $three = 4;
             saveToLedger($this->db->dbh,$data['idate'],$account,$parentaccount,0,
-                         calculateVat($data['vattype'],$totals)[2]
+                         calculateVat($data['vattype'],$data['totals'])[2]
                         ,$narr,$three,6,$data['id'],$_SESSION['congId']); 
             //save to logs
             saveLog($this->db->dbh,$narr);
