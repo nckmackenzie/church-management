@@ -1,3 +1,4 @@
+import { sendHttpRequest, alertBox } from '../utils/utils.js';
 export const btnPreview = document.querySelector('.preview');
 export const sdateInput = document.querySelector('#sdate');
 export const edateInput = document.querySelector('#edate');
@@ -21,4 +22,8 @@ export function setLoadingSpinner() {
 export function removeLoadingSpinner() {
   const spinnerContainer = document.querySelector('.spinner-container');
   spinnerContainer.innerHTML = '';
+}
+
+export async function getRequest(url) {
+  return await sendHttpRequest(url, 'GET', undefined, {}, alertBox);
 }
