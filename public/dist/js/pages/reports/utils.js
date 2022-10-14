@@ -19,7 +19,10 @@ export function setLoadingSpinner() {
   spinnerContainer.innerHTML = html;
 }
 
-export function removeLoadingSpinner() {
+export function removeLoadingSpinner(elm = undefined) {
+  if (elm && elm.classList.contains('d-none')) {
+    elm.classList.remove('d-none');
+  }
   const spinnerContainer = document.querySelector('.spinner-container');
   spinnerContainer.innerHTML = '';
 }
