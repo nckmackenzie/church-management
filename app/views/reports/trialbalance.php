@@ -49,16 +49,16 @@
                     <thead class="bg-lightblue">
                         <tr>
                             <th>Account</th>
-                            <th>Debit</th>
-                            <th>Credit</th>
+                            <th class="text-center">Debit</th>
+                            <th class="text-center">Credit</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
                     <tfoot>
                         <tr>
                             <th style="text-align:right">Total</th>
-                            <th id="debittotal"></th>
-                            <th id="credittotal"></th>
+                            <th class="text-center" id="debittotal"></th>
+                            <th class="text-center" id="credittotal"></th>
                         </tr>
                     </tfoot>
                 </table>
