@@ -13,12 +13,34 @@ class Supplier
         return loadresultset($this->db->dbh,'SELECT * FROM vw_suppliers WHERE congregationId = ?',[(int)$_SESSION['congId']]);
     }
 
+    public function CheckExists($name,$id)
+    {
+        $count = getdbvalue($this->db->dbh,'SELECT COUNT(*) 
+                                            FROM tblsuppliers 
+                                            WHERE (supplierName = ?) AND (ID <> ?) AND (deleted = 0)',[$name,$id]);
+        if((int)$count > 0){
+            return false;
+        }
+        return true;
+    }
+
     public function CreateUpdate($data)
     {
         try {
             $this->db->dbh->beginTransaction();
 
             if($data['isedit']){
+                $this->db->query('UPDATE tblsuppliers SET supplierName=:sname,contact=:contact,`address`=:add,pin=:pin,
+                                                          email=:email,contactPerson=:cperson 
+                                  WHERE (ID = :id)');
+                $this->db->bind(':sname',$data['suppliername']);
+                $this->db->bind(':contact',$data['contact']);
+                $this->db->bind(':add',$data['address']);
+                $this->db->bind(':pin',$data['pin']);
+                $this->db->bind(':email',$data['email']);
+                $this->db->bind(':cperson',$data['contactperson']);
+                $this->db->bind(':id',$data['id']);
+                $this->db->execute();
 
             }else{
                 $this->db->query('INSERT INTO tblsuppliers (supplierName,contact,`address`,pin,email,contactPerson,congregationId) 
@@ -52,12 +74,12 @@ class Supplier
                     saveToLedger($this->db->dbh,$data['asof'],'uncategorized expenses','uncategorized expenses',$data['balance'],0
                             ,'supplier opening balance',2,15,$tid,$_SESSION['congId']);
                 }
+            }
 
-                if(!$this->db->dbh->commit()){
-                    return false;
-                }else{
-                    return true;
-                }
+            if(!$this->db->dbh->commit()){
+                return false;
+            }else{
+                return true;
             }
 
         } catch (PDOException $e) {
@@ -67,5 +89,12 @@ class Supplier
             error_log($e->getMessage(),0);
             return false;
         }
+    }
+
+    public function GetSupplier($id)
+    {
+        $this->db->query('SELECT * FROM tblsuppliers WHERE ID = :id');
+        $this->db->bind(':id',$id);
+        return $this->db->single();
     }
 }

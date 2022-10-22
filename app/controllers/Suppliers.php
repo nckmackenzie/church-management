@@ -66,6 +66,11 @@ class Suppliers extends Controller
                 echo json_encode(['message' => 'Enter supplier name']);
                 exit;
             }
+            if(!$this->suppliermodel->CheckExists($data['suppliername'],$data['id'])){
+                http_response_code(400);
+                echo json_encode(['message' => 'Supplier name exists']);
+                exit;
+            }
             if(!is_null($data['balance']) && is_null($data['asof'])){
                 http_response_code(400);
                 echo json_encode(['message' => 'Enter date of balance']);
@@ -90,5 +95,23 @@ class Suppliers extends Controller
             redirect('users/deniedaccess');
             exit;
         }
+    }
+
+    public function edit($id)
+    {
+        $supplier = $this->suppliermodel->GetSupplier($id);
+        $data = [
+            'title' => 'Edit Supplier',
+            'id' => $supplier->ID,
+            'isedit' => true,
+            'suppliername' => strtoupper($supplier->supplierName),
+            'contact' => $supplier->contact,
+            'address' => strtoupper($supplier->address),
+            'contactperson' => strtoupper($supplier->contactPerson),
+            'email' => $supplier->email,
+            'pin' => strtoupper($supplier->pin),
+        ];
+        $this->view('suppliers/add',$data);
+        exit;
     }
 }
