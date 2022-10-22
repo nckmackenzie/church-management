@@ -175,3 +175,10 @@ export function getColumnTotal(table, cell) {
 
   return numberWithCommas(sumVal.toFixed(2));
 }
+
+export function clearValues() {
+  const inputs = document.querySelectorAll('form-control');
+  if (inputs.length > 0) {
+    inputs.forEach(input => (input.value = ''));
+  }
+}
