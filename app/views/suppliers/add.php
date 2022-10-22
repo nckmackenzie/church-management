@@ -17,10 +17,9 @@
     <!-- Main content -->
     <section class="content">
         <div class="row">
-            <div class="col-md-6 mx-auto"><?php echo alert('hi');?></div>
+            <div class="col-md-6 mx-auto" id="alertBox"></div>
         </div>
         <div class="row">
-            <div class="col-12" id="alertBox"></div>
             <div class="col-md-6 mx-auto">
                 <div class="card bg-light">
                     <div class="card-header"><?php echo $data['title'];?></div>
