@@ -8,7 +8,7 @@
       <div class="container-fluid">
         <div class="row mb-2">
           <div class="col-sm-6">
-          <a href="<?php echo URLROOT;?>/products" class="btn btn-dark btn-sm mt-2"><i class="fas fa-backward"></i> Back</a>
+          <a href="<?php echo URLROOT;?>/suppliers" class="btn btn-dark btn-sm mt-2"><i class="fas fa-backward"></i> Back</a>
           </div>
         </div>
       </div><!-- /.container-fluid -->
@@ -40,7 +40,8 @@
                                         <label for="contact">Contact</label>
                                         <input type="text" name="contact" id="contact"
                                             class="form-control form-control-sm"
-                                            value="<?php echo $data['contact'];?>" maxlength="10" autocomplete="off">   
+                                            value="<?php echo $data['contact'];?>" maxlength="10" autocomplete="off">  
+                                        <span class="invalid-feedback"></span> 
                                     </div>
                                 </div>
                                 <div class="col-md-3">
@@ -49,6 +50,7 @@
                                         <input type="text" name="pin" id="pin"
                                             class="form-control form-control-sm"
                                             value="<?php echo $data['pin'];?>" autocomplete="off">   
+                                        <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-12">
@@ -56,7 +58,8 @@
                                         <label for="address">Address</label>
                                         <input type="address" name="address" id="address"
                                             class="form-control form-control-sm"
-                                            value="<?php echo $data['address'];?>" autocomplete="off">   
+                                            value="<?php echo $data['address'];?>" autocomplete="off"> 
+                                        <span class="invalid-feedback"></span>      
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -65,6 +68,7 @@
                                         <input type="email" name="email" id="email"
                                             class="form-control form-control-sm"
                                             value="<?php echo $data['email'];?>" autocomplete="off">   
+                                        <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -73,6 +77,7 @@
                                         <input type="text" name="contactperson" id="contactperson"
                                             class="form-control form-control-sm"
                                             value="<?php echo $data['contactperson'];?>" autocomplete="off">   
+                                        <span class="invalid-feedback"></span>    
                                     </div>
                                 </div>
                                 <?php if(!$data['isedit']) : ?>
@@ -81,7 +86,8 @@
                                             <label for="openingbal">Opening Balance</label>
                                             <input type="number" name="openingbal" id="openingbal"
                                                 class="form-control form-control-sm"
-                                                value="<?php echo $data['openingbal'];?>" autocomplete="off">   
+                                                value="<?php echo $data['openingbal'];?>" autocomplete="off">
+                                            <span class="invalid-feedback"></span>   
                                         </div>
                                     </div>
                                     <div class="col-md-6">
@@ -89,7 +95,8 @@
                                             <label for="asof">As Of</label>
                                             <input type="date" name="asof" id="asof"
                                                 class="form-control form-control-sm"
-                                                value="<?php echo $data['asof'];?>" autocomplete="off">   
+                                                value="<?php echo $data['asof'];?>" autocomplete="off">
+                                            <span class="invalid-feedback"></span>   
                                         </div>
                                     </div>
                                 <?php endif; ?>
