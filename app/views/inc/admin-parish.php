@@ -97,6 +97,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/suppliers" class="nav-link">
+                        <p>Suppliers</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/products" class="nav-link">
                         <p>Products</p>
                     </a>
