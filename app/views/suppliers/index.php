@@ -86,7 +86,7 @@
       $('#suppliersTable').DataTable({
           'ordering' : false,
           'columnDefs' : [
-            {"width" : "10%" , "targets": 4},
+            {"width" : "10%" , "targets": 5},
           ]
       });
 
