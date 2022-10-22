@@ -395,3 +395,12 @@ function getparentgl($con,$childgl)
     $parentid = getdbvalue($con,$sql,[trim(strtolower($childgl))]);
     return trim(getdbvalue($con,'SELECT accountType FROM tblaccounttypes WHERE (ID = ?)',[$parentid]));
 }
+
+//validate email
+function validateemail($email){
+    if(!filter_var($email, FILTER_VALIDATE_EMAIL)){
+        return false;
+    }else{
+        return true;
+    }
+}
