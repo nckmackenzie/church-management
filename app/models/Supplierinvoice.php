@@ -156,6 +156,7 @@ class Supplierinvoice
             $this->db->execute();
             //details
             $tid = $this->db->dbh->lastInsertId();
+           
 
             for($i = 0; $i < count($data['table']); $i++){
                 $this->db->query('INSERT INTO tblinvoice_details_suppliers (header_id,productId,qty,rate,gross)
@@ -166,6 +167,7 @@ class Supplierinvoice
                 $this->db->bind(':rate',$data['table'][$i]->rate);
                 $this->db->bind(':gross',$data['table'][$i]->gross);
                 $this->db->execute();
+                
 
                 $pid = $data['table'][$i]->pid;
                 $pname = $this->getAccountName($pid)[0];
@@ -231,6 +233,7 @@ class Supplierinvoice
             $this->db->execute();
 
             deleteLedgerBanking($this->db->dbh,6,$data['id']);
+           
 
             for($i = 0; $i < count($data['table']); $i++){
                 $this->db->query('INSERT INTO tblinvoice_details_suppliers (header_id,productId,qty,rate,gross)
@@ -241,6 +244,7 @@ class Supplierinvoice
                 $this->db->bind(':rate',$data['table'][$i]->rate);
                 $this->db->bind(':gross',$data['table'][$i]->gross);
                 $this->db->execute();
+                
 
                 $pid = $data['table'][$i]->pid;
                 $pname = $this->getAccountName($pid)[0];

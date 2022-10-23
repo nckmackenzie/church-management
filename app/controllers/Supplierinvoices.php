@@ -132,7 +132,7 @@ class Supplierinvoices extends Controller
                 'invoiceno' => !empty($header->invoiceNo) ? trim($header->invoiceNo) : null,
                 'isedit' => converttobool($header->isEdit),
                 'table' => is_countable($table) ? $table : null,
-                'totals' => floatval($header->total)
+                'totals' => 0
             ];
 
             
@@ -160,6 +160,10 @@ class Supplierinvoices extends Controller
                 http_response_code(400);
                 echo json_encode(['message' => 'Invoice no already exists']);
                 exit;
+            }
+
+            for($i = 0; $i < count($data['table']); $i++){
+                $data['totals'] = $data['totals'] + floatval($data['table'][$i]->gross);
             }
 
             if(!$this->invoicemodel->CreateUpdate($data)){

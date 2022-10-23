@@ -2,7 +2,7 @@ import { numberWithCommas } from '../../utils/utils.js';
 export function withBalancesTable(data) {
   let html = `
       <table class="table table-striped table-bordered table-sm" id="invoicereport">
-         <thead>
+         <thead class="bg-lightblue">
             <tr>
               <th>Supplier</th>
               <th>Invoice No</th>
@@ -44,7 +44,7 @@ export function withBalancesTable(data) {
 export function paymentByInvoice(data) {
   let html = `
       <table class="table table-striped table-bordered table-sm" id="invoicereport">
-         <thead>
+         <thead class="bg-lightblue">
             <tr>
               <th>Payment Date</th>
               <th>Payment No</th>
@@ -80,7 +80,7 @@ export function paymentByInvoice(data) {
 export function paymentBySupplier(data) {
   let html = `
       <table class="table table-striped table-bordered table-sm" id="invoicereport">
-         <thead>
+         <thead class="bg-lightblue">
             <tr>
               <th>Payment Date</th>
               <th>Payment No</th>
@@ -118,7 +118,7 @@ export function paymentBySupplier(data) {
 export function allPayments(data) {
   let html = `
   <table class="table table-striped table-bordered table-sm" id="invoicereport">
-     <thead>
+     <thead class="bg-lightblue">
         <tr>
           <th>Payment Date</th>
           <th>Payment No</th>

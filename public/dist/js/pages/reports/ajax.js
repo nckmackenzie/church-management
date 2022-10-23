@@ -1,4 +1,5 @@
 import { sendHttpRequest, HOST_URL, alertBox } from '../utils/utils.js';
+import { getRequest } from './utils.js';
 
 //prettier-ignore
 export async function invoiceReports(type,criteria=null,sdate=null,edate=null) {
@@ -12,17 +13,22 @@ export async function invoiceReports(type,criteria=null,sdate=null,edate=null) {
     }else if(type === 'all'){
       url = `${HOST_URL}/invoicereports/getinvoicereport?type=${type}&sdate=${sdate}&edate=${edate}`;
     }
-    const res = await sendHttpRequest(url,'GET',undefined,{},alertBox);
+    const res = await getRequest(url);
     return await res
 }
 
 export async function getSelectOptions(type) {
-  const res = await sendHttpRequest(
-    `${HOST_URL}/invoicereports/fetchselectoptions?type=${type}`,
-    'GET',
-    undefined,
-    {},
-    alertBox
+  const res = await getRequest(
+    `${HOST_URL}/invoicereports/fetchselectoptions?type=${type}`
+  );
+
+  return res;
+}
+
+//fetch trail balance data
+export async function getTrialBalance(type, sdate, edate) {
+  const res = await getRequest(
+    `${HOST_URL}/trialbalance/getreport?type=${type}&sdate=${sdate}&edate=${edate}`
   );
 
   return res;
