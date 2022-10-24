@@ -28,7 +28,7 @@ class Product
         $this->db->query('SELECT ID,
                                  UCASE(accountType) as accountType
                           FROM tblaccounttypes
-                          WHERE  (deleted=0) AND (accountTypeId = 1) AND (isSubCategory = 0)');
+                          WHERE  (deleted=0) AND (isSubCategory = 0) AND (parentId <> 0)');
         return $this->db->resultSet();
     }
 
