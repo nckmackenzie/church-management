@@ -39,7 +39,8 @@ btnPreview.addEventListener('click', async function () {
 function appendTbody(data, type) {
   const tbody = table.getElementsByTagName('tbody')[0];
   data.forEach(dt => {
-    let html = `
+    if (dt.credit !== '' || dt.Debit !== '') {
+      let html = `
         <tr>
             <td>${String(
               type === 'detailed' ? dt.account : dt.parentaccount
@@ -52,7 +53,8 @@ function appendTbody(data, type) {
             }</td>
         </tr>
     `;
-    tbody.insertAdjacentHTML('beforeend', html);
+      tbody.insertAdjacentHTML('beforeend', html);
+    }
   });
 }
 
