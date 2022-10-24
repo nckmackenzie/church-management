@@ -1,17 +1,9 @@
 <?php
-class Age_Group {
+class Agegroup {
     private $db;
     public function __construct()
     {
         $this->db = new Database;
-    }
-    public function CheckRights($form)
-    {
-        if (getUserAccess($this->db->dbh,$_SESSION['userId'],$form,$_SESSION['isParish']) > 0) {
-            return true;
-        }else{
-            return false;
-        }
     }
     public function index()
     {

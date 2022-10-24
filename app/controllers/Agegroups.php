@@ -1,32 +1,22 @@
 <?php 
-class Age_Groups extends Controller{
+class Agegroups extends Controller{
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
-            redirect('');
+            redirect('users');
         }
-        else{
-            $this->agegroupModel = $this->model('Age_Group');
-        }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'age groups');
+        $this->agegroupModel = $this->model('Agegroup');
     }
     public function index()
     {
-        $form = 'Age Groups';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->agegroupModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $groups = $this->agegroupModel->index();
         $data = ['groups' => $groups];
         $this->view('age_groups/index',$data);
     }
     public function add()
     {
-        $form = 'Age Groups';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->agegroupModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $data = [
             'name' => '',
             'from' => '',
@@ -91,11 +81,6 @@ class Age_Groups extends Controller{
     }
     public function edit($id)
     {
-        $form = 'Age Groups';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->agegroupModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $ageGroup = $this->agegroupModel->getAgeGroup($id);
         $data = [
             'agegroup' => $ageGroup,
