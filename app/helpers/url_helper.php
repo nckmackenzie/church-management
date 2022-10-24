@@ -404,3 +404,37 @@ function validateemail($email){
         return true;
     }
 }
+
+//get submenus
+function getusermenuitems($con,$userid,$iscong)
+{
+    $sql = 'SELECT 
+                DISTINCT f.Module 
+            FROM 
+                tbluserrights r INNER JOIN tblforms f on r.FormId = f.ID 
+            WHERE (r.UserId = ?) AND (f.CongregationNav = ?)';
+    $stmt = $con->prepare($sql);
+    $stmt->execute([$userid,$iscong]);
+    $results = $stmt->fetchAll(PDO::FETCH_OBJ);
+    $modules = array();
+    foreach($results as $result) {
+        array_push($modules,$result->Module);
+    }
+    return $modules;
+}
+
+//get menu items
+function getmodulemenuitems($con,$userid,$module,$iscong)
+{
+    $sql = 'SELECT f.FormName,
+                   f.Path
+            FROM   tbluserrights r inner join tblforms f on r.FormId = f.ID
+            WHERE  r.UserId = :usid AND (f.Module = :menu) AND (f.CongregationNav = :iscong)
+            ORDER BY f.MenuOrder';
+    $stmt = $con->prepare($sql);
+    $stmt->bindValue(':usid',$userid);
+    $stmt->bindValue(':menu',$module);
+    $stmt->bindValue(':iscong',$iscong);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_OBJ);
+}
