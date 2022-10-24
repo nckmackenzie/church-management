@@ -3,19 +3,15 @@
         public function __construct()
         {
             if (!isset($_SESSION['userId'])) {
-                redirect('');
+                redirect('users');
+                exit;
             }
-            else{
-                $this->customerModel = $this->model('Customer');
-            }
+            $this->authmodel = $this->model('Auth');
+            checkrights($this->authmodel,'customers');
+            $this->customerModel = $this->model('Customer');
         }
         public function index()
         {
-            $form = 'Customers';
-            if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->customerModel->CheckRights($form)) {
-                redirect('users/deniedaccess');
-                exit();
-            }
             $customers = $this->customerModel->index();
             $data = [
                 'customers' => $customers
@@ -24,11 +20,6 @@
         }
         public function add()
         {
-            $form = 'Customers';
-            if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->customerModel->CheckRights($form)) {
-                redirect('users/deniedaccess');
-                exit();
-            }
             $data = [
                 'customername' => '',
                 'contact' => '',
@@ -86,11 +77,6 @@
         }
         public function edit($id)
         {
-            $form = 'Customers';
-            if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->customerModel->CheckRights($form)) {
-                redirect('users/deniedaccess');
-                exit();
-            }
             $customer = $this->customerModel->getCustomer($id);
             $data = ['customer' => $customer];
             //check if congregation is same

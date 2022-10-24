@@ -2,12 +2,13 @@
 class Districts extends Controller {
     public function __construct()
     {
-        if (!isset($_SESSION['userId']) || $_SESSION['userType'] > 2) {
-            redirect('');
+        if (!isset($_SESSION['userId'])) {
+            redirect('users');
+            exit;
         }
-        else{
-            $this->districtModel = $this->model('District');
-        }    
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'districts');
+        $this->districtModel = $this->model('District');
     }
     public function index()
     {

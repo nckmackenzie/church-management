@@ -3,19 +3,15 @@ class Officials extends Controller{
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
-            redirect('');
+            redirect('users');
+            exit;
         }
-        else{
-            $this->officialModel = $this->model('Official');
-        }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'officials');
+        $this->officialModel = $this->model('Official');
     }
     public function index()
     {
-        $form = 'Group Officials';
-        if ($_SESSION['userType'] > 2 && !$this->officialModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $officials = $this->officialModel->getOfficials();
         $data = [
             'officials' => $officials
@@ -24,11 +20,6 @@ class Officials extends Controller{
     }
     public function add()
     {
-        $form = 'Group Officials';
-        if ($_SESSION['userType'] > 2 && !$this->officialModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $members = $this->officialModel->getMembers();
         $groups = $this->officialModel->getGroups();
         $years = $this->officialModel->getYears();
@@ -94,11 +85,6 @@ class Officials extends Controller{
     }
     public function edit($id)
     {
-        $form = 'Group Officials';
-        if ($_SESSION['userType'] > 2 && !$this->officialModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $members = $this->officialModel->getMembers();
         $groups = $this->officialModel->getGroups();
         $years = $this->officialModel->getYears();

@@ -2,13 +2,13 @@
 class Services extends Controller{
     public function __construct()
     {
-        if (!isset($_SESSION['userId']) || $_SESSION['userType'] > 2) {
-            redirect('');
+        if (!isset($_SESSION['userId'])) {
+            redirect('users');
+            exit;
         }
-        else{
-            $this->serviceModel = $this->model('Service');
-        }
-        
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'services');
+        $this->serviceModel = $this->model('Service');
     }
     public function index()
     {

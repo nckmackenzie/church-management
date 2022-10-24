@@ -3,30 +3,21 @@ class Vats extends Controller {
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
-            redirect('');
+            redirect('users');
+            exit;
         }
-        else {
-            $this->vatModel = $this->model('Vat');
-        }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'vat');
+        $this->vatModel = $this->model('Vat');
     }
     public function index()
     {
-        $form = 'VAT';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->vatModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $vats = $this->vatModel->index();
         $data = ['vats' => $vats];
         $this->view('vats/index',$data);
     }
     public function add()
     {
-        $form = 'VAT';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->vatModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $data = [
             'id' => '',
             'vatname' => '',
@@ -84,11 +75,6 @@ class Vats extends Controller {
     }
     public function edit($id)
     {
-        $form = 'VAT';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->vatModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $vat = $this->vatModel->getVat($id);
         $data = [
             'vat' => $vat,

@@ -7,12 +7,13 @@ class Groupfunds extends Controller
             redirect('users');
             exit;
         }
+        $this->authmodel = $this->model('Auth');
         $this->fundmodel = $this->model('Groupfund');
     }
 
     public function index()
     {
-        checkrights($this->fundmodel,'group fund requisition');
+        checkrights($this->authmodel,'group fund requisition');
         $data = [
             'requests' => $this->fundmodel->GetRequests(),
         ];
@@ -22,7 +23,7 @@ class Groupfunds extends Controller
 
     public function add()
     {
-        checkrights($this->fundmodel,'group fund requisition');
+        checkrights($this->authmodel,'group fund requisition');
         $data = [
             'title' => 'Add requisition',
             'groups' => $this->fundmodel->GetGroups(),
@@ -126,6 +127,7 @@ class Groupfunds extends Controller
 
     public function edit($id)
     {
+        checkrights($this->authmodel,'group fund requisition');
         $request = $this->fundmodel->GetRequest($id);
         if((int)$request->Status > 0){
             redirect('users/deniedaccess');
@@ -185,6 +187,7 @@ class Groupfunds extends Controller
 
     public function approvals()
     {
+        checkrights($this->authmodel,'group fund approval');
         $data = [
             'approvals' => $this->fundmodel->GetApprovals(),
         ];
@@ -194,6 +197,7 @@ class Groupfunds extends Controller
 
     public function approve($id)
     {
+        checkrights($this->authmodel,'group fund approval');
         $request = $this->fundmodel->GetRequest($id);if((int)$request->Status > 0){
             redirect('users/deniedaccess');
             exit;

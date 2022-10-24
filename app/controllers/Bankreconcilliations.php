@@ -4,18 +4,14 @@ class Bankreconcilliations extends Controller
     public function __construct()
     {
         if (!isset($_SESSION['userId']) ) {
-            redirect('');
-        }else {
-            $this->bankreconModel = $this->model('Bankreconcilliation');
+            redirect('users');
         }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'bank reconcilliations');
+        $this->bankreconModel = $this->model('Bankreconcilliation');
     }
     public function index()
     {
-        $form = 'Bank Reconcilliation';
-        if ($_SESSION['userType'] > 2 &&  !$this->bankreconModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $banks = $this->bankreconModel->getBanks();
         $data = ['banks' => $banks];
         $this->view('bankreconcilliations/index',$data);

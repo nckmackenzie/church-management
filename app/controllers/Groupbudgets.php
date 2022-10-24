@@ -4,12 +4,11 @@ class Groupbudgets extends Controller{
     {
         if (!isset($_SESSION['userId'])) {
             redirect('users');
+            exit;
         }
-
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'group budget');
         $this->budgetModel = $this->model('Groupbudget');
-        if($_SESSION['userType'] > 2 && (int)$_SESSION['userType'] !== 6){
-            checkrights($this->budgetModel,'group budget');
-        }
     }
 
     public function index()

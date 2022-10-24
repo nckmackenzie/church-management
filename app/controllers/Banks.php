@@ -3,30 +3,21 @@ class Banks extends Controller{
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
-            redirect('');
+            redirect('users');
+            exit;
         }
-        else{
-            $this->bankModel = $this->model('Bank');
-        }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'banks');
+        $this->bankModel = $this->model('Bank');
     }
     public function index()
     {
-        $form = 'Banks';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->bankModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $banks = $this->bankModel->getBanks();
         $data = ['banks' => $banks];
         $this->view('banks/index',$data);
     }
     public function add()
     {
-        $form = 'Banks';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->bankModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
        $data = [
            'bankname' => '',
            'account' => '',
@@ -93,11 +84,6 @@ class Banks extends Controller{
     }
     public function edit($id)
     {
-        $form = 'Banks';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->bankModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $bank = $this->bankModel->getbank($id);
         $data = [
             'bank' => $bank,

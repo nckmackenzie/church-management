@@ -4,30 +4,21 @@ class Parishofficials extends Controller
 {
     public function __construct()
     {
-        if (!isset($_SESSION['userId']) || $_SESSION['isParish'] != 1) {
-            redirect('');
+        if (!isset($_SESSION['userId'])) {
+            redirect('users');
+            exit;
         }
-        else{
-            $this->parishofficialsModel = $this->model('Parishofficial');
-        }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'parish officials');
+        $this->parishofficialsModel = $this->model('Parishofficial');
     }
     public function index()
     {
-        $form = 'Parish Officials';
-        if ($_SESSION['userType'] > 2  && !$this->parishofficialsModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $data = [];
         $this->view('parishofficials/index',$data);
     }
     public function add()
     {
-        $form = 'Parish Officials';
-        if ($_SESSION['userType'] > 2  && !$this->parishofficialsModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $years = $this->parishofficialsModel->getYears();
         $members = $this->parishofficialsModel->getMembers();
         $data = [

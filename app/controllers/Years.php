@@ -3,30 +3,21 @@ class Years extends Controller{
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
-            redirect('');
+            redirect('users');
+            exit;
         }
-        else {
-            $this->yearModel = $this->model('Year');
-        }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'financial years');
+        $this->yearModel = $this->model('Year');
     }
     public function index()
     {
-        $form = 'Years';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->yearModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $years  = $this->yearModel->index();
         $data = ['years' => $years];
         $this->view('years/index',$data);
     }
     public function add()
     {
-        $form = 'Years';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->yearModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $data = [
             'yearname' => '',
             'startdate' => '',
@@ -103,11 +94,6 @@ class Years extends Controller{
     }
     public function edit($id)
     {
-        $form = 'Years';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->yearModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
        $year = $this->yearModel->getYear($id);
        $data = [
             'id' => '',

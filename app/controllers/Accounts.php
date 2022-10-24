@@ -3,30 +3,21 @@ class Accounts extends Controller{
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
-            redirect('');
+            redirect('users');
+            exit;
         }
-        else {
-            $this->accountModel = $this->model('Account');
-        }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'g/l accounts');
+        $this->accountModel = $this->model('Account');
     }
     public function index()
     {
-        $form = 'G/L Accounts';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->accountModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $accounts = $this->accountModel->index();
         $data = ['accounts' => $accounts];
         $this->view('accounts/index',$data);
     }
     public function add()
     {
-        $form = 'G/L Accounts';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->accountModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $accounttypes = $this->accountModel->getAccountTypes();
         $data = [
             'accountname' => '',
@@ -104,11 +95,6 @@ class Accounts extends Controller{
     }
     public function edit($id)
     {
-        $form = 'G/L Accounts';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->accountModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $account = $this->accountModel->getAccount($id);
         $accounttypes = $this->accountModel->getAccountTypes();
         $data = [

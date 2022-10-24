@@ -11,7 +11,8 @@ class Transfers extends Controller
             redirect('users/deniedaccess');
             exit;
         }
-
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'transfer member');
         $this->transfermodel = $this->model('Transfer');
     }
 

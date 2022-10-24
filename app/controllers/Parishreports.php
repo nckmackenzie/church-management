@@ -4,19 +4,14 @@ class Parishreports extends Controller
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
-            redirect('');
+            redirect('users');
         }
-        else {
-            $this->parishReportModel = $this->model('Parishreport');
-        }
+        $this->authmodel = $this->model('Auth');
+        $this->parishReportModel = $this->model('Parishreport');
     }
     public function contributions()
     {
-        $form = 'Contributions Reports';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->parishReportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'receipts reports');
         $congregations = $this->parishReportModel->GetCongregations();
         $accounts = $this->parishReportModel->GetAccounts(1);
         $data = [
@@ -73,11 +68,7 @@ class Parishreports extends Controller
     }
     public function expenses()
     {
-        $form = 'Expenses Reports';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->parishReportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'expenses reports');
         $congregations = $this->parishReportModel->GetCongregations();
         $accounts = $this->parishReportModel->GetAccounts(2);
         $data = [
@@ -133,11 +124,7 @@ class Parishreports extends Controller
     }
     public function budgetvsexpense()
     {
-        $form = 'Budget Vs Expense Reports';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->parishReportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'budget vs expense reports');
         $congregations = $this->parishReportModel->GetCongregations();
         $years = $this->parishReportModel->GetYears();
         $current = $this->parishReportModel->GetCurrentyear();
@@ -253,11 +240,7 @@ class Parishreports extends Controller
     }
     public function invoices()
     {
-        $form = 'Invoice Reports';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->parishReportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'invoice reports');
         $data = [];
         $this->view('parishreports/invoices',$data);
     }
@@ -392,11 +375,7 @@ class Parishreports extends Controller
     }
     public function incomestatement()
     {
-        $form = 'Income Statement';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->parishReportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'income statement');
         $congregations = $this->parishReportModel->GetCongregations();
         $data = [
             'congregations' => $congregations,
@@ -472,11 +451,7 @@ class Parishreports extends Controller
     }
     public function trialbalance()
     {
-        $form = 'Trial Balance';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->parishReportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'trial balance');
         $congregations = $this->parishReportModel->GetCongregations();
         $data = [
             'congregations' => $congregations,
@@ -531,11 +506,7 @@ class Parishreports extends Controller
     }
     public function balancesheet()
     {
-        $form = 'Balance Sheet';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->parishReportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'balance sheet');
         $congregations = $this->parishReportModel->GetCongregations();
         $data = [
             'congregations' => $congregations,
@@ -608,11 +579,7 @@ class Parishreports extends Controller
     }
     public function banking()
     {
-        $form = 'Banking Reports';
-        if ($_SESSION['userType'] > 2 &&  !$this->parishReportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'banking reports');
         $banks = $this->parishReportModel->getBanks();
         $data = ['banks' => $banks];
         $this->view('parishreports/banking',$data);

@@ -8,7 +8,7 @@ class Deposits extends Controller
             exit;
        }
        $this->authmodel = $this->model('Auth');
-       checkrights($this->authmodel,'deposits');
+       checkrights($this->authmodel,'cash deposits');
        $this->depositmodel = $this->model('Deposit');
     }
 

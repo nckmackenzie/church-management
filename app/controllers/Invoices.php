@@ -3,29 +3,21 @@ class Invoices extends Controller{
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
-            redirect('');
-        }else {
-            $this->invoiceModel = $this->model('Invoice');
+            redirect('users');
+            exit;
         }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'customer invoices');
+        $this->invoiceModel = $this->model('Invoice');
     }
     public function index()
     {
-        $form = 'Invoices';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->invoiceModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $invoices = $this->invoiceModel->index();
         $data = ['invoices' => $invoices];
         $this->view('invoices/index',$data);
     }
     public function add()
     {
-        $form = 'Invoices';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->invoiceModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $customers  = $this->invoiceModel->getCustomers();
         $products  = $this->invoiceModel->getProducts();
         $accounts  = $this->invoiceModel->getIncomeAccounts();
@@ -184,11 +176,6 @@ class Invoices extends Controller{
     }
     public function edit($id)
     {
-        $form = 'Invoices';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->invoiceModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $header = $this->invoiceModel->getInvoiceHeader(trim($id));
         $details = $this->invoiceModel->getInvoiceDetails(trim($id));
         $customers  = $this->invoiceModel->getCustomers();

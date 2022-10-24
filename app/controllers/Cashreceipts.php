@@ -8,7 +8,7 @@ class Cashreceipts extends Controller
             exit();
         }
         $this->authmodel = $this->model('Auth');
-        checkrights($this->authmodel,'cash receipts');
+        checkrights($this->authmodel,'petty cash receipt');
         $this->receiptmodel = $this->model('Cashreceipt');
     }
 

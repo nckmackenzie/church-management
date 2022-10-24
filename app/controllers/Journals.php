@@ -3,29 +3,20 @@ class Journals extends Controller{
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
-            redirect('');
+            redirect('users');
+            exit;
         }
-        else{
-            $this->journalModel = $this->model('Journal');
-        }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'journal entry');
+        $this->journalModel = $this->model('Journal');
     }
     public function index()
     {
-        $form = 'Journal Entry';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->journalModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $data= [];
         $this->view('journals/index',$data);
     }
     public function add()
     {
-        $form = 'Journal Entry';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->journalModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
         $accounts = $this->journalModel->getAccounts();
         $journalno = $this->journalModel->journalNo();
         $data = [

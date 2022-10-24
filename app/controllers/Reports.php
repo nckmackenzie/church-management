@@ -3,19 +3,15 @@ class Reports extends Controller {
     public function __construct()
     {
        if (!isset($_SESSION['userId'])) {
-           redirect('');
+           redirect('users');
+           exit;
        }
-       else{
-           $this->reportModel = $this->model('Report');
-       }
+       $this->authmodel = $this->model('Auth');
+       $this->reportModel = $this->model('Report');
     }
     public function members()
     {
-        $form = 'Member Reports';
-        if ($_SESSION['userType'] > 2 && !$this->reportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'member reports');
         $districts = $this->reportModel->getDistricts();
         $data = ['districts' => $districts];
         $this->view('reports/members',$data);
@@ -99,11 +95,7 @@ class Reports extends Controller {
     }
     public function transfered()
     {
-        $form = 'Transfered Report';
-        if ($_SESSION['userType'] > 2 && !$this->reportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'transfered report');
         $data = [];
         $this->view('reports/transfered',$data);
     }
@@ -152,11 +144,7 @@ class Reports extends Controller {
     }
     public function membershipstatus()
     {
-        $form = 'By Membership Status';
-        if ($_SESSION['userType'] > 2 && !$this->reportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'by membership status');
         $districts = $this->reportModel->getDistricts();
         $data = ['districts' => $districts];
         $this->view('reports/membershipstatus',$data);
@@ -203,11 +191,7 @@ class Reports extends Controller {
     }
     public function residenceoccupation()
     {
-        $form = 'Residence/Occupation Report';
-        if ($_SESSION['userType'] > 2 && !$this->reportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'residence/occupation reports');
         $districts = $this->reportModel->getDistricts();
         $data = ['districts' => $districts];
         $this->view('reports/residenceoccupation',$data);
@@ -253,11 +237,7 @@ class Reports extends Controller {
     }
     public function family()
     {
-        $form = 'Member Family Report';
-        if ($_SESSION['userType'] > 2 && !$this->reportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'member family report');
         $familyCount = $this->reportModel->getFamilyCount();
         $districts = $this->reportModel->getDistricts();
         $data = [
@@ -298,11 +278,7 @@ class Reports extends Controller {
     }
     public function contributions()
     {
-        $form = 'Contributions Reports';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->reportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'receipts reports');
         $accounts = $this->reportModel->GetAccounts(1);
         $data = ['accounts' => $accounts];
         $this->view('reports/contributions',$data);
@@ -363,11 +339,7 @@ class Reports extends Controller {
     }
     public function expenses()
     {
-        $form = 'Expenses Reports';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->reportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'expenses reports');
         $accounts = $this->reportModel->GetAccounts(2);
         $data = ['accounts' => $accounts];
         $this->view('reports/expenses',$data);
@@ -429,11 +401,7 @@ class Reports extends Controller {
     }
     public function pledges()
     {
-        $form = 'Pledge Reports';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->reportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'pledge reports');
         $data = [];
         $this->view('reports/pledges',$data);
     }
@@ -524,11 +492,7 @@ class Reports extends Controller {
     }
     public function budgetvsexpense()
     {
-        $form = 'Budget Vs Expense Reports';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->reportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'budget vs expense reports');
         $groups = $this->reportModel->GetGroups();
         $years = $this->reportModel->GetYears();
         $current = $this->reportModel->GetCurrentyear();
@@ -624,11 +588,7 @@ class Reports extends Controller {
     }
     public function incomestatement()
     {
-        $form = 'Income Statement';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->reportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'income statement');
         $data = [];
         $this->view('reports/incomestatement',$data);
     }
@@ -699,11 +659,7 @@ class Reports extends Controller {
     }
     public function trialbalance()
     {
-        $form = 'Trial Balance';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->reportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'trial balance');
         $data = [];
         $this->view('reports/trialbalance',$data);
     }
@@ -754,11 +710,7 @@ class Reports extends Controller {
     }
     public function balancesheet()
     {
-        $form = 'Balance Sheet';
-        if ($_SESSION['userType'] > 2 && $_SESSION['userType'] != 6  && !$this->reportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'balance sheet');
         $data = [];
         $this->view('reports/balancesheet',$data);
     }
@@ -825,11 +777,7 @@ class Reports extends Controller {
     }
     public function banking()
     {
-        $form = 'Banking Reports';
-        if ($_SESSION['userType'] > 2 &&  !$this->reportModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'banking reports');
         $banks = $this->reportModel->getBanks();
         $data = ['banks' => $banks];
         $this->view('reports/banking',$data);

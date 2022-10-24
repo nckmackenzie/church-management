@@ -3,30 +3,22 @@ class Members extends Controller {
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
-            redirect('');
+            redirect('users');
+            exit;
         }
-        else{
-            $this->memberModel = $this->model('Member');
-        }
+        $this->authmodel = $this->model('Auth');
+        $this->memberModel = $this->model('Member');
     }
     public function index()
     {
-        $form = 'Members';
-        if ($_SESSION['userType'] > 2 && !$this->memberModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'members');
         $members = $this->memberModel->getMembers();
         $data = ['members' => $members];
         $this->view('members/index',$data);
     }
     public function add()
     {
-        $form = 'Members';
-        if ($_SESSION['userType'] > 2 && !$this->memberModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'members');
         $marriagestatus = $this->memberModel->getMarriageStatus();
         $districts = $this->memberModel->getDistricts();
         $positions = $this->memberModel->getPositions();
@@ -171,11 +163,7 @@ class Members extends Controller {
     }
     public function edit($id)
     {
-        $form = 'Members';
-        if ($_SESSION['userType'] > 2 && !$this->memberModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'members');
         $marriagestatus = $this->memberModel->getMarriageStatus();
         $districts = $this->memberModel->getDistricts();
         $positions = $this->memberModel->getPositions();
@@ -285,11 +273,7 @@ class Members extends Controller {
     }
     public function change_district()
     {
-        $form = 'Change District';
-        if ($_SESSION['userType'] > 2 && !$this->memberModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'change district');
         $members = $this->memberModel->getMembers();
         $districts = $this->memberModel->getDistricts();
         $data = [
@@ -361,11 +345,7 @@ class Members extends Controller {
     }
     public function transfer()
     {
-        $form = 'Transfer Member';
-        if ($_SESSION['userType'] > 2 && !$this->memberModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        // checkrights($this->authmodel,'cash deposits');
         $congregations = $this->memberModel->getCongregations();
         $data = [
             'congregations' => $congregations,
@@ -484,11 +464,7 @@ class Members extends Controller {
     }
     public function family()
     {
-        $form = 'Member Family';
-        if ($_SESSION['userType'] > 2 && !$this->memberModel->CheckRights($form)) {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        checkrights($this->authmodel,'member family');
         $members = $this->memberModel->getMembersByCongregation($_SESSION['congId']);
         $relations = $this->memberModel->getRelationships();
         $data = [

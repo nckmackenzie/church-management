@@ -3,13 +3,12 @@
 class Groups extends Controller {
     public function __construct()
     {
-        if (!isset($_SESSION['userId']) || ($_SESSION['isParish'] != 1 && $_SESSION['userType'] > 2)
-            || ($_SESSION['isParish'] == 1 && $_SESSION['userType'] == 5)) {
-            redirect('');
+        if (!isset($_SESSION['userId'])) {
+            redirect('users');
         }
-        else{
-            $this->groupModel = $this->model('Group');
-        }    
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'groups');
+        $this->groupModel = $this->model('Group');
     }
     public function index()
     {

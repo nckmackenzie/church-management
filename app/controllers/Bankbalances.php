@@ -5,7 +5,7 @@ class Bankbalances extends Controller
     public function __construct()
     {
         if (!isset($_SESSION['userId']) ) {
-            redirect('');
+            redirect('users');
         }else {
             $this->bankbalanceModel = $this->model('Bankbalance');
         }

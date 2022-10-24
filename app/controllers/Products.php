@@ -8,11 +8,8 @@ class Products extends Controller
             redirect('users');
             exit;
         }
-        if((int)$_SESSION['userType'] > 2){
-            redirect('users/deniedaccess');
-            exit;
-        }
-
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'products');
         $this->productmodel = $this->model('Product');
     }
 

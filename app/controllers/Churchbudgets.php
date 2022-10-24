@@ -6,11 +6,9 @@ class Churchbudgets extends Controller{
             redirect('users');
             exit;
         }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'church budget');
         $this->budgetModel = $this->model('Churchbudget');
-
-        if($_SESSION['userType'] > 2 && (int)$_SESSION['userType'] !== 6){
-            checkrights($this->budgetModel,'church budget');
-        }
     }
     public function index()
     {
