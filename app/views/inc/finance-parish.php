@@ -16,8 +16,13 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo URLROOT;?>/customers" class="nav-link">
-                        <p>Customers</p>
+                    <a href="<?php echo URLROOT;?>/accounts" class="nav-link">
+                        <p>G/L Accounts</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/vats" class="nav-link">
+                        <p>V.A.T</p>
                     </a>
                 </li>
                 <li class="nav-item">
@@ -26,8 +31,38 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/customers" class="nav-link">
+                        <p>Customers</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/suppliers" class="nav-link">
+                        <p>Suppliers</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/products" class="nav-link">
+                        <p>Products</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/contributions" class="nav-link">
                         <p>Receipts</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/mmfreceipts" class="nav-link">
+                        <p>MMF Receipts</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/groupfunds" class="nav-link">
+                        <p>Group funds requisition</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/groupfunds/approvals" class="nav-link">
+                        <p>Group funds approval</p>
                     </a>
                 </li>
                 <li class="nav-item">
@@ -41,13 +76,13 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo URLROOT;?>/journals" class="nav-link">
-                        <p>Journal Entry</p>
+                    <a href="<?php echo URLROOT;?>/cashreceipts" class="nav-link">
+                        <p>Petty Cash Receipt</p>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo URLROOT;?>/invoices" class="nav-link">
-                        <p>Invoices</p>
+                    <a href="<?php echo URLROOT;?>/journals" class="nav-link">
+                        <p>Journal Entry</p>
                     </a>
                 </li>
                 <li class="nav-item">
@@ -61,13 +96,13 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo URLROOT;?>/bankbalances" class="nav-link">
-                        <p>Bank Balances</p>
+                    <a href="<?php echo URLROOT;?>/deposits" class="nav-link">
+                        <p>Deposits </p>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo URLROOT;?>/bankpostings" class="nav-link">
-                        <p>Post Bankings</p>
+                    <a href="<?php echo URLROOT;?>/payments" class="nav-link">
+                        <p>Payments</p>
                     </a>
                 </li>
                 <li class="nav-item">
@@ -99,6 +134,11 @@
                 <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/parishreports/expenses" class="nav-link">
                         <p>Expenses Reports</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/reports/pettycash" class="nav-link">
+                        <p>Petty Cash Utilization</p>
                     </a>
                 </li>
                 <li class="nav-item">
