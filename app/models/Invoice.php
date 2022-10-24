@@ -39,7 +39,7 @@ class Invoice {
         $this->db->query('SELECT ID,
                                  UCASE(accountType) as accountType
                           FROM tblaccounttypes
-                          WHERE  (deleted=0) AND (accountTypeId = 1) AND (isSubCategory = 0)');
+                          WHERE  (deleted=0) AND (parentId <> 0) AND (isSubCategory = 0)');
         return $this->db->resultSet();
     }
     public function getInvoiceNo()
@@ -131,14 +131,15 @@ class Invoice {
                 $desc = strtolower($data['details'][$i]['desc']);
                 $stmt = $this->db->dbh->prepare($sql);
                 $stmt->execute([$tid,$pid,$qty,$rate,$gross,$desc]);
-                saveToLedger($this->db->dbh,$data['invoicedate'],$pname,0,
+                $parentaccountname = getparentgl($this->db->dbh,$pname);
+                saveToLedger($this->db->dbh,$data['invoicedate'],$pname,$parentaccountname,0,
                              calculateVat($data['vattype'],$gross)[2]
                             ,$desc,1,6,$tid,$_SESSION['congId']);
             }
             $account = 'accounts receivable';
             $narr = 'Invoice #'.$data['invoice'];
             $three = 3;
-            saveToLedger($this->db->dbh,$data['invoicedate'],$account,
+            saveToLedger($this->db->dbh,$data['invoicedate'],$account,$account,
                          calculateVat($data['vattype'],$data['totals'])[2],0
                         ,$narr,$three,6,$tid,$_SESSION['congId']); 
             //save to logs
@@ -198,14 +199,15 @@ class Invoice {
                 $desc = strtolower($data['details'][$i]['desc']);
                 $stmt = $this->db->dbh->prepare($sql);
                 $stmt->execute([$tid,$pid,$qty,$rate,$gross,$desc]);
-                saveToLedger($this->db->dbh,$data['invoicedate'],$pname,0,
+                $parentaccountname = getparentgl($this->db->dbh,$pname);
+                saveToLedger($this->db->dbh,$data['invoicedate'],$pname,$parentaccountname,0,
                              calculateVat($data['vattype'],$gross)[2]
                             ,$desc,1,6,$tid,$_SESSION['congId']);
             }
             $account = 'accounts receivable';
             $narr = 'Invoice #'.$data['invoice'];
             $three = 3;
-            saveToLedger($this->db->dbh,$data['invoicedate'],$account,
+            saveToLedger($this->db->dbh,$data['invoicedate'],$account,$account,
                          calculateVat($data['vattype'],$data['totals'])[2],0
                         ,$narr,$three,6,$tid,$_SESSION['congId']); 
             //save to logs
@@ -339,18 +341,20 @@ class Invoice {
             //ledgers
             $account = 'accounts receivable';
             $narr = 'Invoice '.$data['invoiceno'] .' Payment';
-            saveToLedger($this->db->dbh,$data['paydate'],$account,0,$data['amount']
+            saveToLedger($this->db->dbh,$data['paydate'],$account,$account,0,$data['amount']
                         ,$narr,3,7,$tid,$_SESSION['congId']);
+
+            $cabparent = getparentgl($this->db->dbh,'cash at hand');            
             if ($data['paymethod'] == 1) {
-                saveToLedger($this->db->dbh,$data['paydate'],'cash at hand',$data['amount'],0
+                saveToLedger($this->db->dbh,$data['paydate'],'cash at hand',$cabparent,$data['amount'],0
                         ,$narr,3,7,$tid,$_SESSION['congId']);
             }
             elseif ($data['paymethod'] == 2) {
-                saveToLedger($this->db->dbh,$data['paydate'],'cash at bank',$data['amount'],0
+                saveToLedger($this->db->dbh,$data['paydate'],'cash at bank',$cabparent,$data['amount'],0
                         ,$narr,3,7,$tid,$_SESSION['congId']);
             }
             else {
-                saveToLedger($this->db->dbh,$data['paydate'],'cash at bank',$data['amount'],0
+                saveToLedger($this->db->dbh,$data['paydate'],'cash at bank',$cabparent,$data['amount'],0
                         ,$narr,3,7,$tid,$_SESSION['congId']);
                 saveToBanking($this->db->dbh,$data['bank'],$data['paydate'],$data['amount'],0,1,
                               $data['reference'],7,$tid,$_SESSION['congId']);
