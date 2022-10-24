@@ -87,7 +87,7 @@ class Contributions extends Controller {
                 'categories' => $categories,
                 'category' => 3,
                 'reference' => trim($_POST['reference']),
-                'description' => !empty(trim($_POST['description'])) ? trim($_POST['description']) : NULL,
+                'description' => !empty(trim($_POST['description'])) ? trim($_POST['description']) : 'receipts for '.date('d-m-Y',strtotime($_POST['date'])),
                 'table' => [],
                 'accountsid' => $_POST['accountsid'],
                 'accountsname' => $_POST['accountsname'],
