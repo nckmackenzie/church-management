@@ -20,7 +20,7 @@ class Contributions extends Controller {
     }
     public function add()
     {
-        $accounts = $this->reusemodel->GetAccounts(1);
+        $accounts = $this->reusemodel->GetAccountsAll();
         $paymethods = $this->reusemodel->PaymentMethods();
         $banks = $this->reusemodel->GetBanks();
         $categories = $this->contributionModel->getCategories();
