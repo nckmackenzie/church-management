@@ -50,10 +50,11 @@ class Deposit
             }
 
             $narr = !empty($data['description']) ? strtolower($data['description']) : 'cash desposit for ' .$data['date'];
+            $cabparent = getparentgl($this->db->dbh,'cash at bank');
 
-            saveToLedger($this->db->dbh,$data['date'],'cash at bank',$data['amount'],0,$narr,
+            saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,$data['amount'],0,$narr,
                          3,13,$tid,$_SESSION['congId']);
-            saveToLedger($this->db->dbh,$data['date'],'cash at hand',0,$data['amount'],$narr,
+            saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cabparent,0,$data['amount'],$narr,
                          3,13,$tid,$_SESSION['congId']);
 
             saveToBanking($this->db->dbh,$data['bank'],$data['date'],$data['amount'],0,1,
