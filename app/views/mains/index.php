@@ -9,6 +9,16 @@
         <div class="col-12 mt-2">
           <?php flash('main_msg');?>
         </div>
+        <div class="col-8 mx-auto">
+           <?php if(ENVIRONMENT === 'testing') : ?>
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+              <strong>WARNING!!!</strong> STRICTLY FOR TEST PURPOSES ONLY.
+              <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+           <?php endif; ?>
+        </div>
       </div>
       <?php if((int)$_SESSION['userType'] === 1 || (int)$_SESSION['userType'] === 6) : ?> 
         <div class="row">
