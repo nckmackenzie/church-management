@@ -156,8 +156,9 @@ class Contribution {
             $this->db->execute();
             $tid = $this->db->dbh->lastInsertId();
              //details
-            for ($i=0; $i < count($data['accountsid']); $i++) { 
-                $accountid = $this->getaccountdetails(strtolower($data['accountsname'][$i]))[0];
+            for ($i=0; $i < count($data['accountsid']); $i++) {
+                $accountname  = strtolower(trim($data['accountsname'][$i]));
+                $accountid = $this->getaccountdetails($accountname)[0];
                 $forgroup = converttobool($this->getaccountdetails(strtolower($data['accountsname'][$i]))[1]);
                 $this->db->query('INSERT INTO tblcontributions_details(HeaderId,contributionDate,contributionTypeId
                                                 ,paymentMethodId,bankId,amount,category,contributor,
@@ -182,7 +183,7 @@ class Contribution {
                 $this->db->bind(':for',$forgroup);                            
                 $this->db->execute();
 
-                if((int)$data['categoriesid'][$i] === 2){
+                if((int)$data['categoriesid'][$i] === 2 && (int)$accountid === 4){
                     $this->db->query('INSERT INTO tblmmf (TransactionDate,GroupId,Debit,Reference,Narration,TransactionType,
                                                             TransactionId,CongregationId) VALUES(:tdate,:gid,:debit,:ref,:narr,:ttype,:tid,:cid)');
                     $this->db->bind(':tdate',$data['date']);
@@ -195,9 +196,9 @@ class Contribution {
                     $this->db->bind(':cid',$_SESSION['congId']);
                     $this->db->execute();
 
-                    $gbhparent = getparentgl($this->db->dbh,'groups balances held'); 
+                    $gbhparent = getparentgl($this->db->dbh,$accountname); 
                     
-                    saveToLedger($this->db->dbh,$data['date'],'groups balances held',$gbhparent,0,$data['amounts'][$i]
+                    saveToLedger($this->db->dbh,$data['date'],$accountname,$gbhparent,0,$data['amounts'][$i]
                         ,$data['description'],4,1,$tid,$_SESSION['congId']);
                 }else{
                     $accountparent = getparentgl($this->db->dbh,trim($data['accountsname'][$i]));
@@ -343,7 +344,8 @@ class Contribution {
             deleteLedgerBanking($this->db->dbh,1,$data['id']);
              //details
             for ($i=0; $i < count($data['accountsid']); $i++) { 
-                $accountid = $this->getaccountdetails(strtolower($data['accountsname'][$i]))[0];
+                $accountname  = strtolower(trim($data['accountsname'][$i]));
+                $accountid = $this->getaccountdetails($accountname)[0];
                 $forgroup = converttobool($this->getaccountdetails(strtolower($data['accountsname'][$i]))[1]);
                 $this->db->query('INSERT INTO tblcontributions_details(HeaderId,contributionDate,contributionTypeId
                                                 ,paymentMethodId,bankId,amount,category,contributor,
@@ -368,7 +370,7 @@ class Contribution {
                 $this->db->bind(':for',$forgroup);                            
                 $this->db->execute();
 
-                if((int)$data['categoriesid'][$i] === 2){
+                if((int)$data['categoriesid'][$i] === 2 && (int)$accountid === 4){
                     $this->db->query('INSERT INTO tblmmf (TransactionDate,GroupId,Debit,Reference,TransactionType,
                                                             TransactionId,CongregationId) VALUES(:tdate,:gid,:debit,:ref,:ttype,:tid,:cid)');
                     $this->db->bind(':tdate',$data['date']);
@@ -380,8 +382,8 @@ class Contribution {
                     $this->db->bind(':cid',$_SESSION['congId']);
                     $this->db->execute();
 
-                    $gbhparent = getparentgl($this->db->dbh,'groups balances held'); 
-                    saveToLedger($this->db->dbh,$data['date'],'groups balances held',$gbhparent,0,$data['amounts'][$i]
+                    $gbhparent = getparentgl($this->db->dbh,$accountname); 
+                    saveToLedger($this->db->dbh,$data['date'],$accountname,$gbhparent,0,$data['amounts'][$i]
                         ,$data['description'],4,1,$data['id'],$_SESSION['congId']);
                 }else{
                     $accountparent = getparentgl($this->db->dbh,trim($data['accountsname'][$i]));
