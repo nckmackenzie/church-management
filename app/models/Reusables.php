@@ -44,4 +44,10 @@ class Reusables
         $this->db->bind(':id',$_SESSION['congId']);
         return $this->db->single();
     }
+
+    public function GetCongregations()
+    {
+        $sql = 'SELECT ID,CongregationName FROM tblcongregation WHERE (deleted = 0) AND (ID <> ?) ORDER BY CongregationName';
+        return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
+    }
 }
