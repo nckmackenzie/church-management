@@ -196,7 +196,7 @@
         $('.select2').select2();
         function loadContributors(){
             var category = $('#category').val();
-           
+            
             $.ajax({
                 url : '<?php echo URLROOT;?>/contributions/getcontributor',
                 method : 'GET',
@@ -254,6 +254,8 @@
                 }
             });
         }
+       
+        loadContributors();
     });
 </script>
 <script src="<?php echo URLROOT;?>/dist/js/pages/contributions.js"></script>
