@@ -22,6 +22,13 @@ class Reusables
         return $this->db->resultSet();                  
     }
 
+    public function GetAccountsAll()
+    {
+        $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
+                          WHERE (deleted=0) AND (isBank = 0) AND (parentId <> 0) AND (isSubCategory = 1) ORDER BY accountType');
+        return $this->db->resultSet();                  
+    }
+
     public function PaymentMethods()
     {
        return paymentMethods($this->db->dbh);
