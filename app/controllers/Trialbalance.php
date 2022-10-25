@@ -44,4 +44,11 @@ class Trialbalance extends Controller
             exit;
         }
     }
+
+    public function report()
+    {
+        $data = [];
+        $this->view('reports/trialbalancereport',$data);
+        exit;
+    }
 }
