@@ -8,7 +8,7 @@
       <div class="container-fluid">
         <div class="row mb-2">
           <div class="col-sm-6">
-            <h6>Blank Page</h6>
+            <h6></h6>
           </div>
           <div class="col-sm-6"></div>
         </div>
