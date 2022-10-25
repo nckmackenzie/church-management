@@ -33,3 +33,10 @@ export async function getTrialBalance(type, sdate, edate) {
 
   return res;
 }
+
+export async function getTrialBalanceReport(type, account, sdate, edate) {
+  const url = `${HOST_URL}/trialbalance/detailedreport?type=${type}&account=${account}&sdate=${sdate}&edate=${edate}`;
+  const res = await getRequest(url);
+
+  return res;
+}
