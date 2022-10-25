@@ -1,6 +1,6 @@
 //prettier-ignore
 import {mandatoryFields,clearOnChange,validation,validateDate,numberWithCommas,
-        getColumnTotal,setdatatable} from '../../utils/utils.js'
+        getColumnTotal,setdatatable,HOST_URL} from '../../utils/utils.js'
 import {
   btnPreview,
   sdateInput,
@@ -27,7 +27,12 @@ btnPreview.addEventListener('click', async function () {
   const data = await getTrialBalance(reportType, sdateVal, edateVal);
   removeLoadingSpinner(resultsDiv);
   if (data && data.success) {
-    resultsDiv.innerHTML = appendTbody(data.results, reportType);
+    resultsDiv.innerHTML = appendTbody(
+      data.results,
+      reportType,
+      sdateVal,
+      edateVal
+    );
     const table = document.getElementById('table');
     const debitTotal = document.getElementById('debittotal');
     const creditTotal = document.getElementById('credittotal');
@@ -37,7 +42,7 @@ btnPreview.addEventListener('click', async function () {
   }
 });
 
-function appendTbody(data, type) {
+function appendTbody(data, type, sdate, edate) {
   let html = `
   <table id="table" class="table table-striped table-bordered table-sm">
     <thead class="bg-lightblue">
@@ -50,17 +55,18 @@ function appendTbody(data, type) {
     <tbody>`;
   data.forEach(dt => {
     if (dt.credit !== '' || dt.Debit !== '') {
+      const account = type === 'detailed' ? dt.account : dt.parentaccount;
       html += `
         <tr>
-            <td>${String(
-              type === 'detailed' ? dt.account : dt.parentaccount
-            ).toUpperCase()}</td>
-            <td class="text-center">${numberWithCommas(dt.Debit)}</td>
-            <td class="text-center">${
-              isNaN(parseFloat(dt.credit))
-                ? ''
-                : numberWithCommas(parseFloat(dt.credit).toFixed(2))
-            }</td>
+            <td>${String(account).toUpperCase()}</td>
+            <td class="text-center"><a target="_blank" href='${HOST_URL}/trialbalance/report?type=${type}&account=${account}&sdate=${sdate}&edate=${edate}'>${numberWithCommas(
+        dt.Debit
+      )}</a></td>
+            <td class="text-center"><a target="_blank" href='${HOST_URL}/trialbalance/report?type=${type}&account=${account}&sdate=${sdate}&edate=${edate}'>${
+        isNaN(parseFloat(dt.credit))
+          ? ''
+          : numberWithCommas(parseFloat(dt.credit).toFixed(2))
+      }</a></td>
         </tr>`;
     }
   });
