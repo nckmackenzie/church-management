@@ -87,3 +87,7 @@ function appendTbody(data, type, sdate, edate) {
 
 clearOnChange(mandatoryFields);
 createSpinnerContainer();
+
+function formatString(string) {
+  return string.replaceAll(' ', '-');
+}
