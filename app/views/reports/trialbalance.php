@@ -44,25 +44,7 @@
     <!-- Main content -->
     <section class="content">
         <div class="row">
-            <div class="col-md-9 mx-auto d-none" id="results">
-                <table id="table" class="table table-striped table-bordered table-sm">
-                    <thead class="bg-lightblue">
-                        <tr>
-                            <th>Account</th>
-                            <th class="text-center">Debit</th>
-                            <th class="text-center">Credit</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                    <tfoot>
-                        <tr>
-                            <th style="text-align:right">Total</th>
-                            <th class="text-center" id="debittotal"></th>
-                            <th class="text-center" id="credittotal"></th>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
+            <div class="col-md-9 mx-auto d-none" id="results"></div>
         </div>
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
