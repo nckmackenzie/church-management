@@ -3,7 +3,7 @@
 
     $con = new Database;
     if((int)$_SESSION['userType'] > 2 && (int)$_SESSION['userType'] !== 6){
-        $menuitems = getusermenuitems($con->dbh,(int)$_SESSION['userId'],(int)$_SESSION['isParish']);
+        $menuitems = getusermenuitems($con->dbh,(int)$_SESSION['userId'],!converttobool($_SESSION['isParish']));
     }
     $menuicons = [
         'master entry' => 'fa-cogs',
@@ -29,16 +29,16 @@
                         <a href="#" class="nav-link">
                             <i class="nav-icon fas <?php echo $menuicons[$menuitem];?>"></i>
                             <p class="custom-bold custom-font">
-                            <?php strtoupper($menuitem) ;?>
+                            <?php echo strtoupper($menuitem) ;?>
                             <i class="right fas fa-angle-left"></i>
                             </p>
                         </a>
                         <ul class="nav nav-treeview custom-font">
-                            <?php $navitems = getmodulemenuitems($con->dbh,(int)$_SESSION['userId'],$menuitem,(int)$_SESSION['isParish']) ;?>
+                            <?php $navitems = getmodulemenuitems($con->dbh,(int)$_SESSION['userId'],$menuitem,!converttobool($_SESSION['isParish'])) ;?>
                             <?php foreach($navitems as $navitem) : ?>
                                 <li class="nav-item">
                                     <a href="<?php echo URLROOT;?>/<?php echo $navitem->Path;?>" class="nav-link">
-                                        <p><?php echo $navitem->FormName;?></p>
+                                        <p><?php echo ucwords($navitem->FormName);?></p>
                                     </a>
                                 </li>
                             <?php endforeach; ?>
