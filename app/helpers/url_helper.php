@@ -412,7 +412,8 @@ function getusermenuitems($con,$userid,$iscong)
                 DISTINCT f.Module 
             FROM 
                 tbluserrights r INNER JOIN tblforms f on r.FormId = f.ID 
-            WHERE (r.UserId = ?) AND (f.CongregationNav = ?)';
+            WHERE (r.UserId = ?) AND (f.CongregationNav = ?)
+            ORDER BY f.ModuleId';
     $stmt = $con->prepare($sql);
     $stmt->execute([$userid,$iscong]);
     $results = $stmt->fetchAll(PDO::FETCH_OBJ);
