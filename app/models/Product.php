@@ -10,7 +10,7 @@ class Product
 
     public function GetProducts()
     {
-        $this->db->query('SELECT P.ID,
+        $this->db->query('SELECT p.ID,
                                  UCASE(productName) As productName,
                                  FORMAT(rate,2) As rate,
                                  UCASE(accountType) As glAccount
