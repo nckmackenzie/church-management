@@ -4,8 +4,8 @@ use AfricasTalking\SDK\AfricasTalking;
 
 function sendLink($phone,$info){
     // Set your app credentials
-    $username   = "kalimonicms";
-    $apiKey     = "9c52381e8eea1cfda5638316567149dd2519b30e0e9b80a4802164df2470d532";
+    $username   = USER_SMS;
+    $apiKey     = APIKEY;
 
     // Initialize the SDK
     $AT         = new AfricasTalking($username, $apiKey);
@@ -20,7 +20,7 @@ function sendLink($phone,$info){
     $message    = $info;
 
     // Set your shortCode or senderId
-    $from       = "PCEAKALIMON";
+    $from       = SENDER;
 
     try {
         // Thats it, hit send and we'll take care of the rest
@@ -32,13 +32,14 @@ function sendLink($phone,$info){
 
          //print_r($result);
         } catch (Exception $e) {
-            echo "Error: ".$e->getMessage();
+            error_log($e->getMessage(),0);
+            exit;
         }
 }
 function sendSms($phone,$name,$id){
     // Set your app credentials
-    $username   = "kalimonicms";
-    $apiKey     = "9c52381e8eea1cfda5638316567149dd2519b30e0e9b80a4802164df2470d532";
+    $username   = USER_SMS;
+    $apiKey     = APIKEY;
 
     // Initialize the SDK
     $AT         = new AfricasTalking($username, $apiKey);
@@ -53,7 +54,7 @@ function sendSms($phone,$name,$id){
     $message    = 'Hi, ' .$name .',To Update Your Info For PCEA Click On This Link: http://pceakalimoniparish.or.ke/update/mbs.php?rd='.$id;
 
     // Set your shortCode or senderId
-    $from       = "PCEAKALIMON";
+    $from       = SENDER;
 
     try {
         // Thats it, hit send and we'll take care of the rest
@@ -65,6 +66,7 @@ function sendSms($phone,$name,$id){
 
          //print_r($result);
         } catch (Exception $e) {
-            echo "Error: ".$e->getMessage();
+            error_log($e->getMessage(),0);
+            exit;
         }
 }
