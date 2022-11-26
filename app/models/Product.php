@@ -17,7 +17,8 @@ class Product
                           FROM 
                             tblproducts p join tblaccounttypes a on p.accountId = a.ID
                           WHERE
-                            (p.deleted = 0) AND (p.congregationId = :cid)
+                            (p.deleted = 0) 
+                                AND (p.congregationId = :cid)
                           ORDER BY productName');
         $this->db->bind(':cid',(int)$_SESSION['congId']);
         return $this->db->resultSet();
