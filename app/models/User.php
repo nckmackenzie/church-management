@@ -358,4 +358,21 @@ class User {
             return false;
         }
     }
+    public function delete($id)
+    {
+        $rightscount = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tbluserrights WHERE UserId = ?',[$id]);
+        $logscount = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tbllogs WHERE UserId = ?',[$id]);
+
+        if((int)$rightscount !== 0 || (int)$logscount !== 0) {
+            return false;
+        }
+
+        $this->db->query("DELETE FROM tblusers WHERE ID = :id");
+        $this->db->bind(':id',(int)$id);
+        if($this->db->execute()) {
+            return true;
+        }else{
+            return false;
+        }
+    }
 }

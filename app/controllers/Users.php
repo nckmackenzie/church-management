@@ -631,4 +631,25 @@ class Users extends Controller{
         $data = [];
         $this->view('users/deniedaccess',$data);
     }
+    public function delete()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST'){
+            $id = !empty(trim($_POST['id'])) ? (int)trim($_POST['id']) : null;
+            if(is_null($id)){
+                flash('user_msg','No user selected for deletion!','alert custom-danger alert-dismissible fade show');
+                redirect('users/all');
+                exit;
+            }
+
+            if(!$this->userModel->delete($id)){
+                flash('user_msg','Cannot delete as user is referenced elsewhere!','alert custom-danger alert-dismissible fade show');
+                redirect('users/all');
+                exit;
+            }
+
+            flash('user_msg','User Deleted Successfully!');
+            redirect('users/all');
+            exit;
+        }
+    }
 }
