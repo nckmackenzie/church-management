@@ -1,8 +1,8 @@
 <?php require APPROOT . '/views/inc/header.php';?>
 <?php require APPROOT . '/views/inc/topNav.php';?>
 <?php require APPROOT . '/views/inc/sideNav.php';?>
-<!-- Modal -->
-<div class="modal fade" id="deleteModalCenter" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+<!-- Reset Modal -->
+<div class="modal fade" id="resetModalCenter" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
       <div class="modal-header">
@@ -30,10 +30,42 @@
     </div>
   </div>
 </div>
+<!-- Delete Modal -->
+<!-- Modal -->
+<div class="modal fade" id="deleteModalCenter" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLongTitle">Delete User</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+          <form action="<?php echo URLROOT;?>/users/delete" method="post">
+              <div class="row">
+                <div class="col-md-9">
+                  <label for="">Delete Selected User?</label>
+                  <input type="hidden" name="id" id="did">
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-success">Yes</button>
+              </div>
+          </form>
+      </div>
+     
+    </div>
+  </div>
+</div>
 <div class="content-wrapper">
     <!-- Main content -->
     <section class="content">
         <div class="row mt-2">
+            <div class="col-12">
+                <?php flash('user_msg');?>
+            </div>
             <div class="col-4">
                 <a href="<?php echo URLROOT;?>/users/register" class="btn btn-sm btn-success custom-font">Add New</a>
             </div>
@@ -67,6 +99,7 @@
                                    <div class="btn-group">
                                         <a href="<?php echo URLROOT;?>/users/edit/<?php echo encryptId($user->ID);?>" class="btn btn-sm bg-olive custom-font">Edit</a>
                                         <button type="button" class="btn btn-secondary btn-sm reset custom-font">Password Reset</button>
+                                        <button type="button" class="btn btn-danger btn-sm delete custom-font">Delete</button>
                                    </div>
                                 </td>
                             </tr>
@@ -93,8 +126,9 @@
             ],
             "responsive": true,
         });
+        //reset password
         $('#usersTable').on('click','.reset',function(){
-          $('#deleteModalCenter').modal('show');
+          $('#resetModalCenter').modal('show');
           $tr = $(this).closest('tr');
 
           let data = $tr.children('td').map(function(){
@@ -105,6 +139,20 @@
           var data1 = $('#usersTable').DataTable().row(currentRow).data();
           $('#id').val(data1[0]);
       });
+
+      //reset password
+      $('#usersTable').on('click','.delete',function(){
+          $('#deleteModalCenter').modal('show');
+          $tr = $(this).closest('tr');
+
+          let data = $tr.children('td').map(function(){
+              return $(this).text();
+          }).get();
+          var currentRow = $(this).closest("tr");
+          var data1 = $('#usersTable').DataTable().row(currentRow).data();
+          $('#did').val(data1[0]);
+      });
+      
     });
 </script>
 </body>
