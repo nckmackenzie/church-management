@@ -57,7 +57,7 @@ class Suppliers extends Controller
                 'address' => !empty($fields->address) ? strtolower(trim($fields->address)) : null,
                 'email' => !empty($fields->email) ? strtolower(trim($fields->email)) : null,
                 'contactperson' => !empty($fields->contactperson) ? strtolower(trim($fields->contactperson)) : null,
-                'balance' => converttobool($fields->isedit) ? null : (!empty($fields->openingbal) ? trim($fields->openingbal) : null),
+                'balance' => converttobool($fields->isedit) ? null : (!empty($fields->openingbal) ? trim($fields->openingbal) : 0),
                 'asof' => converttobool($fields->isedit) ? null : (!empty($fields->asof) ? date('Y-m-d',strtotime(trim($fields->asof))) : null)
             ];
             //validate date

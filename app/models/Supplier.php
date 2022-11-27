@@ -56,7 +56,7 @@ class Supplier
                 $tid = $this->db->dbh->lastInsertId();
                 
 
-                if(floatval($data['balance'])){
+                if(floatval($data['balance']) !== 0){
                     $yearid = getYearId($this->db->dbh, $data['asof']);
                     $this->db->query('INSERT INTO tblinvoice_header_suppliers (invoiceDate,supplierId,
                                                   fiscalYearId,inclusiveVat,postedBy,congregationId)
@@ -69,10 +69,17 @@ class Supplier
                     $this->db->bind(':cong',$_SESSION['congId']);
                     $this->db->execute();
 
-                    saveToLedger($this->db->dbh,$data['asof'],'accounts payable','payables and accruals',0,$data['balance']
-                            ,'supplier opening balance',4,15,$tid,$_SESSION['congId']);
-                    saveToLedger($this->db->dbh,$data['asof'],'uncategorized expenses','uncategorized expenses',$data['balance'],0
+                    if(floatval($data['balance']) > 0){
+                        saveToLedger($this->db->dbh,$data['asof'],'accounts payable','payables and accruals',0,$data['balance']
+                                ,'supplier opening balance',4,15,$tid,$_SESSION['congId']);
+                        saveToLedger($this->db->dbh,$data['asof'],'uncategorized expenses','uncategorized expenses',$data['balance'],0
                             ,'supplier opening balance',2,15,$tid,$_SESSION['congId']);
+                    }elseif(floatval($data['balance']) < 0) {
+                        saveToLedger($this->db->dbh,$data['asof'],'accounts payable','payables and accruals',$data['balance'],0
+                                ,'supplier opening balance',4,15,$tid,$_SESSION['congId']);
+                        saveToLedger($this->db->dbh,$data['asof'],'uncategorized expenses','uncategorized expenses',0,$data['balance']
+                            ,'supplier opening balance',2,15,$tid,$_SESSION['congId']);
+                    }
                 }
             }
 
