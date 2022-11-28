@@ -57,6 +57,7 @@ class Account {
             return true;
         }
     }
+
     public function create($data)
     {
         $this->db->query('INSERT INTO tblaccounttypes (accountType,parentId,accountTypeId,isSubCategory,`description`,forGroup)
@@ -79,7 +80,51 @@ class Account {
     public function getAccount($id)
     {
         $this->db->query('SELECT * FROM tblaccounttypes WHERE (ID=:id)');
-        $this->db->bind(':id',decryptId($id));
+        $this->db->bind(':id',$id);
         return $this->db->single();
+    }
+    
+    public function update($data)
+    {
+        try {
+
+            $this->db->dbh->beginTransaction();
+            $this->db->query('UPDATE tblaccounttypes SET accountType=:atype,parentId=:pid,accountTypeId=:accid,
+                                                         isSubCategory=:issub,`description`=:narr,forGroup=:forgroup
+                              WHERE (ID=:id)');
+            $this->db->bind(':atype',strtolower($data['accountname']));
+            $this->db->bind(':pid', ($data['check'] == 1) ? $data['subcategory'] : $data['accounttype']);
+            $this->db->bind(':accid',$data['accounttype']);
+            $this->db->bind(':issub',$data['check']);
+            $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : NULL);
+            $this->db->bind(':forgroup',$data['forgroup']);
+            $this->db->bind(':id',$data['id']);
+            $this->db->execute();
+
+            //update ledger
+            $this->db->query('UPDATE tblledger SET account = :account WHERE TRIM(LOWER(account)) = :aname');
+            $this->db->bind(':account',strtolower($data['accountname']));
+            $this->db->bind(':aname',strtolower($data['initialname']));
+            $this->db->execute();
+
+            //update ledger
+            $this->db->query('UPDATE tblledger SET parentaccount = :account WHERE TRIM(LOWER(parentaccount)) = :aname');
+            $this->db->bind(':account',strtolower($data['accountname']));
+            $this->db->bind(':aname',strtolower($data['initialname']));
+            $this->db->execute();
+
+            if(!$this->db->dbh->commit()){
+                return false;
+            }else{
+                return true;
+            }
+            
+        } catch (PDOException $e) {
+            if($this->db->dbh->inTransaction()){
+                $this->db->dbh->rollback();
+            }
+            error_log($e->getMessage(),0);
+            return false;
+        }
     }
 }
