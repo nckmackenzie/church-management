@@ -20,7 +20,7 @@
                 <div class="card bg-light">
                     <div class="card-header">Edit Account</div>
                     <div class="card-body">
-                        <form action="<?php echo URLROOT;?>/accounts/create" method="post">
+                        <form action="<?php echo URLROOT;?>/accounts/update" method="post">
                             <div class="row">
                                 <div class="col-md-12">
                                     <div class="form-group">
@@ -28,7 +28,7 @@
                                         <input type="text" name="accountname" id="accountname" 
                                                class="form-control form-control-sm mandatory
                                                <?php echo (!empty($data['name_err'])) ? 'is-invalid' : ''?>"
-                                               value="<?php echo !empty($data['accountname']) ? $data['accountname'] : strtoupper($data['account']->accountType)?>"
+                                               value="<?php echo $data['accountname'];?>"
                                                autocomplete="off"
                                                placeholder="eg Offering,Tithe,Water Bill etc">
                                         <span class="invalid-feedback"><?php echo $data['name_err'];?></span>
@@ -43,7 +43,7 @@
                                                 class="form-control form-control-sm">
                                             <?php foreach($data['accounttypes'] as $accounttype) : ?>
                                                 <option value="<?php echo $accounttype->ID;?>"
-                                                <?php selectdCheckEdit($data['accounttype'],$data['account']->accountTypeId,$accounttype->ID)?>>
+                                                <?php selectdCheck($data['accounttype'],$accounttype->ID)?>>
                                                     <?php echo $accounttype->accountType;?>
                                                 </option>
                                             <?php endforeach; ?>
@@ -57,13 +57,13 @@
                                         <div class="checkbox">    
                                             <label class="custom-sm">
                                                 <input type="checkbox" id="check" name="check"
-                                                <?php echo ($data['check'] == 1 || $data['account']->isSubCategory == 1) ? 'checked' : ''?>> Sub Category Of
+                                                <?php echo ($data['check'] == 1 || converttobool($data['issub'])) ? 'checked' : ''?>> Sub Category Of
                                             </label>       
                                         </div>  
                                         <select name="subcategory" id="subcategory" 
                                                  class="form-control form-control-sm
                                                  <?php echo (!empty($data['account_err'])) ? 'is-invalid' : ''?>" 
-                                                 <?php echo ($data['check'] != 1) ? 'disabled' : ''?>>
+                                                 <?php echo (!converttobool($data['issub'])) ? 'disabled' : ''?>>
                                             <?php if(!empty($data['accounts'])) : ?>
                                                 <?php foreach($data['accounts'] as $account) : ?>
                                                     <option value="<?php echo $account->ID;?>"
@@ -102,7 +102,8 @@
                             <div class="row">
                                 <div class="col-3">
                                     <button type="submit" class="btn btn-sm bg-navy custom-font">Save</button>
-                                    <input type="hidden" name="id" value="<?php echo $account->ID;?>">
+                                    <input type="hidden" name="id" value="<?php echo $data['id'];?>">
+                                    <input type="hidden" name="initialname" value="<?php echo strtolower($data['accountname']);?>">
                                 </div>
                             </div>
                         </form>
