@@ -171,4 +171,29 @@ class Accounts extends Controller{
             }
         }
     }
+
+    public function delete()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST')
+        {
+            $id = !empty(trim($_POST['id'])) ? trim(strtolower($_POST['id'])) : null;
+
+            if(is_null($id)){
+                flash('account_msg','Unable to get selected account','alert custom-danger alert-dismissible fade show');
+                redirect('accounts');
+                exit;
+            }
+
+            if(!$this->accountModel->delete($id))
+            {
+                flash('account_msg','Cannot delete as account is referenced elsewhere','alert custom-danger alert-dismissible fade show');
+                redirect('accounts');
+                exit;
+            }
+
+            flash('account_msg','Deleted successfully!');
+            redirect('accounts');
+            exit;            
+        }
+    }
 }

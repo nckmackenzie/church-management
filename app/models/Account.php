@@ -127,4 +127,19 @@ class Account {
             return false;
         }
     }
+
+    public function delete($id)
+    {
+        $count = getdbvalue($this->db->dbh,'SELECT fn_checkreferencedaccount(?) AS dbcount',[(int)$id]);
+        if((int)$count !== 0){
+            return false;
+        }
+        $this->db->query('DELETE FROM tblaccounttypes WHERE (ID = :id)');
+        $this->db->bind(':id',$id);
+        if(!$this->db->execute()){
+            return false;
+        }else{
+            return true;
+        }
+    }
 }
