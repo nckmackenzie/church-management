@@ -114,4 +114,38 @@ class Suppliers extends Controller
         $this->view('suppliers/add',$data);
         exit;
     }
+
+    public function delete()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST')
+        {
+            $id = !empty(trim($_POST['id'])) ? trim(htmlentities($_POST['id'])) : null;
+            
+            if(is_null($id)){
+                flash('supplier_msg','Unable to get selected supplier',alerterrorclass());
+                redirect('suppliers');
+                exit;
+            }
+
+            if(!$this->suppliermodel->Referenced($id)){
+                flash('supplier_msg','Cannot delete supplier as they are referenced elsewhere',alerterrorclass());
+                redirect('suppliers');
+                exit;
+            }
+
+            if(!$this->suppliermodel->Delete($id)){
+                flash('supplier_msg','Something went wrong while deleting. Retry or contact admin',alerterrorclass());
+                redirect('suppliers');
+                exit;
+            }
+
+            flash('supplier_msg','Deleted successfully!');
+            redirect('suppliers');
+            exit;
+
+        }else{
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
 }

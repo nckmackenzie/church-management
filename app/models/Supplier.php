@@ -104,4 +104,42 @@ class Supplier
         $this->db->bind(':id',$id);
         return $this->db->single();
     }
+
+    public function Referenced($id)
+    {
+        $invcount = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tblinvoice_header_suppliers 
+                                               WHERE (SupplierId = ?) AND (invoiceNo IS NOT NULL)',[(int)$id]);
+        if((int)$invcount > 0) return false;
+        return true;
+    }
+
+    public function Delete($id)
+    {
+        try {
+            $this->db->dbh->beginTransaction();
+
+            softdeleteLedgerBanking($this->db->dbh,15,$id);
+
+            $this->db->query('UPDATE tblinvoice_header_suppliers SET deleted = 1 WHERE (supplierId = :id)');
+            $this->db->bind(':id',$id);
+            $this->db->execute();
+
+            $this->db->query('UPDATE tblsuppliers SET deleted = 1 WHERE (ID = :id)');
+            $this->db->bind(':id',$id);
+            $this->db->execute();
+
+            if(!$this->db->dbh->commit()){
+                return false;
+            }else{
+                return true;
+            }
+
+        } catch (PDOException $e) {
+            if($this->db->dbh->inTransaction()){
+                $this->db->dbh->rollBack();
+            }
+            error_log($e->getMessage(),0);
+            return false;
+        }
+    }
 }
