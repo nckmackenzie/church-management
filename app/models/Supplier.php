@@ -56,7 +56,7 @@ class Supplier
                 $tid = $this->db->dbh->lastInsertId();
                 
 
-                if(floatval($data['balance']) !== 0){
+                if(floatval($data['balance']) > 0 || floatval($data['balance'] < 0)){
                     $yearid = getYearId($this->db->dbh, $data['asof']);
                     $this->db->query('INSERT INTO tblinvoice_header_suppliers (invoiceDate,supplierId,
                                                   fiscalYearId,inclusiveVat,postedBy,congregationId)
