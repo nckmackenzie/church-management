@@ -118,6 +118,8 @@ class Supplier
         try {
             $this->db->dbh->beginTransaction();
 
+            $supplier = getdbvalue($this->db->dbh,'SELECT supplierName FROM tblsuppliers WHERE ID = ?',[(int)$id]);
+
             softdeleteLedgerBanking($this->db->dbh,15,$id);
 
             $this->db->query('UPDATE tblinvoice_header_suppliers SET deleted = 1 WHERE (supplierId = :id)');
@@ -127,6 +129,8 @@ class Supplier
             $this->db->query('UPDATE tblsuppliers SET deleted = 1 WHERE (ID = :id)');
             $this->db->bind(':id',$id);
             $this->db->execute();
+
+            saveLog($this->db->dbh,'Deleted supplier '.$supplier);
 
             if(!$this->db->dbh->commit()){
                 return false;
