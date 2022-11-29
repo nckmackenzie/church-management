@@ -140,7 +140,7 @@ class Report {
                                      ,UCASE(D.districtName) as districtName,UCASE(M.occupation) AS occupation,UCASE(M.residence) AS residence
                               FROM   tblmember M LEFT JOIN tblpositions P ON M.positionId=P.ID LEFT JOIN
                                      tbldistricts D ON M.districtId=D.ID LEFT JOIN tblgender G ON M.genderId=G.ID
-                              WHERE  (M.district=:did)
+                              WHERE  (M.districtId=:did)
                               ORDER BY memberName');
             $this->db->bind(':did',$district);
         }
