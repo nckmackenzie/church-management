@@ -71,7 +71,7 @@ class Suppliers extends Controller
                 echo json_encode(['message' => 'Supplier name exists']);
                 exit;
             }
-            if(!is_null($data['balance']) && is_null($data['asof'])){
+            if($data['balance'] !== 0 && is_null($data['asof'])){
                 http_response_code(400);
                 echo json_encode(['message' => 'Enter date of balance']);
                 exit;
