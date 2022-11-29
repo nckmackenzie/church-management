@@ -439,3 +439,9 @@ function getmodulemenuitems($con,$userid,$module,$iscong)
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_OBJ);
 }
+
+//return error class
+function alerterrorclass()
+{
+    return 'alert custom-danger alert-dismissible fade show';
+}
