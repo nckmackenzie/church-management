@@ -18,12 +18,12 @@ class Pledges extends Controller{
     }
     public function add()
     {
-        $pledgers = $this->pledgeModel->getPledger(1);
+        // $pledgers = $this->pledgeModel->getPledger(1);
         $paymethods = $this->pledgeModel->paymentMethods();
         $banks = $this->pledgeModel->getBanks();
         $data = [
             'category' => '',
-            'pledgers' => $pledgers,
+            'pledgers' => '',
             'pledger' => '',
             'date' => '',
             'date_err' => '',
@@ -37,87 +37,90 @@ class Pledges extends Controller{
             'bank' => '',
             'bank_err' => '',
             'reference' => '',
-            'ref_err' => ''
+            'ref_err' => '',
+            'category_err_err' => '',
         ];
         $this->view('pledges/add',$data);
     }
     public function getpledger()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST =filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-            $category = trim($_POST['category']);
-            $data = [
-                'pledgers' => ''
-            ];
-            if (!empty($category)) {
-                $data['pledgers'] = $this->pledgeModel->getPledger($category);
-                foreach ($data['pledgers'] as $pledger) {
-                    echo '<option value="'.$pledger->ID.'">'.$pledger->pledger.'</option>';
-                }
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            $_GET =filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
+            $category = isset($_GET['category']) && !empty(trim($_GET['category'])) ? (int)trim($_GET['category']) : null;
+            if(is_null($category)){
+                http_response_code(400);
+                echo json_encode(['message' => 'Select pledger category']);
+                exit;
             }
+            $output = '<option selected disabled>Select pledger</option>';
+            $pledgers = $this->pledgeModel->getPledger($category);
+            foreach ($pledgers as $pledger) {
+                $output .= '<option value="'.$pledger->ID.'">'.$pledger->pledger.'</option>';
+            }
+            
+            echo json_encode($output);
+            exit;
+
+        }else{
+            redirect('users/deniedaccess');
+            exit;
         }
     }
+
     public function create()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $fields = json_decode(file_get_contents('php://input'));
             
-            $paymethods = $this->pledgeModel->paymentMethods();
-            $banks = $this->pledgeModel->getBanks();
             $data = [
-                'category' => trim($_POST['category']),
-                'pledgers' => '',
-                'pledger' => trim($_POST['pledger']),
-                'pledgername' => trim($_POST['pledgername']),
-                'date' => trim($_POST['date']),
-                'date_err' => '',
-                'amountpledged' => trim($_POST['amountpledged']),
-                'pledged_err' => '',
-                'amountpaid' => trim($_POST['amountpaid']),
-                'paid_err' => '',
-                'paymethods' => $paymethods,
-                'paymethod' => !empty($_POST['paymethod']) ? trim($_POST['paymethod']) : NULL,
-                'banks' => $banks,
-                'bank' => !empty($_POST['bank']) ? trim($_POST['bank']) : NULL,
-                'bank_err' => '',
-                'reference' => !empty($_POST['reference']) ? trim($_POST['reference']) : NULL,
-                'ref_err' => ''
+                'category' => isset($fields->category) && !empty(trim($fields->category)) ? (int)trim($fields->category) : null,
+                'pledger' => isset($fields->pledger) && !empty(trim($fields->pledger)) ? (int)trim($fields->pledger) : null,
+                'pledgername' => isset($fields->pledgername) && !empty(trim($fields->pledgername)) ? strtolower(trim($fields->pledgername)) : null,
+                'date' => isset($fields->date) && !empty(trim($fields->date)) ? date('Y-m-d',strtotime(trim($fields->date))) : null,
+                'amountpledged' => isset($fields->pledged) && !empty(trim($fields->pledged)) ? floatval(trim($fields->pledged)) : null,
+                'amountpaid' => isset($fields->paid) && !empty(trim($fields->paid)) ? floatval(trim($fields->paid)) : 0,
+                'paymethod' => isset($fields->paymethod) && !empty(trim($fields->paymethod)) ? (int)trim($fields->paymethod) : null,
+                'bank' => isset($fields->bank) && !empty(trim($fields->bank)) ? (int)trim($fields->bank) : null,
+                'reference' => isset($fields->reference) && !empty(trim($fields->reference)) ? strtolower(trim($fields->reference)) : null,
             ];
-            $pledgers = $this->pledgeModel->getPledger($data['category']);
-            $data['pledgers'] = $pledgers;
+
             //validate
-            if (empty($data['date'])) {
-                $data['date_err'] = 'Select Date';
+            if (is_null($data['date']) || is_null($data['pledger']) || is_null($data['category']) 
+                || is_null($data['amountpledged'])) {
+                http_response_code(400);
+                echo json_encode(['message' => 'Provide all required fields']);
+                exit;
             }
-            if (empty($data['amountpledged'])) {
-                $data['pledged_err'] = 'Enter Amount Pledged';
+           if($data['amountpledged'] < $data['amountpaid']){
+                http_response_code(400);
+                echo json_encode(['message' => 'Paid more than pledged']);
+                exit;
             }
-            if (!empty($data['amountpaid'])) {
-                if ($data['amountpaid'] > $data['amountpledged']) {
-                   $data['paid_err'] = 'Cannot Pay More Than Pledged';
+            
+            if($data['amountpaid'] > 0){
+                if(is_null($data['paymethod']) || is_null($data['bank']) || is_null($data['bank'])){
+                    http_response_code(400);
+                    echo json_encode(['message' => 'Provide all required fields']);
+                    exit;
                 }
             }
-            if ($data['paymethod'] > 2 && (empty($data['bank']) || $data['bank'] == NULL)) {
-                $data['bank_err'] = 'Select Bank';
+
+            if (!$this->pledgeModel->create($data)) {
+                http_response_code(500);
+                echo json_encode(['message' => 'Something went wrong while creating pledge']);
+                exit;
             }
-            if ($data['paymethod'] > 1 && empty($data['reference'])) {
-                $data['ref_err'] = 'Enter Payment Reference';
-            }
-            if (empty($data['date_err']) && empty($data['pledged_err']) && empty($data['paid_err'])
-                && empty($data['bank_err']) && empty($data['ref_err'])) {
-               if ($this->pledgeModel->create($data)) {
-                   flash('pledge_msg','Pledge Added Successfully!');
-                   redirect('pledges');
-               }
-            }
-            else{
-                $this->view('pledges/add',$data);
-            }
+
+            echo json_encode(['success' => true]);
+            exit;
+            
         }
         else{
-            redirect('pledges');
+            redirect('users/deniedaccess');
+            exit;
         }
     }
+
     public function pay($id)
     {
         $form = 'Pledges';

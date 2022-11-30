@@ -73,13 +73,9 @@ class Pledge{
         else {
             $member = null;
             $group = null;
-            $district =$$data['pledger'];
+            $district =$data['pledger'];
         }
-        if (!empty($data['bank']) || $data['bank'] != NULL) {
-            $this->db->query('SELECT accountType FROM tblaccounttypes WHERE (ID=:id)');
-            $this->db->bind(':id',trim($data['bank']));
-            $bankname = strtolower($this->db->getValue());
-        }
+
         $balance = floatval($data['amountpledged']) - floatval($data['amountpaid']);
         try {
             //begin transaction
@@ -113,7 +109,7 @@ class Pledge{
             $narr = 'Pledge Payment For '.strtolower($data['pledgername']);
             $cabparent = getparentgl($this->db->dbh,'cast at bank');
             if ($data['amountpaid'] > 0) {
-                saveToLedger($this->db->dbh,$data['date'],'pledges','donations and fundraising',0,$data['amountpaid'],$narr,
+                saveToLedger($this->db->dbh,$data['date'],'donations and fundraising','other collections',0,$data['amountpaid'],$narr,
                              1,3,$id,$_SESSION['congId']);
                 if ($data['paymethod'] == 1) {
                     saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cabparent,$data['amountpaid'],0,$narr,
@@ -187,7 +183,7 @@ class Pledge{
             $tid = $this->db->dbh->lastInsertId();
             //ledgers
             $narr = 'Pledge Payment For '.$data['pledger'];
-            saveToLedger($this->db->dbh,$data['date'],'pledges','donations and fundraising',0,$data['paid'],$narr,
+            saveToLedger($this->db->dbh,$data['date'],'donations and fundraising','other collections',0,$data['paid'],$narr,
                              1,4,$tid,$_SESSION['congId']);
             $cabparent = getparentgl($this->db->dbh,'cast at bank');                 
             if ($data['paymethod'] == 1) {
