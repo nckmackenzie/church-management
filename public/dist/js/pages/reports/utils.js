@@ -30,3 +30,12 @@ export function removeLoadingSpinner(elm = undefined) {
 export async function getRequest(url) {
   return await sendHttpRequest(url, 'GET', undefined, {}, alertBox);
 }
+
+export function clearErrors(mandatoryFields) {
+  if (mandatoryFields.length > 0) {
+    mandatoryFields.forEach(field => {
+      field.classList.remove('is-invalid');
+      field.nextSibling.nextSibling.textContent = '';
+    });
+  }
+}
