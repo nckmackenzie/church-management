@@ -12,18 +12,21 @@ class Journals extends Controller{
     }
     public function index()
     {
-        $data= [];
+        $data= ['accounts' => $this->journalModel->getAccounts()];
         $this->view('journals/index',$data);
     }
-    public function add()
+    public function getjournalno()
     {
-        $accounts = $this->journalModel->getAccounts();
-        $journalno = $this->journalModel->journalNo();
-        $data = [
-            'accounts' => $accounts,
-            'journalno' => $journalno
-        ];
-        $this->view('journals/add',$data);
+        if($_SERVER['REQUEST_METHOD'] === 'GET')
+        {
+            $journalno = $this->journalModel->journalNo();
+            echo json_encode(['success' => true,'journalno' => (int)$journalno]);
+        }
+        else
+        {
+            redirect('users/deniedaccess');
+            exit;
+        }
     }
     public function create()
     {
