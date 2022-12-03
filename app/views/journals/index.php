@@ -35,6 +35,13 @@
                       <input type="number" name="journalno" id="journalno" class="form-control form-control-sm" readonly>
                   </div>
                   <div class="col-sm-3">
+                      <label for="date">Date</label>
+                      <input type="date" name="date" id="date" 
+                             class="form-control form-control-sm mandatory"
+                             value="<?php echo $data['date'];?>">
+                      <span class="invalid-feedback"></span>
+                  </div>
+                  <div class="col-sm-3">
                       <label for="debits">Total Debits</label>
                       <input type="text" name="debits" id="debits" class="form-control form-control-sm" readonly>
                   </div>
