@@ -1,7 +1,8 @@
 //prettier-ignore
-import { getSelectedText, getColumnTotal,alertBox,displayAlert } from '../utils/utils.js';
+import { getSelectedText, getColumnTotal,alertBox,displayAlert, numberFormatter } from '../utils/utils.js';
 //prettier-ignore
-import { table,tbody,accountSlct,typeSlct,amountInput,descInput,debitsInput,creditsInput } from './elements.js';
+import { table,tbody,accountSlct,typeSlct,amountInput,descInput,
+         debitsInput,creditsInput,dateInput } from './elements.js';
 export function addToTable() {
   if (!validateAdd()) return;
   const accountid = +accountSlct.value;
@@ -42,4 +43,48 @@ function validateAdd() {
     return false;
   }
   return true;
+}
+
+export function validate() {
+  if (new Date(dateInput.value).getTime() > new Date().getTime()) {
+    dateInput.classList.add('is-invalid');
+    dateInput.nextSibling.nextSibling.textContent = 'Invalid date selected';
+    return false;
+  }
+  if (tbody.rows.length === 0) {
+    displayAlert(alertBox, 'No entries done');
+    return false;
+  }
+  const totalDebits = parseFloat(numberFormatter(debitsInput.value));
+  const totalCredits = parseFloat(numberFormatter(creditsInput.value));
+  if (totalDebits !== totalCredits) {
+    displayAlert(alertBox, "Debits and Credits total doesn't match");
+    return false;
+  }
+  return true;
+}
+
+export function formData() {
+  const tableData = [];
+  const trs = tbody.querySelectorAll('tr');
+  trs.forEach(tr => {
+    const accountid = tr.querySelector('.accountid').innerText;
+    const debit = tr.querySelector('.debit').innerText;
+    const credit = tr.querySelector('.credit').innerText;
+    const desc = tr.querySelector('.desc').innerText;
+    tableData.push({ accountid, debit, credit, desc });
+  });
+
+  return {
+    date: dateInput.value || new Date(),
+    details: tableData,
+  };
+}
+
+export function removeSelected(e) {
+  if (!e.target.classList.contains('btndel')) return;
+  const btn = e.target;
+  btn.closest('tr').remove();
+  debitsInput.value = getColumnTotal(table, 2);
+  creditsInput.value = getColumnTotal(table, 3);
 }
