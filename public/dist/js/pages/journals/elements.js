@@ -13,6 +13,7 @@ export const amountInput = document.querySelector('#amount');
 export const descInput = document.querySelector('#description');
 export const debitsInput = document.querySelector('#debits');
 export const creditsInput = document.querySelector('#credits');
+export const dateInput = document.querySelector('#date');
 
 //other
 export const spinnerContainer = document.querySelector('.spinner-container');
