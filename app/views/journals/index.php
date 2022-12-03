@@ -39,7 +39,7 @@
                       <input type="text" name="debits" id="debits" class="form-control form-control-sm" readonly>
                   </div>
                   <div class="col-sm-3">
-                      <label for="credits">Journal No</label>
+                      <label for="credits">Total Credits</label>
                       <input type="text" name="credits" id="credits" class="form-control form-control-sm" readonly>
                   </div>
                 </div>
@@ -47,7 +47,7 @@
                 <div class="row">
                   <div class="col-md-5 mb-2">
                     <label for="account">G/L Account</label>
-                    <select name="account" id="account" class="form-control form-control-sm select2">
+                    <select name="account" id="account" class="form-control form-control-sm select2 table-required">
                         <option value="" selected disabled>Select Account</option>
                         <?php foreach($data['accounts'] as $account) : ?>
                           <option value="<?php echo $account->ID;?>"><?php echo $account->accountType;?></option>
@@ -57,7 +57,7 @@
                   </div>
                   <div class="col-md-2 mb-2">
                     <label for="type">Debit/Credit</label>
-                    <select name="type" id="type" class="form-control form-control-sm">
+                    <select name="type" id="type" class="form-control form-control-sm table-required">
                         <option value="" selected disabled>Select Debit/Credit</option>
                         <option value="debit">Debit</option>
                         <option value="credit">Credit</option>
@@ -66,7 +66,7 @@
                   </div>
                   <div class="col-md-2 mb-2">
                     <label for="amount">Amount</label>
-                    <input type="number" class="form-control form-control-sm" id="amount" name="amount" placeholder="eg 2,000">
+                    <input type="number" class="form-control form-control-sm table-required" id="amount" name="amount" placeholder="eg 2,000">
                     <span class="invalid-feedback"></span>
                   </div>
                   <div class="col-md-3 mb-2">
@@ -75,7 +75,7 @@
                             placeholder="Brief description...">
                   </div>
                   <div class="col-md-1">
-                    <button class="btn btn-sm btn-success btn-block add">Add</button>
+                    <button type="button" class="btn btn-sm btn-success btn-block add">Add</button>
                   </div>
                 </div>
               </div>
@@ -83,7 +83,7 @@
             <div class="row">
               <div class="col-12">
                 <div class="table-responsive">
-                  <table class="table table-sm table-bordered" id="entries">
+                  <table class="table table-sm table-bordered" id="table-entries">
                     <thead class="table-secondary">
                       <tr>
                         <th class="d-none">ID</th>
@@ -94,6 +94,7 @@
                         <th style="width: 10%;">Remove</th>
                       </tr>
                     </thead>
+                    <tbody></tbody>
                   </table>
                 </div>
               </div>
