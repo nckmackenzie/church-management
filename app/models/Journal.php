@@ -103,4 +103,53 @@ class Journal {
             throw $e;
         }
     }
+
+    public function createupdate($data)
+    {
+        try {
+            $this->db->dbh->beginTransaction();
+
+            for ($i=0; $i < count($data['entries']); $i++) { 
+                $account = strtolower(trim($data['entries'][$i]->accountname));
+                $accountid = (int)trim($data['entries'][$i]->accountid);
+                $accounttypeid = getdbvalue($this->db->dbh,'SELECT accountTypeId FROM tblaccounttypes WHERE ID = ?',[$accountid]);
+                $parentgl = getparentgl($this->db->dbh,$account);
+                $debit = !empty($data['entries'][$i]->debit) ? floatval($data['entries'][$i]->debit) : 0;
+                $credit = !empty($data['entries'][$i]->credit) ? floatval($data['entries'][$i]->credit) : 0;
+                $narr = !empty($data['entries'][$i]->desc) ? strtolower(trim($data['entries'][$i]->desc)) : 'journal entries #' .$data['journalno'];
+
+                $this->db->query('INSERT INTO tblledger (transactionDate,account,parentaccount,debit,credit,narration,accountId,
+                                                         transactionType,transactionId,isJournal,journalNo,congregationId)
+                                  VALUES(:tdate,:account,:parent,:debit,:credit,:narration,:aid,:ttype,:tid,:isjournal,:jno,:cid)');
+                $this->db->bind(':tdate',$data['date']);
+                $this->db->bind(':account',$account);
+                $this->db->bind(':parent',$parentgl);
+                $this->db->bind(':debit',$debit);
+                $this->db->bind(':credit',$credit);
+                $this->db->bind(':narration',$narr);
+                $this->db->bind(':aid',$accounttypeid);
+                $this->db->bind(':ttype',5);
+                $this->db->bind(':tid',$data['journalno']);
+                $this->db->bind(':isjournal',true);
+                $this->db->bind(':jno',$data['journalno']);
+                $this->db->bind(':cid',(int)$_SESSION['congId']);
+                $this->db->execute();
+            }
+
+            saveLog($this->db->dbh,'Made entries for journal no '.$data['journalno']);
+
+            if(!$this->db->dbh->commit()){
+                return false;
+            }else{
+                return true;
+            }
+            
+        } catch (PDOException $e) {
+            if($this->db->dbh->inTransaction()){
+                $this->db->dbh->rollBack();
+            }
+            error_log($e->getMessage(),0);
+            return false;
+        }
+    }
 }
