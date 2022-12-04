@@ -14,6 +14,8 @@ export const descInput = document.querySelector('#description');
 export const debitsInput = document.querySelector('#debits');
 export const creditsInput = document.querySelector('#credits');
 export const dateInput = document.querySelector('#date');
+export const currJouralInput = document.querySelector('#currentJournalNo');
+export const isEditInput = document.querySelector('#isedit');
 
 //other
 export const spinnerContainer = document.querySelector('.spinner-container');
