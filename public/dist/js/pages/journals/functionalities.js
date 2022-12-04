@@ -1,8 +1,8 @@
 //prettier-ignore
-import { getSelectedText, getColumnTotal,alertBox,displayAlert, numberFormatter } from '../utils/utils.js';
+import { getSelectedText, getColumnTotal,alertBox,displayAlert, numberFormatter,clearValues } from '../utils/utils.js';
 //prettier-ignore
 import { table,tbody,accountSlct,typeSlct,amountInput,descInput,
-         debitsInput,creditsInput,dateInput } from './elements.js';
+         debitsInput,creditsInput,dateInput, isEditInput, journalNoInput } from './elements.js';
 export function addToTable() {
   if (!validateAdd()) return;
   const accountid = +accountSlct.value;
@@ -69,15 +69,18 @@ export function formData() {
   const trs = tbody.querySelectorAll('tr');
   trs.forEach(tr => {
     const accountid = tr.querySelector('.accountid').innerText;
+    const accountname = tr.querySelector('.accountname').innerText;
     const debit = tr.querySelector('.debit').innerText;
     const credit = tr.querySelector('.credit').innerText;
     const desc = tr.querySelector('.desc').innerText;
-    tableData.push({ accountid, debit, credit, desc });
+    tableData.push({ accountid, accountname, debit, credit, desc });
   });
 
   return {
     date: dateInput.value || new Date(),
-    details: tableData,
+    isEdit: isEditInput.value || false,
+    journalNo: journalNoInput.value,
+    entries: tableData,
   };
 }
 
@@ -87,4 +90,18 @@ export function removeSelected(e) {
   btn.closest('tr').remove();
   debitsInput.value = getColumnTotal(table, 2);
   creditsInput.value = getColumnTotal(table, 3);
+}
+
+export function clear() {
+  clearValues();
+  dateInput.value = setTodaysDate();
+  tbody.innerHTML = '';
+}
+
+export function setTodaysDate() {
+  const now = new Date();
+  const day = ('0' + now.getDate()).slice(-2);
+  const month = ('0' + (now.getMonth() + 1)).slice(-2);
+  const today = now.getFullYear() + '-' + month + '-' + day;
+  return today;
 }
