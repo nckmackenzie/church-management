@@ -110,6 +110,17 @@ class Bank {
             return false;
         }
     }
+
+    public function checkreferenced($id)
+    {
+        $count = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tblbankpostings WHERE bankId = ?',[(int)$id]);
+        if((int)$count > 0){
+            return false;
+        }else{
+            return true;
+        }
+    }
+
     public function delete($data)
     {
        
