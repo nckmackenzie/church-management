@@ -13,6 +13,8 @@
           <div class="row mb-2">
             <div class="col-sm-2">
               <button type="submit" class="btn btn-sm bg-navy custom-font btn-block save">Save</button>
+              <input type="hidden" name="currentJournalNo" id="currentJournalNo" value="">
+              <input type="hidden" name="isedit" id="isedit" value="">
             </div>
             <div class="col-sm-4"></div>
             <div class="col-sm-6 d-flex justify-content-end mt-2-xs mt-0-md">
