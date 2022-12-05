@@ -49,6 +49,20 @@ class Journal {
         $this->db->bind(':id',$account);
         return $this->db->getValue();
     }
+    public function getjournalno($type = 'current')
+    {
+        $sql = 'SELECT COUNT(*) FROM tblledger WHERE (isJournal = 1) AND (deleted = 0) AND (congregationId = ?)';
+        $entriescount = getdbvalue($this->db->dbh,$sql,[(int)$_SESSION['congId']]); //get entries count
+        if((int)$entriescount === 0) return 1; //if there are no entries
+        //if there are entries
+        $sorttype = $type === 'current' ? 'DESC' : 'ASC';
+        $journalsql = 'SELECT journalNo FROM tblledger 
+                       WHERE (isJournal = 1) AND (deleted = 0) AND (congregationId = ?)
+                       ORDER BY journalNo '.$sorttype.' LIMIT 1';
+        $journalno = getdbvalue($this->db->dbh,$journalsql,[(int)$_SESSION['congId']]);
+        if($type === 'current') return (int)$journalno + 1;
+        return (int)$journalno;
+    }
     public function create($data)
     {
         try {

@@ -28,7 +28,20 @@ class Journals extends Controller{
             exit;
         }
     }
-
+    public function getfirstlastjournalno()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'GET')
+        {
+            $type = isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : 'current';
+            $journalno = $this->journalModel->getjournalno($type);
+            echo json_encode(['success' => true,'journalno' => (int)$journalno]);
+        }
+        else
+        {
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
     public function create()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
