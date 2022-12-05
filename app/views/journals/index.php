@@ -14,13 +14,19 @@
             <div class="col-sm-2">
               <button type="submit" class="btn btn-sm bg-navy custom-font btn-block save">Save</button>
               <input type="hidden" name="currentJournalNo" id="currentJournalNo" value="">
+              <input type="hidden" name="firstJournalNo" id="firstJournalNo" value="">
               <input type="hidden" name="isedit" id="isedit" value="">
+              <input type="hidden" name="usertype" id="usertype" value="<?php echo $_SESSION['userType'];?>">
             </div>
-            <div class="col-sm-4"></div>
-            <div class="col-sm-6 d-flex justify-content-end mt-2-xs mt-0-md">
-              <button type="button" class="btn btn-sm btn-info custom-font prev mr-1">&larr; Prev</button>
-              <button type="button" class="btn btn-sm btn-info custom-font next mr-1">&rarr; Next</button>
-              <button type="button" class="btn btn-sm btn-danger custom-font delete">Delete</button>
+            <div class="col-sm-2">
+              <?php if((int)$_SESSION['userType'] < 3) : ?>
+                <button type="button" class="btn btn-sm btn-danger custom-font btn-block delete d-none">Delete</button>
+              <?php endif; ?>
+            </div>
+            <div class="col-sm-2"></div>
+            <div class="col-sm-4 d-flex justify-content-end mt-2-xs ml-auto mt-0-md">
+              <input type="search" name="search" id="search" class="form-control form-control-sm mr-1" placeholder="Search by Journal No...">
+              <button type="button" class="btn btn-sm btn-info custom-font search">Search</button>
             </div>
           </div>
         </div><!-- /.container-fluid -->
