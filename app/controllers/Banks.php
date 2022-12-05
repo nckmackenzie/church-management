@@ -152,24 +152,33 @@ class Banks extends Controller{
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $data = [
-                'id' => trim($_POST['id']),
+                'id' => isset($_POST['id']) && !empty(trim($_POST['id'])) ? trim($_POST['id']) : null,
                 'bankname' => trim(strtolower($_POST['bankname'])),
-                'account' => trim(strtolower($_POST['account'])),
             ];
-           
-            if (isset($data['id'])) {
-                if ($this->bankModel->delete($data)) {
-                    flash('bank_msg','Bank Deleted Successfully!');
-                    redirect('banks');
-                }
-                else{
-                    flash('bank_msg','Something Went Wrong!','alert custom-danger');
-                    redirect('banks');
-                }
+
+            if(is_null($data['id'])){
+                flash('bank_msg','No selection detected!',alerterrorclass());
+                redirect('banks');
+                exit;
+            }
+                    
+            if(!$this->bankModel->checkreferenced($data['id'])){
+                flash('bank_msg','Cannot delete as bank referenced elsewhere',alerterrorclass());
+                redirect('banks');
+                exit;
+            }
+
+            if ($this->bankModel->delete($data)) {
+                flash('bank_msg','Bank Deleted Successfully!');
+                redirect('banks');
+                exit;
             }
             else{
-                $this->view('banks/edit',$data);
+                flash('bank_msg','Something Went Wrong!',alerterrorclass());
+                redirect('banks');
+                exit;
             }
+            
         }
         else{
             redirect('banks');

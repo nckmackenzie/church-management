@@ -12,7 +12,7 @@ class Journals extends Controller{
     }
     public function index()
     {
-        $data= ['accounts' => $this->journalModel->getAccounts()];
+        $data= ['accounts' => $this->journalModel->getAccounts(),'date' => date('Y-m-d')];
         $this->view('journals/index',$data);
     }
     public function getjournalno()
@@ -28,6 +28,7 @@ class Journals extends Controller{
             exit;
         }
     }
+
     public function create()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -40,6 +41,47 @@ class Journals extends Controller{
                 flash('journal_msg','Journal Entry Saved Successfully');
                 redirect('journals');
             }
+        }
+    }
+
+    public function createupdate()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST')
+        {
+            $fields = json_decode(file_get_contents('php://input')); //extract fields;
+            $data = [
+                'journalno' => converttobool($fields->isEdit) ? 
+                               (isset($fields->journalNo) && !empty(trim($fields->journalNo)) ? (int)$fields->journalNo : null) 
+                               : $this->journalModel->journalNo(),
+                'isedit' => converttobool($fields->isEdit),
+                'date' => isset($fields->date) && !empty(trim($fields->date)) ? date('Y-m-d',strtotime($fields->date)) : null,
+                'entries' => $fields->entries
+            ];
+            //validation
+            if(is_null($data['date']) || is_null($data['journalno'])){
+                http_response_code(400);
+                echo json_encode(['message' => 'Provide all required fields']);
+                exit;
+            }
+            if(empty($data['entries'])){
+                http_response_code(400);
+                echo json_encode(['message' => 'No entries made']);
+                exit;
+            }
+            //if error on create/update
+            if(!$this->journalModel->createupdate($data)){
+                http_response_code(500);
+                echo json_encode(['message' => 'Unable to save entries. Retry or contact admin','success' => false]);
+                exit;
+            }
+
+            echo json_encode(['message' => 'Saved successfully','success' => true]);
+            exit;
+        }
+        else
+        {
+            redirect('users/deniedaccess');
+            exit;
         }
     }
 }
