@@ -141,7 +141,7 @@ class Cashreceipt
             //begin transaction
             $this->db->dbh->beginTransaction();
             
-            $this->db->query('UPDATE tblpettycash SET Deleted = 0 WHERE ID = :id');
+            $this->db->query('UPDATE tblpettycash SET Deleted = 1 WHERE ID = :id');
             $this->db->bind(':id', $id);
             $this->db->execute();
 
