@@ -1,8 +1,10 @@
 //prettier-ignore
 import { getSelectedText, getColumnTotal,alertBox,displayAlert, numberFormatter,clearValues } from '../utils/utils.js';
+import { getJournalEntry } from './ajax.js';
 //prettier-ignore
 import { table,tbody,accountSlct,typeSlct,amountInput,descInput,
-         debitsInput,creditsInput,dateInput, isEditInput, journalNoInput } from './elements.js';
+         debitsInput,creditsInput,dateInput, isEditInput, journalNoInput,
+         entries,spinnerContainer } from './elements.js';
 export function addToTable() {
   if (!validateAdd()) return;
   const accountid = +accountSlct.value;
@@ -104,4 +106,28 @@ export function setTodaysDate() {
   const month = ('0' + (now.getMonth() + 1)).slice(-2);
   const today = now.getFullYear() + '-' + month + '-' + day;
   return today;
+}
+
+//search entered journal no
+export async function getJournal(journalNo) {
+  if (isNaN(journalNo)) {
+    displayAlert(alertBox, 'Journal No has to be a number');
+    return;
+  }
+
+  setLoadingSpinner();
+  const res = await getJournalEntry(journalNo);
+  removeLoadingSpinner();
+  if (res && res.success) {
+  }
+}
+
+function setLoadingSpinner() {
+  entries.classList.add('d-none');
+  spinnerContainer.innerHTML = `<div class="spinner md"></div>`;
+}
+
+function removeLoadingSpinner() {
+  spinnerContainer.innerHTML = ``;
+  entries.classList.remove('d-none');
 }
