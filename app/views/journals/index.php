@@ -18,7 +18,9 @@
             </div>
             <div class="col-sm-4"></div>
             <div class="col-sm-6 d-flex justify-content-end mt-2-xs mt-0-md">
-              
+              <button type="button" class="btn btn-sm btn-info custom-font prev mr-1">&larr; Prev</button>
+              <button type="button" class="btn btn-sm btn-info custom-font next mr-1">&rarr; Next</button>
+              <button type="button" class="btn btn-sm btn-danger custom-font delete">Delete</button>
             </div>
           </div>
         </div><!-- /.container-fluid -->
