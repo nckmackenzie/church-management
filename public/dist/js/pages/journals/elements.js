@@ -4,6 +4,7 @@ export const nextBtn = document.querySelector('.next');
 export const deleteBtn = document.querySelector('.delete');
 export const addBtn = document.querySelector('.add');
 export const saveBtn = document.querySelector('.save');
+export const searchBtn = document.querySelector('.search');
 //form elements
 export const form = document.querySelector('#journal-form');
 export const journalNoInput = document.querySelector('#journalno');
@@ -15,7 +16,10 @@ export const debitsInput = document.querySelector('#debits');
 export const creditsInput = document.querySelector('#credits');
 export const dateInput = document.querySelector('#date');
 export const currJouralInput = document.querySelector('#currentJournalNo');
+export const firstJouralInput = document.querySelector('#firstJournalNo');
+export const searchInput = document.querySelector('#search');
 export const isEditInput = document.querySelector('#isedit');
+export const userTypeInput = document.querySelector('#usertype');
 
 //other
 export const spinnerContainer = document.querySelector('.spinner-container');
