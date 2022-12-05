@@ -20,7 +20,11 @@ class Journals extends Controller{
         if($_SERVER['REQUEST_METHOD'] === 'GET')
         {
             $journalno = $this->journalModel->journalNo();
-            echo json_encode(['success' => true,'journalno' => (int)$journalno]);
+            echo json_encode(
+                ['success' => true,
+                'journalno' => (int)$journalno,
+                'firstno' =>  $this->journalModel->getjournalno('first')]
+            );
         }
         else
         {
@@ -28,35 +32,6 @@ class Journals extends Controller{
             exit;
         }
     }
-    public function getfirstlastjournalno()
-    {
-        if($_SERVER['REQUEST_METHOD'] === 'GET')
-        {
-            $type = isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : 'current';
-            $journalno = $this->journalModel->getjournalno($type);
-            echo json_encode(['success' => true,'journalno' => (int)$journalno]);
-        }
-        else
-        {
-            redirect('users/deniedaccess');
-            exit;
-        }
-    }
-    public function create()
-    {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-            $data = [
-                'journal' => trim($_POST['journal']),
-                'details' => $_POST['table_data']
-            ];
-            if ($this->journalModel->create($data)) {
-                flash('journal_msg','Journal Entry Saved Successfully');
-                redirect('journals');
-            }
-        }
-    }
-
     public function createupdate()
     {
         if($_SERVER['REQUEST_METHOD'] === 'POST')
@@ -89,6 +64,50 @@ class Journals extends Controller{
             }
 
             echo json_encode(['message' => 'Saved successfully','success' => true]);
+            exit;
+        }
+        else
+        {
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
+    public function getjournalentry()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'GET')
+        {
+            $journalno = isset($_GET['journalno']) && !empty(trim($_GET['journalno'])) ? trim(htmlentities($_GET['journalno'])) : null;
+            //validation
+            if(is_null($journalno)){
+                http_response_code(400);
+                echo json_encode(['message' => 'No journal no provided',"success" => false]);
+                exit;
+            }
+            if(!is_numeric($journalno)){
+                http_response_code(400);
+                echo json_encode(['message' => 'Journal Number has to be numeric',"success" => false]);
+                exit;
+            }
+            //check if journal exists
+            if(!$this->journalModel->checkexists($journalno)){
+                http_response_code(404);
+                echo json_encode(['message' => 'Journal Number not found for this congregation',"success" => false]);
+                exit;
+            }
+
+            $entries = $this->journalModel->getjournal($journalno);
+            $date = date('d-m-y',strtotime($entries[0]->transactionDate));
+            $data = [];
+            foreach($entries as $entry){
+                array_push($data,[
+                    'accountid' => (int)$entry->ID,
+                    'accountname' => ucwords(trim($entry->account)),
+                    'debit' => floatval($entry->debit)  === 0 ? '' : floatval($entry->debit),
+                    'credit' => floatval($entry->credit)  === 0 ? '' : floatval($entry->credit),
+                    'narration' => ucwords($entry->narration)
+                ]);
+            }
+            echo json_encode(['success' => true,'journalDate' => $date,'entries' => $data]);
             exit;
         }
         else

@@ -166,4 +166,27 @@ class Journal {
             return false;
         }
     }
+    public function checkexists($journalno)
+    {
+        $sql = 'SELECT COUNT(*) FROM tblledger 
+                WHERE (isJournal = 1) AND (journalNo=?) AND (deleted = 0) AND (congregationId = ?)';
+        $count = getdbvalue($this->db->dbh,$sql,[(int)$journalno,(int)$_SESSION['congId']]);
+        if((int)$count === 0){
+            return false;
+        }
+        return true;
+    }
+    public function getjournal($journalno)
+    {
+        $sql = 'SELECT 
+                    a.ID,
+                    l.transactionDate,
+                    l.account,
+                    l.debit,
+                    l.credit,
+                    l.narration
+                FROM `tblledger` l join tblaccounttypes a on l.account = a.accountType 
+                WHERE (isJournal = 1) AND (journalNo = ?) AND (l.deleted = 0) AND (l.congregationId=?)';
+        return loadresultset($this->db->dbh,$sql,[(int)$journalno,(int)$_SESSION['congId']]);
+    }
 }
