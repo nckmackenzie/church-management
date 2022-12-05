@@ -18,3 +18,8 @@ export async function saveEntries(formData) {
   );
   return res;
 }
+
+export async function getJournalEntry(journalNo) {
+  const url = `${HOST_URL}/journals/getjournalentry?journalno=${+journalNo}`;
+  return await getRequest(url);
+}
