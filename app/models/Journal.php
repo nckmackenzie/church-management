@@ -19,7 +19,6 @@ class Journal {
                           FROM tblaccounttypes 
                           WHERE (deleted=0) AND (parentId <> 0)
                                 AND (congregationId=:cid OR congregationId=0)
-                                AND (isSubCategory = 1)
                           ORDER BY accountType');
         $this->db->bind(':cid',$_SESSION['congId']);
         return $this->db->resultSet();
