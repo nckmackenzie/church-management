@@ -20,8 +20,9 @@
             </div>
             <div class="col-sm-2">
               <?php if((int)$_SESSION['userType'] < 3) : ?>
-                <button type="button" class="btn btn-sm btn-danger custom-font btn-block delete d-none">Delete</button>
+                <button type="button" class="btn btn-sm btn-danger custom-font delete d-none">Delete</button>
               <?php endif; ?>
+              <button type="button" class="btn btn-sm btn-info custom-font reset d-none">Reset</button>
             </div>
             <div class="col-sm-2"></div>
             <div class="col-sm-4 d-flex justify-content-end mt-2-xs ml-auto mt-0-md">

@@ -5,6 +5,7 @@ export const deleteBtn = document.querySelector('.delete');
 export const addBtn = document.querySelector('.add');
 export const saveBtn = document.querySelector('.save');
 export const searchBtn = document.querySelector('.search');
+export const resetBtn = document.querySelector('.reset');
 //form elements
 export const form = document.querySelector('#journal-form');
 export const journalNoInput = document.querySelector('#journalno');
