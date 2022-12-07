@@ -5,7 +5,7 @@ import { getJournalEntry } from './ajax.js';
 import { table,tbody,accountSlct,typeSlct,amountInput,descInput,
          debitsInput,creditsInput,dateInput, isEditInput, journalNoInput,
          entries,spinnerContainer, searchInput,userTypeInput, deleteBtn,resetBtn,
-         currentJournalNo } from './elements.js';
+         currJouralInput } from './elements.js';
 export function addToTable() {
   if (!validateAdd()) return;
   const accountid = +accountSlct.value;
@@ -84,6 +84,10 @@ export function formData() {
     isEdit: isEditInput.value || false,
     journalNo: journalNoInput.value,
     entries: tableData,
+    editId:
+      isEditInput.value && +isEditInput.value === 1
+        ? +currJouralInput.value
+        : '',
   };
 }
 
@@ -122,7 +126,7 @@ export async function getJournal(journalNo) {
   if (res && res.success) {
     bindData(res.journalDate, res.entries);
     journalNoInput.value = searchInput.value;
-    currentJournalNo.value = searchInput.value;
+    currJouralInput.value = searchInput.value;
     isEditInput.value = 1;
     searchInput.value = '';
     debitsInput.value = res.totals[0];
