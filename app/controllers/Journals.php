@@ -39,7 +39,7 @@ class Journals extends Controller{
             $fields = json_decode(file_get_contents('php://input')); //extract fields;
             $data = [
                 'journalno' => converttobool($fields->isEdit) ? 
-                               (isset($fields->journalNo) && !empty(trim($fields->journalNo)) ? (int)$fields->journalNo : null) 
+                               (isset($fields->editId) && !empty(trim($fields->editId)) ? (int)$fields->editId : null) 
                                : $this->journalModel->journalNo(),
                 'isedit' => converttobool($fields->isEdit),
                 'date' => isset($fields->date) && !empty(trim($fields->date)) ? date('Y-m-d',strtotime($fields->date)) : null,
@@ -54,6 +54,11 @@ class Journals extends Controller{
             if(empty($data['entries'])){
                 http_response_code(400);
                 echo json_encode(['message' => 'No entries made']);
+                exit;
+            }
+            if($data['isedit'] && is_null($data['journalno'])){
+                http_response_code(400);
+                echo json_encode(['message' => 'Unable to update. Please try again']);
                 exit;
             }
             //if error on create/update
