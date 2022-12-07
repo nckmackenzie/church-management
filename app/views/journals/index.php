@@ -2,6 +2,33 @@
 <?php require APPROOT . '/views/inc/topNav.php';?>
 <?php require APPROOT . '/views/inc/sideNav.php';?>
  <!-- Content Wrapper. Contains page content -->
+<div class="modal fade" id="deleteModalCenter" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLongTitle">Delete Journal</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+          <form action="<?php echo URLROOT;?>/journals/delete" method="post">
+              <div class="row">
+                <div class="col-md-9">
+                  <label for="">Are You Sure You Want To Delete Selected Journal?</label>
+                  <input type="hidden" name="id" id="id">
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-danger">Yes</button>
+              </div>
+          </form>
+      </div>
+     
+    </div>
+  </div>
+</div>
 <div class="content-wrapper">
     <!-- Content Header (Page header) -->
     <form action="" id="journal-form" autocomplete="off">
