@@ -4,7 +4,7 @@ import { clearOnChange, mandatoryFields, validation,setLoadingState,resetLoading
 import { getJournalNo, saveEntries } from './ajax.js';
 //prettier-ignore
 import { addBtn, journalNoInput, form, saveBtn, table,currJouralInput,firstJouralInput,
-         searchInput,searchBtn ,deleteBtn,userTypeInput} from './elements.js';
+         searchInput,searchBtn ,deleteBtn,userTypeInput,resetBtn, tbody} from './elements.js';
 //prettier-ignore
 import { addToTable, validate, formData ,removeSelected,clear,getJournal} from './functionalities.js';
 
@@ -16,9 +16,17 @@ async function reset() {
     currJouralInput.value = data.journalno;
     firstJouralInput.value = data.firstno;
   }
+  resetBtn.classList.add('d-none');
+  if (userTypeInput.value && +userTypeInput.value < 3) {
+    deleteBtn.classList.add('d-none');
+  }
+  tbody.innerHTML = '';
 }
 //add btn click
 addBtn.addEventListener('click', addToTable);
+
+//reset
+resetBtn.addEventListener('click', reset);
 
 //form submit
 form.addEventListener('submit', async function (e) {
