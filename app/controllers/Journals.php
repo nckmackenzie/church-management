@@ -96,9 +96,13 @@ class Journals extends Controller{
             }
 
             $entries = $this->journalModel->getjournal($journalno);
-            $date = date('d-m-y',strtotime($entries[0]->transactionDate));
+            $date = date('Y-m-d',strtotime($entries[0]->transactionDate));
             $data = [];
+            $totaldebits = 0;
+            $totalcredits = 0;
             foreach($entries as $entry){
+                $totalcredits += floatval($entry->credit);
+                $totaldebits += floatval($entry->debit);
                 array_push($data,[
                     'accountid' => (int)$entry->ID,
                     'accountname' => ucwords(trim($entry->account)),
@@ -107,7 +111,7 @@ class Journals extends Controller{
                     'narration' => ucwords($entry->narration)
                 ]);
             }
-            echo json_encode(['success' => true,'journalDate' => $date,'entries' => $data]);
+            echo json_encode(['success' => true,'journalDate' => $date,'entries' => $data,"totals" => [$totaldebits,$totalcredits]]);
             exit;
         }
         else
