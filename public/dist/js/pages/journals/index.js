@@ -63,7 +63,10 @@ table.addEventListener('click', function (e) {
 });
 
 if (+userTypeInput.value < 3) {
-  deleteBtn.addEventListener('click', function () {});
+  deleteBtn.addEventListener('click', function () {
+    $('#deleteModalCenter').modal('show');
+    document.getElementById('id').value = currJouralInput.value;
+  });
 }
 
 reset();
