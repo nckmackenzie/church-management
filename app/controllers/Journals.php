@@ -125,4 +125,29 @@ class Journals extends Controller{
             exit;
         }
     }
+    public function delete()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST')
+        {
+            $id = isset($_POST['id']) && !empty(trim($_POST['id'])) ? (int)trim(htmlentities($_POST['id'])) : null;
+            if(is_null($id)){
+                flash('journal_msg','Unable to get selected journal',alerterrorclass());
+                redirect('journals');
+                exit;
+            }
+            if(!$this->journalModel->delete($id)){
+                flash('journal_msg','Unable to delete selected journal. Please try again or contact admin!',alerterrorclass());
+                redirect('journals');
+                exit;
+            }
+            flash('journal_msg','Deleted successfully!');
+            redirect('journals');
+            exit;
+        }
+        else
+        {
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
 }

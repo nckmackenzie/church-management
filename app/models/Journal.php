@@ -143,4 +143,13 @@ class Journal {
                 WHERE (isJournal = 1) AND (journalNo = ?) AND (l.deleted = 0) AND (l.congregationId=?)';
         return loadresultset($this->db->dbh,$sql,[(int)$journalno,(int)$_SESSION['congId']]);
     }
+    public function delete($id)
+    {
+        $this->db->query('UPDATE tblledger SET deleted = 1
+                          WHERE (isJournal = 1) AND (deleted = 0) AND (journalNo=:jno) AND (congregationId = :cid)');
+        $this->db->bind(':jno',$id);
+        $this->db->bind(':cid',$_SESSION['congId']);
+        if(!$this->db->execute()) return false;
+        return true;
+    }
 }
