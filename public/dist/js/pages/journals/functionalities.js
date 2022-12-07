@@ -4,7 +4,8 @@ import { getJournalEntry } from './ajax.js';
 //prettier-ignore
 import { table,tbody,accountSlct,typeSlct,amountInput,descInput,
          debitsInput,creditsInput,dateInput, isEditInput, journalNoInput,
-         entries,spinnerContainer } from './elements.js';
+         entries,spinnerContainer, searchInput,userTypeInput, deleteBtn,resetBtn,
+         currentJournalNo } from './elements.js';
 export function addToTable() {
   if (!validateAdd()) return;
   const accountid = +accountSlct.value;
@@ -96,15 +97,15 @@ export function removeSelected(e) {
 
 export function clear() {
   clearValues();
-  dateInput.value = setTodaysDate();
+  dateInput.value = setTodaysDate(new Date());
   tbody.innerHTML = '';
 }
 
-export function setTodaysDate() {
-  const now = new Date();
-  const day = ('0' + now.getDate()).slice(-2);
-  const month = ('0' + (now.getMonth() + 1)).slice(-2);
-  const today = now.getFullYear() + '-' + month + '-' + day;
+export function setTodaysDate(date) {
+  // const now = new Date();
+  const day = ('0' + date.getDate()).slice(-2);
+  const month = ('0' + (date.getMonth() + 1)).slice(-2);
+  const today = date.getFullYear() + '-' + month + '-' + day;
   return today;
 }
 
@@ -119,7 +120,40 @@ export async function getJournal(journalNo) {
   const res = await getJournalEntry(journalNo);
   removeLoadingSpinner();
   if (res && res.success) {
+    bindData(res.journalDate, res.entries);
+    journalNoInput.value = searchInput.value;
+    currentJournalNo.value = searchInput.value;
+    isEditInput.value = 1;
+    searchInput.value = '';
+    debitsInput.value = res.totals[0];
+    creditsInput.value = res.totals[1];
+    resetBtn.classList.remove('d-none');
+    if (userTypeInput.value && +userTypeInput.value < 3) {
+      deleteBtn.classList.remove('d-none');
+    }
   }
+}
+
+function bindData(date, entries) {
+  dateInput.value = setTodaysDate(new Date(date));
+  let html = '';
+  entries.forEach(entry => {
+    html += `
+    <tr>
+      <td class="d-none accountid">${entry.accountid}</td>
+      <td class="accountname">${entry.accountname}</td>
+      <td class="debit">${
+        parseFloat(entry.debit) === 0 ? '' : parseFloat(entry.debit)
+      }</td>
+      <td class="credit">${
+        parseFloat(entry.credit) === 0 ? '' : parseFloat(entry.credit)
+      }</td>
+      <td class="desc">${entry.narration}</td>
+      <td><button style="outline:0; border: none; background-color:transparent;" type="button" class="text-danger btndel">Remove</button></td>
+    </tr>
+    `;
+  });
+  tbody.innerHTML = html;
 }
 
 function setLoadingSpinner() {
