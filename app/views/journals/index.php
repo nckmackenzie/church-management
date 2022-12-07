@@ -36,6 +36,7 @@
         <div class="container-fluid">
           <div class="row">
             <div class="col-12" id="alertBox"></div>
+            <div class="col-12"><?php flash('journal_msg');?></div>
           </div>
           <div class="row mb-2">
             <div class="col-sm-2">
