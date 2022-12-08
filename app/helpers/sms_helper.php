@@ -70,3 +70,31 @@ function sendSms($phone,$name,$id){
             exit;
         }
 }
+
+//general message
+function sendgeneral($contacts,$message){
+    $username   = USER_SMS;
+    $apiKey     = APIKEY;
+
+    // Initialize the SDK
+    $AT         = new AfricasTalking($username, $apiKey);
+
+    $sms        = $AT->sms();
+    $recipients = $contacts;
+
+    $from       = SENDER;
+
+    try {
+        $result = $sms->send([
+             'to'      => $recipients,
+             'message' => $message,
+             'from'    => $from
+        ]);
+
+         return $result;
+        } catch (Exception $e) {
+            error_log($e->getMessage(),0);
+            return false;
+            exit;
+        }
+}
