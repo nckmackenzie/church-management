@@ -117,6 +117,11 @@
                     <p>Group Officials</p>
                 </a>
             </li>
+            <li class="nav-item">
+                <a href="<?php echo URLROOT;?>/members/sendmessage" class="nav-link">
+                    <p>Send Message</p>
+                </a>
+            </li>
           </ul>
         </li>
         <li class="nav-item custom-font">
