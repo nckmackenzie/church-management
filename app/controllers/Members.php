@@ -505,11 +505,20 @@ class Members extends Controller {
         {
             $fields = json_decode(file_get_contents('php://input'));
             $data = [
-                'member' => $fields->members,
+                'members' => $fields->members,
                 'message' => isset($fields->message) && !empty(trim($fields->message)) ? trim(htmlentities($fields->message)) : null,
             ];
             //validate
-            
+            if(is_null($data['message']) || empty($data['members'])){
+                http_response_code(400);
+                echo json_encode(['success' => false,'message' => 'Provide all required fields']);
+                exit;
+            }
+
+            $contacts = $this->memberModel->getcontacts($data['members']);
+            $results = sendgeneral($contacts,$data['message']);
+            echo json_encode(['result' => $results,'success' => true]);
+            exit;
         }
         else
         {

@@ -6,7 +6,7 @@ import {
   setLoadingState,
   resetLoadingState,
 } from '../utils/utils.js';
-const membersSelect = document.querySelector('#members');
+
 const messageTextArea = document.querySelector('#message');
 const form = document.querySelector('#send-form');
 const saveBtn = document.querySelector('.save');
@@ -30,8 +30,12 @@ form.addEventListener('submit', async function (e) {
   setLoadingState(saveBtn, 'Sending...');
   const res = await submitForm();
   resetLoadingState(saveBtn, 'Send');
+
   if (res && res.success) {
-    displayAlert(alertBox, res.message, 'success');
+    const {
+      data: { SMSMessageData },
+    } = res.result;
+    displayAlert(alertBox, SMSMessageData.Message, 'success');
     reset();
   }
 });
@@ -51,8 +55,8 @@ function validation() {
 
 function getFormData() {
   const allSelectedOptions = new Array();
-  $('#members option').each(function () {
-    allOptions.push($(this).val());
+  $('#members option:selected').each(function () {
+    allSelectedOptions.push($(this).val());
   });
   return {
     members: allSelectedOptions,

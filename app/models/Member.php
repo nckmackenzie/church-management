@@ -378,4 +378,13 @@ class Member {
         $sql = 'SELECT ID,ucase(memberName) As MemberName FROM tblmember WHERE (congregationId = ?) AND (memberStatus = 1)';
         return loadresultset($this->db->dbh,$sql,[(int)$_SESSION['congId']]);
     }
+    public function getcontacts($members)
+    {
+        $contacts = [];
+        foreach($members as $member){
+            $contact = getdbvalue($this->db->dbh,'SELECT contact FROM tblmember WHERE (ID = ?)',[(int)$member]);
+            array_push($contacts,$contact);
+        }
+        return $contacts;
+    }
 }
