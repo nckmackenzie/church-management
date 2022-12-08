@@ -373,4 +373,9 @@ class Member {
         $this->db->bind(':mid',$member);
         return $this->db->getValue();
     }
+    public function getmembersbydistrict()
+    {
+        $sql = 'SELECT ID,ucase(memberName) As MemberName FROM tblmember WHERE (congregationId = ?) AND (memberStatus = 1)';
+        return loadresultset($this->db->dbh,$sql,[(int)$_SESSION['congId']]);
+    }
 }

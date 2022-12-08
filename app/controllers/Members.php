@@ -493,4 +493,28 @@ class Members extends Controller {
             echo $this->memberModel->checkfamily($member);
         }
     }
+    public function sendmessage()
+    {
+        $data = ['members' => $this->memberModel->getmembersbydistrict()];
+        $this->view('members/sendmessage',$data);
+        exit;
+    }
+    public function sendmessageaction()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST')
+        {
+            $fields = json_decode(file_get_contents('php://input'));
+            $data = [
+                'member' => $fields->members,
+                'message' => isset($fields->message) && !empty(trim($fields->message)) ? trim(htmlentities($fields->message)) : null,
+            ];
+            //validate
+            
+        }
+        else
+        {
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
 }
