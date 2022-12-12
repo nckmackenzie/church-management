@@ -153,3 +153,33 @@ export function allPayments(data) {
 `;
   return html;
 }
+export function supplierBalances(data) {
+  let html = `
+      <table class="table table-striped table-bordered table-sm" id="invoicereport">
+         <thead class="bg-lightblue">
+            <tr>
+              <th>Supplier Name</th>
+              <th>Total Balance</th>
+            </tr>
+         </thead>
+         <tbody>`;
+  data.forEach(dt => {
+    html += `
+              <tr>
+                <td>${dt.supplierName}</td>
+                <td>${numberWithCommas(dt.TotalBalance)}</td>
+              </tr>
+           `;
+  });
+
+  html += `</tbody>
+    <tfoot>
+      <tr>
+          <th style="text-align:center">Total:</th>
+          <th id="bal"></th>
+      </tr>
+    </tfoot>
+      </table>
+    `;
+  return html;
+}
