@@ -18,6 +18,7 @@
                     <option value="balances">Invoice With Balances</option>
                     <option value="byinvoice">Payments - By Invoice</option>
                     <option value="bysupplier">Payments - By Supplier</option>
+                    <option value="supplierbalances">Supplier Balances</option>
                     <option value="all">All Payments</option>
                 </select>
                 <span class="invalid-feedback"></span>
@@ -57,6 +58,6 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/reports/invoices/invoicereports.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/reports/invoices/invoicereports-v1.js"></script>
 </body>
 </html>  
