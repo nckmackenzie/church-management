@@ -4,7 +4,7 @@ import { getRequest } from './utils.js';
 //prettier-ignore
 export async function invoiceReports(type,criteria=null,sdate=null,edate=null) {
     let url;
-    if(type === 'balances'){
+    if(type === 'balances' || type === 'supplierbalances'){
         url = `${HOST_URL}/invoicereports/getinvoicereport?type=${type}`
     }else if(type === 'byinvoice'){
       url = `${HOST_URL}/invoicereports/getinvoicereport?type=${type}&criteria=${criteria}`
