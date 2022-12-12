@@ -63,6 +63,8 @@ class Invoicereports extends Controller
                 $results = $this->reportmodel->GetPaymentPaySupplier($data);
             }elseif($data['type'] === 'all'){
                 $results = $this->reportmodel->GetAllPayments($data);
+            }elseif ($data['type'] === 'supplierbalances') {
+                $results = $this->reportmodel->GetSupplierBalances($data);
             }
 
             echo json_encode(['results' => $results, 'success' => true]);

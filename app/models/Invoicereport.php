@@ -29,6 +29,17 @@ class Invoicereport
         return loadresultset($this->db->dbh,'CALL sp_get_payments_by_invoiceno(?)',[$invoice]);
     }
 
+    public function GetSupplierBalances($data)
+    {
+        $sql = 'SELECT 
+                    s.supplierName,
+                    IFNULL(SUM(getinvoicebalance_supplier(h.ID)),0) As TotalBalance
+                FROM `tblinvoice_header_suppliers` h join tblsuppliers s on h.supplierId = s.ID
+                WHERE h.deleted = 0
+                GROUP BY s.supplierName;';
+        return loadresultset($this->db->dbh,$sql,[]);
+    }
+
     public function GetSuppliers()
     {
         $sql = 'SELECT 
