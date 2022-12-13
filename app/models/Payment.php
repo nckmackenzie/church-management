@@ -10,7 +10,7 @@ class Payment
 
     public function GetPayments()
     {
-        $sql = 'SELECT * FROM vw_supplierpayments  WHERE congregationId = ?';
+        $sql = 'SELECT * FROM vw_supplierpayments2  WHERE congregationId = ?';
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
 
@@ -35,10 +35,11 @@ class Payment
             for($i = 0; $i < count($data['payments']); $i++) 
             {
                 if(isset($data['payments'][$i]->payment) && floatval($data['payments'][$i]->payment) > 0) :
-                    $this->db->query('INSERT INTO tblinvoice_payments_suppliers (paymentNo,invoice_id,paymentDate,amount,paymentId,bankId,
+                    $this->db->query('INSERT INTO tblinvoice_payments_suppliers (paymentNo,paymentNo2,invoice_id,paymentDate,amount,paymentId,bankId,
                                                 paymentReference)
-                                    VALUES(:pno,:iid,:pdate,:amount,:pid,:bid,:ref)');
-                    $this->db->bind(':pno',$paymentno);
+                                    VALUES(:pno,:pno2,:iid,:pdate,:amount,:pid,:bid,:ref)');
+                    $this->db->bind(':pno',(int)$paymentno);
+                    $this->db->bind(':pno2',(int)$paymentno + $i);
                     $this->db->bind(':iid',$data['payments'][$i]->invoiceid);
                     $this->db->bind(':pdate',$data['paydate']);
                     $this->db->bind(':amount',floatval($data['payments'][$i]->payment));
