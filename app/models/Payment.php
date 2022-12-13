@@ -24,6 +24,16 @@ class Payment
     {
         return getuniqueid($this->db->dbh,'paymentNo','tblinvoice_payments_suppliers',(int)$_SESSION['congId'],false);
     }
+
+    public function GetSupplier($id)
+    {
+        $sql = 'SELECT 
+                    supplierId 
+                FROM tblinvoice_payments_suppliers p join tblinvoice_header_suppliers h
+                     on p.invoice_id = h.ID 
+                WHERE p.ID = ?';
+        return getdbvalue($this->db->dbh,$sql,[(int)$id]);
+    }
     
     public function Create($data)
     {
@@ -99,15 +109,27 @@ class Payment
         return $this->db->single();
     }
 
-    public function GetPaymentDate($payno)
+    public function GetPaymentDate($id)
     {
-        $sql = 'SELECT DISTINCT paymentDate FROM tblinvoice_payments_suppliers WHERE paymentNo = ?';
-        return getdbvalue($this->db->dbh,$sql,[$payno]);
+        $sql = 'SELECT paymentDate FROM tblinvoice_payments_suppliers WHERE ID = ?';
+        return getdbvalue($this->db->dbh,$sql,[(int)$id]);
     }
 
     public function GetInvoicedetails($payno,$supplier)
     {
         return loadresultset($this->db->dbh,'CALL sp_getinvoicepaymentdetails(?,?)',[$payno,$supplier]);
+    }
+
+    public function PaymentDetails($id)
+    {
+        $this->db->query('SELECT * FROM tblinvoice_payments_suppliers WHERE (ID = :id)');
+        $this->db->bind(':id',(int)$id);
+        return $this->db->single();
+    }
+
+    public function GetPaymentNo($id)
+    {
+        return getdbvalue($this->db->dbh,'SELECT paymentNo FROM tblinvoice_payments_suppliers WHERE ID = ?',[(int)$id]);
     }
 
     public function GetPaymentSupplierValue($payno,$supplier)
