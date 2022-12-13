@@ -119,19 +119,24 @@ class Payments extends Controller
 
     public function print($id)
     {
-        $params = explode('-', $id);
-        $paymentNo = $params[0];
-        $supplier = $params[1];
+        $paymentNo = formatStringId($id);
+        $supplier = $this->paymentmodel->GetSupplier($id);
+        $paymentdetails = $this->paymentmodel->PaymentDetails($id);
+        $pno = $this->paymentmodel->GetPaymentNo($id);
+        $bank =  (int)$paymentdetails->paymentId !==1 ? $this->reusemodel->GetBank($paymentdetails->bankId) : 'N/A';
+        $chequeno = strtoupper($paymentdetails->paymentReference);
         
         $data = [
             'paymentno' => $paymentNo,
+            'chequeno' => $chequeno,
+            'bank' => $bank,
             'congregationinfo' => $this->reusemodel->GetCongregationDetails(),
             'supplier' => $this->paymentmodel->GetSupplierDetails($supplier),
-            'paymentdate' => date('d-m-Y',strtotime($this->paymentmodel->GetPaymentDate($paymentNo))),
-            'invoicedetails' => $this->paymentmodel->GetInvoicedetails($paymentNo,$supplier),
-            'total' => $this->paymentmodel->GetPaymentSupplierValue($paymentNo,$supplier)
+            'paymentdate' => date('d-m-Y',strtotime($this->paymentmodel->GetPaymentDate($id))),
+            'invoicedetails' => $this->paymentmodel->GetInvoicedetails($pno,$supplier),
+            'total' => $this->paymentmodel->GetPaymentSupplierValue($pno,$supplier)
         ];
-        $this->view('payments/print',$data);
+        $this->view('payments/printvoucher',$data);
         exit;
     }
 }
