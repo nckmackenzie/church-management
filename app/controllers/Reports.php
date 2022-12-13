@@ -597,10 +597,23 @@ class Reports extends Controller {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
-                'start' => trim($_GET['start']),
-                'end' => trim($_GET['end'])
+                'start' => isset($_GET['start']) && !empty(trim($_GET['start'])) ? date('Y-m-d',strtotime(trim($_GET['start']))) : null,
+                'end' => isset($_GET['end']) && !empty(trim($_GET['end'])) ? date('Y-m-d',strtotime(trim($_GET['end']))) : null
             ];
+
+            //validation
+            if(is_null($data['start']) || is_null($data['end'])) :
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Please provide all required fields']);
+                exit;
+            endif;
+
+            //values 
             $revenues = $this->reportModel->GetRevenues($data);
+            $tithesofferings = $revenues[0];
+            $mmfcollections = $revenues[1];
+            $othercollections = $revenues[2];
+            //
             $revenue_total = $this->reportModel->GetRevenuesTotal($data);
             $expenses = $this->reportModel->GetExpensesPL($data);
             $expenses_total = $this->reportModel->GetExpensesTotal($data);
@@ -616,15 +629,10 @@ class Reports extends Controller {
                     <tbody>
                         <tr class="bg-olive">
                             <td colspan="2">Income</td>
-                        </tr>';
-                    foreach ($revenues as $revenue ) {
-                        $output .='
+                        </tr>
                         <tr>
-                            <td>'.$revenue->account.'</td>
-                            <td>'.number_format($revenue->SumOfTotal,2).'</td>
-                        </tr>';
-                    }
-                    $output .='
+                            <td>Tithes &amp; Offerings</td>
+                        </tr>
                         <tr>
                             <th>Revenue Total</th>
                             <th>'.number_format($revenue_total,2).'</th>

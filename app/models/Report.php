@@ -293,19 +293,22 @@ class Report {
         }
         return $this->db->resultSet();
     }
+
     public function GetRevenues($data)
     {
-        $this->db->query('SELECT UCASE(account) as account,
-                                 SUM(credit) as SumOfTotal
-                          FROM   tblledger
-                          WHERE  (transactionDate BETWEEN :startd AND :endd) AND (accountId = 1)
-                                 AND (deleted = 0) AND (congregationId = :cid)
-                          GROUP BY account');
-        $this->db->bind(':startd',$data['start']);
-        $this->db->bind(':endd',$data['end']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();
+        $tithessql = 'SELECT IFNULL(SUM(credit),0) AS SumOfValue FROM tblledger 
+                      WHERE (parentaccount=?) AND (deleted = 0) AND (congregationId = ?) AND (transactionDate BETWEEN ? AND ?)';
+        $mmfcollectionssql = 'SELECT IFNULL(SUM(credit),0) AS SumOfValue FROM tblledger 
+                      WHERE (parentaccount=?) AND (deleted = 0) AND (congregationId = ?) AND (transactionDate BETWEEN ? AND ?)';
+        $othercollectionsql = 'SELECT IFNULL(SUM(credit),0) AS SumOfValue FROM tblledger 
+                      WHERE (parentaccount=?) AND (deleted = 0) AND (congregationId = ?) AND (transactionDate BETWEEN ? AND ?)';
+        //values              
+        $tithes = getdbvalue($this->db->dbh,$tithessql,['tithes and offering',(int)$_SESSION['congId'],$data['start'],$data['end']]);
+        $mmfcollections = getdbvalue($this->db->dbh,$mmfcollectionssql,['mmf collections',(int)$_SESSION['congId'],$data['start'],$data['end']]);
+        $othercollection = getdbvalue($this->db->dbh,$othercollectionsql,['other collections',(int)$_SESSION['congId'],$data['start'],$data['end']]);
+        return [$tithes,$mmfcollections,$othercollection];
     }
+
     public function GetRevenuesTotal($data)
     {
         $this->db->query('SELECT IFNULL(SUM(credit),0) AS SumOfTotal 
