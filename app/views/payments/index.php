@@ -20,6 +20,7 @@
             <div class="col-md-12 table-responsive">
                 <table class="table table-striped table-bordered table-sm" id="paymentsTable">
                     <thead class="bg-navy">
+                        <th class="d-none">ID</th>
                         <th>Payment No</th>
                         <th>Supplier</th>
                         <th>Payment Date</th>
@@ -29,12 +30,13 @@
                     <tbody>
                        <?php foreach($data['payments'] as $payment): ?>
                           <tr>
+                            <td class="d-none"><?php echo $payment->ID;?></td>
                             <td><?php echo $payment->paymentNo;?></td>
                             <td><?php echo $payment->supplierName;?></td>
                             <td><?php echo date('d-m-Y',strtotime($payment->paymentDate)) ;?></td>
                             <td><?php echo number_format($payment->AmountPaid,2);?></td>
                             <td>
-                               <a href="<?php echo URLROOT;?>/payments/print/<?php echo $payment->paymentNo;?>" target="_blank" class="btn btn-sm bg-olive custom-font">Print Voucher</a>
+                               <a href="<?php echo URLROOT;?>/payments/print/<?php echo $payment->ID;?>" target="_blank" class="btn btn-sm bg-olive custom-font">Print Voucher</a>
                             </td>
                           </tr>
                        <?php endforeach; ?>
