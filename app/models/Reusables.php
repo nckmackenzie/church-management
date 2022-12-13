@@ -57,4 +57,11 @@ class Reusables
         $sql = 'SELECT ID,CongregationName FROM tblcongregation WHERE (deleted = 0) AND (ID <> ?) ORDER BY CongregationName';
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
+
+    public function GetBank($id)
+    {
+        $sql = "SELECT UCASE(CONCAT(accountType,'-',IFNULL(accountNo,''))) AS Bank FROM tblaccounttypes WHERE isBank = 1 AND ID = ?";
+        return getdbvalue($this->db->dbh,$sql,[(int)$id]);
+    }
+
 }
