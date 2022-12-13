@@ -11,11 +11,7 @@
                 <div class="col-12">
                     <div id="alertBox"></div>
                 </div>  
-            <div class="col-sm-2">
-                <label for="payid">Pay ID</label>    
-                <input type="text" name="payid" id="payid" class="form-control form-control-sm" value="<?php echo $data['paymentno'];?>" readonly>
-            </div>
-            <div class="col-sm-2">
+            <div class="col-sm-3">
                 <label for="paymethod">Pay Method</label>
                 <select name="paymethod" id="paymethod" class="form-control form-control-sm mandatory" >
                     <option value="1">Petty Cash</option>
@@ -42,6 +38,7 @@
             </div>
             <div class="row">
                 <div class="col-sm-2 align-self-center">
+                    <input type="hidden" name="payid" id="payid" class="form-control form-control-sm" value="<?php echo $data['paymentno'];?>" readonly>
                     <button type="submit" class="btn btn-sm bg-navy btn-block btnsave">Save</button>
                 </div>
                 <div class="col-sm-4 d-flex flex-column ml-auto text-right">
