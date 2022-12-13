@@ -34,8 +34,7 @@
                             <td><?php echo date('d-m-Y',strtotime($payment->paymentDate)) ;?></td>
                             <td><?php echo number_format($payment->AmountPaid,2);?></td>
                             <td>
-                              <?php $route = URLROOT .'/payments/print?paymentno='.$payment->paymentNo .'&supplier='.$payment->supplierId?>
-                              <a href="<?php echo URLROOT;?>/payments/print/<?php echo $payment->paymentNo;?>-<?php echo $payment->supplierId;?>" target="_blank" class="btn btn-sm bg-olive custom-font">Print</a>
+                               <a href="<?php echo URLROOT;?>/payments/print/<?php echo $payment->paymentNo;?>" target="_blank" class="btn btn-sm bg-olive custom-font">Print Voucher</a>
                             </td>
                           </tr>
                        <?php endforeach; ?>
