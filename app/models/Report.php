@@ -322,16 +322,25 @@ class Report {
     }
     public function GetExpensesPL($data)
     {
-        $this->db->query('SELECT UCASE(account) as account,
-                                 SUM(debit) as SumOfTotal
-                          FROM   tblledger
-                          WHERE  (transactionDate BETWEEN :startd AND :endd) AND (accountId = 2)
-                                 AND (deleted = 0) AND (congregationId = :cid)
-                          GROUP BY account');
-        $this->db->bind(':startd',$data['start']);
-        $this->db->bind(':endd',$data['end']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();
+        $sql = 'SELECT IFNULL(SUM(debit),0) AS SumOfValue FROM tblledger 
+                WHERE (parentaccount=?) AND (deleted = 0) AND (congregationId = ?) AND (transactionDate BETWEEN ? AND ?)';
+                
+        $admincost = getdbvalue($this->db->dbh,$sql,['administrative costs',(int)$_SESSION['congId'],$data['start'],$data['end']]);
+        $hosptcost = getdbvalue($this->db->dbh,$sql,['hospitality costs',(int)$_SESSION['congId'],$data['start'],$data['end']]);
+        $optcost = getdbvalue($this->db->dbh,$sql,['operation costs',(int)$_SESSION['congId'],$data['start'],$data['end']]);
+        $staffcost = getdbvalue($this->db->dbh,$sql,['staff expenses',(int)$_SESSION['congId'],$data['start'],$data['end']]);
+
+        return [$admincost,$hosptcost,$optcost,$staffcost];
+        // $this->db->query('SELECT UCASE(account) as account,
+        //                          SUM(debit) as SumOfTotal
+        //                   FROM   tblledger
+        //                   WHERE  (transactionDate BETWEEN :startd AND :endd) AND (accountId = 2)
+        //                          AND (deleted = 0) AND (congregationId = :cid)
+        //                   GROUP BY account');
+        // $this->db->bind(':startd',$data['start']);
+        // $this->db->bind(':endd',$data['end']);
+        // $this->db->bind(':cid',$_SESSION['congId']);
+        // return $this->db->resultSet();
     }
     public function GetExpensesTotal($data)
     {

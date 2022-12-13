@@ -613,10 +613,15 @@ class Reports extends Controller {
             $tithesofferings = $revenues[0];
             $mmfcollections = $revenues[1];
             $othercollections = $revenues[2];
-            //
-            $revenue_total = $this->reportModel->GetRevenuesTotal($data);
+            $revenue_total = floatval($tithesofferings) + floatval($mmfcollections) + floatval($othercollections);
+            //expenses
             $expenses = $this->reportModel->GetExpensesPL($data);
-            $expenses_total = $this->reportModel->GetExpensesTotal($data);
+            $admincost = $expenses[0];
+            $hosptcost = $expenses[1];
+            $optcost = $expenses[2];
+            $staffcost = $expenses[3];
+
+            $expenses_total = floatval($admincost) + floatval($hosptcost) + floatval($optcost) + floatval($staffcost);
             $profit_loss = ($revenue_total - $expenses_total);
             $output = '';
             $output .='
@@ -632,6 +637,15 @@ class Reports extends Controller {
                         </tr>
                         <tr>
                             <td>Tithes &amp; Offerings</td>
+                            <td>'.number_format($tithesofferings,2).'</td>
+                        </tr>
+                        <tr>
+                            <td>MMF Collections</td>
+                            <td>'.number_format($mmfcollections,2).'</td>
+                        </tr>
+                        <tr>
+                            <td>Other Collections</td>
+                            <td>'.number_format($othercollections,2).'</td>
                         </tr>
                         <tr>
                             <th>Revenue Total</th>
@@ -639,15 +653,23 @@ class Reports extends Controller {
                         </tr>
                         <tr style="background-color: #ed6b6b">
                             <td colspan="2">Expenses</td>
-                        </tr>';
-                    foreach ($expenses as $expense ) {
-                        $output .='
+                        </tr>
                         <tr>
-                            <td>'.$expense->account.'</td>
-                            <td>'.number_format($expense->SumOfTotal,2).'</td>
-                        </tr>';
-                    }
-                    $output .='
+                            <td>Administrative Costs</td>
+                            <td>'.number_format($admincost,2).'</td>
+                        </tr>
+                        <tr>
+                            <td>Hospitality Costs</td>
+                            <td>'.number_format($hosptcost,2).'</td>
+                        </tr>
+                        <tr>
+                            <td>Operation Costs</td>
+                            <td>'.number_format($optcost,2).'</td>
+                        </tr>
+                        <tr>
+                            <td>Staff Expenses</td>
+                            <td>'.number_format($staffcost,2).'</td>
+                        </tr>
                         <tr>
                             <th>Expense Total</th>
                             <th>'.number_format($expenses_total,2).'</th>
