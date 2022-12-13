@@ -60,7 +60,7 @@ class Payments extends Controller
                 echo json_encode(['message' => 'Payment date cannot be greater than current date']);
                 exit;
             }
-            $chequeerror = 0; $overpaymenterror = 0;
+            $chequeerror = 0; $overpaymenterror = 0; $checkentered =0; $checks = [];
 
             //validate payment
             foreach($data['payments'] as $payment) 
@@ -78,6 +78,15 @@ class Payments extends Controller
                 echo json_encode(['message' => 'Payment reference not entered for one or more payments']);
                 exit;
             }
+            
+            //check if cheque no is already entered
+            foreach($data['payments'] as $payment){
+                if(!in_array(strtolower(trim($payment->cheque)),$checks)){
+                    array_push($checks,strtolower(trim($payment->cheque)));
+                }else{
+                    $checkentered ++;
+                }
+            }
 
             if($overpaymenterror > 0){
                 http_response_code(400);
@@ -85,6 +94,13 @@ class Payments extends Controller
                 exit;
             }
 
+            if($checkentered > 0){
+                http_response_code(400);
+                echo json_encode(['message' => 'One or more cheques entered more than once']);
+                exit;
+            }
+
+           
             if(!$this->paymentmodel->Create($data)){
                 http_response_code(500);
                 echo json_encode(['message' => 'Couldnt save selected payment(s)! Retry or contact admin']);
