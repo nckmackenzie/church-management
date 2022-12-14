@@ -547,4 +547,26 @@ class Report {
         $this->db->bind(':edate',$data['end']);
         return $this->db->resultSet();
     }
+    public function GetAccountType($account)
+    {
+        return getdbvalue($this->db->dbh,'SELECT accountTypeId FROM tblaccounttypes WHERE (accountType = ?)',[$account]);
+    }
+    public function GetPlDetailed($data)
+    {
+        if((int)$data['accounttype'] === 1)
+        {
+            $sql = 'SELECT transactionDate,account,IFNULL(credit,0) as amount,narration,t.TransactionType
+                    FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID
+                    WHERE (parentaccount = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
+                    ORDER BY transactionDate';
+            return loadresultset($this->db->dbh,$sql,[$data['account'],$data['sdate'],$data['edate']]);
+        }elseif ((int)$data['accounttype'] === 2) {
+            $sql = 'SELECT transactionDate,account,IFNULL(debit,0)as amount,narration,t.TransactionType
+                    FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID
+                    WHERE (parentaccount = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
+                    ORDER BY transactionDate';
+            return loadresultset($this->db->dbh,$sql,[$data['account'],$data['sdate'],$data['edate']]);
+        }
+        
+    }
 }
