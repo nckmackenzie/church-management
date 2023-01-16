@@ -187,7 +187,7 @@ class Report {
             $sql = "SELECT DISTINCT d.ID,DATE_FORMAT(d.contributionDate,'%d/%m/%Y') AS contdate,
                            ucase(a.accountType) as conttype,ucase(IF(d.category = 1,m.memberName,IF(d.category=2,g.groupName,
                            IF(d.category=3,t.districtName,s.serviceName)))) As cont,d.amount,ucase(p.paymentMethod) as paymethod,
-                           d.paymentReference
+                           UCASE(d.paymentReference) AS paymentReference
                     FROM   tblcontributions_header h inner join tblcontributions_details d left join tblmember m on d.contributor = m.ID left join tblgroups g
                            on d.contributotGroup = g.ID left join tbldistricts t on d.contributotDistrict
                            = t.ID left join tblservices s on d.contributotService = s.ID inner join
