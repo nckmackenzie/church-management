@@ -634,42 +634,65 @@ class Reports extends Controller {
                     <tbody>
                         <tr class="bg-olive">
                             <td colspan="2">Income</td>
-                        </tr>
+                        </tr>';
+                    if(floatval($tithesofferings) > 0){
+                        $output .='
                         <tr>
-                            <td>Tithes &amp; Offerings</td>
-                            <td>'.number_format($tithesofferings,2).'</td>
-                        </tr>
+                            <td>Tithes And Offerings</td>
+                            <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=tithes and offering&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($tithesofferings,2).'</a></td>
+                        </tr>';
+                    }
+                    if(floatval($mmfcollections) > 0){
+                        $output .='
                         <tr>
                             <td>MMF Collections</td>
-                            <td>'.number_format($mmfcollections,2).'</td>
-                        </tr>
+                            <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=mmf collections&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($mmfcollections,2).'</a></td>
+                        </tr>';
+                    }
+                    if(floatval($othercollections) > 0){
+                        $output .='
                         <tr>
                             <td>Other Collections</td>
-                            <td>'.number_format($othercollections,2).'</td>
-                        </tr>
+                            <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=other collections&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($othercollections,2).'</a></td>
+                        </tr>';
+                    }
+                    $output .='
                         <tr>
                             <th>Revenue Total</th>
                             <th>'.number_format($revenue_total,2).'</th>
                         </tr>
                         <tr style="background-color: #ed6b6b">
                             <td colspan="2">Expenses</td>
-                        </tr>
+                        </tr>';
+                    if(floatval($admincost) > 0){
+                        $output .='
                         <tr>
                             <td>Administrative Costs</td>
-                            <td>'.number_format($admincost,2).'</td>
-                        </tr>
+                            <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=administrative costs&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($admincost,2).'</a></td>
+                        </tr>';
+                    }
+                    if(floatval($hosptcost) > 0){
+                        $output .='
                         <tr>
                             <td>Hospitality Costs</td>
-                            <td>'.number_format($hosptcost,2).'</td>
-                        </tr>
+                            <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=hospitality costs&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($hosptcost,2).'</a></td>
+                        </tr>';
+                    }
+                    if(floatval($optcost) > 0){
+                        $output .='
                         <tr>
                             <td>Operation Costs</td>
-                            <td>'.number_format($optcost,2).'</td>
-                        </tr>
+                            <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=operation costs&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($optcost,2).'</a></td>
+                        </tr>';
+                    }
+                    if(floatval($staffcost) > 0){
+                        $output .='
                         <tr>
                             <td>Staff Expenses</td>
-                            <td>'.number_format($staffcost,2).'</td>
-                        </tr>
+                            <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=staff expenses&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($staffcost,2).'</a></td>
+                        </tr>';
+                    }
+                    $output .='
                         <tr>
                             <th>Expense Total</th>
                             <th>'.number_format($expenses_total,2).'</th>
@@ -680,8 +703,6 @@ class Reports extends Controller {
                         </tr>
                     </tbody>
                 </table>';
-                   
-                
             echo $output;
         }else {
             redirect('users');
@@ -1047,6 +1068,65 @@ class Reports extends Controller {
                 </table>';
             echo $output; 
         }else{
+            redirect('users/deniedaccess');
+            exit();
+        }
+    }
+
+    public function pldetailed()
+    {
+        $data = [];
+        $this->view('reports/pldetailed',$data);
+        exit;
+    }
+
+    public function pldetailedrpt()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'GET')
+        {
+            $data = [
+                'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
+                'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
+                'account' => isset($_GET['account']) && !empty(trim($_GET['account'])) ? strtolower(trim($_GET['account'])) : null,
+                'accounttype' => '',
+                'totalamount' => 0,
+                'results' => []
+            ];
+            //validate
+            if(is_null($data['sdate']) || is_null($data['edate']) || is_null($data['account']))
+            {
+                http_response_code(400);
+                echo json_encode(['success' => false,'message' => 'Unable to get all fields']);
+                exit;
+            }
+
+            $data['accounttype'] = $this->reportModel->GetAccountType($data['account']);
+            $details = $this->reportModel->GetPlDetailed($data);
+
+            if(empty($details))
+            {
+                http_response_code(400);
+                echo json_encode(['success' => false,'message' => 'No details found for this account for specified period']);
+                exit;
+            }
+
+            foreach($details as $detail)
+            {
+                $data['totalamount'] += floatval($detail->amount);
+                array_push($data['results'],[
+                    'transactionDate' => date('d-m-Y',strtotime($detail->transactionDate)),
+                    'account' => ucwords($detail->account),
+                    'amount' => $detail->amount,
+                    'narration' => is_null($detail->narration) ? '' : ucfirst($detail->narration),
+                    'transaction' => ucfirst($detail->TransactionType)
+                ]);
+            }
+
+            echo json_encode(['success' => true,'results' => $data['results'],"total" => $data['totalamount']]);
+            exit;
+        }
+        else
+        {
             redirect('users/deniedaccess');
             exit();
         }

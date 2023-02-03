@@ -40,3 +40,8 @@ export async function getTrialBalanceReport(type, account, sdate, edate) {
 
   return res;
 }
+
+export async function getPlDetailed(account, sdate, edate) {
+  const url = `${HOST_URL}/reports/pldetailedrpt?account=${account}&sdate=${sdate}&edate=${edate}`;
+  return await getRequest(url);
+}
