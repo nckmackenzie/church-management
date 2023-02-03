@@ -52,7 +52,7 @@ class Groupbudget {
         $this->db->query('SELECT ID,
                                  UCASE(accountType) AS accountType
                           FROM tblaccounttypes 
-                          WHERE (accountTypeId = 2) AND (isSubCategory = 1) AND (deleted=0)
+                          WHERE (isSubCategory = 1) AND (deleted=0)
                           ORDER BY accountType');
         return $this->db->resultSet();
     }

@@ -37,7 +37,7 @@ class Churchbudget {
     public function getAccounts()
     {
         $this->db->query('SELECT * FROM tblaccounttypes 
-                          WHERE (accountTypeId = 2) AND (deleted=0) AND (isSubCategory =1)
+                          WHERE (deleted=0) AND (isSubCategory =1)
                           ORDER BY accountType');
         return $this->db->resultSet();
     }
