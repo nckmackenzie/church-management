@@ -280,6 +280,7 @@ class Expenses extends Controller{
                 'expensetype' => trim($_POST['expensetype']),
                 'account' => trim($_POST['account']),
                 'costcentre' => trim($_POST['costcentre']),
+                'deductfrom' => !empty($_POST['cashtype']) ? trim($_POST['cashtype']) : '',
                 'paymethod' => trim($_POST['paymethod']),
                 'bank' => !empty($_POST['bank']) ? trim($_POST['bank']) : NULL,
                 'amount' => trim($_POST['amount']),
@@ -344,7 +345,7 @@ class Expenses extends Controller{
 
             if (!empty($data['id'])) {
                 if ($this->expenseModel->delete($data)) {
-                    flash('expense_msg',"Expense Updated Successfully!");
+                    flash('expense_msg',"Expense Deleted Successfully!");
                     redirect('expenses');
                 }
             }

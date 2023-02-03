@@ -308,11 +308,11 @@ class Expense {
         try {
             //begin transaction
             $this->db->dbh->beginTransaction();
-            $this->db->query('UPDATE tblexpenses SET deleted = 0 WHERE (ID=:id)');
+            $this->db->query('UPDATE tblexpenses SET deleted = 1 WHERE (ID=:id)');
             $this->db->bind(':id',$data['id']); 
             $this->db->execute();
             
-            $this->db->query('UPDATE tblpettycash SET Deleted = 0 WHERE (ExpenseId=:eid)');
+            $this->db->query('UPDATE tblpettycash SET Deleted = 1 WHERE (ExpenseId=:eid)');
             $this->db->bind(':eid',$data['id']);
             $this->db->execute();
                    
