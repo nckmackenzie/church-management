@@ -921,8 +921,8 @@ class Reports extends Controller {
                             <tr>
                                 <td>'.date('d-m-Y',strtotime($util->TransactionDate)).'</td>
                                 <td>'.$util->Narration.'</td>
-                                <td>'.number_format($util->Debit,2).'</td>
-                                <td>'.number_format($util->Credit,2).'</td>
+                                <td>'.$util->Debit.'</td>
+                                <td>'.$util->Credit.'</td>
                                 <td>'.$util->Reference.'</td>
                             </tr>
                         ';
