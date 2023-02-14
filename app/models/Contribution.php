@@ -27,7 +27,8 @@ class Contribution {
     
     public function getCategories()
     {
-        $this->db->query('SELECT ID,UCASE(categoryName) AS category FROM tblcontributioncategories');
+        $this->db->query('SELECT ID,UCASE(categoryName) AS category FROM tblcontributioncategories WHERE (ForParish=:parish)');
+        $this->db->bind(':parish',(int)$_SESSION['isParish']);
         return $this->db->resultSet();
     }
 
@@ -64,47 +65,42 @@ class Contribution {
         }
         elseif ($category == 4 && $_SESSION['isParish'] !=1 ) {
             $this->db->query('SELECT ID,UCASE(serviceName) AS contributor
-                    FROM tblservices WHERE (deleted=0) AND (congregationId=:cid)
+                    FROM tblservices WHERE (deleted=0)
                     ORDER BY contributor');
-            $this->db->bind(':cid',$_SESSION['congId']);
             return $this->db->resultSet();
         }
-        elseif ($category == 1 && $_SESSION['isParish'] == 1 ) {
-            $this->db->query("SELECT m.ID,CONCAT(UCASE(memberName),'-',UCASE(c.CongregationName))
-                              AS contributor
-                              FROM tblmember m INNER JOIN tblcongregation c
-                              ON m.congregationId = c.ID
-                              WHERE (m.deleted=0) AND (memberStatus=1)
-                              ORDER BY contributor");
+        elseif ($_SESSION['isParish'] == 1 ) {
+            $this->db->query("SELECT ID,ucase(CongregationName) AS contributor FROM tblcongregation WHERE (deleted = 0) AND (ID <> :id) ORDER BY CongregationName");
+            $this->db->bind(':id',$_SESSION['congId']);
             return $this->db->resultSet();   
         }
-        elseif ($category == 2 && $_SESSION['isParish'] == 1 ) {
-            $this->db->query("SELECT c.ID,
-                                     CONCAT(UCASE(groupName),'-',UCASE(c.CongregationName)) AS contributor
-                              FROM   tblgroups g INNER JOIN tblcongregation C 
-                                     ON g.congregationId = c.ID
-                              WHERE  (c.deleted=0) AND (active=1)
-                              ORDER BY contributor");
-            return $this->db->resultSet();
-        }
-        elseif ($category == 3 && $_SESSION['isParish'] == 1 ) {
-            $this->db->query("SELECT d.ID,
-                                     CONCAT(UCASE(districtName),'-',UCASE(c.CongregationName)) AS contributor
-                              FROM   tbldistricts d inner join tblcongregation c
-                                     ON d.congregationId = c.ID
-                              WHERE (d.deleted=0)
-                              ORDER BY contributor");
-            return $this->db->resultSet();
-        }
-        elseif ($category == 4 && $_SESSION['isParish'] == 1 ) {
-            $this->db->query("SELECT s.ID,
-                                     CONCAT(UCASE(serviceName),'-',UCASE(c.CongregationName)) AS contributor
-                              FROM   tblservices s inner join tblcongregation c
-                                     ON s.congregationId = c.ID
-                              WHERE  (s.deleted=0)
-                              ORDER BY contributor");
-            return $this->db->resultSet();
-        }
+        // elseif ($category == 2 && $_SESSION['isParish'] == 1 ) {
+        //     $this->db->query("SELECT c.ID,
+        //                              CONCAT(UCASE(groupName),'-',UCASE(c.CongregationName)) AS contributor
+        //                       FROM   tblgroups g INNER JOIN tblcongregation C 
+        //                              ON g.congregationId = c.ID
+        //                       WHERE  (c.deleted=0) AND (active=1)
+        //                       ORDER BY contributor");
+        //     return $this->db->resultSet();
+        // }
+        // elseif ($category == 3 && $_SESSION['isParish'] == 1 ) {
+        //     $this->db->query("SELECT d.ID,
+        //                              CONCAT(UCASE(districtName),'-',UCASE(c.CongregationName)) AS contributor
+        //                       FROM   tbldistricts d inner join tblcongregation c
+        //                              ON d.congregationId = c.ID
+        //                       WHERE (d.deleted=0)
+        //                       ORDER BY contributor");
+        //     return $this->db->resultSet();
+        // }
+        // elseif ($category == 4 && $_SESSION['isParish'] == 1 ) {
+        //     $this->db->query("SELECT s.ID,
+        //                              CONCAT(UCASE(serviceName),'-',UCASE(c.CongregationName)) AS contributor
+        //                       FROM   tblservices s inner join tblcongregation c
+        //                              ON s.congregationId = c.ID
+        //                       WHERE  (s.deleted=0)
+        //                       ORDER BY contributor");
+        //     return $this->db->resultSet();
+        // }
     }
     public function checkreceiptno($receiptno,$date,$id)
     {
@@ -162,9 +158,9 @@ class Contribution {
                 $forgroup = converttobool($this->getaccountdetails(strtolower($data['accountsname'][$i]))[1]);
                 $this->db->query('INSERT INTO tblcontributions_details(HeaderId,contributionDate,contributionTypeId
                                                 ,paymentMethodId,bankId,amount,category,contributor,
-                                                contributotGroup,contributotDistrict,contributotService,
+                                                contributotGroup,contributotDistrict,contributotService,contributotCong,
                                                 paymentReference,narration,incomeType,forGroup)
-                                  VALUES(:id,:cdate,:typeid,:mid,:bid,:amount,:cat,:cont,:gcont,:dcont,:scont
+                                  VALUES(:id,:cdate,:typeid,:mid,:bid,:amount,:cat,:cont,:gcont,:dcont,:scont,:ccont
                                             ,:ref,:narr,:itype,:for)');
                 $this->db->bind(':id',$tid);                            
                 $this->db->bind(':cdate',$data['date']);                            
@@ -172,11 +168,21 @@ class Contribution {
                 $this->db->bind(':mid',$data['paymethod']);                            
                 $this->db->bind(':bid',!empty($data['bank']) ? $data['bank'] : null);                            
                 $this->db->bind(':amount',$data['amounts'][$i]);                            
-                $this->db->bind(':cat',$data['categoriesid'][$i]);                            
-                $this->db->bind(':cont',(int)$data['categoriesid'][$i] === 1 ? $data['contributorsid'][$i] : NULL);                            
-                $this->db->bind(':gcont',(int)$data['categoriesid'][$i] === 2 ? $data['contributorsid'][$i] : NULL);                            
-                $this->db->bind(':dcont',(int)$data['categoriesid'][$i] === 3 ? $data['contributorsid'][$i] : NULL);                            
-                $this->db->bind(':scont',(int)$data['categoriesid'][$i] === 4 ? $data['contributorsid'][$i] : NULL);                            
+                $this->db->bind(':cat',$data['categoriesid'][$i]);
+                if($_SESSION['isParish'] != 1){
+                    $this->db->bind(':cont',(int)$data['categoriesid'][$i] === 1 ? $data['contributorsid'][$i] : NULL);                            
+                    $this->db->bind(':gcont',(int)$data['categoriesid'][$i] === 2 ? $data['contributorsid'][$i] : NULL);                            
+                    $this->db->bind(':dcont',(int)$data['categoriesid'][$i] === 3 ? $data['contributorsid'][$i] : NULL);                            
+                    $this->db->bind(':scont',(int)$data['categoriesid'][$i] === 4 ? $data['contributorsid'][$i] : NULL);
+                    $this->db->bind(':ccont',NULL);
+                }else{
+                    $this->db->bind(':cont',NULL);                            
+                    $this->db->bind(':gcont',NULL);                            
+                    $this->db->bind(':dcont',NULL);                            
+                    $this->db->bind(':scont',NULL);
+                    $this->db->bind(':ccont',$data['contributorsid'][$i]);
+                }
+                                            
                 $this->db->bind(':ref',!empty($data['reference']) ? strtolower($data['reference']) : NULL);                            
                 $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : NULL);                            
                 $this->db->bind(':itype',1);                            
@@ -351,7 +357,7 @@ class Contribution {
                                                 ,paymentMethodId,bankId,amount,category,contributor,
                                                 contributotGroup,contributotDistrict,contributotService,
                                                 paymentReference,narration,incomeType,forGroup)
-                                  VALUES(:id,:cdate,:typeid,:mid,:bid,:amount,:cat,:cont,:gcont,:dcont,:scont
+                                  VALUES(:id,:cdate,:typeid,:mid,:bid,:amount,:cat,:cont,:gcont,:dcont,:scont,:ccont
                                             ,:ref,:narr,:itype,:for)');
                 $this->db->bind(':id',$data['id']);                            
                 $this->db->bind(':cdate',$data['date']);                            
@@ -360,10 +366,19 @@ class Contribution {
                 $this->db->bind(':bid',!empty($data['bank']) ? $data['bank'] : null);                            
                 $this->db->bind(':amount',$data['amounts'][$i]);                            
                 $this->db->bind(':cat',$data['categoriesid'][$i]);                            
-                $this->db->bind(':cont',(int)$data['categoriesid'][$i] === 1 ? $data['contributorsid'][$i] : NULL);                            
-                $this->db->bind(':gcont',(int)$data['categoriesid'][$i] === 2 ? $data['contributorsid'][$i] : NULL);                            
-                $this->db->bind(':dcont',(int)$data['categoriesid'][$i] === 3 ? $data['contributorsid'][$i] : NULL);                            
-                $this->db->bind(':scont',(int)$data['categoriesid'][$i] === 4 ? $data['contributorsid'][$i] : NULL);                            
+                if($_SESSION['isParish'] != 1){
+                    $this->db->bind(':cont',(int)$data['categoriesid'][$i] === 1 ? $data['contributorsid'][$i] : NULL);                            
+                    $this->db->bind(':gcont',(int)$data['categoriesid'][$i] === 2 ? $data['contributorsid'][$i] : NULL);                            
+                    $this->db->bind(':dcont',(int)$data['categoriesid'][$i] === 3 ? $data['contributorsid'][$i] : NULL);                            
+                    $this->db->bind(':scont',(int)$data['categoriesid'][$i] === 4 ? $data['contributorsid'][$i] : NULL);
+                    $this->db->bind(':ccont',NULL);
+                }else{
+                    $this->db->bind(':cont',NULL);                            
+                    $this->db->bind(':gcont',NULL);                            
+                    $this->db->bind(':dcont',NULL);                            
+                    $this->db->bind(':scont',NULL);
+                    $this->db->bind(':ccont',$data['contributorsid'][$i]);
+                }                            
                 $this->db->bind(':ref',!empty($data['reference']) ? strtolower($data['reference']) : NULL);                            
                 $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : NULL);                            
                 $this->db->bind(':itype',1);                            

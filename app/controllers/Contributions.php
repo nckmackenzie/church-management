@@ -27,6 +27,7 @@ class Contributions extends Controller {
         $data = [
             'accounts' => $accounts,
             'categories' => $categories,
+            'congregations' => $this->reusemodel->GetCongregations(),
             'banks' => $banks,
             'paymethods' => $paymethods,
             'receiptno' => $this->contributionModel->receiptNo(),
@@ -216,6 +217,7 @@ class Contributions extends Controller {
            'id' => $header->ID,
            'isedit' => true,
            'date' => date('Y-m-d',strtotime($header->contributionDate)),
+           'congregations' => $this->reusemodel->GetCongregations(),
            'accounts' => $accounts,
            'banks' => $banks,
            'paymethods' => $paymethods,
