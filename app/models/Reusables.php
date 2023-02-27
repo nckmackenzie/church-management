@@ -17,7 +17,7 @@ class Reusables
     public function GetAccounts($id)
     {
         $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
-                          WHERE (accountTypeId = :id) AND (deleted=0) AND (isBank = 0) AND (parentId <> 0) AND (isSubCategory = 1) ORDER BY accountType');
+                          WHERE (accountTypeId = :id) AND (deleted=0) AND (isBank = 0) AND (parentId <> 0) ORDER BY accountType');
         $this->db->bind(':id',$id);
         return $this->db->resultSet();                  
     }
@@ -25,7 +25,7 @@ class Reusables
     public function GetAccountsAll()
     {
         $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
-                          WHERE (deleted=0) AND (isBank = 0) AND (parentId <> 0) AND (isSubCategory = 1) ORDER BY accountType');
+                          WHERE (deleted=0) AND (isBank = 0) AND (parentId <> 0) ORDER BY accountType');
         return $this->db->resultSet();                  
     }
 
