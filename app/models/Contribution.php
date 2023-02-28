@@ -355,7 +355,7 @@ class Contribution {
                 $forgroup = converttobool($this->getaccountdetails(strtolower($data['accountsname'][$i]))[1]);
                 $this->db->query('INSERT INTO tblcontributions_details(HeaderId,contributionDate,contributionTypeId
                                                 ,paymentMethodId,bankId,amount,category,contributor,
-                                                contributotGroup,contributotDistrict,contributotService,
+                                                contributotGroup,contributotDistrict,contributotService,contributotCong,
                                                 paymentReference,narration,incomeType,forGroup)
                                   VALUES(:id,:cdate,:typeid,:mid,:bid,:amount,:cat,:cont,:gcont,:dcont,:scont,:ccont
                                             ,:ref,:narr,:itype,:for)');
