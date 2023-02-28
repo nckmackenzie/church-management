@@ -38,7 +38,7 @@ class Parishreport
                                  ucase(a.accountType) as account,
                                  ifnull(sum(amount),0) as sumofamount
                           FROM   tblcontributions_details d inner join tblcontributions_header h on 
-                                 d.ID = h.ID inner join tblaccounttypes a 
+                                 d.HeaderId = h.ID inner join tblaccounttypes a 
                                  on d.contributionTypeId = a.ID inner join tblcongregation c on 
                                  h.congregationId = c.ID
                           WHERE  (d.contributionDate BETWEEN :startd AND :endd) 
