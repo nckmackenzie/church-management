@@ -352,7 +352,7 @@ class Users extends Controller{
                 $hashed =  password_hash($random,PASSWORD_DEFAULT);
                 $data['password'] = $hashed;
                 if ($this->userModel->resendCredentials($data)) {
-                    $message = 'Password Reset Successful! Your New Password Is '.$random .'click on the provided link to log in. ' . URLROOT;
+                    $message = 'Password Reset Successful! Your New Password Is '.$random .' click on the provided link to log in. ' . URLROOT;
                     $countryPrexix ='+254';
                     $sb = substr($data['phone'],1);
                     $full = $countryPrexix . $sb;
