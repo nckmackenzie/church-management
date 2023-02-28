@@ -247,7 +247,7 @@ class Contributions extends Controller {
             ]);
         }
       
-       if ($header->congregationId != $_SESSION['congId'] || $_SESSION['userType'] > 2) {
+       if ($header->congregationId != $_SESSION['congId']) {
            redirect('contributions');
        }
        else{
