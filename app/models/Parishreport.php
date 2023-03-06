@@ -41,8 +41,24 @@ class Parishreport
                                  d.HeaderId = h.ID inner join tblaccounttypes a 
                                  on d.contributionTypeId = a.ID inner join tblcongregation c on 
                                  h.congregationId = c.ID
-                          WHERE  (d.contributionDate BETWEEN :startd AND :endd) 
+                          WHERE  (h.Deleted = 0) AND (d.contributionDate BETWEEN :startd AND :endd) 
                                  AND d.contributionTypeId IN (".$data['accounts'].") AND h.congregationId IN (".$data['congregations'].")
+                          GROUP BY c.CongregationName,a.accountType");
+        $this->db->bind(':startd',$data['start']);
+        $this->db->bind(':endd',$data['end']);
+        return $this->db->resultSet();
+    }
+    public function GetContributionsByContributor($data)
+    {
+        $this->db->query("SELECT ucase(c.CongregationName) as congregation,
+                                 ucase(a.accountType) as account,
+                                 ifnull(sum(amount),0) as sumofamount
+                          FROM   tblcontributions_details d inner join tblcontributions_header h on 
+                                 d.HeaderId = h.ID inner join tblaccounttypes a 
+                                 on d.contributionTypeId = a.ID left join tblcongregation c on 
+                                 d.contributotCong = c.ID
+                          WHERE  (h.Deleted = 0) AND (d.contributionDate BETWEEN :startd AND :endd) 
+                                 AND d.contributionTypeId IN (".$data['accounts'].") AND d.contributotCong IN (".$data['congregations'].")
                           GROUP BY c.CongregationName,a.accountType");
         $this->db->bind(':startd',$data['start']);
         $this->db->bind(':endd',$data['end']);
@@ -397,4 +413,5 @@ class Parishreport
         $this->db->bind(':cid',$_SESSION['congId']);
         return $this->db->resultSet();
     }
+    
 }

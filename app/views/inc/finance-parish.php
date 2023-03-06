@@ -132,6 +132,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/parishreports/bycontributor" class="nav-link">
+                        <p>Receipts By Contributor</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/parishreports/expenses" class="nav-link">
                         <p>Expenses Reports</p>
                     </a>

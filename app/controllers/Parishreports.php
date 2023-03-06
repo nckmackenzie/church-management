@@ -66,6 +66,63 @@ class Parishreports extends Controller
             redirect('users');
         }
     }
+    public function bycontributor()
+    {
+        checkrights($this->authmodel,'receipts by contributor');
+        $congregations = $this->parishReportModel->GetCongregations();
+        $accounts = $this->parishReportModel->GetAccounts(1);
+        $data = [
+            'congregations' => $congregations,
+            'accounts' => $accounts,
+        ];
+        $this->view('parishreports/bycontributor',$data);
+    }
+    public function bycontributorrpt()
+    {
+        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
+            $data = [
+                'congregations' => !empty($_GET['congregations']) ? join(",",$_GET['congregations']) : '',
+                'accounts' => !empty($_GET['accounts']) ? join(",",$_GET['accounts']) : '',
+                'start' => trim($_GET['start']),
+                'end' => trim($_GET['end']),
+            ];
+            // print_r($data);
+            $contributions = $this->parishReportModel->GetContributionsByContributor($data);
+            $output = '';
+            $output .= '
+                <table id="table" class="table table-striped table-bordered table-sm">
+                    <thead class="bg-lightblue">
+                        <tr>
+                            <th>Congregation</th>
+                            <th>Contribution Account</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+                foreach ($contributions as $contribution) {
+                    $output .='
+                        <tr>
+                            <td>'.$contribution->congregation.'</td>
+                            <td>'.$contribution->account.'</td>
+                            <td>'.number_format($contribution->sumofamount,2).'</td>
+                        </tr>';
+                }
+                $output .= '
+                    </tbody>
+                    <tfoot>
+                            <tr>
+                                <th colspan="2" style="text-align:right">Total:</th>
+                                <th id="total"></th>
+                            </tr>
+                    </tfoot>
+                </table>';
+            echo $output;
+
+        }else{
+            redirect('users');
+        }
+    }
     public function expenses()
     {
         checkrights($this->authmodel,'expenses reports');
