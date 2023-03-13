@@ -37,6 +37,7 @@ class Parishreports extends Controller
                 <table id="table" class="table table-striped table-bordered table-sm">
                     <thead class="bg-lightblue">
                         <tr>
+                            <th>Date</th>
                             <th>Congregation</th>
                             <th>Contribution Account</th>
                             <th>Amount</th>
@@ -46,6 +47,7 @@ class Parishreports extends Controller
                 foreach ($contributions as $contribution) {
                     $output .='
                         <tr>
+                            <td>'.date('d-m-Y',strtotime($contribution->contributionDate)).'</td>
                             <td>'.$contribution->congregation.'</td>
                             <td>'.$contribution->account.'</td>
                             <td>'.number_format($contribution->sumofamount,2).'</td>
@@ -55,7 +57,7 @@ class Parishreports extends Controller
                     </tbody>
                     <tfoot>
                             <tr>
-                                <th colspan="2" style="text-align:right">Total:</th>
+                                <th colspan="3" style="text-align:right">Total:</th>
                                 <th id="total"></th>
                             </tr>
                     </tfoot>
@@ -94,6 +96,7 @@ class Parishreports extends Controller
                 <table id="table" class="table table-striped table-bordered table-sm">
                     <thead class="bg-lightblue">
                         <tr>
+                            <th>Date</th>
                             <th>Congregation</th>
                             <th>Contribution Account</th>
                             <th>Amount</th>
@@ -103,6 +106,7 @@ class Parishreports extends Controller
                 foreach ($contributions as $contribution) {
                     $output .='
                         <tr>
+                            <td>'.date('d-m-Y',strtotime($contribution->contributionDate)).'</td>
                             <td>'.$contribution->congregation.'</td>
                             <td>'.$contribution->account.'</td>
                             <td>'.number_format($contribution->sumofamount,2).'</td>
@@ -112,7 +116,7 @@ class Parishreports extends Controller
                     </tbody>
                     <tfoot>
                             <tr>
-                                <th colspan="2" style="text-align:right">Total:</th>
+                                <th colspan="3" style="text-align:right">Total:</th>
                                 <th id="total"></th>
                             </tr>
                     </tfoot>
