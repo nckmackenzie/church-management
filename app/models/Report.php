@@ -192,7 +192,7 @@ class Report {
                            on d.contributotGroup = g.ID left join tbldistricts t on d.contributotDistrict
                            = t.ID left join tblservices s on d.contributotService = s.ID inner join
                            tblaccounttypes a on d.contributionTypeId = a.ID left join tblpaymentmethods p on d.paymentMethodId = p.ID
-                    WHERE  (h.congregationId = :cong) AND (h.status = 1) AND (d.contributionDate BETWEEN :startd AND :endd)
+                    WHERE  (h.Deleted = 0) AND (h.congregationId = :cong) AND (h.status = 1) AND (d.contributionDate BETWEEN :startd AND :endd)
                            AND (d.contributionTypeId IN (".$data['account']."))";
             $this->db->query($sql);
             $this->db->bind(':cong',$_SESSION['congId']);
