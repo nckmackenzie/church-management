@@ -180,7 +180,7 @@
                               return n.toFixed(2).replace(/(\d)(?=(\d{3})+\.)/g, "$1,");
                             }
                             // Update footer
-                            $('#total').html(format_number(updateValues(2)));
+                            $('#total').html(format_number(updateValues(3)));
                             
                         }
                     }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');

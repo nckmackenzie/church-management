@@ -53,7 +53,7 @@ class Parishreport
         $this->db->query("SELECT d.contributionDate,
                                  ucase(c.CongregationName) as congregation,
                                  ucase(a.accountType) as account,
-                                 ifnull(sum(amount),0) as sumofamount
+                                 ifnull(amount,0) as sumofamount
                           FROM   tblcontributions_details d inner join tblcontributions_header h on 
                                  d.HeaderId = h.ID inner join tblaccounttypes a 
                                  on d.contributionTypeId = a.ID left join tblcongregation c on 
