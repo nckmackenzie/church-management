@@ -294,6 +294,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/reports/groupstatement" class="nav-link">
+                        <p>Group Fund Statement</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/reports/pledges" class="nav-link">
                         <p>Pledge Reports</p>
                     </a>
