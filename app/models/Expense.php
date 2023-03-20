@@ -50,7 +50,7 @@ class Expense {
             $sql = 'SELECT COUNT(*) FROM tblchurchbudget_header WHERE (yearId = ?) AND (congregationId=?)';
             $budgetedexists = getdbvalue($this->db->dbh,$sql,[$yearid,$_SESSION['congId']]);
         elseif($data['type'] === 2) :
-            $sql = 'SELECT COUNT(*) FROM tblgroupbudget_header WHERE (yearId = ?) AND (groupId=?)';
+            $sql = 'SELECT COUNT(*) FROM tblgroupbudget_header WHERE (ficalYearId = ?) AND (groupId=?)';
             $budgetedexists = getdbvalue($this->db->dbh,$sql,[$yearid,$data['gid']]);
         endif;
 
