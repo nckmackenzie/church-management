@@ -216,7 +216,7 @@ class Report {
                            ucase(e.paymentReference) as payref
                     FROM   tblexpenses e inner join tblaccounttypes a on e.accountId=a.ID inner join tblpaymentmethods p  
                            on e.paymethodId = p.ID left join tblgroups g on e.groupId = g.ID
-                    WHERE  (e.congregationId = :cong) AND (e.expenseDate BETWEEN :startd AND :endd) AND (e.status = 1)
+                    WHERE  (e.congregationId = :cong) AND (e.expenseDate BETWEEN :startd AND :endd) AND (e.status = 1) AND (e.deleted = 0)
                            AND (e.accountId IN (".$data['account'].") )
                     ORDER BY e.expenseDate;";
                     
