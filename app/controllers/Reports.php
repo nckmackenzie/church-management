@@ -616,13 +616,14 @@ class Reports extends Controller {
             $revenue_total = floatval($tithesofferings) + floatval($mmfcollections) + floatval($othercollections);
             //expenses
             $expenses = $this->reportModel->GetExpensesPL($data);
-            $admincost = $expenses[0];
-            $hosptcost = $expenses[1];
-            $optcost = $expenses[2];
-            $staffcost = $expenses[3];
+            // $admincost = $expenses[0];
+            // $hosptcost = $expenses[1];
+            // $optcost = $expenses[2];
+            // $staffcost = $expenses[3];
 
-            $expenses_total = floatval($admincost) + floatval($hosptcost) + floatval($optcost) + floatval($staffcost);
-            $profit_loss = ($revenue_total - $expenses_total);
+            // $expenses_total = floatval($admincost) + floatval($hosptcost) + floatval($optcost) + floatval($staffcost);
+            $expenses_total = 0;
+            
             $output = '';
             $output .='
                 <table id="table" class="table table-striped table-bordered table-sm">
@@ -664,34 +665,15 @@ class Reports extends Controller {
                         <tr style="background-color: #ed6b6b">
                             <td colspan="2">Expenses</td>
                         </tr>';
-                    if(floatval($admincost) > 0){
+                    foreach($expenses as $expense){
+                        $expenses_total += floatval($expense->debit);
                         $output .='
                         <tr>
-                            <td>Administrative Costs</td>
-                            <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=administrative costs&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($admincost,2).'</a></td>
+                            <td>'.ucwords($expense->parentaccount).'</td>
+                            <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account='.$expense->parentaccount.'&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($expense->debit,2).'</a></td>
                         </tr>';
                     }
-                    if(floatval($hosptcost) > 0){
-                        $output .='
-                        <tr>
-                            <td>Hospitality Costs</td>
-                            <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=hospitality costs&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($hosptcost,2).'</a></td>
-                        </tr>';
-                    }
-                    if(floatval($optcost) > 0){
-                        $output .='
-                        <tr>
-                            <td>Operation Costs</td>
-                            <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=operation costs&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($optcost,2).'</a></td>
-                        </tr>';
-                    }
-                    if(floatval($staffcost) > 0){
-                        $output .='
-                        <tr>
-                            <td>Staff Expenses</td>
-                            <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=staff expenses&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($staffcost,2).'</a></td>
-                        </tr>';
-                    }
+                    $profit_loss = ($revenue_total - $expenses_total);    
                     $output .='
                         <tr>
                             <th>Expense Total</th>
