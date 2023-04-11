@@ -48,7 +48,7 @@
                                                 <td><?php echo $data['expense']->category; ?></td>
                                                 <td><?php echo $data['expense']->costcentre; ?></td>
                                                 <td><?php echo $data['expense']->narration; ?></td>
-                                                <td><?php echo number_format($data['expense']->amount,2); ?></td>
+                                                <td><?php echo $data['expense']->amount; ?></td>
                                             </tr>
                                         </tbody>
                                     </table>
