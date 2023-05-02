@@ -26,7 +26,7 @@ class Expenses extends Controller{
         $voucherno = $this->expenseModel->VoucherNo();
         $data = [
             'voucherno' => $voucherno,
-            'date' => '',
+            'date' => date('Y-m-d',strtotime($_SESSION['processdate'])),
             'accounts' => $accounts,
             'expensetype' => '',
             'account' => '',

@@ -31,7 +31,7 @@ class Mmfreceipts extends Controller
             'groups' => $groups,
             'banks' => $banks,
             'isedit' => false,
-            'tdate' => date('Y-m-d'),
+            'tdate' => date('Y-m-d',strtotime($_SESSION['processdate'])),
             'balance' => '',
             'groupid' => '',
             'amount' => '',
