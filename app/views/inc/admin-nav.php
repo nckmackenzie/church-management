@@ -207,8 +207,8 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo URLROOT;?>/deposits" class="nav-link">
-                        <p>Deposits </p>
+                    <a href="<?php echo URLROOT;?>/banktransactions" class="nav-link">
+                        <p>Bank Transactions </p>
                     </a>
                 </li>
                 <li class="nav-item">
