@@ -96,7 +96,7 @@
                                 <td><?php echo $pledge->amountPledged;?></td>
                                 <td><?php echo $pledge->amountPaid;?></td>
                                 <td><?php echo $pledge->balance;?></td>
-                                <?php if($_SESSION['userType'] <=2) : ?>
+                                <?php if($_SESSION['userType'] <=2 || (int)$_SESSION['userType'] > 4) : ?>
                                     <td>
                                         <div class="btn-group">
                                             <a href="<?php echo URLROOT;?>/pledges/pay/<?php echo $pledge->ID;?>" class="btn btn-sm bg-olive custom-font">Pay</a>

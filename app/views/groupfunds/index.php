@@ -64,7 +64,7 @@
                                 <td><?php echo $request->AmountReq;?></td>
                                 <td><span class="badge badge-<?php badgeclasses($request->Status);?>"><?php echo $request->State;?></span></td>
                                 <td>
-                                    <?php if($_SESSION['userType'] <=2 && (int)$request->Status === 0) : ?>
+                                    <?php if(($_SESSION['userType'] <=2 || (int)$_SESSION['userType'] > 4) && (int)$request->Status === 0)  : ?>
                                         <div class="btn-group">
                                             <a href="<?php echo URLROOT;?>/groupfunds/edit/<?php echo $request->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
                                             <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>

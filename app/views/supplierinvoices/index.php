@@ -72,7 +72,7 @@
                         <?php else : ?>
                             <td class="text-warning"><?php echo $invoice->state; ?></td>    
                         <?php endif; ?>
-                        <?php if($_SESSION['userType'] <=2) : ?>
+                        <?php if($_SESSION['userType'] <=2 || (int)$_SESSION['userType'] > 4) : ?>
                             <td>
                                 <div class="btn-group">
                                     <?php if($invoice->status == 0) : ?>

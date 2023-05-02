@@ -107,7 +107,7 @@
                                 <?php endif; ?>    
                                 <td>
                                     <div class="btn-group">
-                                      <?php if((int)$_SESSION['userType'] < 3 || (int)$_SESSION['userType'] === 6) : ?>
+                                      <?php if((int)$_SESSION['userType'] < 3 || (int)$_SESSION['userType'] > 4) : ?>
                                           <?php if($expense->status == 0) : ?>
                                               <button type="button" class="btn btn-sm btn-dark custom-font btnapprove"><i class="fas fa-check"></i></button>
                                           <?php endif; ?>

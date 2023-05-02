@@ -63,7 +63,7 @@
                                 <td><?php echo $budget->yearName;?></td>
                                 <td><?php echo $budget->BudgetAmount;?></td>
                                 <td>
-                                  <?php if($_SESSION['userType'] <=2) : ?>
+                                  <?php if($_SESSION['userType'] <=2 || (int)$_SESSION['userType'] > 4)  : ?>
                                     <div class="btn-group">
                                         <a href="<?php echo URLROOT;?>/churchbudgets/edit/<?php echo $budget->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
                                         <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
