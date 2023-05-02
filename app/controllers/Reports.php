@@ -520,6 +520,9 @@ class Reports extends Controller {
                         <tr>
                             <th>Account</th>
                             <th>Budgeted Amount</th>
+                            <th>Oct</th>
+                            <th>Nov</th>
+                            <th>Dec</th>
                             <th>Jan</th>
                             <th>Feb</th>
                             <th>Mar</th>
@@ -529,9 +532,6 @@ class Reports extends Controller {
                             <th>Jul</th>
                             <th>Aug</th>
                             <th>Sep</th>
-                            <th>Oct</th>
-                            <th>Nov</th>
-                            <th>Dec</th>
                             <th>Total</th>
                             <th>Variance</th>
                         </tr>
@@ -542,6 +542,9 @@ class Reports extends Controller {
                         <tr>
                             <td>'.$budgetvexpense->accountType.'</td>
                             <td>'.number_format($budgetvexpense->budgetedAmount,2).'</td>
+                            <td>'.number_format($budgetvexpense->Oct,2).'</td>
+                            <td>'.number_format($budgetvexpense->Nov,2).'</td>
+                            <td>'.number_format($budgetvexpense->Dece,2).'</td>
                             <td>'.number_format($budgetvexpense->Jan,2).'</td>
                             <td>'.number_format($budgetvexpense->Feb,2).'</td>
                             <td>'.number_format($budgetvexpense->Mar,2).'</td>
@@ -551,9 +554,6 @@ class Reports extends Controller {
                             <td>'.number_format($budgetvexpense->Jul,2).'</td>
                             <td>'.number_format($budgetvexpense->Aug,2).'</td>
                             <td>'.number_format($budgetvexpense->Sep,2).'</td>
-                            <td>'.number_format($budgetvexpense->Oct,2).'</td>
-                            <td>'.number_format($budgetvexpense->Nov,2).'</td>
-                            <td>'.number_format($budgetvexpense->Dece,2).'</td>
                             <td>'.number_format($budgetvexpense->ExpenseTotal,2).'</td>
                             <td>'.number_format($budgetvexpense->variance,2).'</td>
                         </tr>';
