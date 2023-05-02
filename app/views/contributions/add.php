@@ -212,11 +212,11 @@
         });
         $(window).on('load', function() {
             loadContributors();
-            var now = new Date();
-            var day = ("0" + now.getDate()).slice(-2);
-            var month = ("0" + (now.getMonth() + 1)).slice(-2);
-            var today = now.getFullYear()+"-"+(month)+"-"+(day) ;
-            $('#date').val(today);
+            // var now = new Date();
+            // var day = ("0" + now.getDate()).slice(-2);
+            // var month = ("0" + (now.getMonth() + 1)).slice(-2);
+            // var today = now.getFullYear()+"-"+(month)+"-"+(day) ;
+            // $('#date').val(today);
             // $('#bank').val('');
         });
         $('#paymethod').change(function(){

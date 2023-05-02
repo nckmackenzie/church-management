@@ -33,7 +33,7 @@ class Contributions extends Controller {
             'receiptno' => $this->contributionModel->receiptNo(),
             'id' => '',
             'isedit' => false,
-            'date' => date('Y-m-d'),
+            'date' => date('Y-m-d', strtotime($_SESSION['processdate'])),
             'paymethod' => '',
             'bank' => '',
             'category' => 3,
