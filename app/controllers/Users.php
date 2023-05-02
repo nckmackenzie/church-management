@@ -196,6 +196,7 @@ class Users extends Controller{
         $_SESSION['congName'] = $user->CongregationName;
         $_SESSION['one']= 1;
         $_SESSION['zero'] = 0;
+        $_SESSION['processdate'] = date('d-m-Y');
         redirect('mains');
     }
     public function logout()
@@ -208,6 +209,7 @@ class Users extends Controller{
         unset($_SESSION['congName']);
         unset($_SESSION['one']);
         unset($_SESSION['zero']);
+        unset($_SESSION['processdate']);
         session_destroy();
         redirect('users');
     }
@@ -649,6 +651,23 @@ class Users extends Controller{
 
             flash('user_msg','User Deleted Successfully!');
             redirect('users/all');
+            exit;
+        }
+    }
+
+    public function setdate()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST')
+        {
+            $date = isset($_POST['date']) && !empty(trim($_POST['date'])) ? date('d-m-Y',strtotime(trim($_POST['date']))) : null;
+            if(is_null($date)){
+                flash('main_msg','Date not selected');
+                redirect('mains');
+                exit;
+            }
+            unset($_SESSION['processdate']);
+            $_SESSION['processdate'] = $date;
+            redirect('mains');
             exit;
         }
     }
