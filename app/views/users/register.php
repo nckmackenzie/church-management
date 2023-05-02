@@ -42,7 +42,7 @@
                                         <option value="2">ADMINISTRATOR</option>    
                                         <option value="3" selected>STANDARD USER</option>    
                                         <option value="4">ELDER</option>    
-                                        <option value="5">ACCOUNTS</option>    
+                                        <option value="5">ACCOUNTS ADMIN</option>    
                                     </select>
                                 </div>
                             </div>
