@@ -8,6 +8,33 @@
     >
     All rights reserved.
 </footer>
+<div class="modal fade" id="dateModalCenter" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLongTitle">Set Process Date</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+          <form action="<?php echo URLROOT;?>/users/setdate" method="post">
+              <div class="row">
+                <div class="col-md-9">
+                  <label for="">Process Date</label>
+                  <input type="date" name="date" id="date" class="form-control form-control-sm">
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-danger">Save</button>
+              </div>
+          </form>
+      </div>
+     
+    </div>
+  </div>
+</div>
 </div>
 <script src="<?php echo URLROOT; ?>/plugins/jquery/jquery.min.js"></script>
 <script src="<?php echo URLROOT; ?>/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
@@ -33,3 +60,10 @@
 <script src="<?php echo URLROOT; ?>/dist/js/adminlte.min.js"></script>
 <!-- <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script> -->
 <!-- <script src="<?php echo URLROOT; ?>/dist/js/main.js"></script> -->
+<script>
+    $(function(){
+        $('.processdate').on('click', function(){
+            $('#dateModalCenter').modal('show');
+        });
+    })
+</script>

@@ -16,6 +16,7 @@
             <!-- Right navbar links -->
             <ul class="navbar-nav ml-auto">
             <!-- Messages Dropdown Menu -->
+            <button class="btn btn-flat text-white processdate">Process Date</button>
             <a href="<?php echo URLROOT;?>/users/logout" class="btn btn-flat text-white">Logout</a>
         </ul>
         </nav>
