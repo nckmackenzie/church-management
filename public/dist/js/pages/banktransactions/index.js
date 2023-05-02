@@ -28,7 +28,7 @@ type.addEventListener('change', e => {
   }
 });
 
-transfer.addEventListener('change', () => {
+transfer.addEventListener('change', function () {
   this.classList.remove('is-invalid');
   this.nextSibling.nextSibling.textContent = '';
 });
