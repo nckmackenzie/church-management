@@ -33,15 +33,13 @@ class Banktransactions extends Controller
             'id' => '',
             'touched' => false,
             'isedit' => false,
+            'type' => '',
             'date' => '',
             'bank' => '',
             'reference' => '',
             'description' => '',
             'amount' => '',
-            'date_err' => '',
-            'bank_err' => '',
-            'reference_err' => '',
-            'amount_err' => '',
+            'transfer' => ''
         ];
         $this->view('banktransactions/add',$data);
         exit;
@@ -87,6 +85,53 @@ class Banktransactions extends Controller
             http_response_code(201);
             echo json_encode(['success' => true,'message' => 'Saved successfully']);
             exit;
+        }
+        else
+        {
+            redirect('users/deniedaccess');
+            exit();
+        }
+    }
+
+    public function edit($id)
+    {
+        $transaction = $this->bankmodel->GetTransaction($id);
+        checkcenter($transaction->CongregationId);
+        $data= [
+            'banks' => $this->bankmodel->GetBanks(),
+            'accounts' => $this->reusemodel->GetAccountsAll(),
+            'title' => 'Edit transaction',
+            'id' => $transaction->ID,
+            'touched' => false,
+            'isedit' => true,
+            'date' => date('Y-m-d',strtotime($transaction->TransactionDate)),
+            'bank' => $transaction->BankId,
+            'reference' => strtoupper($transaction->Reference),
+            'description' => strtoupper($transaction->Description),
+            'amount' => $transaction->Amount,
+            'type' => $transaction->TransactionTypeId,
+            'transfer' => $transaction->TransferToId
+        ];
+        $this->view('banktransactions/add',$data);
+        exit;
+    }
+
+    public function delete()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST')
+        {
+            $id = isset($_POST['id']) && !empty(trim($_POST['id'])) ? (int)trim($_POST['id']) : null;
+
+            if(!$this->bankmodel->Delete($id)){
+                flash('banktransaction_msg',"Expense wasnt added!",'alert custom-danger');
+                redirect('banktransactions');
+                exit;
+            }
+
+            flash('banktransaction_msg',"Deleted successfully!");
+            redirect('banktransactions');
+            exit;
+            
         }
         else
         {
