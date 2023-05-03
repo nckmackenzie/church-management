@@ -52,9 +52,9 @@
                                         <label for="type">Transaction Type</label>
                                         <select name="type" id="type" class="form-control form-control-sm mandatory">
                                             <option value="" selected disabled>Select transaction type</option>
-                                            <option value="1">Deposit</option>
-                                            <option value="2">Withdrawal</option>
-                                            <option value="5">Transfers</option>
+                                            <option value="1" <?php selectdCheck($data['type'],1);?>>Deposit</option>
+                                            <option value="2" <?php selectdCheck($data['type'],2);?>>Withdrawal</option>
+                                            <option value="5" <?php selectdCheck($data['type'],5);?>>Transfers</option>
                                         </select>
                                         <span class="invalid-feedback"></span>
                                     </div>
@@ -62,10 +62,11 @@
                                 <div class="col-md-6">
                                     <div class="form-group">
                                         <label for="transferto">Transfer To</label>
-                                        <select name="transferto" id="transferto" class="form-control form-control-sm" disabled>
+                                        <select name="transferto" id="transferto" class="form-control form-control-sm" 
+                                                <?php echo !empty($data['transfer']) && !is_null($data['transfer']) ? '' : 'disabled' ;?>>
                                             <option value="" selected disabled>Select transfer account</option>
                                             <?php foreach($data['accounts'] as $account)  : ?>
-                                                <option value="<?php echo $account->ID;?>" <?php selectdCheck($data['bank'],$account->ID);?>><?php echo $account->accountType;?></option>
+                                                <option value="<?php echo $account->ID;?>" <?php selectdCheck($data['transfer'],$account->ID);?>><?php echo $account->accountType;?></option>
                                             <?php endforeach; ?>
                                         </select>
                                         <span class="invalid-feedback"></span>
