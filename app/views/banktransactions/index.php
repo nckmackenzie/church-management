@@ -58,15 +58,15 @@
                         <?php foreach($data['transactions'] as $transaction) :?>
                             <tr>
                                 <td class="d-none"><?php echo $transaction->ID;?></td>
-                                <td><?php echo strtoupper($transaction->TransactionDate);?></td>
-                                <td><?php echo $transaction->BankName;?></td>
-                                <td><?php echo $transaction->Amount;?></td>
-                                <td><?php echo $transaction->TransactionType;?></td>
-                                <td><?php echo $transaction->Reference;?></td>
+                                <td><?php echo date('d-m-Y',strtotime($transaction->TransactionDate));?></td>
+                                <td><?php echo ucwords($transaction->BankName);?></td>
+                                <td><?php echo number_format($transaction->Amount,2);?></td>
+                                <td><?php echo ucwords($transaction->TransactionType);?></td>
+                                <td><?php echo strtoupper($transaction->Reference);?></td>
                                 <td>
                                     <?php if($_SESSION['userType'] <=2 || (int)$_SESSION['userType'] > 4) : ?>
                                         <div class="btn-group">
-                                            <a href="<?php echo URLROOT;?>/banktransaction/edit/<?php echo $transactions->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
+                                            <a href="<?php echo URLROOT;?>/banktransaction/edit/<?php echo $transaction->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
                                             <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
                                         </div>
                                     <?php endif; ?>
@@ -88,7 +88,7 @@
       $('#transactionsTable').DataTable({
           'ordering' : false,
           'columnDefs' : [
-            {"width" : "10%" , "targets": 5},
+            {"width" : "10%" , "targets": 6},
           ]
       });
 
