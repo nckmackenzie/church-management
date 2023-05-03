@@ -32,7 +32,7 @@
                                         <input type="date" name="date" id="date"
                                             class="form-control form-control-sm mandatory"
                                             value="<?php echo $data['date'];?>">
-                                        <span class="invalid-feedback"><?php echo $data['date_err'];?></span>   
+                                        <span class="invalid-feedback"></span>   
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -68,7 +68,7 @@
                                                 <option value="<?php echo $account->ID;?>" <?php selectdCheck($data['bank'],$account->ID);?>><?php echo $account->accountType;?></option>
                                             <?php endforeach; ?>
                                         </select>
-                                        <span class="invalid-feedback"><?php echo $data['bank_err'];?></span>
+                                        <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -77,7 +77,7 @@
                                         <input type="number" name="amount" id="amount"
                                             class="form-control form-control-sm mandatory"
                                             value="<?php echo $data['amount'];?>" placeholder="eg 45,000" autocomplete="off">
-                                        <span class="invalid-feedback"><?php echo $data['amount_err'];?></span>   
+                                        <span class="invalid-feedback"></span>   
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -88,7 +88,7 @@
                                         value="<?php echo $data['reference'];?>" 
                                         placeholder="enter reference no"
                                         autocomplete="off">   
-                                        <span class="invalid-feedback"><?php echo $data['bank_err'];?></span>
+                                        <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-12">
