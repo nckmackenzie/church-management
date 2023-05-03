@@ -220,8 +220,12 @@ class Contribution {
             }else{
                 saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,$data['totalamount'],0,$data['description'],3,1,
                             $tid,$_SESSION['congId']);
+                // saveToBanking($this->db->dbh,$data['bank'],$data['date'],$data['totalamount'],0
+                //              ,1,$data['reference'],1,$tid,$_SESSION['congId']);            
+            }
+            if($data['paymethod'] > 2){
                 saveToBanking($this->db->dbh,$data['bank'],$data['date'],$data['totalamount'],0
-                             ,1,$data['reference'],1,$tid,$_SESSION['congId']);            
+                             ,1,$data['reference'],1,$data['id'],$_SESSION['congId']);
             }
             // elseif ($data['paymethod'] == 2) {
             //     saveToLedger($this->db->dbh,$data['date'],'mpesa',$data['amount'],0,$data['description'],3,1,
@@ -414,8 +418,11 @@ class Contribution {
             }else{
                 saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,$data['totalamount'],0,$data['description'],3,1,
                             $data['id'],$_SESSION['congId']);
+            }
+
+            if($data['paymethod'] > 2){
                 saveToBanking($this->db->dbh,$data['bank'],$data['date'],$data['totalamount'],0
-                             ,1,$data['reference'],1,$data['id'],$_SESSION['congId']);            
+                             ,1,$data['reference'],1,$data['id'],$_SESSION['congId']);
             }
 
             if ($this->db->dbh->commit()) {

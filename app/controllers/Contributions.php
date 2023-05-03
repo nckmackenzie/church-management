@@ -103,51 +103,53 @@ class Contributions extends Controller {
                 'receipt_err' => '',
            ];
 
-           if(count($data['accountsid']) == 0){
-              exit();
-           }
+           echo $data['bank'];
 
-           for ($i=0; $i < count($data['accountsid']); $i++) { 
-                $data['totalamount'] += $data['amounts'][$i];
-                array_push($data['table'],[
-                    'accountid' => $data['accountsid'][$i],
-                    'accountname' => $data['accountsname'][$i],
-                    'amount' => $data['amounts'][$i],
-                    'categoryid' => $data['categoriesid'][$i],
-                    'categoryname' => $data['categoriesname'][$i],
-                    'contributorid' => $data['contributorsid'][$i],
-                    'contributorname' => $data['contributorsname'][$i],
-                ]);
-            }
+        //    if(count($data['accountsid']) == 0){
+        //       exit();
+        //    }
 
-           //validate
-           if(empty($data['receiptno'])){
-             $data['receipt_err'] = 'Enter receipt number';
-           }else{
-                if(!$this->contributionModel->checkreceiptno($data['receiptno'],$data['id'],$data['date'])){
-                    $data['receipt_err'] = 'Receipt number exists';
-                }
-           }
+        //    for ($i=0; $i < count($data['accountsid']); $i++) { 
+        //         $data['totalamount'] += $data['amounts'][$i];
+        //         array_push($data['table'],[
+        //             'accountid' => $data['accountsid'][$i],
+        //             'accountname' => $data['accountsname'][$i],
+        //             'amount' => $data['amounts'][$i],
+        //             'categoryid' => $data['categoriesid'][$i],
+        //             'categoryname' => $data['categoriesname'][$i],
+        //             'contributorid' => $data['contributorsid'][$i],
+        //             'contributorname' => $data['contributorsname'][$i],
+        //         ]);
+        //     }
 
-           if ($data['paymethod'] > 2 && empty($data['bank'])) {
-               $data['bank_err'] = 'Select Bank';
-           }
-           if ($data['paymethod'] > 1 && empty($data['reference'])) {
-               $data['ref_err'] = 'Enter Payment Reference';
-           }
-           if (empty($data['ref_err']) && empty($data['receipt_err'])) {
-               if ($this->contributionModel->create($data)) {
-                   flash('contribution_msg',$data['isedit'] ? 'Contribution Edited Successfully!' : 'Contribution Added Successfully!');
-                   redirect('contributions');
-               }
-               else{
-                   flash('contribution_msg','Something went wrong!','alert custom-danger');
-                   redirect('contributions');
-               }
-           }
-           else{
-              $this->view('contributions/add',$data);
-           }
+        //    //validate
+        //    if(empty($data['receiptno'])){
+        //      $data['receipt_err'] = 'Enter receipt number';
+        //    }else{
+        //         if(!$this->contributionModel->checkreceiptno($data['receiptno'],$data['id'],$data['date'])){
+        //             $data['receipt_err'] = 'Receipt number exists';
+        //         }
+        //    }
+
+        //    if ($data['paymethod'] > 2 && empty($data['bank'])) {
+        //        $data['bank_err'] = 'Select Bank';
+        //    }
+        //    if ($data['paymethod'] > 1 && empty($data['reference'])) {
+        //        $data['ref_err'] = 'Enter Payment Reference';
+        //    }
+        //    if (empty($data['ref_err']) && empty($data['receipt_err'])) {
+        //        if ($this->contributionModel->create($data)) {
+        //            flash('contribution_msg',$data['isedit'] ? 'Contribution Edited Successfully!' : 'Contribution Added Successfully!');
+        //            redirect('contributions');
+        //        }
+        //        else{
+        //            flash('contribution_msg','Something went wrong!','alert custom-danger');
+        //            redirect('contributions');
+        //        }
+        //    }
+        //    else{
+        //       $this->view('contributions/add',$data);
+        //    }
        }
     }
     public function checkforgroup()
