@@ -66,7 +66,7 @@
                                 <td>
                                     <?php if($_SESSION['userType'] <=2 || (int)$_SESSION['userType'] > 4) : ?>
                                         <div class="btn-group">
-                                            <a href="<?php echo URLROOT;?>/banktransaction/edit/<?php echo $transaction->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
+                                            <a href="<?php echo URLROOT;?>/banktransactions/edit/<?php echo $transaction->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
                                             <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
                                         </div>
                                     <?php endif; ?>
