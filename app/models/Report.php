@@ -193,7 +193,7 @@ class Report {
                            = t.ID left join tblservices s on d.contributotService = s.ID inner join
                            tblaccounttypes a on d.contributionTypeId = a.ID left join tblpaymentmethods p on d.paymentMethodId = p.ID
                     WHERE  (h.Deleted = 0) AND (h.congregationId = :cong) AND (h.status = 1) AND (d.contributionDate BETWEEN :startd AND :endd)
-                           AND (d.contributionTypeId IN (".$data['account']."))";
+                           AND (d.contributionTypeId IN (".$data['account'].")) ORDER BY d.contributionDate";
             $this->db->query($sql);
             $this->db->bind(':cong',$_SESSION['congId']);
             $this->db->bind(':startd',$data['start']);
