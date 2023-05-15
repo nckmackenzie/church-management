@@ -14,9 +14,15 @@ class Banktransaction
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
 
+    public function GetOtherBanks()
+    {
+        $sql = "SELECT ID,UCASE(CONCAT(accountType,'-',IFNULL(accountNo,''))) AS Bank FROM tblaccounttypes WHERE (isBank = 1 AND CongregationId=? AND deleted=0) OR accountType = ?";
+        return loadresultset($this->db->dbh,$sql,[$_SESSION['congId'],'fixed deposits']);
+    }
+
     public function GetBanks()
     {
-        $sql = "SELECT ID,UCASE(CONCAT(accountType,'-',IFNULL(accountNo,''))) AS Bank FROM tblaccounttypes WHERE isBank = 1 AND CongregationId = ?";
+        $sql = "SELECT ID,UCASE(CONCAT(accountType,'-',IFNULL(accountNo,''))) AS Bank FROM tblaccounttypes WHERE isBank = 1 AND CongregationId = ? AND deleted=0";
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
 

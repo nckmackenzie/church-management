@@ -66,7 +66,7 @@
                                                 <?php echo !empty($data['transfer']) && !is_null($data['transfer']) ? '' : 'disabled' ;?>>
                                             <option value="" selected disabled>Select transfer account</option>
                                             <?php foreach($data['accounts'] as $account)  : ?>
-                                                <option value="<?php echo $account->ID;?>" <?php selectdCheck($data['transfer'],$account->ID);?>><?php echo $account->accountType;?></option>
+                                                <option value="<?php echo $account->ID;?>" <?php selectdCheck($data['transfer'],$account->ID);?>><?php echo $account->Bank;?></option>
                                             <?php endforeach; ?>
                                         </select>
                                         <span class="invalid-feedback"></span>

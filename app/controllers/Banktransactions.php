@@ -28,7 +28,7 @@ class Banktransactions extends Controller
     {
         $data= [
             'banks' => $this->bankmodel->GetBanks(),
-            'accounts' => $this->reusemodel->GetAccountsAll(),
+            'accounts' => $this->bankmodel->GetOtherBanks(),
             'title' => 'Add transaction',
             'id' => '',
             'touched' => false,
@@ -73,6 +73,12 @@ class Banktransactions extends Controller
             if($data['type'] === 5 && is_null($data['transfer'])){
                http_response_code(400);
                echo json_encode(['success' => false,'message' => 'Select account to transfer to']);
+               exit;
+            }
+
+            if($data['type'] === 5 && (int)$data['transfer'] === (int)$data['bank']){
+               http_response_code(400);
+               echo json_encode(['success' => false,'message' => 'Transfering accounts cannot be same']);
                exit;
             }
 
