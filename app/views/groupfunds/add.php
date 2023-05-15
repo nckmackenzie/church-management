@@ -86,6 +86,14 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <div class="custom-control custom-checkbox">
+                                        <input type="checkbox" class="custom-control-input" id="dontdeduct" name="dontdeduct" <?php echo $data['dontdeduct'] ? 'checked' : '';?>>
+                                        <label class="custom-control-label" for="dontdeduct">Don't deduct from Group Funds</label>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="row">
                                 <div class="col-md-2 mt-2">
                                     <input type="hidden" name="id" value="<?php echo $data['id'];?>">
@@ -101,6 +109,6 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/add.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/add-v1.js"></script>
 </body>
 </html>  
