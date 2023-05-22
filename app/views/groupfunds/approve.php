@@ -150,6 +150,7 @@
                                 <div class="col-md-2 mt-2">
                                     <input type="hidden" name="id" value="<?php echo $data['id'];?>">
                                     <input type="hidden" name="groupid" value="<?php echo $data['groupid'];?>">
+                                    <input type="hidden" name="dontdeduct" id="dontdeduct" value="<?php echo $data['dontdeduct'];?>">
                                     <button type="submit" class="btn btn-block btn-sm bg-navy custom-font"> Approve </button>
                                 </div>
                             </div>   
@@ -161,6 +162,6 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/approve.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/approve-v1.js"></script>
 </body>
 </html>  
