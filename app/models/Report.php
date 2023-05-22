@@ -333,6 +333,16 @@ class Report {
 
         // return [$admincost,$hosptcost,$optcost,$staffcost];
     }
+    public function GetGroupExpensesPL($data)
+    {
+        $sql = 'SELECT 
+                    a.accountType,
+                    SUM(`amount`) AS Amount
+                FROM `tblexpenses` e join tblaccounttypes a on e.accountId = a.ID
+                WHERE e.groupId = ? AND (e.expenseDate BETWEEN ? AND ?) AND (e.deleted = 0)
+                GROUP BY a.accountType';
+        return loadresultset($this->db->dbh,$sql,[(int)$data['group'],$data['start'],$data['end']]);
+    }
     public function GetExpensesTotal($data)
     {
         $this->db->query('SELECT IFNULL(SUM(debit),0) AS SumOfTotal 
@@ -559,5 +569,11 @@ class Report {
             return loadresultset($this->db->dbh,$sql,[$data['account'],$data['sdate'],$data['edate']]);
         }
         
+    }
+
+    public function GetGroupRevenues($data)
+    {
+        $sql = 'SELECT IFNULL(SUM(AmountApproved),0) AS Amount FROM tblfundrequisition WHERE (Deleted=0) AND (Status=1) AND (GroupId=?) AND (ApprovalDate BETWEEN ? AND ?)';
+        return getdbvalue($this->db->dbh,$sql,[$data['group'],$data['start'],$data['end']]);
     }
 }

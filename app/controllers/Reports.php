@@ -690,6 +690,88 @@ class Reports extends Controller {
             redirect('users');
         }
     }
+
+    public function groupsincomestatement()
+    {
+        checkrights($this->authmodel,'groups income statement');
+        $data = ['groups' => $this->reportModel->GetGroups()];
+        $this->view('reports/groupsincomestatement',$data);
+    }
+
+    public function groupincomestatementrpt()
+    {
+        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
+            $data = [
+                'group' => isset($_GET['group']) && !empty(trim($_GET['group'])) ? (int)trim($_GET['group']) : null,
+                'start' => isset($_GET['start']) && !empty(trim($_GET['start'])) ? date('Y-m-d',strtotime(trim($_GET['start']))) : null,
+                'end' => isset($_GET['end']) && !empty(trim($_GET['end'])) ? date('Y-m-d',strtotime(trim($_GET['end']))) : null
+            ];
+
+            //validation
+            if(is_null($data['group']) || is_null($data['start']) || is_null($data['end'])) :
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Please provide all required fields']);
+                exit;
+            endif;
+
+            //values 
+            $revenue = $this->reportModel->GetGroupRevenues($data);
+            //expenses
+            $expenses = $this->reportModel->GetGroupExpensesPL($data);
+            $expenses_total = 0;
+            
+            $output = '';
+            $output .='
+                <table id="table" class="table table-striped table-bordered table-sm">
+                    <thead>
+                        <tr>
+                            <th>Income Statement</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="bg-olive">
+                            <td colspan="2">Income</td>
+                        </tr>';
+                        $output .='
+                        <tr>
+                            <td>Receipts</td>
+                            <td>'.number_format($revenue,2).'</td>
+                        </tr>';
+                    $output .='
+                        <tr>
+                            <th>Revenue Total</th>
+                            <th>'.number_format($revenue,2).'</th>
+                        </tr>
+                        <tr style="background-color: #ed6b6b">
+                            <td colspan="2">Expenses</td>
+                        </tr>';
+                    foreach($expenses as $expense){
+                        $expenses_total += floatval($expense->debit);
+                        $output .='
+                        <tr>
+                            <td>'.ucwords($expense->parentaccount).'</td>
+                            <td>'.number_format($expense->debit,2).'</td>
+                        </tr>';
+                    }
+                    $profit_loss = ($revenue - $expenses_total);    
+                    $output .='
+                        <tr>
+                            <th>Expense Total</th>
+                            <th>'.number_format($expenses_total,2).'</th>
+                        </tr>
+                        <tr style="background-color: #7a998b">
+                            <th>Profit/Loss</th>
+                            <th>'.number_format($profit_loss,2).'</th>
+                        </tr>
+                    </tbody>
+                </table>';
+            echo $output;
+        }else {
+            redirect('users');
+        }
+    }
+
     public function trialbalance()
     {
         checkrights($this->authmodel,'trial balance');
