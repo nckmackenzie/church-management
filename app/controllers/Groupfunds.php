@@ -1,6 +1,8 @@
 <?php
 class Groupfunds extends Controller
 {
+    private $authmodel;
+    private $fundmodel;
     public function __construct()
     {
         if(!isset($_SESSION['userId'])){
@@ -36,6 +38,7 @@ class Groupfunds extends Controller
             'amount' => '',
             'reason' => '',
             'reqdate' => '',
+            'dontdeduct' => false
         ];
         $this->view('groupfunds/add',$data);
         exit;
@@ -79,6 +82,7 @@ class Groupfunds extends Controller
                 'availableamount' => !empty(trim($_POST['availableamount'])) ? floatval(trim($_POST['availableamount'])) : '',
                 'amount' => !empty(trim($_POST['amount'])) ? floatval(trim($_POST['amount'])) : '',
                 'reason' => !empty(trim($_POST['reason'])) ? trim($_POST['reason']) : '',
+                'dontdeduct' => isset($_POST['dontdeduct']) ? true : false,
                 'errmsg' => '',
             ];
 
@@ -88,7 +92,7 @@ class Groupfunds extends Controller
                $data['errmsg'] = 'Fill all required fields';
             }
 
-            if($data['amount'] > $data['availableamount']){
+            if(($data['amount'] > $data['availableamount']) && !$data['dontdeduct']){
                 $data['errmsg'] = 'Requesting more than is available';
             }
 
@@ -112,8 +116,6 @@ class Groupfunds extends Controller
                 $this->view('groupfunds/add',$data);
                 exit;
             }
-
-            
 
             flash('request_msg','Saved successfully!');
             redirect('groupfunds');
@@ -145,6 +147,7 @@ class Groupfunds extends Controller
             'amount' => $request->AmountRequested,
             'availableamount' => floatval($this->fundmodel->GetBalance($request->GroupId,$request->RequisitionDate)),
             'reason' => strtoupper($request->Purpose),
+            'dontdeduct' => converttobool($request->DontDeduct),
             'errmsg' => '',
         ];
         $this->view('groupfunds/add',$data);
@@ -163,7 +166,7 @@ class Groupfunds extends Controller
                 exit;
             }
             //if fund approved or rejected
-            if((int)$this->db->GetRequestStatus($id) !== 0):
+            if((int)$this->fundmodel->GetRequestStatus($id) !== 0):
                 flash('request_msg', 'Denied! Cannot delete this request','alert custom-danger alert-dismissible fade show');
                 redirect('groupfunds');
                 exit;
@@ -198,7 +201,8 @@ class Groupfunds extends Controller
     public function approve($id)
     {
         checkrights($this->authmodel,'group fund approval');
-        $request = $this->fundmodel->GetRequest($id);if((int)$request->Status > 0){
+        $request = $this->fundmodel->GetRequest($id);
+        if((int)$request->Status > 0){
             redirect('users/deniedaccess');
             exit;
         }
@@ -215,6 +219,7 @@ class Groupfunds extends Controller
             'amount' => number_format($request->AmountRequested,2),
             'availableamount' => number_format(floatval($this->fundmodel->GetBalance($request->GroupId,$request->RequisitionDate)),2),
             'reason' => strtoupper($request->Purpose),
+            'dontdeduct' => $request->DontDeduct,
             'approved' => '',
             'bank' => '',
             'balance' => '',
@@ -248,6 +253,7 @@ class Groupfunds extends Controller
                 'paymethod' => isset($_POST['paymethod']) && !empty(trim($_POST['paymethod'])) ? trim($_POST['paymethod']) : '',
                 'bank' => isset($_POST['bank']) && !empty($_POST['bank']) ? trim($_POST['bank']) : '',
                 'reference' => isset($_POST['reference']) && !empty(trim($_POST['reference'])) ? trim($_POST['reference']) : '',
+                'dontdeduct' => isset($_POST['dontdeduct']) && !empty(trim($_POST['dontdeduct'])) ? converttobool($_POST['dontdeduct']) : false,
                 'reason' => trim($_POST['reason']),
                 'errmsg' => '',
             ];

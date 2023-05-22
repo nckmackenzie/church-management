@@ -49,17 +49,18 @@ class Groupfund
     public function CreateUpdate($data)
     {
         if(!$data['isedit']){
-            $this->db->query('INSERT INTO tblfundrequisition (ReqNo,RequisitionDate,GroupId,Purpose,AmountRequested,CongregationId) 
-                              VALUES(:reqno,:rdate,:gid,:purpose,:amount,:cid)');
+            $this->db->query('INSERT INTO tblfundrequisition (ReqNo,RequisitionDate,GroupId,Purpose,AmountRequested,DontDeduct,CongregationId) 
+                              VALUES(:reqno,:rdate,:gid,:purpose,:amount,:deduct,:cid)');
             $this->db->bind(':reqno',$this->GetReqNo());
         }else{
-            $this->db->query('UPDATE tblfundrequisition SET RequisitionDate=:rdate,GroupId=:gid,Purpose=:purpose,AmountRequested=:amount 
+            $this->db->query('UPDATE tblfundrequisition SET RequisitionDate=:rdate,GroupId=:gid,Purpose=:purpose,AmountRequested=:amount,DontDeduct=:deduct 
                               WHERE (ID = :id)');
         }
         $this->db->bind(':rdate',!empty($data['reqdate']) ? $data['reqdate'] : null);
         $this->db->bind(':gid',!empty($data['group']) ? $data['group'] : null);
         $this->db->bind(':purpose',!empty($data['reason']) ? strtolower($data['reason']) : null);
         $this->db->bind(':amount',!empty($data['amount']) ? $data['amount'] : null);
+        $this->db->bind(':deduct',$data['dontdeduct']);
         if($data['isedit']){
             $this->db->bind(':id',$data['id']);
         }else{
@@ -140,23 +141,33 @@ class Groupfund
             $this->db->bind(':id',$data['id']);
             $this->db->execute();
 
-            $this->db->query('INSERT INTO tblmmf (TransactionDate,GroupId,Credit,BankId,Reference,Narration,TransactionType,TransactionId,
-                                                  CongregationId) VALUES(:tdate,:gid,:credit,:bid,:reference,:narr,:ttype,:tid,:cid)');
-            $this->db->bind(':tdate',!empty($data['paydate']) ? $data['paydate'] : null);
-            $this->db->bind(':gid',trim($_POST['groupid']));
-            $this->db->bind(':credit',!empty($data['approved']) ? floatval($data['approved']) : null);
-            $this->db->bind(':bid',!empty($data['bank']) ? $data['bank'] : null);
-            $this->db->bind(':reference',!empty($data['reference']) ? strtolower($data['reference']) : null);
-            $this->db->bind(':narr',$data['reason']);
-            $this->db->bind(':ttype',12);
-            $this->db->bind(':tid',$data['id']);
-            $this->db->bind(':cid',$_SESSION['congId']);
-            $this->db->execute();
+            if(!$data['dontdeduct']){
+                $this->db->query('INSERT INTO tblmmf (TransactionDate,GroupId,Credit,BankId,Reference,Narration,TransactionType,TransactionId,
+                CongregationId) VALUES(:tdate,:gid,:credit,:bid,:reference,:narr,:ttype,:tid,:cid)');
+                $this->db->bind(':tdate',!empty($data['paydate']) ? $data['paydate'] : null);
+                $this->db->bind(':gid',trim($_POST['groupid']));
+                $this->db->bind(':credit',!empty($data['approved']) ? floatval($data['approved']) : null);
+                $this->db->bind(':bid',!empty($data['bank']) ? $data['bank'] : null);
+                $this->db->bind(':reference',!empty($data['reference']) ? strtolower($data['reference']) : null);
+                $this->db->bind(':narr',$data['reason']);
+                $this->db->bind(':ttype',12);
+                $this->db->bind(':tid',$data['id']);
+                $this->db->bind(':cid',$_SESSION['congId']);
+                $this->db->execute();
+            }
+           
 
             $gbhparent = getparentgl($this->db->dbh,'groups balances held');
+            $pettycash_name = 
             $cashparent = getparentgl($this->db->dbh,'cash at hand');
-            saveToLedger($this->db->dbh,$data['paydate'],'groups balances held',$gbhparent,$data['approved'],0,$desc,
-                         4,12,$data['id'],$_SESSION['congId']);
+            if(!$data['dontdeduct']){
+                saveToLedger($this->db->dbh,$data['paydate'],'groups balances held',$gbhparent,$data['approved'],0,$desc,
+                                            4,12,$data['id'],$_SESSION['congId']);
+            }else{
+                saveToLedger($this->db->dbh,$data['paydate'],"groups' expenses","groups' expenses",$data['approved'],0,$desc,
+                                            2,12,$data['id'],$_SESSION['congId']);
+            }
+            
             if((int)$data['paymethod'] === 1){
                 saveToLedger($this->db->dbh,$data['paydate'],'cash at hand',$cashparent,0,$data['approved'],$desc,
                          3,12,$data['id'],$_SESSION['congId']);
