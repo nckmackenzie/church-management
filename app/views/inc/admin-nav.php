@@ -329,6 +329,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/reports/groupsincomestatement" class="nav-link">
+                        <p>Group Income Statement</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/trialbalance" class="nav-link">
                         <p>Trial Balance</p>
                     </a>
