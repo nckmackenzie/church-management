@@ -46,8 +46,8 @@
                         <th>Req Date</th>
                         <th>Group Name</th>
                         <th>Amount Requested</th>
-                        <th>Status</th>
                         <th>Amount Approved</th>
+                        <th>Status</th>
                         <th>Actions</th>
                     </thead>
                     <tbody>
@@ -58,8 +58,8 @@
                                 <td><?php echo $approval->ReqDate;?></td>
                                 <td><?php echo $approval->GroupName;?></td>
                                 <td><?php echo $approval->AmountRequested;?></td>
+                                <td><?php echo $approval->AmountApproved;?></td>
                                 <td><span class="badge badge-<?php badgeclasses($approval->Status);?>"><?php echo $approval->State;?></span></td>
-                                <td><?php echo $approval->ApprovedBy;?></td>
                                 <td>
                                     <?php if($_SESSION['userType'] <=2) : ?>
                                         <div class="btn-group">
