@@ -124,8 +124,9 @@ class User {
     }
     public function loadUsers()
     {
-        $this->db->query('SELECT * FROM vw_users WHERE (CongregationId=:cid)');
+        $this->db->query('SELECT * FROM vw_users WHERE (CongregationId=:cid) AND (status=:active)');
         $this->db->bind(':cid',$_SESSION['congId']);
+        $this->db->bind(':active','Active');
         return $this->db->resultSet();
     }
     public function passwordMatch($pass)
