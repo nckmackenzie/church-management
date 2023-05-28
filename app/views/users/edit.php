@@ -54,10 +54,11 @@
                                 <label for="district">District</label>
                                     <select name="district" id="district" 
                                             class="form-control form-control-sm" 
-                                            <?php echo ($data['user']->UsertypeId != 3) ? 'disabled' : ''?>>
+                                            <?php echo ($data['user']->UsertypeId != 3) ? '' : 'disabled'?>>
+                                        <option value=""selected disabled>Select district</option>
                                         <?php foreach($data['districts'] as $district) : ?>
                                             <option value="<?php echo $district->ID;?>"
-                                            <?php selectdCheck($data['district'],$district->ID)?>>
+                                            <?php selectdCheck($data['user']->districtId,$district->ID)?>>
                                                 <?php echo $district->districtName;?>
                                             </option>
                                         <?php endforeach; ?>
@@ -106,9 +107,9 @@
 <?php require APPROOT . '/views/inc/footer.php'?>
 <script>
     $(function(){
-        $(window).on('load',function(){
-            $('#district').val('');
-        });
+        // $(window).on('load',function(){
+        //     $('#district').val('');
+        // });
 
         $('#usertype').change(function() {
             if ($(this).val() == 4) {
