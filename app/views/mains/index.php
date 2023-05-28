@@ -20,7 +20,7 @@
            <?php endif; ?>
         </div>
       </div>
-      <?php if((int)$_SESSION['userType'] === 1 || (int)$_SESSION['userType'] === 6) : ?> 
+       
         <div class="row">
           <div class="col-md-4 mt-4">
             <form action="<?php echo URLROOT;?>/mains/changecongregation" method="post">
@@ -36,7 +36,7 @@
             </form>
           </div>
         </div>
-      <?php endif; ?>
+      
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
