@@ -115,6 +115,7 @@
     $(function(){
       $('#contributionsTable').DataTable({
         'pageLength': 25,
+        ordering : false,
         'columnDefs' : [
             {"visible" : false, "targets": 0}
           ]
