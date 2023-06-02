@@ -150,6 +150,7 @@ class Contributions extends Controller {
         //    }
        }
     }
+    }
     public function checkforgroup()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
