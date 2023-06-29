@@ -148,6 +148,7 @@
                         pageLength : 100,
                         fixedHeader : true,
                         "responsive" : true,
+                        ordering: false,
                         'columnDefs' : [
                             {"width" : "10%" , "targets": 0},
                             {"width" : "15%" , "targets": 4},
@@ -166,7 +167,7 @@
 
                             function updateValues(cl){
                                 total = api
-                                      .column( cl )
+                                      .column( cl, {search:'applied'} )
                                       .data()
                                       .reduce( function (a, b) {
                                       return intVal(a) + intVal(b);

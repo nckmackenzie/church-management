@@ -148,6 +148,7 @@
                     table = $('#table').DataTable({
                         pageLength : 100,
                         fixedHeader : true,
+                        ordering : false,
                         "responsive" : true,
                         'columnDefs' : [
                             {"width" : "10%" , "targets": 0},
@@ -167,7 +168,7 @@
 
                             function updateValues(cl){
                                 total = api
-                                      .column( cl )
+                                      .column( cl, {search:'applied'} )
                                       .data()
                                       .reduce( function (a, b) {
                                       return intVal(a) + intVal(b);
