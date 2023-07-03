@@ -75,9 +75,18 @@ class Invoice {
         $this->db->bind(':id',$account);
         $accid = $this->db->getValue();
         //getname
+        $accountDetails = array();
         $this->db->query('SELECT accountType FROM tblaccounttypes WHERE (ID=:id)');
         $this->db->bind(':id',$accid);
-        return $this->db->getValue();
+        $accName = $this->db->getValue();
+        array_push($accountDetails,$accName);
+
+        $this->db->query('SELECT accountTypeId FROM tblaccounttypes WHERE (ID=:id)');
+        $this->db->bind(':id',$accid);
+        $accountId = $this->db->getValue();
+        array_push($accountDetails,$accountId);
+
+        return $accountDetails;
     }
     public function getVats()
     {
@@ -123,8 +132,8 @@ class Invoice {
                     VALUES(?,?,?,?,?,?)';
             for ($i=0; $i < count($data['details']); $i++) { 
                 $pid = $data['details'][$i]['pid'];
-                $pname = $this->getAccountName($pid);
-                $accountid = $this->getAccountId($pid);
+                $pname = $this->getAccountName($pid)[0];
+                $accountid = $this->getAccountName($pid)[1];
                 // $pname = trim(strtolower($data['details'][$i]['pname']));
                 $qty = $data['details'][$i]['qty'];
                 $rate = $data['details'][$i]['rate'];
@@ -192,8 +201,8 @@ class Invoice {
                     VALUES(?,?,?,?,?,?)';
             for ($i=0; $i < count($data['details']); $i++) { 
                 $pid = $data['details'][$i]['pid'];
-                $pname = $this->getAccountName($pid);
-                $accountid = $this->getAccountId($pid);
+                $pname = $this->getAccountName($pid)[0];
+                $accountid = $this->getAccountName($pid)[1];
                 // $pname = trim(strtolower($data['details'][$i]['pname']));
                 $qty = $data['details'][$i]['qty'];
                 $rate = $data['details'][$i]['rate'];
