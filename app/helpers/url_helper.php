@@ -445,3 +445,8 @@ function alerterrorclass()
 {
     return 'alert custom-danger alert-dismissible fade show';
 }
+
+function formatcontact($contact){
+    $stripped = substr($contact,1);
+    return '+254'.$stripped;
+}
