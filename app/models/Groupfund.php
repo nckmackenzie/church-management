@@ -49,17 +49,18 @@ class Groupfund
     public function CreateUpdate($data)
     {
         if(!$data['isedit']){
-            $this->db->query('INSERT INTO tblfundrequisition (ReqNo,RequisitionDate,GroupId,Purpose,AmountRequested,DontDeduct,CongregationId) 
-                              VALUES(:reqno,:rdate,:gid,:purpose,:amount,:deduct,:cid)');
+            $this->db->query('INSERT INTO tblfundrequisition (ReqNo,RequisitionDate,GroupId,Purpose,AmountRequested,RequestedBy,DontDeduct,CongregationId) 
+                              VALUES(:reqno,:rdate,:gid,:purpose,:amount,:reqby,:deduct,:cid)');
             $this->db->bind(':reqno',$this->GetReqNo());
         }else{
-            $this->db->query('UPDATE tblfundrequisition SET RequisitionDate=:rdate,GroupId=:gid,Purpose=:purpose,AmountRequested=:amount,DontDeduct=:deduct 
+            $this->db->query('UPDATE tblfundrequisition SET RequisitionDate=:rdate,GroupId=:gid,Purpose=:purpose,AmountRequested=:amount,RequestedBy=:reqby,DontDeduct=:deduct 
                               WHERE (ID = :id)');
         }
         $this->db->bind(':rdate',!empty($data['reqdate']) ? $data['reqdate'] : null);
         $this->db->bind(':gid',!empty($data['group']) ? $data['group'] : null);
         $this->db->bind(':purpose',!empty($data['reason']) ? strtolower($data['reason']) : null);
         $this->db->bind(':amount',!empty($data['amount']) ? $data['amount'] : null);
+        $this->db->bind(':reqby',$_SESSION['userId']);
         $this->db->bind(':deduct',$data['dontdeduct']);
         if($data['isedit']){
             $this->db->bind(':id',$data['id']);
@@ -158,7 +159,7 @@ class Groupfund
            
 
             $gbhparent = getparentgl($this->db->dbh,'groups balances held');
-            $pettycash_name = 
+            // $pettycash_name = 
             $cashparent = getparentgl($this->db->dbh,'cash at hand');
             if(!$data['dontdeduct']){
                 saveToLedger($this->db->dbh,$data['paydate'],'groups balances held',$gbhparent,$data['approved'],0,$desc,
@@ -182,7 +183,12 @@ class Groupfund
             if(!$this->db->dbh->commit()){
                 return false;
             }else{
-                return true;
+                // return true;
+                $requestedby = getdbvalue($this->db->dbh,'SELECT RequestedBy FROM tblfundrequisition WHERE ID=?',[(int)$data['id']]);
+                if(is_null($requestedby)) return true;
+
+                $contact = getdbvalue($this->db->dbh,'SELECT contact FROM tblusers WHERE ID=?',[(int)$requestedby]);
+                return $contact;
             }
 
         } catch (Exception $e) {
@@ -214,6 +220,43 @@ class Groupfund
                 return false;
             }else{
                 return true;
+            }
+
+        } catch (Exception $e) {
+            if($this->db->dbh->inTransaction()){
+                $this->db->dbh->rollback();
+            }
+            error_log($e->getMessage(),0);
+        }
+    }
+
+    public function Reject($id,$reason)
+    {
+        try {
+            $this->db->dbh->beginTransaction();
+            
+            $this->db->query('UPDATE tblfundrequisition 
+                                SET `Status` = 2,ReasonForRejection=:reason
+                              WHERE (ID = :id)');
+
+            $this->db->bind(':reason',$reason);
+            $this->db->bind(':id',$id);
+            $this->db->execute();
+
+            $this->db->query('DELETE FROM tblmmf WHERE (TransactionType = 12) AND (TransactionId = :id)');
+            $this->db->bind(':id',$id);
+            $this->db->execute();
+
+            deleteLedgerBanking($this->db->dbh,12,$id);
+
+            if(!$this->db->dbh->commit()){
+                return false;
+            }else{
+                $requestedby = getdbvalue($this->db->dbh,'SELECT RequestedBy FROM tblfundrequisition WHERE ID=?',[(int)$id]);
+                if(is_null($requestedby)) return true;
+
+                $contact = getdbvalue($this->db->dbh,'SELECT contact FROM tblusers WHERE ID=?',[(int)$requestedby]);
+                return $contact;
             }
 
         } catch (Exception $e) {

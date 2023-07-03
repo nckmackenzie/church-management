@@ -276,12 +276,14 @@ class Groupfunds extends Controller
                 exit;
             }
 
-            if(!$this->fundmodel->Approve($data)){
+            $approval = $this->fundmodel->Approve($data);
+            if(!$approval){
                 $data['errmsg'] = 'Unable to save this approval. Contact admin for help';
                 $this->view('groupfunds/approve',$data);
                 exit;
             }
 
+            sendgeneral($approval,'Your recent group fund requisition has been approved.');
             flash('approval_msg','Approved successfully!');
             redirect('groupfunds/approvals');
             exit;
@@ -312,6 +314,39 @@ class Groupfunds extends Controller
             }
 
             flash('approval_msg', 'Reveresed successfully!');
+            redirect('groupfunds/approvals');
+            exit;
+
+        }else{
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
+
+    public function reject()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST'){
+            $_POST = filter_input_array(INPUT_POST, FILTER_UNSAFE_RAW);
+            $id = isset($_POST['id']) && !empty(trim($_POST['id'])) ? trim($_POST['id']) : '';
+            $reason = isset($_POST['reason']) && !empty(trim($_POST['reason'])) ? strtolower(trim($_POST['reason'])) : null;
+            //no id
+            if(empty($id)){
+                flash('approval_msg', 'Unable to get selected approval!','alert custom-danger alert-dismissible fade show');
+                redirect('groupfunds/approvals');
+                exit;
+            }
+            
+            //unable to delete
+            $response = $this->fundmodel->Reject($id,$reason);
+            if(!$response){
+                flash('approval_msg', 'Unable to delete selected request','alert custom-danger alert-dismissible fade show');
+                redirect('groupfunds/approvals');
+                exit;
+            }
+
+            $rejectionreason = is_null($reason) ? 'No reason for rejection specified' : $reason;
+            sendgeneral($response,'Your recent group fund requisition has been rejected. Reason for rejection: ' .$rejectionreason);
+            flash('approval_msg', 'Rejected successfully!');
             redirect('groupfunds/approvals');
             exit;
 
