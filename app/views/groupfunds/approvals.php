@@ -28,6 +28,34 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="rejectModalCenter" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLongTitle">Reject requisition</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+          <form action="<?php echo URLROOT;?>/groupfunds/reject" method="post">
+              <div class="row">
+                <div class="col-md-9">
+                  <label for="">Reason for rejection</label>
+                  <input type="text" class="form-control form-control-sm mb-3" name="reason">
+                  <input type="hidden" name="id" id="rid">
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-danger">Reject</button>
+              </div>
+          </form>
+      </div>
+     
+    </div>
+  </div>
+</div>
 <div class="content-wrapper">
     <!-- Content Header (Page header) -->
     <section class="content-header">
@@ -65,6 +93,7 @@
                                         <div class="btn-group">
                                             <?php if((int)$approval->Status === 0) : ?>
                                                 <a href="<?php echo URLROOT;?>/groupfunds/approve/<?php echo $approval->ID;?>" class="btn btn-sm bg-olive custom-font">Approve</a>
+                                                <button type="button" class="btn btn-sm btn-danger custom-font btnreject">Reject</button>
                                             <?php else: ?>
                                                 <?php if((int)$approval->DiffInDate <= 1) : ?>    
                                                   <button type="button" class="btn btn-sm btn-warning custom-font btndel">Reverse</button>
@@ -92,8 +121,7 @@
           'columnDefs' : [
             {"width" : "10%" , "targets": 1},
             {"width" : "10%" , "targets": 2},
-            {"width" : "10%" , "targets": 5},
-            {"width" : "10%" , "targets": 7},
+            {"width" : "15%" , "targets": 7},
           ]
       });
 
@@ -105,6 +133,16 @@
               return $(this).text();
           }).get();
           $('#id').val(data[0]);
+      });
+
+      $('#reqTable').on('click','.btnreject',function(){
+          $('#rejectModalCenter').modal('show');
+          $tr = $(this).closest('tr');
+
+          let data = $tr.children('td').map(function(){
+              return $(this).text();
+          }).get();
+          $('#rid').val(data[0]);
       });
     });
 </script>
