@@ -126,12 +126,14 @@ class Expenses extends Controller{
             
             $fileTmpName = '';
             $fileDesination = '';
+
+            // var_dump($_FILES);
             
-            if ($data['file'] && $data['file']['size'] > 0) {
-                $fileName = $data['file']['name'];
-                $fileTmpName = $data['file']['tmp_name'];
-                $fileSize = $data['file']['size'];
-                $fileError = $data['file']['error'];
+            if ($_FILES['file']['size'] > 0) {
+                $fileName = $_FILES['file']['name'];
+                $fileTmpName = $_FILES['file']['tmp_name'];
+                $fileSize = $_FILES['file']['size'];
+                $fileError = $_FILES['file']['error'];
 
                 $fileExt = explode('.', $fileName);
                 $fileActualExt = strtolower(end($fileExt));
