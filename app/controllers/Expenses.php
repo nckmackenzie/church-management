@@ -20,7 +20,8 @@ class Expenses extends Controller{
 
     public function add()
     {
-        $accounts = $this->reusemodel->GetAccounts(2);
+        // $accounts = $this->reusemodel->GetAccounts(2);
+        $accounts = $this->expenseModel->GetAccounts();
         $paymethods = $this->reusemodel->PaymentMethods();
         $banks = $this->reusemodel->GetBanks();
         $voucherno = $this->expenseModel->VoucherNo();
