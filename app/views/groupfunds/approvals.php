@@ -89,7 +89,7 @@
                                 <td><?php echo $approval->AmountApproved;?></td>
                                 <td><span class="badge badge-<?php badgeclasses($approval->Status);?>"><?php echo $approval->State;?></span></td>
                                 <td>
-                                    <?php if($_SESSION['userType'] <=2) : ?>
+                                    <?php if($_SESSION['userType'] <=2 || $_SESSION['userType'] == 5) : ?>
                                         <div class="btn-group">
                                             <?php if((int)$approval->Status === 0) : ?>
                                                 <a href="<?php echo URLROOT;?>/groupfunds/approve/<?php echo $approval->ID;?>" class="btn btn-sm bg-olive custom-font">Approve</a>
