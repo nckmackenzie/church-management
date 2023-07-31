@@ -339,7 +339,7 @@ class Report {
                     a.accountType,
                     SUM(`amount`) AS Amount
                 FROM `tblexpenses` e join tblaccounttypes a on e.accountId = a.ID
-                WHERE e.groupId = ? AND (e.expenseDate BETWEEN ? AND ?) AND (e.deleted = 0)
+                WHERE e.groupId = ? AND (e.expenseDate BETWEEN ? AND ?) AND (e.deleted = 0) AND (e.status=1)
                 GROUP BY a.accountType';
         return loadresultset($this->db->dbh,$sql,[(int)$data['group'],$data['start'],$data['end']]);
     }
