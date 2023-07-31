@@ -83,7 +83,7 @@
                             <tr>
                                 <td class="d-none"><?php echo $approval->ID;?></td>
                                 <td><?php echo $approval->ReqNo;?></td>
-                                <td><?php echo $approval->ReqDate;?></td>
+                                <td><?php echo date('d-M-Y',strtotime($approval->ReqDate));?></td>
                                 <td><?php echo $approval->GroupName;?></td>
                                 <td><?php echo $approval->AmountRequested;?></td>
                                 <td><?php echo $approval->AmountApproved;?></td>
