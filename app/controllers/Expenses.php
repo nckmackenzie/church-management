@@ -21,7 +21,7 @@ class Expenses extends Controller{
     public function add()
     {
         // $accounts = $this->reusemodel->GetAccounts(2);
-        $accounts = $this->expenseModel->GetAccounts();
+        $accounts = $this->expenseModel->GetAccounts(1);
         $paymethods = $this->reusemodel->PaymentMethods();
         $banks = $this->reusemodel->GetBanks();
         $voucherno = $this->expenseModel->VoucherNo();
@@ -94,7 +94,7 @@ class Expenses extends Controller{
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-            $accounts = $this->reusemodel->GetAccounts(2);
+            $accounts = $this->expenseModel->GetAccounts($_POST['expensetype']);
             $paymethods = $this->reusemodel->PaymentMethods();
             $banks = $this->reusemodel->GetBanks();
             $voucherno = $this->expenseModel->VoucherNo();
@@ -249,7 +249,7 @@ class Expenses extends Controller{
     public function edit($id)
     {
         $expense = $this->expenseModel->getExpense($id);
-        $accounts = $this->reusemodel->GetAccounts(2);
+        $accounts = $this->expenseModel->GetAccounts(1);
         $paymethods = $this->reusemodel->PaymentMethods();
         $banks = $this->reusemodel->GetBanks();
         $groups = $this->expenseModel->getGroup();
@@ -377,5 +377,20 @@ class Expenses extends Controller{
         $expense = $this->expenseModel->getExpenseFull($id);
         $data = ['expense' => $expense];
         $this->view('expenses/print',$data);
+    }
+
+    public function getaccounts()
+    {
+        $type = isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : NULL;
+        $accounts = $this->expenseModel->GetAccounts($type);
+        $data = array();
+
+        foreach($accounts as $account){
+            array_push($data,[
+                'id' => $account->ID,
+                'label' => $account->accountType
+            ]);
+        }
+        echo json_encode($data);
     }
 }

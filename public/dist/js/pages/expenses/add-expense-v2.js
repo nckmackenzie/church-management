@@ -19,7 +19,24 @@ paymethodSelect.addEventListener('change', function (e) {
   }
 });
 
-expenseTypeSelect.addEventListener('change', function (e) {
+expenseTypeSelect.addEventListener('change', async function (e) {
+  accountSelect.innerHTML = '';
+  const data = await sendHttpRequest(
+    `${expenseRoute}/getaccounts?type=${e.target.value}`
+  );
+
+  accountSelect.innerHTML =
+    '<option value="" selected disabled>Select account</option>';
+
+  data.length &&
+    data.forEach(req => {
+      let html = '';
+      html += `
+        <option value="${req.id}" >${req.label}</option>
+    `;
+      accountSelect.insertAdjacentHTML('beforeend', html);
+    });
+
   if (+e.target.value === 2) {
     // let newOption = new Option('Group Petty Cash', 'group petty cash');
     // cashtypeSelect.add(newOption, undefined);
