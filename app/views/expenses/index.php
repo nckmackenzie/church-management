@@ -94,7 +94,7 @@
                         <?php foreach($data['expenses'] as $expense) :?>
                             <tr>
                                 <td><?php echo $expense->ID;?></td>
-                                <td><?php echo $expense->expenseDate;?></td>
+                                <td><?php echo date('d-M-Y',strtotime($expense->expenseDate));?></td>
                                 <td><?php echo $expense->voucherNo;?></td>
                                 <td><?php echo $expense->account;?></td>
                                 <td><?php echo $expense->amount;?></td>
