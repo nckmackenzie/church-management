@@ -369,6 +369,13 @@ function loadresultset($con,$sql,$arr){
     return $stmt->fetchAll(PDO::FETCH_OBJ);
 }
 
+//LOAD DB Results
+function loadsingleset($con,$sql,$arr){
+    $stmt = $con->prepare($sql);
+    $stmt->execute($arr);
+    return $stmt->fetch(PDO::FETCH_OBJ);
+}
+
 function numberFormat($number){
     if(strpos($number,',') !== false){
        return str_replace(',','',$number);
