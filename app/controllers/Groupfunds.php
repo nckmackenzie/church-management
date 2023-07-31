@@ -283,7 +283,7 @@ class Groupfunds extends Controller
                 exit;
             }
 
-            sendgeneral($approval,'Your recent group fund requisition has been approved.');
+            // sendgeneral($approval,'Your recent group fund requisition has been approved.');
             flash('approval_msg','Approved successfully!');
             redirect('groupfunds/approvals');
             exit;
