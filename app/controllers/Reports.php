@@ -1089,13 +1089,14 @@ class Reports extends Controller {
     {
         if($_SERVER['REQUEST_METHOD'] === 'GET'){
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [
-                'start' => !empty(trim($_GET['start'])) ? date('Y-m-d',strtotime($_GET['start'])) : NULL,
-                'end' => !empty(trim($_GET['end'])) ? date('Y-m-d',strtotime($_GET['end'])) :NULL,
-                'gid' => trim($_GET['gid']),
-            ];
+            $reqid = !empty(trim($_GET['reqid'])) ? trim($_GET['reqid']) : NULL;
+            // $data = [
+            //     'start' => !empty(trim($_GET['start'])) ? date('Y-m-d',strtotime($_GET['start'])) : NULL,
+            //     'end' => !empty(trim($_GET['end'])) ? date('Y-m-d',strtotime($_GET['end'])) :NULL,
+            //     'gid' => trim($_GET['gid']),
+            // ];
 
-            $reports = $this->reportModel->getgroupstatement($data);
+            $reports = $this->reportModel->getgroupstatement($reqid);
             $output = '';
             $output .= '
                 <table class="table table-bordered table-sm" id="table">
@@ -1103,20 +1104,20 @@ class Reports extends Controller {
                         <tr>
                             <th>Transaction Date</th>
                             <th>Description</th>
-                            <th>Reference</th>
-                            <th>Deposits</th>
-                            <th>Withdrawals</th>
+                            <th>Debit</th>
+                            <th>Credit</th>
+                            <th>Balance</th>
                         </tr>
                     </thead>
                     <tbody>';
                     foreach($reports as $report) {
                         $output .= '
                             <tr>
-                                <td>'.date('d-m-Y',strtotime($report->TransactionDate)).'</td>
-                                <td>'.$report->Narration.'</td>
-                                <td>'.$report->Reference.'</td>
-                                <td>'.$report->Debit.'</td>
-                                <td>'.$report->Credit.'</td>
+                                <td>'.date('d-M-Y',strtotime($report->TransactionDate)).'</td>
+                                <td>'.$report->Description.'</td>
+                                <td>'.number_format($report->AmountIn,2).'</td>
+                                <td>'.number_format($report->AmountOut,2).'</td>
+                                <td>'.number_format($report->Balance,2).'</td>
                             </tr>
                         ';
                     }
@@ -1124,9 +1125,10 @@ class Reports extends Controller {
                     </tbody>
                     <tfoot>
                             <tr>
-                                <th colspan="3" style="text-align:center">Total:</th>
+                                <th colspan="2" style="text-align:center">Total:</th>
                                 <th id="deposits"></th>
                                 <th id="withdrawals"></th>
+                                <th></th>
                             </tr>
                     </tfoot>
                 </table>';

@@ -6,11 +6,11 @@
     <!-- Main content -->
     <section class="content">
     <div class="row">
-        <div class="col-md-8 mx-auto mt-2">
+        <div class="col-md-6 mx-auto mt-2">
             <div class="card bg-light">
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-6 mb-3">
                             <label for="group">Group</label>
                             <select name="group" id="group" class="control form-control form-control-sm">
                                 <option value="" selected disabled>Select group</option>
@@ -20,17 +20,14 @@
                             </select>
                             <span class="invalid-feedback" id="account_err"></span>
                         </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="start">Start Date</label>
-                                <input type="date" name="start" id="start" class="control form-control form-control-sm">
-                                <span class="invalid-feedback" id="start_err"></span>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="end">End Date</label>
-                                <input type="date" name="end" id="end" class="control form-control form-control-sm">
-                                <span class="invalid-feedback" id="end_err"></span>
-                            </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="start">Requisition</label>
+                            <select name="requisition" id="requisition" class="control form-control form-control-sm">
+                                <option value="" selected disabled>Select requisition</option>
+                            </select>
+                            <span class="invalid-feedback" id="start_err"></span>
                         </div>
+                    </div>
                         <div class="row">
                             <div class="col-2">
                                 <button class="btn btn-sm btn-primary custom-font" id="preview">Preview</button>
@@ -51,6 +48,7 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/reports/groupstatement/index.js"></script>
 <script>
     $(function(){
         $('#preview').click(function(){
@@ -65,13 +63,13 @@
                 }
             });
             if(count > 0) return;
-            const start = $('#start').val();
-            const end = $('#end').val();
-            const gid = $('#group').val();
+            // const start = $('#start').val();
+            // const end = $('#end').val();
+            const reqid = $('#requisition').val();
             $.ajax({
                 url : '<?php echo URLROOT;?>/reports/groupstatementrpt',
                 method : 'GET',
-                data : {start : start,end : end, gid : gid},
+                data : {reqid : reqid},
                 success : function(data){
                     // console.log(data);
                     $('#results').html(data);
@@ -105,8 +103,8 @@
                               return n.toFixed(2).replace(/(\d)(?=(\d{3})+\.)/g, "$1,");
                             }
                             // Update footer
-                            $('#deposits').html(format_number(updateValues(3)));
-                            $('#withdrawals').html(format_number(updateValues(4)));
+                            $('#deposits').html(format_number(updateValues(2)));
+                            $('#withdrawals').html(format_number(updateValues(3)));
                             
                         }
                     }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');

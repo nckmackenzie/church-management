@@ -540,13 +540,9 @@ class Report {
         $this->db->bind(':edate',$data['end']);
         return $this->db->resultSet();
     }
-    public function getgroupstatement($data)
+    public function getgroupstatement($reqid)
     {
-        $this->db->query('CALL sp_mmf_statement(:gid,:sdate,:edate)');
-        $this->db->bind(':gid',$data['gid']);
-        $this->db->bind(':sdate',$data['start']);
-        $this->db->bind(':edate',$data['end']);
-        return $this->db->resultSet();
+       return loadresultset($this->db->dbh,'CALL getgroupstatement(?)',[$reqid]);
     }
     public function GetAccountType($account)
     {
@@ -576,4 +572,8 @@ class Report {
         $sql = 'SELECT IFNULL(SUM(AmountApproved),0) AS Amount FROM tblfundrequisition WHERE (Deleted=0) AND (Status=1) AND (GroupId=?) AND (ApprovalDate BETWEEN ? AND ?)';
         return getdbvalue($this->db->dbh,$sql,[$data['group'],$data['start'],$data['end']]);
     }
+
+    // function GetGroups($) {
+        
+    // }
 }
