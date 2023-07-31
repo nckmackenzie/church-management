@@ -196,7 +196,7 @@ class Expenses extends Controller{
                         else{
                             flash('expense_msg',"Expense wasnt added!",'alert custom-danger');
                             redirect('expenses');
-                        }
+                    }
                     }else {
                         flash('expense_msg','Something went wrong with file upload','alert custom-danger');
                         redirect('expenses');
@@ -212,6 +212,20 @@ class Expenses extends Controller{
             redirect('users/deniedaccess');
             exit;
         }
+    }
+
+    public function getrequisitions(){
+        $groupid = isset($_GET['group']) && !empty(trim($_GET['group'])) ? (int)trim($_GET['group']) : null;
+        $data = array();
+
+        $balances = $this->expenseModel->GetGroupBalance($groupid);
+        foreach($balances as $balance){
+            array_push($data,[
+                'id' => $balance->ID,
+                'label' => $balance->Formated
+            ]);
+        }
+        echo json_encode($data);
     }
 
     public function approve()
