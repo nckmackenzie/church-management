@@ -91,7 +91,7 @@
                             <tr>
                                 <td><?php echo $contribution->ID;?></td>
                                 <td><?php echo $contribution->receiptNo;?></td>
-                                <td><?php echo $contribution->contributionDate;?></td>
+                                <td><?php echo date('d-M-Y',strtotime($contribution->contributionDate));?></td>
                                 <td><?php echo $contribution->Total;?></td>
                                 <td>
                                     <?php if((int)$_SESSION['userType'] <3 || (int)$_SESSION['userType'] > 4) : ?>

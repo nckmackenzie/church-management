@@ -10,7 +10,7 @@ class Contribution {
     {
         $this->db->query("SELECT h.ID,
                                  h.receiptNo,
-                                 DATE_FORMAT(d.contributionDate,'%d/%m/%y') AS contributionDate,
+                                 d.contributionDate,
                                  FORMAT(SUM(d.amount),2) As Total
                           FROM   tblcontributions_header h inner join tblcontributions_details d on h.ID = d.HeaderId
                           WHERE  (h.congregationId = :cid) AND (h.deleted = 0)
