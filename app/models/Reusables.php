@@ -36,7 +36,7 @@ class Reusables
 
     public function GetBanks()
     {
-        $sql = "SELECT ID,UCASE(CONCAT(accountType,'-',IFNULL(accountNo,''))) AS Bank FROM tblaccounttypes WHERE isBank = 1 AND CongregationId = ?";
+        $sql = "SELECT ID,UCASE(CONCAT(accountType,'-',IFNULL(accountNo,''))) AS Bank FROM tblaccounttypes WHERE (isBank = 1) AND (deleted=0) AND CongregationId = ?";
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
 
