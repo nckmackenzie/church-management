@@ -42,7 +42,7 @@
                 <div class="card bg-light">
                     <div class="card-header">Add Expense</div>
                     <div class="card-body">
-                        <form action="<?php echo URLROOT;?>/expenses/create" method="post" enctype="multipart/form-data">
+                        <form action="<?php echo URLROOT;?>/expenses/create" id="expenseform" name="expenseform" method="post" enctype="multipart/form-data">
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group">
@@ -190,7 +190,7 @@
                             </div>
                             <div class="row">
                                 <div class="col-4">
-                                    <button type="submit" class="btn btn-sm bg-navy custom-font">Save</button>
+                                    <button id="save-btn" type="submit" class="btn btn-sm bg-navy custom-font">Save</button>
                                 </div>
                             </div>
                         </form>
@@ -244,6 +244,20 @@
             });
         }
     });
+</script>
+<script>
+    const form = document.getElementById('expenseform');
+    const saveBtn = document.getElementById('save-btn');
+
+    form.addEventListener('submit', function(e){
+        e.preventDefault();
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...'
+
+        document.expenseform.submit();
+    });
+
 </script>
 <script type="module" src="<?php echo URLROOT;?>/dist/js/pages/expenses/add-expense-v2.js"></script>
 </body>
