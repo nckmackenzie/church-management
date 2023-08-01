@@ -30,6 +30,34 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="deleteSubModalCenter" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="">Delete Sub Account</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+          <form action="<?php echo URLROOT;?>/banks/deletesubaccount" method="post">
+              <div class="row">
+                <div class="col-md-9">
+                  <label for="">Delete selected sub account?</label>
+                  <input type="hidden" name="id" id="sid">
+                  <input type="hidden" name="subaccount" id="subaccount">
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-danger">Yes</button>
+              </div>
+          </form>
+      </div>
+     
+    </div>
+  </div>
+</div>
   <!-- Content Wrapper. Contains page content -->
   <div class="content-wrapper">
     <!-- Content Header (Page header) -->
@@ -65,15 +93,39 @@
                                 <td><?php echo $bank->ID;?></td>
                                 <td><?php echo $bank->accountType;?></td>
                                 <td><?php echo $bank->accountNo;?></td>
-                                <?php if($_SESSION['userType'] <=2) : ?>
-                                  <td>
+                                <td>
+                                  <?php if($_SESSION['userType'] <=2) : ?>
                                       <div class="btn-group">
                                           <a href="<?php echo URLROOT;?>/banks/edit/<?php echo $bank->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
                                           <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
                                       </div>
-                                  </td>     
-                                <?php endif; ?>
+                                  <?php endif; ?>
+                                </td>     
                             </tr>
+                            <?php
+                                $con=new PDO('mysql:host=localhost;dbname='.DB_NAME.'',DB_USER,DB_PASS);
+                                $con->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
+                                $sql = 'SELECT s.ID,UCASE(s.AccountName) as AccountName,
+                                               UCASE(a.accountType) AS Account
+                                        FROM   tblbanksubaccounts s join tblaccounttypes a on s.AccountId = a.ID
+                                        WHERE  (s.BankId=?) AND (s.Deleted=0)';
+                                $stmt = $con->prepare($sql);
+                                $stmt->execute([$bank->ID]);
+                                $hasChildren = $stmt->rowCount() > 0 ? true : false;
+                            ?>
+                            <?php if($hasChildren) : ?>
+                                <?php foreach($stmt->fetchAll(PDO::FETCH_OBJ) as $child) : ?>
+                                  <tr>
+                                      <td><?php echo $child->ID;?></td>
+                                      <td class="sub-level-3"><?php echo $child->AccountName;?></td>
+                                      <td><?php echo $child->Account;?></td>
+                                      <td>
+                                          <a href="<?php echo URLROOT;?>/banks/editsubaccount/<?php echo $child->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
+                                          <button type="button" class="btn btn-sm btn-danger custom-font btndelsub">Delete</button>
+                                      </td>
+                                  </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
@@ -88,10 +140,9 @@
       $('#banksTable').DataTable({
         'columnDefs' : [
             {"visible" : false, "targets": 0}
-            <?php if ($_SESSION['userType'] <=2) : ?>
             ,{"width" : "15%" , "targets": 3},
-            <?php endif;?>
-          ]
+         ],
+         ordering: false
       });
 
       $('#banksTable').on('click','.btndel',function(){
@@ -105,6 +156,19 @@
           var currentRow = $(this).closest("tr");
           var data1 = $('#banksTable').DataTable().row(currentRow).data();
           $('#id').val(data1[0]);
+      });
+
+      $('#banksTable').on('click','.btndelsub',function(){
+          $('#deleteSubModalCenter').modal('show');
+          $tr = $(this).closest('tr');
+
+          let data = $tr.children('td').map(function(){
+              return $(this).text();
+          }).get();
+          $('#subaccount').val(data[0]);
+          var currentRow = $(this).closest("tr");
+          var data1 = $('#banksTable').DataTable().row(currentRow).data();
+          $('#sid').val(data1[0]);
       });
     });
 </script>

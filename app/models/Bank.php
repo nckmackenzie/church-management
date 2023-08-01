@@ -169,24 +169,68 @@ class Bank {
 
     public function CheckSubAccountExists($data)
     {
-        $value = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tblbanksubaccounts WHERE (AccountName=?) AND (Deleted=0)',[$data['name']]);
+        $value = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tblbanksubaccounts 
+                                            WHERE (AccountName=?) AND (Deleted=0) AND (ID <> ?)',[$data['name'],$data['id']]);
         if($value > 0) return false;
         return true;
     }
 
     public function CreateUpdateSubAccount($data)
     {
-        $this->db->query('INSERT INTO tblbanksubaccounts(AccountName, BankId, AccountId, GroupDistrict, GroupId, DistrictId) 
+        if(!$data['isedit']){
+            $this->db->query('INSERT INTO tblbanksubaccounts(AccountName, BankId, AccountId, GroupDistrict, GroupId, DistrictId) 
                           VALUES(:aname,:bid,:aid,:groupdistrict,:gid,:did)');
+        }else{
+            $this->db->query('UPDATE tblbanksubaccounts SET AccountName=:aname,BankId=:bid,AccountId=:aid,GroupDistrict=:groupdistrict,
+                                                            GroupId=:gid,DistrictId=:did WHERE (ID=:id)');
+        }
         $this->db->bind(':aname',$data['name']);
         $this->db->bind(':bid',$data['bank']);
         $this->db->bind(':aid',$data['account']);
         $this->db->bind(':groupdistrict',$data['districtgroup']);
         $this->db->bind(':gid',$data['districtgroup'] === 'group' ? $data['param'] : null);
         $this->db->bind(':did',$data['districtgroup'] === 'district' ? $data['param'] : null);
+        if($data['isedit']){
+            $this->db->bind(':id',$data['id']);
+        }
         if(!$this->db->execute()){
             return false;
         }
         return true;
+    }
+
+    public function GetSubAccount($id)
+    {
+        return loadsingleset($this->db->dbh,'SELECT * FROM tblbanksubaccounts WHERE (ID=?)',[$id]);
+    }
+
+    public function deletesubaccount($data)
+    {
+       
+        try {
+            //start transaction
+            $this->db->dbh->beginTransaction();
+            $this->db->query('UPDATE tblbanksubaccounts SET Deleted=:del WHERE (ID=:id)');
+            $this->db->bind(':del',1);
+            $this->db->bind(':id',$data['id']);
+            $this->db->execute();
+            
+            //save logs
+            $act = 'Deleted sub account '.$data['subaccount'];
+            saveLog($this->db->dbh,$act);
+
+            //commit transaction
+            if ($this->db->dbh->commit()) {
+               return true;
+            }
+            else{
+                return false;
+            }
+        } catch (\Exception $e) {
+            if ($this->db->dbh->inTransaction()) {
+                $this->db->dbh->rollback();
+            }
+            throw $e;
+        }
     }
 }

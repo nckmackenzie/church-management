@@ -192,7 +192,11 @@ class Banks extends Controller{
             'banks' => $this->reusablemodel->GetBanks(),
             'accounts' => $this->reusablemodel->GetAccountsAll(),
             'id' => '',
-            'isedit' => false
+            'isedit' => false,
+            'name' => '',
+            'bank' => '',
+            'account' => '',
+            'districtgroup' => ''
         ];
         $this->view('banks/subaccount',$data);
     }
@@ -255,6 +259,56 @@ class Banks extends Controller{
         {
             redirect('users/deniedaccess');
             exit();
+        }
+    }
+
+    public function editsubaccount($id)
+    {
+        $subaccount = $this->bankModel->GetSubAccount($id);
+        $data = [
+            'banks' => $this->reusablemodel->GetBanks(),
+            'accounts' => $this->reusablemodel->GetAccountsAll(),
+            'id' => $subaccount->ID,
+            'isedit' => true,
+            'name' => strtoupper($subaccount->AccountName),
+            'bank' => $subaccount->BankId,
+            'account' => $subaccount->AccountId,
+            'districtgroup' => $subaccount->GroupDistrict,
+            'param' => !is_null($subaccount->GroupId) ? $subaccount->GroupId : $subaccount->DistrictId,
+            'results' => $this->bankModel->GetDistrictOrGroup($subaccount->GroupDistrict)
+        ];
+        $this->view('banks/subaccount',$data);
+    }
+
+    public function deletesubaccount()
+    {
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
+            $data = [
+                'id' => isset($_POST['id']) && !empty(trim($_POST['id'])) ? trim($_POST['id']) : null,
+                'subaccount' => trim(strtolower($_POST['subaccount'])),
+            ];
+
+            if(is_null($data['id'])){
+                flash('bank_msg','No selection detected!',alerterrorclass());
+                redirect('banks');
+                exit;
+            }
+                    
+            if ($this->bankModel->deletesubaccount($data)) {
+                flash('bank_msg','Sub Account Deleted Successfully!');
+                redirect('banks');
+                exit;
+            }
+            else{
+                flash('bank_msg','Something Went Wrong!',alerterrorclass());
+                redirect('banks');
+                exit;
+            }
+            
+        }
+        else{
+            redirect('banks');
         }
     }
 }

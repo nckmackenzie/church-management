@@ -30,7 +30,7 @@
                                         <label for="name">Account Name</label>
                                         <input type="text" name="name" id="name"
                                             class="form-control form-control-sm mandatory" 
-                                            value=""
+                                            value="<?php echo $data['name'];?>"
                                             placeholder="Enter unique name"
                                             autocomplete="off">
                                         <span class="invalid-feedback"></span>       
@@ -42,7 +42,7 @@
                                         <select name="bank" id="bank" class="form-control form-control-sm mandatory">
                                             <option value="" selected disabled>Select parent account</option>
                                             <?php foreach($data['banks'] as $bank) : ?>
-                                                <option value="<?php echo $bank->ID;?>"><?php echo $bank->Bank;?></option>
+                                                <option value="<?php echo $bank->ID;?>" <?php selectdCheck($data['bank'],$bank->ID);?>><?php echo $bank->Bank;?></option>
                                             <?php endforeach; ?>
                                         </select>
                                         <span class="invalid-feedback"></span>       
@@ -54,7 +54,7 @@
                                         <select name="glaccount" id="glaccount" class="form-control form-control-sm mandatory">
                                             <option value="" selected disabled>Select G/L account</option>
                                             <?php foreach($data['accounts'] as $account) : ?>
-                                                <option value="<?php echo $account->ID;?>"><?php echo $account->accountType;?></option>
+                                                <option value="<?php echo $account->ID;?>" <?php selectdCheck($data['account'],$account->ID);?>><?php echo $account->accountType;?></option>
                                             <?php endforeach; ?>
                                         </select>
                                         <span class="invalid-feedback"></span>       
@@ -65,8 +65,8 @@
                                         <label for="districtgroup">District/Group</label>
                                         <select name="districtgroup" id="districtgroup" class="form-control form-control-sm mandatory">
                                             <option value="" selected disabled>Select district or group</option>
-                                            <option value="group">Group</option>
-                                            <option value="district">District</option>
+                                            <option value="group" <?php selectdCheck($data['districtgroup'],"group");?>>Group</option>
+                                            <option value="district" <?php selectdCheck($data['districtgroup'],"district");?>>District</option>
                                         </select>
                                         <span class="invalid-feedback"></span>       
                                     </div>
@@ -76,6 +76,11 @@
                                         <label for="param" id="paramLabel">District/Group</label>
                                         <select name="param" id="param" class="form-control form-control-sm mandatory">
                                             <option value="" selected disabled>Select one</option>
+                                            <?php if($data['isedit']) : ?>
+                                                <?php foreach($data['results'] as $result) : ?>
+                                                    <option value="<?php echo $result->ID;?>" <?php selectdCheck($data['param'],$result->ID);?>><?php echo $result->ColumnName;?></option>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
                                         </select>
                                         <span class="invalid-feedback"></span>       
                                     </div>
