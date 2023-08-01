@@ -154,4 +154,39 @@ class Bank {
             throw $e;
         }
     }
+
+    public function GetDistrictOrGroup($type)
+    {
+        $sql = '';
+        if($type == 'group'){
+            $sql = 'SELECT ID,UCASE(groupName) as ColumnName FROM tblgroups WHERE (congregationId=?) AND (deleted=0) ORDER BY ColumnName';
+        }else{
+            $sql = 'SELECT ID,UCASE(districtName) as ColumnName FROM tbldistricts WHERE (congregationId=?) AND (deleted=0) ORDER BY ColumnName';
+        }
+
+        return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
+    }
+
+    public function CheckSubAccountExists($data)
+    {
+        $value = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tblbanksubaccounts WHERE (AccountName=?) AND (Deleted=0)',[$data['name']]);
+        if($value > 0) return false;
+        return true;
+    }
+
+    public function CreateUpdateSubAccount($data)
+    {
+        $this->db->query('INSERT INTO tblbanksubaccounts(AccountName, BankId, AccountId, GroupDistrict, GroupId, DistrictId) 
+                          VALUES(:aname,:bid,:aid,:groupdistrict,:gid,:did)');
+        $this->db->bind(':aname',$data['name']);
+        $this->db->bind(':bid',$data['bank']);
+        $this->db->bind(':aid',$data['account']);
+        $this->db->bind(':groupdistrict',$data['districtgroup']);
+        $this->db->bind(':gid',$data['districtgroup'] === 'group' ? $data['param'] : null);
+        $this->db->bind(':did',$data['districtgroup'] === 'district' ? $data['param'] : null);
+        if(!$this->db->execute()){
+            return false;
+        }
+        return true;
+    }
 }

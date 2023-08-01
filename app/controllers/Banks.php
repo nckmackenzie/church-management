@@ -7,6 +7,7 @@ class Banks extends Controller{
             exit;
         }
         $this->authmodel = $this->model('Auth');
+        $this->reusablemodel = $this->model('Reusables');
         checkrights($this->authmodel,'banks');
         $this->bankModel = $this->model('Bank');
     }
@@ -182,6 +183,78 @@ class Banks extends Controller{
         }
         else{
             redirect('banks');
+        }
+    }
+
+    public function subaccount()
+    {
+        $data = [
+            'banks' => $this->reusablemodel->GetBanks(),
+            'accounts' => $this->reusablemodel->GetAccountsAll(),
+            'id' => '',
+            'isedit' => false
+        ];
+        $this->view('banks/subaccount',$data);
+    }
+
+    public function getdistrictorgroup()
+    {
+        $type = isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : null;
+        $data = array();
+        $results = $this->bankModel->GetDistrictOrGroup($type);
+        foreach($results as $result):
+            array_push($data,[
+                'id' => $result->ID,
+                'label' => $result->ColumnName,
+            ]);
+        endforeach;
+
+        echo json_encode($data);
+    }
+
+    public function createupdatesubaccount()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST')
+        {
+            $fields = json_decode(file_get_contents('php://input'));
+            $data = [
+                'id' => isset($fields->id) && !empty(trim($fields->id)) ? (int)trim($fields->id) : null,
+                'isedit' => converttobool($fields->isedit),
+                'name' => isset($fields->name) && !empty(trim($fields->name)) ? strtolower(trim($fields->name)) : null,
+                'bank' => isset($fields->bank) && !empty(trim($fields->bank)) ? trim($fields->bank) : null,
+                'account' => isset($fields->glaccount) && !empty(trim($fields->glaccount)) ? trim($fields->glaccount) : null,
+                'districtgroup' => isset($fields->districtgroup) && !empty(trim($fields->districtgroup)) ? strtolower(trim($fields->districtgroup)) : null,
+                'param' => isset($fields->param) && !empty(trim($fields->param)) ? trim($fields->param) : null,
+            ];
+
+            if(is_null($data['name']) || is_null($data['bank']) || is_null($data['account']) 
+              || is_null($data['districtgroup']) || is_null($data['param'])){
+
+                http_response_code(400);
+                echo json_encode(['success' => false,'message' => 'Fill all required fields']);
+                exit;  
+            }
+
+            if(!$this->bankModel->CheckSubAccountExists($data)){
+                http_response_code(400);
+                echo json_encode(['success' => false,'message' => 'Sub-account name exists']);
+                exit; 
+            }
+
+            if(!$this->bankModel->CreateUpdateSubAccount($data)){
+                http_response_code(500);
+                echo json_encode(['success' => false,'message' => 'Unable to save this transaction. Contact admin']);
+                exit;
+            }
+
+            http_response_code(201);
+            echo json_encode(['success' => true,'message' => 'Saved successfully']);
+            exit;
+        }
+        else
+        {
+            redirect('users/deniedaccess');
+            exit();
         }
     }
 }

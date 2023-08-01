@@ -39,6 +39,7 @@
         <div class="row mb-2">
           <div class="col-sm-6">
             <a href="<?php echo URLROOT;?>/banks/add" class="btn btn-sm btn-success custom-font">Add New</a>
+            <a href="<?php echo URLROOT;?>/banks/subaccount" class="btn btn-sm btn-info custom-font">Add Sub Account</a>
           </div>
         </div>
       </div><!-- /.container-fluid -->
