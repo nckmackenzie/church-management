@@ -209,7 +209,7 @@ class Banks extends Controller{
         foreach($results as $result):
             array_push($data,[
                 'id' => $result->ID,
-                'label' => $result->ColumnName,
+                'label' => strtoupper($result->ColumnName),
             ]);
         endforeach;
 

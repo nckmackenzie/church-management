@@ -159,9 +159,9 @@ class Bank {
     {
         $sql = '';
         if($type == 'group'){
-            $sql = 'SELECT ID,UCASE(groupName) as ColumnName FROM tblgroups WHERE (congregationId=?) AND (deleted=0) ORDER BY ColumnName';
+            $sql = 'SELECT ID,groupName as ColumnName FROM tblgroups WHERE (congregationId=?) AND (deleted=0) ORDER BY ColumnName';
         }else{
-            $sql = 'SELECT ID,UCASE(districtName) as ColumnName FROM tbldistricts WHERE (congregationId=?) AND (deleted=0) ORDER BY ColumnName';
+            $sql = 'SELECT ID,districtName as ColumnName FROM tbldistricts WHERE (congregationId=?) AND (deleted=0) ORDER BY ColumnName';
         }
 
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
