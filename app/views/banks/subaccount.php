@@ -50,7 +50,7 @@
                                 </div>
                                 <div class="col-sm-12">
                                     <div class="form-group">
-                                        <label for="glaccount">G/L Account</label>
+                                        <label for="glaccount">G/L Collection Account</label>
                                         <select name="glaccount" id="glaccount" class="form-control form-control-sm mandatory">
                                             <option value="" selected disabled>Select G/L account</option>
                                             <?php foreach($data['accounts'] as $account) : ?>
