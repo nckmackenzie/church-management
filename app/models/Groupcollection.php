@@ -149,4 +149,30 @@ class Groupcollection
     {
         return loadsingleset($this->db->dbh,'SELECT * FROM tblmmf WHERE (ID=?)',[$id]);
     }
+
+    public function Delete($id)
+    {
+        try {
+            
+            $this->db->dbh->beginTransaction();
+
+            $this->db->query('UPDATE tblmmf set Deleted=1
+                              WHERE (ID=:id)');
+            $this->db->bind(':id',$id);
+            $this->db->execute();
+           
+            softdeleteLedgerBanking($this->db->dbh,17,$id);
+
+            if (!$this->db->dbh->commit()) return false;
+
+            return true;
+
+        } catch (\Exception $e) {
+            if ($this->db->dbh->inTransaction()) {
+                $this->db->dbh->rollback();
+            }
+            error_log($e->getMessage(),0);
+            return false;
+        }
+    }
 }

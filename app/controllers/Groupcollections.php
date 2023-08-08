@@ -146,4 +146,33 @@ class Groupcollections extends Controller
         $this->view('groupcollections/add',$data);
         exit;
     }
+
+    public function delete()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST')
+        {
+            $id = isset($_POST['id']) && !empty(trim($_POST['id'])) ? trim($_POST['id']) : null;
+
+            if(is_null($id)){
+                flash('collection_msg','Unable to get selected transaction!','alert custom-danger');
+                redirect('groupcollections');
+                exit;
+            }
+
+            if(!$this->collectionmodel->Delete($id)){
+                flash('collection_msg','Unable to delete selected transaction!','alert custom-danger');
+                redirect('groupcollections');
+                exit;
+            }
+
+            flash('collection_msg','Group collection deleted successfully!');
+            redirect('groupcollections');
+            exit;
+        }
+        else
+        {
+            redirect('users/deniedaccess');
+            exit();
+        }
+    }
 }

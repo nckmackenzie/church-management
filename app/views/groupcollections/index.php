@@ -14,7 +14,7 @@
           <form action="<?php echo URLROOT;?>/groupcollections/delete" method="post">
               <div class="row">
                 <div class="col-md-9">
-                  <label for="">Are You Sure You Want To Delete Selected MMF?</label>
+                  <label for="">Are You Sure You Want To Delete Selected Collection?</label>
                   <input type="hidden" name="id" id="id">
                 </div>
               </div>
@@ -32,7 +32,7 @@
     <!-- Content Header (Page header) -->
     <section class="content-header">
       <div class="container-fluid">
-        <?php flash('mmf_msg');?>
+        <?php flash('collection_msg');?>
         <div class="row mb-2">
           <div class="col-sm-6">
             <a href="<?php echo URLROOT;?>/groupcollections/add" class="btn btn-sm btn-success custom-font">Add New</a>
@@ -44,7 +44,7 @@
     <section class="content">
         <div class="row">
             <div class="col-md-12">
-                <table class="table table-striped table-bordered table-sm" id="mmfsTable">
+                <table class="table table-striped table-bordered table-sm" id="collectionsTable">
                     <thead class="bg-navy">
                         <th class="d-none">ID</th>
                         <th>Transaction Date</th>
@@ -81,7 +81,7 @@
 <?php require APPROOT . '/views/inc/footer.php'?>
 <script>
     $(function(){
-      $('#mmfsTable').DataTable({
+      $('#collectionsTable').DataTable({
           'ordering' : false,
           'columnDefs' : [
             {"width" : "25%" , "targets": 1},
@@ -89,7 +89,7 @@
           ]
       });
 
-      $('#mmfsTable').on('click','.btndel',function(){
+      $('#collectionsTable').on('click','.btndel',function(){
           $('#deleteModalCenter').modal('show');
           $tr = $(this).closest('tr');
 
@@ -97,7 +97,6 @@
               return $(this).text();
           }).get();
           $('#id').val(data[0]);
-          $('#groupname').val(data[1]);
       });
     });
 </script>
