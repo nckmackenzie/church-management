@@ -55,3 +55,8 @@ export async function getGroupPlExpenseDetailed(account, sdate, edate, group) {
   const url = `${HOST_URL}/reports/groupplexpensedetailedrpt?account=${account}&sdate=${sdate}&edate=${edate}&group=${group}`;
   return await getRequest(url);
 }
+
+export async function getGroupPlRevenueDetailed(type, sdate, edate, group) {
+  const url = `${HOST_URL}/reports/groupplrevenuedetailedrpt?type=${type}&sdate=${sdate}&edate=${edate}&group=${group}`;
+  return await getRequest(url);
+}

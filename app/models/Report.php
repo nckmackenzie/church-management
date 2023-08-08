@@ -595,6 +595,25 @@ class Report {
         return loadresultset($this->db->dbh,$sql,[(int)$data['group'],$data['sdate'],$data['edate'],$data['account']]);
     }
 
+    public function GetGroupPlRevenueDetailed($data)
+    {
+        $sql = '';
+        if($data['type'] === 'collections')
+        {
+            $sql .= 'SELECT TransactionDate,Debit As Amount,Narration 
+                     FROM tblmmf 
+                     WHERE (Deleted=0) AND (GroupId=?) AND (TransactionDate BETWEEN ? AND ?)';
+        }
+        else
+        {
+            $sql .= 'SELECT ApprovalDate As TransactionDate,AmountApproved As Amount,Purpose As Narration 
+                     FROM tblfundrequisition 
+                     WHERE (Deleted=0) AND (GroupId=?) AND (DontDeduct=1) AND (ApprovalDate BETWEEN ? AND ?)';
+        }
+
+        return loadresultset($this->db->dbh,$sql,[$data['group'],$data['sdate'],$data['edate']]);
+    }
+
     // function GetGroups($) {
         
     // }

@@ -739,7 +739,7 @@ class Reports extends Controller {
                         $output .='
                             <tr>
                                 <td>Group Requisitions</td>
-                                <td>'.number_format($revenue,2).'</td>
+                                <td><a target="_blank" href="'.URLROOT.'/reports/groupplrevenuedetailed?type=requisitions&group='.$data['group'].'&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($revenue,2).'</a></td>
                             </tr>
                         ';
                     endif;
@@ -747,7 +747,7 @@ class Reports extends Controller {
                         $output .='
                             <tr>
                                 <td>Group Collections</td>
-                                <td>'.number_format($collections,2).'</td>
+                                <td><a target="_blank" href="'.URLROOT.'/reports/groupplrevenuedetailed?type=collections&group='.$data['group'].'&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($revenue,2).'</a></td>
                             </tr>
                         ';
                     endif;
@@ -785,10 +785,65 @@ class Reports extends Controller {
         }
     }
 
+    public function groupplrevenuedetailed()
+    {
+        $this->view('reports/groupplrevenuedetailed',[]);
+        exit;
+    }
+
     public function groupplexpensedetailed()
     {
         $this->view('reports/groupplexpensedetailed',[]);
         exit;
+    }
+
+    public function groupplrevenuedetailedrpt()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'GET')
+        {
+            $data = [
+                'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
+                'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
+                'type' => isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : null,
+                'group' => isset($_GET['group']) && !empty(trim($_GET['group'])) ? (int)trim($_GET['group']) : null,
+                'totalamount' => 0,
+                'results' => []
+            ];
+            //validate
+            if(is_null($data['sdate']) || is_null($data['edate']) || is_null($data['type']) || is_null($data['group']))
+            {
+                http_response_code(400);
+                echo json_encode(['success' => false,'message' => 'Unable to get all fields']);
+                exit;
+            }
+
+            $details = $this->reportModel->GetGroupPlRevenueDetailed($data);
+
+            if(empty($details))
+            {
+                http_response_code(400);
+                echo json_encode(['success' => false,'message' => 'No details found for this account for specified period']);
+                exit;
+            }
+
+            foreach($details as $detail)
+            {
+                $data['totalamount'] += floatval($detail->Amount);
+                array_push($data['results'],[
+                    'transactionDate' => date('d-m-Y',strtotime($detail->TransactionDate)),
+                    'amount' => $detail->Amount,
+                    'narration' => is_null($detail->Narration) ? '' : ucfirst($detail->Narration),
+                ]);
+            }
+
+            echo json_encode(['success' => true,'results' => $data['results'],"total" => $data['totalamount']]);
+            exit;
+        }
+        else
+        {
+            redirect('users/deniedaccess');
+            exit();
+        }
     }
 
     public function groupplexpensedetailedrpt()
