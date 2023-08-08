@@ -333,16 +333,7 @@ class Report {
 
         // return [$admincost,$hosptcost,$optcost,$staffcost];
     }
-    public function GetGroupExpensesPL($data)
-    {
-        $sql = 'SELECT 
-                    a.accountType,
-                    SUM(`amount`) AS Amount
-                FROM `tblexpenses` e join tblaccounttypes a on e.accountId = a.ID
-                WHERE e.groupId = ? AND (e.expenseDate BETWEEN ? AND ?) AND (e.deleted = 0) AND (e.status=1)
-                GROUP BY a.accountType';
-        return loadresultset($this->db->dbh,$sql,[(int)$data['group'],$data['start'],$data['end']]);
-    }
+    
     public function GetExpensesTotal($data)
     {
         $this->db->query('SELECT IFNULL(SUM(debit),0) AS SumOfTotal 
@@ -569,8 +560,39 @@ class Report {
 
     public function GetGroupRevenues($data)
     {
-        $sql = 'SELECT IFNULL(SUM(AmountApproved),0) AS Amount FROM tblfundrequisition WHERE (Deleted=0) AND (Status=1) AND (GroupId=?) AND (ApprovalDate BETWEEN ? AND ?)';
+        $sql = 'SELECT IFNULL(SUM(AmountApproved),0) AS Amount FROM tblfundrequisition WHERE (Deleted=0) AND (DontDeduct=1) AND (Status=1) AND (GroupId=?) AND (ApprovalDate BETWEEN ? AND ?)';
         return getdbvalue($this->db->dbh,$sql,[$data['group'],$data['start'],$data['end']]);
+    }
+
+    public function GetGroupCollections($data)
+    {
+        $sql = 'SELECT IFNULL(SUM(Debit),0) AS Amount FROM tblmmf WHERE (Deleted=0) AND (GroupId=?) AND (TransactionDate BETWEEN ? AND ?)';
+        return getdbvalue($this->db->dbh,$sql,[$data['group'],$data['start'],$data['end']]);
+    }
+
+    public function GetGroupExpensesPL($data)
+    {
+        $sql = 'SELECT 
+                    a.accountType,
+                    a.ID,
+                    SUM(`amount`) AS Amount
+                FROM `tblexpenses` e join tblaccounttypes a on e.accountId = a.ID
+                WHERE e.groupId = ? AND (e.expenseDate BETWEEN ? AND ?) AND (e.deleted = 0) AND (e.status=1)
+                GROUP BY a.accountType,a.ID';
+        return loadresultset($this->db->dbh,$sql,[(int)$data['group'],$data['start'],$data['end']]);
+    }
+
+    public function GetGroupPlExpenseDetailed($data)
+    {
+        $sql = 'SELECT 
+                    e.expenseDate,
+                    e.amount,
+                    e.paymentReference,
+                    e.narration
+                FROM `tblexpenses` e 
+                WHERE e.groupId = ? AND (e.expenseDate BETWEEN ? AND ?) AND (e.deleted = 0) AND (e.status=1) AND (e.accountId=?)';
+
+        return loadresultset($this->db->dbh,$sql,[(int)$data['group'],$data['sdate'],$data['edate'],$data['account']]);
     }
 
     // function GetGroups($) {

@@ -50,3 +50,8 @@ export async function getRequisitions(group) {
   const url = `${HOST_URL}/expenses/getrequisitions?group=${group}`;
   return await getRequest(url);
 }
+
+export async function getGroupPlExpenseDetailed(account, sdate, edate, group) {
+  const url = `${HOST_URL}/reports/groupplexpensedetailedrpt?account=${account}&sdate=${sdate}&edate=${edate}&group=${group}`;
+  return await getRequest(url);
+}

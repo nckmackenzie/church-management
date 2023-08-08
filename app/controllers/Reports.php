@@ -717,6 +717,8 @@ class Reports extends Controller {
 
             //values 
             $revenue = $this->reportModel->GetGroupRevenues($data);
+            $collections = $this->reportModel->GetGroupCollections($data);
+            $revenue_total = floatval($revenue) + floatval($collections);
             //expenses
             $expenses = $this->reportModel->GetGroupExpensesPL($data);
             $expenses_total = 0;
@@ -733,28 +735,39 @@ class Reports extends Controller {
                         <tr class="bg-olive">
                             <td colspan="2">Income</td>
                         </tr>';
+                    if($revenue > 0):
                         $output .='
-                        <tr>
-                            <td>Receipts</td>
-                            <td>'.number_format($revenue,2).'</td>
-                        </tr>';
+                            <tr>
+                                <td>Group Requisitions</td>
+                                <td>'.number_format($revenue,2).'</td>
+                            </tr>
+                        ';
+                    endif;
+                    if($collections > 0):
+                        $output .='
+                            <tr>
+                                <td>Group Collections</td>
+                                <td>'.number_format($collections,2).'</td>
+                            </tr>
+                        ';
+                    endif;
                     $output .='
                         <tr>
                             <th>Revenue Total</th>
-                            <th>'.number_format($revenue,2).'</th>
+                            <th>'.number_format($revenue_total,2).'</th>
                         </tr>
                         <tr style="background-color: #ed6b6b">
                             <td colspan="2">Expenses</td>
                         </tr>';
                     foreach($expenses as $expense){
-                        $expenses_total += floatval($expense->debit);
+                        $expenses_total += floatval($expense->Amount);
                         $output .='
                         <tr>
-                            <td>'.ucwords($expense->parentaccount).'</td>
-                            <td>'.number_format($expense->debit,2).'</td>
+                            <td>'.ucwords($expense->accountType).'</td>
+                            <td><a target="_blank" href="'.URLROOT.'/reports/groupplexpensedetailed?account='.$expense->ID.'&group='.$data['group'].'&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($expense->Amount,2).'</a></td>
                         </tr>';
                     }
-                    $profit_loss = ($revenue - $expenses_total);    
+                    $profit_loss = ($revenue_total - $expenses_total);    
                     $output .='
                         <tr>
                             <th>Expense Total</th>
@@ -769,6 +782,62 @@ class Reports extends Controller {
             echo $output;
         }else {
             redirect('users');
+        }
+    }
+
+    public function groupplexpensedetailed()
+    {
+        $this->view('reports/groupplexpensedetailed',[]);
+        exit;
+    }
+
+    public function groupplexpensedetailedrpt()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'GET')
+        {
+            $data = [
+                'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
+                'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
+                'account' => isset($_GET['account']) && !empty(trim($_GET['account'])) ? trim($_GET['account']) : null,
+                'group' => isset($_GET['group']) && !empty(trim($_GET['group'])) ? trim($_GET['group']) : null,
+                'totalamount' => 0,
+                'results' => []
+            ];
+            //validate
+            if(is_null($data['sdate']) || is_null($data['edate']) || is_null($data['account']) || is_null($data['group']))
+            {
+                http_response_code(400);
+                echo json_encode(['success' => false,'message' => 'Unable to get all fields']);
+                exit;
+            }
+
+            $details = $this->reportModel->GetGroupPlExpenseDetailed($data);
+
+            if(empty($details))
+            {
+                http_response_code(400);
+                echo json_encode(['success' => false,'message' => 'No details found for this account for specified period']);
+                exit;
+            }
+
+            foreach($details as $detail)
+            {
+                $data['totalamount'] += floatval($detail->amount);
+                array_push($data['results'],[
+                    'transactionDate' => date('d-m-Y',strtotime($detail->expenseDate)),
+                    'amount' => $detail->amount,
+                    'reference' => is_null($detail->paymentReference) ? '' : ucfirst($detail->paymentReference),
+                    'narration' => is_null($detail->narration) ? '' : ucfirst($detail->narration),
+                ]);
+            }
+
+            echo json_encode(['success' => true,'results' => $data['results'],"total" => $data['totalamount']]);
+            exit;
+        }
+        else
+        {
+            redirect('users/deniedaccess');
+            exit();
         }
     }
 
