@@ -980,7 +980,7 @@ class Reports extends Controller {
                         $output .='
                         <tr>
                             <td>'.strtoupper($asset->account).'</td>
-                            <td>'.number_format($asset->bal,2).'</td>
+                            <td><a target="_blank" href="'.URLROOT.'/reports/balancesheetdetailed?account='.strtolower($asset->account).'&asdate='.$todate.'">'.number_format($asset->bal,2).'</a></td>
                         </tr>';
                     }
                     $output .='
@@ -995,7 +995,7 @@ class Reports extends Controller {
                         $output .='
                         <tr>
                              <td>'.strtoupper($liabilityequity->account).'</td>
-                             <td>'.number_format((floatval($liabilityequity->bal) * -1),2).'</td>
+                             <td><a target="_blank" href="'.URLROOT.'/reports/balancesheetdetailed?account='.strtolower($liabilityequity->account).'&asdate='.$todate.'">'.number_format((floatval($liabilityequity->bal) * -1),2).'</a></td>
                         </tr>';
                     } 
                     $output .='
@@ -1014,6 +1014,58 @@ class Reports extends Controller {
             redirect('users');
         }
     }
+
+    public function balancesheetdetailed()
+    {
+        $this->view('reports/balancesheetdetailed',[]);
+    }
+
+    public function getbalancesheetdetailedrpt()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'GET')
+        {
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
+            $data = [
+                'account' => isset($_GET['account']) && !empty(trim($_GET['account'])) ? trim($_GET['account']) : null,
+                'asdate' => isset($_GET['asdate']) && !empty(trim($_GET['asdate'])) ? date('Y-m-d',strtotime(trim($_GET['asdate']))) : null,
+                'results' => []
+            ];
+
+            //validate data
+            if(is_null($data['account']) || is_null($data['asdate'])){
+                http_response_code(400);
+                echo json_encode(['message' => 'Provide all required fields']);
+                exit;
+            }
+            
+            $results = $this->reportModel->GetDetailedBalanceSheetAccountReport($data);
+            if(!$results){
+                http_response_code(500);
+                echo json_encode(['message' => 'Invalid report type']);
+                exit;
+            }
+
+            foreach($results as $result){
+                array_push($data['results'],[
+                    'transactionDate' => date('d-m-Y',strtotime($result->transactionDate)),
+                    'account' => ucwords($result->account),
+                    'debit' => floatval($result->debit) !== 0 ? floatval($result->debit) : '',
+                    'credit' => floatval($result->credit) !== 0 ? floatval($result->credit) : '',
+                    'narration' => ucwords($result->narration),
+                    'transactionType' => ucwords($result->TransactionType),
+                ]);
+            }
+
+            echo json_encode(['success' => true,'results' => $data['results']]);
+            exit;
+        }
+        else{
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
+
+
     public function banking()
     {
         checkrights($this->authmodel,'banking reports');

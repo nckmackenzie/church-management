@@ -614,6 +614,16 @@ class Report {
         return loadresultset($this->db->dbh,$sql,[$data['group'],$data['sdate'],$data['edate']]);
     }
 
+    public function GetDetailedBalanceSheetAccountReport($data)
+    {
+        $sql = 'SELECT transactionDate,account,debit,credit,narration,t.TransactionType 
+                FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID 
+                WHERE (account = ?) AND (transactionDate <= ?) AND (l.deleted = 0)
+                ORDER BY transactionDate';
+     
+        return loadresultset($this->db->dbh,$sql,[$data['account'],$data['asdate']]);
+    }
+
     // function GetGroups($) {
         
     // }
