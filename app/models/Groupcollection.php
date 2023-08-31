@@ -10,10 +10,15 @@ class Groupcollection
 
     public function GetTransactions()
     {
-        $sql = 'SELECT m.ID,TransactionDate,groupName,Debit 
-                FROM tblmmf m join tblgroups g on m.GroupId=g.ID 
+        $sql = "SELECT
+	                m.ID,
+                    m.TransactionDate,
+                    m.Type,
+                    IF(Type = 'district',d.districtName,g.groupName) As DistrictGroup,
+                    m.Debit 
+                FROM tblmmf m left join tblgroups g on m.GroupId=g.ID left join tbldistricts d on m.DistrictId = d.ID
                 WHERE (m.Deleted=0) AND (m.CongregationID=?) AND (m.TransactionType=17)
-                ORDER BY TransactionDate DESC';
+                ORDER BY TransactionDate DESC;";
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
 
@@ -27,9 +32,25 @@ class Groupcollection
         return $this->db->resultSet();
     }
 
-    public function GetSubAccounts($groupid)
+    public function GetDistrictOrGroup($type)
     {
-       return loadresultset($this->db->dbh,'SELECT ID,AccountName FROM tblbanksubaccounts WHERE (GroupId=?) AND (Deleted=0)',[$groupid]);
+        $sql = '';
+        if($type == 'group'){
+            $sql = 'SELECT ID,groupName as ColumnName FROM tblgroups WHERE (congregationId=?) AND (deleted=0) ORDER BY ColumnName';
+        }else{
+            $sql = 'SELECT ID,districtName as ColumnName FROM tbldistricts WHERE (congregationId=?) AND (deleted=0) ORDER BY ColumnName';
+        }
+
+        return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
+    }
+
+    public function GetSubAccounts($type,$groupid)
+    {
+       if($type == 'group'){
+         return loadresultset($this->db->dbh,'SELECT ID,AccountName FROM tblbanksubaccounts WHERE (GroupId=?) AND (Deleted=0)',[$groupid]);
+       }else{
+         return loadresultset($this->db->dbh,'SELECT ID,AccountName FROM tblbanksubaccounts WHERE (DistrictId=?) AND (Deleted=0)',[$groupid]);
+       }
     }
 
     public function GetAccountDetails($subaccount)
@@ -51,10 +72,12 @@ class Groupcollection
             
             $this->db->dbh->beginTransaction();
 
-            $this->db->query('INSERT INTO tblmmf (TransactionDate,GroupId,Debit,SubAccountId,Narration,TransactionType,
-                                                  CongregationId) VALUES(:tdate,:gid,:debit,:subid,:narr,:ttype,:cid)');
+            $this->db->query('INSERT INTO tblmmf (TransactionDate,`Type`,DistrictId,GroupId,Debit,SubAccountId,Narration,TransactionType,
+                                                  CongregationId) VALUES(:tdate,:typ,:did,:gid,:debit,:subid,:narr,:ttype,:cid)');
             $this->db->bind(':tdate',$data['tdate']);
-            $this->db->bind(':gid',$data['groupid']);
+            $this->db->bind(':typ',$data['type']);
+            $this->db->bind(':did',$data['type'] == 'district' ? $data['groupid'] : null);
+            $this->db->bind(':gid',$data['type'] == 'group' ? $data['groupid'] : null);
             $this->db->bind(':debit',$data['amount']);
             $this->db->bind(':subid',$data['subaccount']);
             $this->db->bind(':narr',$data['narration']);

@@ -30,6 +30,7 @@ class Groupcollections extends Controller
             'id' => '',
             'isedit' => false,
             'tdate' => date('Y-m-d',strtotime($_SESSION['processdate'])),
+            'type' => '',
             'groups' => $this->collectionmodel->GetGroups(),
             'groupid' => '',
             'amount' => '',
@@ -43,17 +44,39 @@ class Groupcollections extends Controller
         exit;
     }
 
-    public function getsubaccounts()
+    public function getgroupordistrict()
     {
-        $groupid = isset($_GET['groupid']) && !empty(trim($_GET['groupid'])) ? trim($_GET['groupid']) : null;
+        $type = isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : null;
         $data = [];
 
-        if(is_null($groupid)):
+        if(is_null($type)):
             http_response_code(400);
             echo json_encode(['message' => 'Select group']);
         endif;
 
-        $subaccounts = $this->collectionmodel->GetSubAccounts($groupid);
+        $groupsordistricts = $this->collectionmodel->GetDistrictOrGroup($type);
+        foreach($groupsordistricts as $grpdist):
+            array_push($data,[
+                'id' => $grpdist->ID,
+                'label' => strtoupper($grpdist->ColumnName)
+            ]);
+        endforeach;
+
+        echo json_encode($data);
+    }
+
+    public function getsubaccounts()
+    {
+        $type = isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : null;
+        $groupid = isset($_GET['groupid']) && !empty(trim($_GET['groupid'])) ? trim($_GET['groupid']) : null;
+        $data = [];
+
+        if(is_null($groupid) || is_null($type)):
+            http_response_code(400);
+            echo json_encode(['message' => 'Select group']);
+        endif;
+
+        $subaccounts = $this->collectionmodel->GetSubAccounts($type,$groupid);
         foreach($subaccounts as $account):
             array_push($data,[
                 'id' => $account->ID,
@@ -87,7 +110,8 @@ class Groupcollections extends Controller
                 'id' => isset($fields->id) && !empty(trim($fields->id)) ? (int)trim($fields->id) : null,
                 'isedit' => converttobool($fields->isedit),
                 'tdate' => isset($fields->tdate) && !empty(trim($fields->tdate)) ? date('Y-m-d',strtotime(trim($fields->tdate))) : null,
-                'groups' => $this->collectionmodel->GetGroups(),
+                'type' => isset($fields->type) && !empty(trim($fields->type)) ? strtolower(trim($fields->type)) : null,
+                // 'groups' => $this->collectionmodel->GetGroups(),
                 'groupid' => isset($fields->groupid) && !empty(trim($fields->groupid)) ? (int)trim($fields->groupid) : null,
                 'amount' => isset($fields->amount) && !empty(trim($fields->amount)) ? floatval(trim($fields->amount)) : null,
                 'narration' => isset($fields->narration) && !empty(trim($fields->narration)) ? strtolower(trim($fields->narration)) : null,
@@ -129,15 +153,18 @@ class Groupcollections extends Controller
         $transaction = $this->collectionmodel->GetCollection($id);
         $accountdetails = $this->collectionmodel->GetAccountDetails($transaction->SubAccountId);
         checkcenter($transaction->CongregationId);
+        $type = $transaction->Type;
+        $groupid = $type == 'group' ? $transaction->GroupId : $transaction->DistrictId;
         $data = [
             'id' => $transaction->ID,
             'isedit' => true,
             'tdate' => date('Y-m-d',strtotime($transaction->TransactionDate)),
-            'groups' => $this->collectionmodel->GetGroups(),
-            'groupid' => $transaction->GroupId,
+            'type' => $type,
+            'groups' => $this->collectionmodel->GetDistrictOrGroup($type),
+            'groupid' => $groupid,
             'amount' => $transaction->Debit,
             'narration' => strtoupper($transaction->Narration),
-            'subaccounts' => $this->collectionmodel->GetSubAccounts($transaction->GroupId),
+            'subaccounts' => $this->collectionmodel->GetSubAccounts($type, $groupid),
             'subaccount' => $transaction->SubAccountId,
             'accountid' => $accountdetails[0],
             'account' => $accountdetails[1],

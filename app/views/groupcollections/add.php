@@ -27,7 +27,7 @@
                     <div class="card-body">
                         <form action="<?php echo URLROOT;?>/groupcollections/createupdate" method="post" id="form" autocomplete="off">
                             <div class="row">
-                                <div class="col-sm-6">
+                                <div class="col-sm-4">
                                     <div class="form-group">
                                         <label for="tdate">Date</label>
                                         <input type="date" name="tdate" id="date" 
@@ -36,14 +36,26 @@
                                         <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
-                                <div class="col-sm-6">
+                                <div class="col-sm-4">
                                     <div class="form-group">
-                                        <label for="groupid">Group</label>
+                                        <label for="type">Group Or District</label>
+                                        <select name="type" id="type" class="form-control form-control-sm mandatory">
+                                            <option value="" selected disabled>Select group/district</option>
+                                            <option value="group" <?php selectdCheck($data['type'],'group'); ?>>Group</option>
+                                            <option value="district" <?php selectdCheck($data['type'],'district'); ?>>District</option>
+                                        </select>
+                                        <span class="invalid-feedback"></span>
+                                    </div>
+                                </div>
+                                <div class="col-sm-4">
+                                    <div class="form-group">
+                                        <label for="groupid">Group/District</label>
                                         <select name="groupid" id="groupid" class="form-control form-control-sm mandatory">
-                                            <option value="" selected disabled>Select group</option>
-                                            <?php foreach($data['groups'] as $group) : ?>
-                                                <option value="<?php echo $group->ID; ?>" <?php selectdCheck($data['groupid'],$group->ID);?>><?php echo $group->groupName;?></option>
-                                            <?php endforeach; ?>
+                                            <?php if($data['isedit']) : ?>
+                                                <?php foreach($data['groups'] as $group) : ?>
+                                                    <option value="<?php echo $group->ID; ?>" <?php selectdCheck($data['groupid'],$group->ID);?>><?php echo strtoupper($group->ColumnName);?></option>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
                                         </select>
                                         <span class="invalid-feedback"></span>
                                     </div>
@@ -105,6 +117,6 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupcollections/index.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupcollections/index-v1.js"></script>
 </body>
 </html>  
