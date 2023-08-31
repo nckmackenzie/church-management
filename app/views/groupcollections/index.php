@@ -48,7 +48,8 @@
                     <thead class="bg-navy">
                         <th class="d-none">ID</th>
                         <th>Transaction Date</th>
-                        <th>Group</th>
+                        <th>Type</th>
+                        <th>Group/District</th>
                         <th>Amount</th>
                         <th>Actions</th>
                     </thead>
@@ -57,7 +58,8 @@
                             <tr>
                                 <td class="d-none"><?php echo $transaction->ID;?></td>
                                 <td><?php echo date('d-M-Y',strtotime($transaction->TransactionDate));?></td>
-                                <td><?php echo strtoupper($transaction->groupName);?></td>
+                                <td><?php echo strtoupper($transaction->Type);?></td>
+                                <td><?php echo strtoupper($transaction->DistrictGroup);?></td>
                                 <td><?php echo number_format($transaction->Debit,2);?></td>
                                 <td>
                                     <?php if($_SESSION['userType'] <=2 || (int)$_SESSION['userType'] > 4) : ?>
