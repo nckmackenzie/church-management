@@ -16,8 +16,8 @@ class Banktransaction
 
     public function GetOtherBanks()
     {
-        $sql = "SELECT ID,UCASE(CONCAT(accountType,'-',IFNULL(accountNo,''))) AS Bank FROM tblaccounttypes WHERE (isBank = 1 AND CongregationId=? AND deleted=0) OR accountType = ?";
-        return loadresultset($this->db->dbh,$sql,[$_SESSION['congId'],'fixed deposits']);
+        $sql = "SELECT ID,UCASE(CONCAT(accountType,'-',IFNULL(accountNo,''))) AS Bank FROM tblaccounttypes WHERE (isBank = 1 AND CongregationId=? AND deleted=0) OR (accountType = ?) OR (accountType = ?)";
+        return loadresultset($this->db->dbh,$sql,[$_SESSION['congId'],'fixed deposits','petty cash']);
     }
 
     public function GetBanks()
@@ -41,6 +41,11 @@ class Banktransaction
         array_push($accountDetails,$accountId);
 
         return $accountDetails;
+    }
+
+    public function GetReceiptNo()
+    {
+        return getuniqueid($this->db->dbh,'ReceiptNo','tblpettycash',(int)$_SESSION['congId']);
     }
 
     public function Save($data)
@@ -92,6 +97,22 @@ class Banktransaction
                              $data['reference'],13,$tid,$_SESSION['congId']);
             }
 
+            if($data['transfer'] == '98'){
+                $this->db->query('INSERT INTO tblpettycash (ReceiptNo,TransactionDate,Debit,IsReceipt,BankId,Reference,Narration,TransactionType,TransactionId,CongregationId)
+                                  VALUES(:rno,:tdate,:debit,:isreceipt,:bankid,:reference,:narr,:ttype,:tid,:cid)');
+                $this->db->bind(':rno',$this->GetReceiptNo());
+                $this->db->bind(':tdate',$data['date']);
+                $this->db->bind(':debit',$data['amount']);
+                $this->db->bind(':isreceipt',true);
+                $this->db->bind(':bankid',$data['bank']);
+                $this->db->bind(':reference',strtolower($data['reference']));
+                $this->db->bind(':narr',$narr);
+                $this->db->bind(':ttype',13);
+                $this->db->bind(':tid',$tid);
+                $this->db->bind(':cid',$_SESSION['congId']);
+                $this->db->execute();       
+            }
+
             if(!$this->db->dbh->commit()){
                 return false;
             }
@@ -127,6 +148,10 @@ class Banktransaction
             
             deleteLedgerBanking($this->db->dbh,13,$data['id']);
 
+            $this->db->query('DELETE FROM tblpettycash WHERE (TransactionTypeId = 13) AND (TransactionId=:tid)');
+            $this->db->bind(':tid',$data['id']);
+            $this->db->execute();
+
             $narr = !empty($data['description']) ? strtolower($data['description']) : 'bank transaction reference ' .$data['reference'];
             $cabparent = getparentgl($this->db->dbh,'cash at bank');
 
@@ -155,6 +180,22 @@ class Banktransaction
                             $accountid,13,$data['id'],$_SESSION['congId']);
                 saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],1,
                              $data['reference'],13,$data['id'],$_SESSION['congId']);
+            }
+
+            if($data['transfer'] == '98'){
+                $this->db->query('INSERT INTO tblpettycash (ReceiptNo,TransactionDate,Debit,IsReceipt,BankId,Reference,Narration,TransactionType,TransactionId,CongregationId)
+                                  VALUES(:rno,:tdate,:debit,:isreceipt,:bankid,:reference,:narr,:ttype,:tid,:cid)');
+                $this->db->bind(':rno',$this->GetReceiptNo());
+                $this->db->bind(':tdate',$data['date']);
+                $this->db->bind(':debit',$data['amount']);
+                $this->db->bind(':isreceipt',true);
+                $this->db->bind(':bankid',$data['bank']);
+                $this->db->bind(':reference',strtolower($data['reference']));
+                $this->db->bind(':narr',$narr);
+                $this->db->bind(':ttype',13);
+                $this->db->bind(':tid',$data['id']);
+                $this->db->bind(':cid',$_SESSION['congId']);
+                $this->db->execute();       
             }
 
             if(!$this->db->dbh->commit()){
@@ -199,6 +240,10 @@ class Banktransaction
             $this->db->execute();
             
             softdeleteLedgerBanking($this->db->dbh,13,$id);
+
+            $this->db->query('UPDATE tblpettycash SET Deleted=1 WHERE (TransactionTypeId = 13) AND (TransactionId=:tid)');
+            $this->db->bind(':tid',$id);
+            $this->db->execute();
             
             if(!$this->db->dbh->commit()){
                 return false;
