@@ -747,7 +747,7 @@ class Reports extends Controller {
                         $output .='
                             <tr>
                                 <td>Group Collections</td>
-                                <td><a target="_blank" href="'.URLROOT.'/reports/groupplrevenuedetailed?type=collections&group='.$data['group'].'&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($revenue,2).'</a></td>
+                                <td><a target="_blank" href="'.URLROOT.'/reports/groupplrevenuedetailed?type=collections&group='.$data['group'].'&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($collections,2).'</a></td>
                             </tr>
                         ';
                     endif;
