@@ -105,11 +105,11 @@ class Groupfunds extends Controller
                 exit;
             }
 
-            if(!$data['isedit'] && (int)$this->fundmodel->PendingApprovalCount($data['group']) > 0){
-                $data['errmsg'] = 'Group has pending requisition for approval';
-                $this->view('groupfunds/add',$data);
-                exit;
-            }
+            // if(!$data['isedit'] && (int)$this->fundmodel->PendingApprovalCount($data['group']) > 0){
+            //     $data['errmsg'] = 'Group has pending requisition for approval';
+            //     $this->view('groupfunds/add',$data);
+            //     exit;
+            // }
 
             if(!$this->fundmodel->CreateUpdate($data)){
                 $data['errmsg'] = 'Unable to save this request. Contact admin for help';
