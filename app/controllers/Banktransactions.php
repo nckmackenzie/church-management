@@ -39,9 +39,26 @@ class Banktransactions extends Controller
             'reference' => '',
             'description' => '',
             'amount' => '',
-            'transfer' => ''
+            'transfer' => '',
+            'deposittosubs' => false,
+            'subaccounts' => ''
         ];
         $this->view('banktransactions/add',$data);
+        exit;
+    }
+
+    public function getsubaccounts()
+    {
+        $bankid = isset($_GET['bankid']) && !empty(trim($_GET['bankid'])) ? (int)trim($_GET['bankid']) : null;
+
+        if(is_null($bankid)){
+            http_response_code(400);
+            echo json_encode(['success' => false,'message' => 'Select bank']);
+            exit;
+        }
+
+        $accounts = $this->bankmodel->GetSubaccounts($bankid);
+        echo json_encode(['success' => true,'data' => $accounts]);
         exit;
     }
 
@@ -60,6 +77,8 @@ class Banktransactions extends Controller
                 'amount' => isset($fields->amount) && !empty(trim($fields->amount)) ? (int)trim($fields->amount) : null,
                 'reference' => isset($fields->reference) && !empty(trim($fields->reference)) ? trim($fields->reference) : null,
                 'description' => isset($fields->description) && !empty(trim($fields->description)) ? trim($fields->description) : null,
+                'deposittosubs' => isset($fields->deposittosubs) && trim($fields->deposittosubs) === 'on' ? true : false,
+                'subaccounts' => isset($fields->deposittosubs) && trim($fields->deposittosubs) === 'on' ? $fields->subaccounts : null
             ];
 
             if(is_null($data['date']) || is_null($data['bank']) || is_null($data['type']) 
@@ -116,7 +135,9 @@ class Banktransactions extends Controller
             'description' => strtoupper($transaction->Description),
             'amount' => $transaction->Amount,
             'type' => $transaction->TransactionTypeId,
-            'transfer' => $transaction->TransferToId
+            'transfer' => $transaction->TransferToId,
+            'deposittosubs' => $transaction->DepositToSubAccounts,
+            'subaccounts' => (int)$transaction->DepositToSubAccounts === 1 ? $this->bankmodel->GetSavedSubsAccounts($transaction->ID) : null
         ];
         $this->view('banktransactions/add',$data);
         exit;

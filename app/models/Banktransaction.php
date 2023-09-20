@@ -48,14 +48,19 @@ class Banktransaction
         return getuniqueid($this->db->dbh,'ReceiptNo','tblpettycash',(int)$_SESSION['congId']);
     }
 
+    public function GetSubaccounts($bankid)
+    {
+        return loadresultset($this->db->dbh,'SELECT ID,UCASE(AccountName) AS SubAccount FROM tblbanksubaccounts WHERE (BankId=?) AND (Deleted=0)',[$bankid]);
+    }
+
     public function Save($data)
     {
         try {
             
             $this->db->dbh->beginTransaction();
             $this->db->query('INSERT INTO tblbanktransactions (TransactionDate,TransactionTypeId,BankId,Amount,TransferToId,
-                                                               Reference,`Description`,CongregationId) 
-                              VALUES(:ddate,:tid,:bid,:amount,:trans,:reference,:narr,:cid)');
+                                                               Reference,`Description`,DepositToSubAccounts,CongregationId) 
+                              VALUES(:ddate,:tid,:bid,:amount,:trans,:reference,:narr,:subs, :cid)');
             $this->db->bind(':ddate',$data['date']);
             $this->db->bind(':tid',$data['type']);
             $this->db->bind(':bid',$data['bank']);
@@ -63,9 +68,19 @@ class Banktransaction
             $this->db->bind(':trans',$data['transfer']);
             $this->db->bind(':reference',$data['reference']);
             $this->db->bind(':narr',$data['description']);
+            $this->db->bind(':subs',$data['deposittosubs']);
             $this->db->bind(':cid',$_SESSION['congId']);
             $this->db->execute();
             $tid = $this->db->dbh->lastInsertId();
+
+            for ($i=0; $i < count($data['subaccounts']); $i++) {
+                $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionId`, `SubAccountId`, `Amount`) 
+                                  VALUES (:tid,:sub,:amount)');
+                $this->db->bind(':tid',$tid);
+                $this->db->bind(':sub',$data['subaccounts'][$i]->accountid);
+                $this->db->bind(':amount',$data['subaccounts'][$i]->amount);
+                $this->db->execute();
+            }
 
             $narr = !empty($data['description']) ? strtolower($data['description']) : 'bank transaction reference ' .$data['reference'];
             $cabparent = getparentgl($this->db->dbh,'cash at bank');
@@ -128,6 +143,14 @@ class Banktransaction
         }
     }
 
+    public function GetSavedSubsAccounts($id)
+    {
+        $sql = 'SELECT s.SubAccountId,ucase(b.AccountName) As Account 
+                FROM `tblbanktransactions_subaccounts` s join tblbanksubaccounts b on s.SubAccountId = b.ID 
+                WHERE s.TransactionId = ?';
+        return loadresultset($this->db->dbh,$sql,[$id]);
+    }
+
     public function Update($data)
     {
         try {
@@ -151,6 +174,20 @@ class Banktransaction
             $this->db->query('DELETE FROM tblpettycash WHERE (TransactionTypeId = 13) AND (TransactionId=:tid)');
             $this->db->bind(':tid',$data['id']);
             $this->db->execute();
+
+            $this->db->query('DELETE FROM tblbanktransactions_subaccounts WHERE (TransactionId = :tid)');
+            $this->db->bind(':tid',$data['id']);
+            $this->db->execute();
+
+            for ($i=0; $i < count($data['subaccounts']); $i++) {
+                $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionId`, `SubAccountId`, `Amount`) 
+                                  VALUES (:tid,:sub,:amount)');
+                $this->db->bind(':tid',$data['id']);
+                $this->db->bind(':sub',$data['subaccounts'][$i]->accountid);
+                $this->db->bind(':amount',$data['subaccounts'][$i]->amount);
+                $this->db->execute();
+            }
+
 
             $narr = !empty($data['description']) ? strtolower($data['description']) : 'bank transaction reference ' .$data['reference'];
             $cabparent = getparentgl($this->db->dbh,'cash at bank');

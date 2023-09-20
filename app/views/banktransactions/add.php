@@ -102,6 +102,17 @@
                                         autocomplete="off">   
                                     </div>
                                 </div>
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <div class="custom-control custom-checkbox">
+                                            <input type="checkbox" class="custom-control-input" id="deposittosubs" name="deposittosubs" <?php echo $data['deposittosubs'] ? 'checked' : '';?> disabled>
+                                            <label class="custom-control-label" for="deposittosubs">Deposit to sub-accounts</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="table-responsive" id="subaccountsContainer"></div>                
+                                </div>
                             </div>    
                             <div class="row">
                                 <div class="col-md-2 mt-2">
@@ -119,7 +130,7 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/banktransactions/index.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/banktransactions/index-v1.js"></script>
 </body>
 </html>
   
