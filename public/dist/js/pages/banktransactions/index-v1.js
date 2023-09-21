@@ -130,6 +130,7 @@ form.addEventListener('submit', async e => {
   resetLoadingState(btn, 'Save');
   if (data.success) {
     clearValues();
+    subaccountsContainer.innerHTML = '';
     displayAlert(alertBox, 'Saved successfully', 'success');
   }
 });
