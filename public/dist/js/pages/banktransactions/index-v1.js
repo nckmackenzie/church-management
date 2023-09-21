@@ -154,7 +154,7 @@ async function submitHandler() {
     ...formdata,
     subaccounts: subaccounts.checked ? tableData() : [],
   };
-  console.log(formFields);
+  // console.log(formFields);
   const response = await sendHttpRequest(
     `${HOST_URL}/banktransactions/createupdate`,
     'POST',
