@@ -159,9 +159,9 @@ class Contribution {
                 $this->db->query('INSERT INTO tblcontributions_details(HeaderId,contributionDate,contributionTypeId
                                                 ,paymentMethodId,bankId,amount,category,contributor,
                                                 contributotGroup,contributotDistrict,contributotService,contributotCong,
-                                                paymentReference,narration,incomeType,forGroup)
+                                                paymentReference,narration,incomeType,forGroup,subaccount)
                                   VALUES(:id,:cdate,:typeid,:mid,:bid,:amount,:cat,:cont,:gcont,:dcont,:scont,:ccont
-                                            ,:ref,:narr,:itype,:for)');
+                                            ,:ref,:narr,:itype,:for,:subaccount)');
                 $this->db->bind(':id',$tid);                            
                 $this->db->bind(':cdate',$data['date']);                            
                 $this->db->bind(':typeid',$data['accountsid'][$i]);                            
@@ -187,30 +187,51 @@ class Contribution {
                 $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : NULL);                            
                 $this->db->bind(':itype',1);                            
                 $this->db->bind(':for',$forgroup);                            
+                $this->db->bind(':subaccount', !empty(trim($data['subaccount'][$i])) ? (int)$data['subaccount'][$i] : null);                            
                 $this->db->execute();
 
-                if((int)$data['categoriesid'][$i] === 2 && (int)$accountid === 4){
-                    $this->db->query('INSERT INTO tblmmf (TransactionDate,GroupId,Debit,Reference,Narration,TransactionType,
-                                                            TransactionId,CongregationId) VALUES(:tdate,:gid,:debit,:ref,:narr,:ttype,:tid,:cid)');
+                if(!empty(trim($data['subaccount'][$i])) && !is_null($data['subaccount'][$i])){
+                    $this->db->query('INSERT INTO tblmmf (TransactionDate,`Type`,DistrictId,GroupId,Debit,SubAccountId,Narration,TransactionType,
+                                                  TransactionId,CongregationId) VALUES(:tdate,:typ,:did,:gid,:debit,:subid,:narr,:ttype,:tid,:cid)');
                     $this->db->bind(':tdate',$data['date']);
-                    $this->db->bind(':gid',$data['contributorsid'][$i]);
+                    $this->db->bind(':typ',(int)$data['categoriesid'][$i] === 2 ? 'group' : 'district');
+                    $this->db->bind(':did',(int)$data['categoriesid'][$i] === 3 ? $data['contributorsid'][$i] : null);
+                    $this->db->bind(':gid',(int)$data['categoriesid'][$i] === 2 ? $data['contributorsid'][$i] : null);
                     $this->db->bind(':debit',$data['amounts'][$i]);
-                    $this->db->bind(':ref',$data['receiptno']);
-                    $this->db->bind(':narr','Receipts for ' .date('d-m-Y',strtotime($data['date'])));
+                    $this->db->bind(':subid',$data['subaccount'][$i]);
+                    $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : NULL);
                     $this->db->bind(':ttype',1);
                     $this->db->bind(':tid',$tid);
                     $this->db->bind(':cid',$_SESSION['congId']);
                     $this->db->execute();
-
-                    $gbhparent = getparentgl($this->db->dbh,$accountname); 
-                    
-                    saveToLedger($this->db->dbh,$data['date'],$accountname,$gbhparent,0,$data['amounts'][$i]
-                        ,$data['description'],4,1,$tid,$_SESSION['congId']);
-                }else{
-                    $accountparent = getparentgl($this->db->dbh,trim($data['accountsname'][$i]));
-                    saveToLedger($this->db->dbh,$data['date'],strtolower($data['accountsname'][$i]),$accountparent,0,$data['amounts'][$i]
-                        ,$data['description'],$accountid,1,$tid,$_SESSION['congId']);
                 }
+
+                $accountparent = getparentgl($this->db->dbh,trim($data['accountsname'][$i]));
+                saveToLedger($this->db->dbh,$data['date'],strtolower($data['accountsname'][$i]),$accountparent,0,$data['amounts'][$i]
+                             ,$data['description'],$accountid,1,$tid,$_SESSION['congId']);
+
+                // if((int)$data['categoriesid'][$i] === 2 && (int)$accountid === 4){
+                //     $this->db->query('INSERT INTO tblmmf (TransactionDate,GroupId,Debit,Reference,Narration,TransactionType,
+                //                                             TransactionId,CongregationId) VALUES(:tdate,:gid,:debit,:ref,:narr,:ttype,:tid,:cid)');
+                //     $this->db->bind(':tdate',$data['date']);
+                //     $this->db->bind(':gid',$data['contributorsid'][$i]);
+                //     $this->db->bind(':debit',$data['amounts'][$i]);
+                //     $this->db->bind(':ref',$data['receiptno']);
+                //     $this->db->bind(':narr','Receipts for ' .date('d-m-Y',strtotime($data['date'])));
+                //     $this->db->bind(':ttype',1);
+                //     $this->db->bind(':tid',$tid);
+                //     $this->db->bind(':cid',$_SESSION['congId']);
+                //     $this->db->execute();
+
+                //     $gbhparent = getparentgl($this->db->dbh,$accountname); 
+                    
+                //     saveToLedger($this->db->dbh,$data['date'],$accountname,$gbhparent,0,$data['amounts'][$i]
+                //         ,$data['description'],4,1,$tid,$_SESSION['congId']);
+                // }else{
+                //     $accountparent = getparentgl($this->db->dbh,trim($data['accountsname'][$i]));
+                //     saveToLedger($this->db->dbh,$data['date'],strtolower($data['accountsname'][$i]),$accountparent,0,$data['amounts'][$i]
+                //         ,$data['description'],$accountid,1,$tid,$_SESSION['congId']);
+                // }
             } 
             
             $cashparent = getparentgl($this->db->dbh,'cash at bank');
@@ -290,18 +311,48 @@ class Contribution {
 
     public function delete($data)
     {
-        $this->db->query('UPDATE tblcontributions_header SET deleted=:del WHERE (ID=:id)');
-        $this->db->bind(':del',1);
-        $this->db->bind(':id',$data['id']);
-        if ($this->db->execute()) {
+        try {
+            //begin transaction
+            $this->db->dbh->beginTransaction();
+
+            $this->db->query('UPDATE tblcontributions_header SET deleted=:del WHERE (ID=:id)');
+            $this->db->bind(':del',1);
+            $this->db->bind(':id',$data['id']);
+
             softdeleteLedgerBanking($this->db->dbh,1,$data['id']);
-            // $act = 'Deleted Contribution For '.$data['contributor']. ' For Date '.$data['date'];
+
+            $this->db->query('UPDATE tblmmf SET Deleted = 1 WHERE TransactionType = 1 AND TransactionId = :tid');
+            $this->db->bind(':tid',$data['id']);
+            $this->db->execute();
+            
+            
+            // $act = 'Deleted Contribution For '.$data['date'];
             // saveLog($this->db->dbh,$act);
-            return true;
-        }
-        else{
+            if ($this->db->dbh->commit()) {
+                return true;
+            }
+            else{
+                return false;
+            }
+        } catch (\Exception $e) {
+            if ($this->db->dbh->inTransaction()) {
+                $this->db->dbh->rollback();
+            }
+            error_log($e->getMessage(),0);
             return false;
         }
+        // $this->db->query('UPDATE tblcontributions_header SET deleted=:del WHERE (ID=:id)');
+        // $this->db->bind(':del',1);
+        // $this->db->bind(':id',$data['id']);
+        // if ($this->db->execute()) {
+        //     softdeleteLedgerBanking($this->db->dbh,1,$data['id']);
+        //     // $act = 'Deleted Contribution For '.$data['contributor']. ' For Date '.$data['date'];
+        //     // saveLog($this->db->dbh,$act);
+        //     return true;
+        // }
+        // else{
+        //     return false;
+        // }
     }
     public function contributionHeader($id)
     {
@@ -360,9 +411,9 @@ class Contribution {
                 $this->db->query('INSERT INTO tblcontributions_details(HeaderId,contributionDate,contributionTypeId
                                                 ,paymentMethodId,bankId,amount,category,contributor,
                                                 contributotGroup,contributotDistrict,contributotService,contributotCong,
-                                                paymentReference,narration,incomeType,forGroup)
+                                                paymentReference,narration,incomeType,forGroup,subaccount)
                                   VALUES(:id,:cdate,:typeid,:mid,:bid,:amount,:cat,:cont,:gcont,:dcont,:scont,:ccont
-                                            ,:ref,:narr,:itype,:for)');
+                                            ,:ref,:narr,:itype,:for,:subaccount)');
                 $this->db->bind(':id',$data['id']);                            
                 $this->db->bind(':cdate',$data['date']);                            
                 $this->db->bind(':typeid',$data['accountsid'][$i]);                            
@@ -387,28 +438,49 @@ class Contribution {
                 $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : NULL);                            
                 $this->db->bind(':itype',1);                            
                 $this->db->bind(':for',$forgroup);                            
+                $this->db->bind(':subaccount',$data['subaccount'][$i]);                            
                 $this->db->execute();
 
-                if((int)$data['categoriesid'][$i] === 2 && (int)$accountid === 4){
-                    $this->db->query('INSERT INTO tblmmf (TransactionDate,GroupId,Debit,Reference,TransactionType,
-                                                            TransactionId,CongregationId) VALUES(:tdate,:gid,:debit,:ref,:ttype,:tid,:cid)');
+                if(!empty(trim($data['subaccount'][$i])) && !is_null($data['subaccount'][$i])){
+                    $this->db->query('INSERT INTO tblmmf (TransactionDate,`Type`,DistrictId,GroupId,Debit,SubAccountId,Narration,TransactionType,
+                                                  TransactionId,CongregationId) VALUES(:tdate,:typ,:did,:gid,:debit,:subid,:narr,:ttype,:tid,:cid)');
                     $this->db->bind(':tdate',$data['date']);
-                    $this->db->bind(':gid',$data['contributorsid'][$i]);
+                    $this->db->bind(':typ',(int)$data['categoriesid'][$i] === 2 ? 'group' : 'district');
+                    $this->db->bind(':did',(int)$data['categoriesid'][$i] === 3 ? $data['contributorsid'][$i] : null);
+                    $this->db->bind(':gid',(int)$data['categoriesid'][$i] === 2 ? $data['contributorsid'][$i] : null);
                     $this->db->bind(':debit',$data['amounts'][$i]);
-                    $this->db->bind(':ref',$data['receiptno']);
+                    $this->db->bind(':subid',$data['subaccount'][$i]);
+                    $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : NULL);
                     $this->db->bind(':ttype',1);
                     $this->db->bind(':tid',$data['id']);
                     $this->db->bind(':cid',$_SESSION['congId']);
                     $this->db->execute();
-
-                    $gbhparent = getparentgl($this->db->dbh,$accountname); 
-                    saveToLedger($this->db->dbh,$data['date'],$accountname,$gbhparent,0,$data['amounts'][$i]
-                        ,$data['description'],4,1,$data['id'],$_SESSION['congId']);
-                }else{
-                    $accountparent = getparentgl($this->db->dbh,trim($data['accountsname'][$i]));
-                    saveToLedger($this->db->dbh,$data['date'],strtolower($data['accountsname'][$i]),$accountparent,0,$data['amounts'][$i]
-                        ,$data['description'],$accountid,1,$data['id'],$_SESSION['congId']);
                 }
+
+                $accountparent = getparentgl($this->db->dbh,trim($data['accountsname'][$i]));
+                saveToLedger($this->db->dbh,$data['date'],strtolower($data['accountsname'][$i]),$accountparent,0,$data['amounts'][$i]
+                             ,$data['description'],$accountid,1,$data['id'],$_SESSION['congId']);
+
+                // if((int)$data['categoriesid'][$i] === 2 && (int)$accountid === 4){
+                //     $this->db->query('INSERT INTO tblmmf (TransactionDate,GroupId,Debit,Reference,TransactionType,
+                //                                             TransactionId,CongregationId) VALUES(:tdate,:gid,:debit,:ref,:ttype,:tid,:cid)');
+                //     $this->db->bind(':tdate',$data['date']);
+                //     $this->db->bind(':gid',$data['contributorsid'][$i]);
+                //     $this->db->bind(':debit',$data['amounts'][$i]);
+                //     $this->db->bind(':ref',$data['receiptno']);
+                //     $this->db->bind(':ttype',1);
+                //     $this->db->bind(':tid',$data['id']);
+                //     $this->db->bind(':cid',$_SESSION['congId']);
+                //     $this->db->execute();
+
+                //     $gbhparent = getparentgl($this->db->dbh,$accountname); 
+                //     saveToLedger($this->db->dbh,$data['date'],$accountname,$gbhparent,0,$data['amounts'][$i]
+                //         ,$data['description'],4,1,$data['id'],$_SESSION['congId']);
+                // }else{
+                //     $accountparent = getparentgl($this->db->dbh,trim($data['accountsname'][$i]));
+                //     saveToLedger($this->db->dbh,$data['date'],strtolower($data['accountsname'][$i]),$accountparent,0,$data['amounts'][$i]
+                //         ,$data['description'],$accountid,1,$data['id'],$_SESSION['congId']);
+                // }
             } 
             
             $cashparent = getparentgl($this->db->dbh,'cash at bank');

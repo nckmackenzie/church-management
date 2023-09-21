@@ -97,6 +97,7 @@ class Contributions extends Controller {
                 'categoriesname' => $_POST['categoriesname'],
                 'contributorsid' => $_POST['contributorsid'],
                 'contributorsname' => $_POST['contributorsname'],
+                'subaccount' => $_POST['subaccount'],
                 'totalamount' => 0,
                 'ref_err' => '',
                 'bank_err' => '',
@@ -117,6 +118,7 @@ class Contributions extends Controller {
                     'categoryname' => $data['categoriesname'][$i],
                     'contributorid' => $data['contributorsid'][$i],
                     'contributorname' => $data['contributorsname'][$i],
+                    'subaccount' => !empty(trim($data['subaccount'][$i])) && is_null($data['subaccount'][$i]) ? $data['subaccount'][$i] : null,
                 ]);
             }
 
@@ -245,6 +247,7 @@ class Contributions extends Controller {
                 'categoryname' => $detail->categoryname,
                 'contributorid' => $detail->contributorid,
                 'contributorname' => $detail->contributor,
+                'subaccount' => $detail->subaccount,
             ]);
         }
       

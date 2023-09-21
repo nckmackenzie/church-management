@@ -22,7 +22,8 @@ addButton.addEventListener('click', () => {
   const contributorName = $('#contributor')
     .find('option:selected')
     .text()
-    .trim();
+    .trim()
+    .toUpperCase();
 
   if (!amount || !account || !category || !contributor) {
     alert('Select all required fields');
@@ -37,6 +38,7 @@ addButton.addEventListener('click', () => {
         <td><input type="text" class="table-input" name="categoriesname[]" value="${categoryName}" readonly></td>
         <td class="d-none"><input type="text" class="table-input" name="contributorsid[]" value="${contributor}"></td>
         <td><input type="text" class="table-input" name="contributorsname[]" value="${contributorName}" readonly></td>
+        <td class="d-none"><input type="text" class="table-input" name="subaccount[]" value="" readonly></td>
         <td><button type="button" class="action-icon btn btn-sm text-danger fs-5 btndel">Remove</button></td>
       </tr>
   `;
