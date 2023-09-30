@@ -250,8 +250,8 @@ class Groupfunds extends Controller
                 'amount' => isset($_POST['amount']) && !empty(trim($_POST['amount'])) ? floatval(numberFormat(trim($_POST['amount']))) : '',
                 'approved' => isset($_POST['approved']) && !empty(trim($_POST['approved'])) ? floatval(trim($_POST['approved'])) : '',
                 'balance' => isset($_POST['balance']) && !empty(trim($_POST['balance'])) ? floatval(trim($_POST['balance'])) : '',
-                'paymethod' => isset($_POST['paymethod']) && !empty(trim($_POST['paymethod'])) ? trim($_POST['paymethod']) : '',
-                'bank' => isset($_POST['bank']) && !empty($_POST['bank']) ? trim($_POST['bank']) : '',
+                'paymethod' => isset($_POST['paymethod']) && !empty(trim($_POST['paymethod'])) ? (int)trim($_POST['paymethod']) : null,
+                'bank' => isset($_POST['bank']) && !empty($_POST['bank']) ? trim($_POST['bank']) : null,
                 'reference' => isset($_POST['reference']) && !empty(trim($_POST['reference'])) ? trim($_POST['reference']) : '',
                 'dontdeduct' => isset($_POST['dontdeduct']) && !empty(trim($_POST['dontdeduct'])) ? converttobool($_POST['dontdeduct']) : false,
                 'reason' => trim($_POST['reason']),
@@ -260,8 +260,11 @@ class Groupfunds extends Controller
 
             
             if(empty($data['paydate']) || empty($data['approved']) || empty($data['paymethod']) 
-               || empty($data['reference']) || empty($data['bank'])){
+               || empty($data['reference'])){
                 $data['errmsg'] = 'Fill all required field';
+            }
+            if($data['paymethod'] > 2 && is_null($data['bank'])){
+                $data['errmsg'] = 'Select bank';
             }
             //validate date
             if($data['reqdate'] > $data['paydate']){
