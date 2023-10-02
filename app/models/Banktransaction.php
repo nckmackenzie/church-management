@@ -278,7 +278,7 @@ class Banktransaction
             
             softdeleteLedgerBanking($this->db->dbh,13,$id);
 
-            $this->db->query('UPDATE tblpettycash SET Deleted=1 WHERE (TransactionTypeId = 13) AND (TransactionId=:tid)');
+            $this->db->query('UPDATE tblpettycash SET Deleted=1 WHERE (TransactionType = 13) AND (TransactionId=:tid)');
             $this->db->bind(':tid',$id);
             $this->db->execute();
             

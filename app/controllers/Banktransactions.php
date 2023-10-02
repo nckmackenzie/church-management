@@ -150,7 +150,7 @@ class Banktransactions extends Controller
             $id = isset($_POST['id']) && !empty(trim($_POST['id'])) ? (int)trim($_POST['id']) : null;
 
             if(!$this->bankmodel->Delete($id)){
-                flash('banktransaction_msg',"Expense wasnt added!",'alert custom-danger');
+                flash('banktransaction_msg',"Unable to delete transaction!",'alert custom-danger');
                 redirect('banktransactions');
                 exit;
             }
