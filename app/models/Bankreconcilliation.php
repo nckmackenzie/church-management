@@ -87,7 +87,7 @@ class Bankreconcilliation
                               WHERE (transactionDate BETWEEN :sdate AND :edate) 
                                     AND (bankId = :bid) AND (cleared = 0) AND (credit > 0) AND (deleted = 0) AND (congregationId = :cid)
                               ORDER BY transactionDate');
-        }elseif($data['type' === 'deposits']){
+        }elseif($data['type'] === 'deposit'){
             $this->db->query('SELECT transactionDate,debit As amount,ucase(reference) as reference
                               FROM tblbankpostings
                               WHERE (transactionDate BETWEEN :sdate AND :edate) 
