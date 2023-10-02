@@ -264,7 +264,7 @@ class Expense {
             }elseif ((int)$expense->paymethodId > 2) {
                 saveToLedger($this->db->dbh,$expense->expenseDate,'cash at bank',$cashparent,0,$expense->amount,$expense->narration,
                                 3,2,$data['id'],$_SESSION['congId']);
-                saveToBanking($this->db->dbh,$data['bank'],$expense->expenseDate,0,$expense->amount,2,
+                saveToBanking($this->db->dbh,$expense->bankId,$expense->expenseDate,0,$expense->amount,2,
                               $expense->paymentReference,2,$data['id'],$_SESSION['congId']);             
             }
 
