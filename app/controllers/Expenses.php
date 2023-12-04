@@ -1,5 +1,9 @@
 <?php
 class Expenses extends Controller{
+    private $authmodel;
+    private $expenseModel;
+    private $reusemodel;
+
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
@@ -18,16 +22,37 @@ class Expenses extends Controller{
         $this->view('expenses/index',$data);
     }
 
+    public function getvoucherno($date)
+    {
+        $yearId = $this->reusemodel->GetFiscalYear($date);
+        $yearName = $this->reusemodel->GetYearName($yearId);
+        if(!$this->reusemodel->CheckPrefixable($yearId)){
+            return $this->expenseModel->GetVoucherNo($yearId);
+        }else{
+            return $yearName . '/' . $this->expenseModel->GetVoucherNo($yearId);
+        }
+    }
+
+    public function voucherno()
+    {
+        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
+            $date = isset($_GET['txndate']) && !empty(trim($_GET['txndate'])) ? date('Y-m-d',strtotime($_GET['txndate'])) : date('Y-m-d', strtotime($_SESSION['processdate']));
+            echo json_encode($this->getvoucherno($date));
+        }
+    }
+
     public function add()
     {
         // $accounts = $this->reusemodel->GetAccounts(2);
         $accounts = $this->expenseModel->GetAccounts(1);
+        $date = date('Y-m-d',strtotime($_SESSION['processdate']));
         $paymethods = $this->reusemodel->PaymentMethods();
         $banks = $this->reusemodel->GetBanks();
-        $voucherno = $this->expenseModel->VoucherNo();
+        // $voucherno = $this->expenseModel->VoucherNo();
+        $voucherno = $this->getvoucherno($date);
         $data = [
             'voucherno' => $voucherno,
-            'date' => date('Y-m-d',strtotime($_SESSION['processdate'])),
+            'date' => $date,
             'accounts' => $accounts,
             'expensetype' => '',
             'account' => '',

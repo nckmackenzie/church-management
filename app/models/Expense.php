@@ -13,6 +13,23 @@ class Expense {
         return $this->db->resultSet();                  
     }
 
+    public function GetVoucherNo($yearId)
+    {
+        $to_prefix = converttobool(getdbvalue($this->db->dbh,'SELECT prefixReferences from tblfiscalyears WHERE ID=?',[$yearId]));
+        if ($to_prefix){
+            $sql = "SELECT IFNULL(MAX(RIGHT(voucherNo,3)),'000') AS voucherNo 
+                    FROM tblexpenses WHERE congregationId=? AND fiscalYearId=?";
+            return format_string(intval(getdbvalue($this->db->dbh,$sql,[$_SESSION['congId'],$yearId])) + 1);
+        }else{
+            $sql = 'SELECT IFNULL(voucherNo,1) AS voucherNo 
+                    FROM tblexpenses 
+                    WHERE congregationId=? AND fiscalYearId=?
+                    ORDER BY ID DESC
+                    LIMIT 1';
+            return intval(getdbvalue($this->db->dbh,$sql,[$_SESSION['congId'],$yearId])) + 1;
+        }
+    }
+
     public function GetAccounts($type)
     {
         if($type == 1){
