@@ -447,7 +447,7 @@ function getmodulemenuitems($con,$userid,$module,$iscong)
     return $stmt->fetchAll(PDO::FETCH_OBJ);
 }
 
-//return error class
+// return error class
 function alerterrorclass()
 {
     return 'alert custom-danger alert-dismissible fade show';
@@ -456,4 +456,8 @@ function alerterrorclass()
 function formatcontact($contact){
     $stripped = substr($contact,1);
     return '+254'.$stripped;
+}
+
+function format_string($value) {
+   return str_pad((string) $value, 3, "0", STR_PAD_LEFT);
 }
