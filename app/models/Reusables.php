@@ -64,4 +64,20 @@ class Reusables
         return getdbvalue($this->db->dbh,$sql,[(int)$id]);
     }
 
+    public function GetFiscalYear($date)
+    {
+        $sql = 'SELECT ID FROM tblfiscalyears WHERE ? BETWEEN startDate AND endDate AND deleted=0';
+        return getdbvalue($this->db->dbh,$sql,[$date]);
+    }
+
+    public function GetYearName($id)
+    {
+        $sql = 'SELECT yearName FROM tblfiscalyears WHERE ID=?';
+        return getdbvalue($this->db->dbh,$sql,[$id]);
+    }
+
+    public function CheckPrefixable($yearId)
+    {
+        return converttobool(getdbvalue($this->db->dbh,'SELECT prefixReferences from tblfiscalyears WHERE ID=?',[$yearId]));
+    }
 }

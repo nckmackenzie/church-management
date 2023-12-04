@@ -329,7 +329,7 @@
         })
     });
 </script>
-<script src="<?php echo URLROOT;?>/dist/js/pages/contributions.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/contributions-v1.js"></script>
 <script type="module" src="<?php echo URLROOT;?>/dist/js/pages/contributions-collection.js"></script>
 </body>
 </html>  

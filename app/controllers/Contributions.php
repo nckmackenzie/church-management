@@ -1,5 +1,9 @@
 <?php
 class Contributions extends Controller {
+    private $authmodel;
+    private $reusemodel;
+    private $contributionModel;
+
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
@@ -18,9 +22,30 @@ class Contributions extends Controller {
         $this->view('contributions/index',$data);
         exit;
     }
+    
+    public function getreceiptno($date)
+    {
+        $yearId = $this->reusemodel->GetFiscalYear($date);
+        $yearName = $this->reusemodel->GetYearName($yearId);
+        if(!$this->reusemodel->CheckPrefixable($yearId)){
+            return $this->contributionModel->GetReceiptNo($yearId);
+        }else{
+            return $yearName . '/' . $this->contributionModel->GetReceiptNo($yearId);
+        }
+    }
+
+    public function receiptno()
+    {
+        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
+            $date = isset($_GET['txndate']) && !empty(trim($_GET['txndate'])) ? date('Y-m-d',strtotime($_GET['txndate'])) : date('Y-m-d', strtotime($_SESSION['processdate']));
+            echo json_encode($this->getreceiptno($date));
+        }
+    }
+
     public function add()
     {
         $accounts = $this->reusemodel->GetAccountsAll();
+        $date = date('Y-m-d', strtotime($_SESSION['processdate']));
         $paymethods = $this->reusemodel->PaymentMethods();
         $banks = $this->reusemodel->GetBanks();
         $categories = $this->contributionModel->getCategories();
@@ -30,10 +55,11 @@ class Contributions extends Controller {
             'congregations' => $this->reusemodel->GetCongregations(),
             'banks' => $banks,
             'paymethods' => $paymethods,
-            'receiptno' => $this->contributionModel->receiptNo(),
+            // 'receiptno' => $this->contributionModel->receiptNo(),
+            'receiptno' => $this->getreceiptno($date),
             'id' => '',
             'isedit' => false,
-            'date' => date('Y-m-d', strtotime($_SESSION['processdate'])),
+            'date' => $date,
             'paymethod' => '',
             'bank' => '',
             'category' => 3,
@@ -70,13 +96,15 @@ class Contributions extends Controller {
     {
        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-           $receiptNo = $this->contributionModel->receiptNo();
+        //    $receiptNo = $this->contributionModel->receiptNo();
+        //    $receiptNo = $this->getreceiptno();
            $accounts = $this->reusemodel->GetAccounts(1);
            $paymethods = $this->reusemodel->PaymentMethods();
            $banks = $this->reusemodel->GetBanks();
            $categories = $this->contributionModel->getCategories();
            $data = [
-                'receiptno' => $receiptNo,
+                // 'receiptno' => $receiptNo,
+                'receiptno' => '',
                 'id' => trim($_POST['id']),
                 'isedit' => converttobool(trim($_POST['isedit'])),
                 'date' => !empty($_POST['date']) ? date('Y-m-d',strtotime($_POST['date'])) : date('Y-m-d'),
@@ -108,6 +136,7 @@ class Contributions extends Controller {
               exit();
            }
 
+           
            for ($i=0; $i < count($data['accountsid']); $i++) { 
                 $data['totalamount'] += $data['amounts'][$i];
                 array_push($data['table'],[
@@ -121,6 +150,8 @@ class Contributions extends Controller {
                     'subaccount' => !empty(trim($data['subaccount'][$i])) && is_null($data['subaccount'][$i]) ? $data['subaccount'][$i] : null,
                 ]);
             }
+
+            $data['receiptno'] = $this->getreceiptno($data['date']);
 
            //validate
            if(empty($data['receiptno'])){
@@ -137,6 +168,9 @@ class Contributions extends Controller {
            if ($data['paymethod'] > 1 && empty($data['reference'])) {
                $data['ref_err'] = 'Enter Payment Reference';
            }
+
+           
+
            if (empty($data['ref_err']) && empty($data['receipt_err'])) {
                if ($this->contributionModel->create($data)) {
                    flash('contribution_msg',$data['isedit'] ? 'Contribution Edited Successfully!' : 'Contribution Added Successfully!');

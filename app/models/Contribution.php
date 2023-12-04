@@ -20,6 +20,23 @@ class Contribution {
         return $this->db->resultSet();
     }
 
+    public function GetReceiptNo($yearId)
+    {
+        $to_prefix = converttobool(getdbvalue($this->db->dbh,'SELECT prefixReferences from tblfiscalyears WHERE ID=?',[$yearId]));
+        if ($to_prefix){
+            $sql = "SELECT IFNULL(MAX(RIGHT(receiptNo,3)),'000') AS receiptNo 
+                    FROM tblcontributions_header WHERE congregationId=? AND fiscalYearId=?";
+            return format_string(intval(getdbvalue($this->db->dbh,$sql,[$_SESSION['congId'],$yearId])) + 1);
+        }else{
+            $sql = 'SELECT IFNULL(receiptNo,1) AS receiptNo 
+                    FROM tblcontributions_header 
+                    WHERE congregationId=? AND fiscalYearId=?
+                    ORDER BY ID DESC
+                    LIMIT 1';
+            return intval(getdbvalue($this->db->dbh,$sql,[$_SESSION['congId'],$yearId])) + 1;
+        }
+    }
+
     public function receiptNo()
     {
         return getuniqueid($this->db->dbh,'receiptNo','tblcontributions_header',(int)$_SESSION['congId']);
