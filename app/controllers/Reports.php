@@ -1,5 +1,7 @@
 <?php
 class Reports extends Controller {
+    private $authmodel;
+    private $reportModel;
     public function __construct()
     {
        if (!isset($_SESSION['userId'])) {
@@ -613,7 +615,8 @@ class Reports extends Controller {
             $tithesofferings = $revenues[0];
             $mmfcollections = $revenues[1];
             $othercollections = $revenues[2];
-            $revenue_total = floatval($tithesofferings) + floatval($mmfcollections) + floatval($othercollections);
+            // $revenue_total = floatval($tithesofferings) + floatval($mmfcollections) + floatval($othercollections);
+            $revenue_total = 0;
             //expenses
             $expenses = $this->reportModel->GetExpensesPL($data);
             // $admincost = $expenses[0];
@@ -636,27 +639,35 @@ class Reports extends Controller {
                         <tr class="bg-olive">
                             <td colspan="2">Income</td>
                         </tr>';
-                    if(floatval($tithesofferings) > 0){
-                        $output .='
-                        <tr>
-                            <td>Tithes And Offerings</td>
-                            <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=tithes and offering&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($tithesofferings,2).'</a></td>
-                        </tr>';
-                    }
-                    if(floatval($mmfcollections) > 0){
-                        $output .='
-                        <tr>
-                            <td>MMF Collections</td>
-                            <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=mmf collections&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($mmfcollections,2).'</a></td>
-                        </tr>';
-                    }
-                    if(floatval($othercollections) > 0){
-                        $output .='
-                        <tr>
-                            <td>Other Collections</td>
-                            <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=other collections&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($othercollections,2).'</a></td>
-                        </tr>';
-                    }
+                        foreach($revenues as $revenue){
+                            $revenue_total += floatval($revenue->credit);
+                            $output .='
+                            <tr>
+                                <td>'.ucwords($revenue->parentaccount).'</td>
+                                <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account='.$revenue->parentaccount.'&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($revenue->credit,2).'</a></td>
+                            </tr>';
+                        }
+                    // if(floatval($tithesofferings) > 0){
+                    //     $output .='
+                    //     <tr>
+                    //         <td>Tithes And Offerings</td>
+                    //         <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=tithes and offering&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($tithesofferings,2).'</a></td>
+                    //     </tr>';
+                    // }
+                    // if(floatval($mmfcollections) > 0){
+                    //     $output .='
+                    //     <tr>
+                    //         <td>MMF Collections</td>
+                    //         <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=mmf collections&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($mmfcollections,2).'</a></td>
+                    //     </tr>';
+                    // }
+                    // if(floatval($othercollections) > 0){
+                    //     $output .='
+                    //     <tr>
+                    //         <td>Other Collections</td>
+                    //         <td><a target="_blank" href="'.URLROOT.'/reports/pldetailed?account=other collections&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($othercollections,2).'</a></td>
+                    //     </tr>';
+                    // }
                     $output .='
                         <tr>
                             <th>Revenue Total</th>
