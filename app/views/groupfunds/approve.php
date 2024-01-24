@@ -150,6 +150,7 @@
                                 <div class="col-md-2 mt-2">
                                     <input type="hidden" name="id" value="<?php echo $data['id'];?>">
                                     <input type="hidden" name="groupid" value="<?php echo $data['groupid'];?>">
+                                    <input type="hidden" name="type" value="<?php echo $data['type'];?>">
                                     <input type="hidden" name="dontdeduct" id="dontdeduct" value="<?php echo $data['dontdeduct'];?>">
                                     <button type="submit" class="btn btn-block btn-sm bg-navy custom-font"> Approve </button>
                                 </div>
