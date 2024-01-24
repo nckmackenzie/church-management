@@ -31,6 +31,7 @@ class Groupfunds extends Controller
             'groups' => $this->fundmodel->GetGroups(),
             'reqno' => $this->fundmodel->GetReqNo(),
             'id' => '',
+            'type' => '',
             'isedit' => false,
             'availableamount' => '',
             'errmsg' => '',
@@ -51,6 +52,7 @@ class Groupfunds extends Controller
             $data = [
                 'group' => isset($_GET['group']) && !empty(trim($_GET['group'])) ? (int)trim($_GET['group']) : '',
                 'date' => isset($_GET['date']) && !empty(trim($_GET['date'])) ? date('Y-m-d',strtotime(trim($_GET['date']))) : '',
+                'type' => isset($_GET['type']) && !empty(trim($_GET['type'])) ? strtolower(trim($_GET['type'])) : 'group',
             ];
 
             if(empty($data['group']) || empty($data['date'])) : 
@@ -58,7 +60,7 @@ class Groupfunds extends Controller
                 echo json_encode(['message' => 'Provided all requied details']);
             endif;
 
-            echo json_encode($this->fundmodel->GetBalance($data['group'],$data['date']));
+            echo json_encode($this->fundmodel->GetBalance($data['group'],$data['date'],$data['type']));
             exit;
 
         }else{
@@ -78,6 +80,7 @@ class Groupfunds extends Controller
                 'id' => trim($_POST['id']),
                 'isedit' => converttobool($_POST['isedit']) ,
                 'reqdate' => !empty(trim($_POST['date'])) ? date('Y-m-d',strtotime(trim($_POST['date']))) : '',
+                'type' => !empty(trim($_POST['type'])) ? strtolower(trim($_POST['type'])) : 'group',
                 'group' => !empty(trim($_POST['group'])) ? trim($_POST['group']) : '',
                 'availableamount' => !empty(trim($_POST['availableamount'])) ? floatval(trim($_POST['availableamount'])) : '',
                 'amount' => !empty(trim($_POST['amount'])) ? floatval(trim($_POST['amount'])) : '',
@@ -138,14 +141,15 @@ class Groupfunds extends Controller
         checkcenter($request->CongregationId);
         $data = [
             'title' => 'Edit requisition',
-            'groups' => $this->fundmodel->GetGroups(),
+            'groups' => $request->RequestType === 'group' ? $this->fundmodel->GetGroups() : $this->fundmodel->GetDistricts(),
             'reqno' => $request->ReqNo,
+            'type' => $request->RequestType,
             'id' => $request->ID,
             'isedit' => true,
             'reqdate' => $request->RequisitionDate,
             'group' => $request->GroupId,
             'amount' => $request->AmountRequested,
-            'availableamount' => floatval($this->fundmodel->GetBalance($request->GroupId,$request->RequisitionDate)),
+            'availableamount' => floatval($this->fundmodel->GetBalance($request->GroupId,$request->RequisitionDate,$request->RequestType)) + floatval($request->AmountRequested),
             'reason' => strtoupper($request->Purpose),
             'dontdeduct' => converttobool($request->DontDeduct),
             'errmsg' => '',
@@ -211,13 +215,14 @@ class Groupfunds extends Controller
             'title' => 'Approve requisition',
             'paymethods' => $this->fundmodel->PayMethods(),
             'banks' => $this->fundmodel->GetBanks(),
-            'groupid' => $request->GroupId,
-            'group' => strtoupper($this->fundmodel->GetGroupName($request->GroupId)),
+            'type' => $request->RequestType,
+            'groupid' =>  $request->RequestType === 'group' ? $request->GroupId : $request->DistrictId, 
+            'group' => '',
             'id' => $request->ID,
             'reqno' => $request->ReqNo,
             'reqdate' => date('d/m/Y',strtotime($request->RequisitionDate)),
             'amount' => number_format($request->AmountRequested,2),
-            'availableamount' => number_format(floatval($this->fundmodel->GetBalance($request->GroupId,$request->RequisitionDate)),2),
+            'availableamount' => number_format(floatval($this->fundmodel->GetBalance($request->GroupId,$request->RequisitionDate,$request->RequestType) + floatval($request->AmountRequested)),2),
             'reason' => strtoupper($request->Purpose),
             'dontdeduct' => $request->DontDeduct,
             'approved' => '',
@@ -228,6 +233,7 @@ class Groupfunds extends Controller
             'reference' => '',
             'errmsg' => '',
         ];
+        $data['group'] = strtoupper($this->fundmodel->GetGroupName($request->RequestType,$data['groupid']));
         $this->view('groupfunds/approve',$data);
         exit;
     }
@@ -242,6 +248,7 @@ class Groupfunds extends Controller
                 'banks' => $this->fundmodel->GetBanks(),
                 'reqno' => trim($_POST['reqno']),
                 'groupid' => trim($_POST['groupid']),
+                'type' => isset($_POST['type']) && !empty(trim($_POST['type'])) ? trim($_POST['type']) : 'group',
                 'id' => isset($_POST['id']) && !empty(trim($_POST['id'])) ? trim($_POST['id']) : '',
                 'group' => isset($_POST['group']) && !empty(trim($_POST['group'])) ? trim($_POST['group']) : '',
                 'reqdate' => isset($_POST['date']) && !empty(trim($_POST['date'])) ? date('Y-m-d',strtotime(trim($_POST['date']))) : '',

@@ -33,31 +33,47 @@ class Groupfund
 
     public function GetGroups()
     {
-        $this->db->query('SELECT ID,UCASE(groupName) as groupName 
+        $this->db->query('SELECT ID,UCASE(groupName) as itemName 
                           FROM tblgroups 
                           WHERE (active = 1) AND (deleted = 0) AND (congregationId = :cid)
-                          ORDER BY groupName');
+                          ORDER BY itemName');
         $this->db->bind(':cid',$_SESSION['congId']);
         return $this->db->resultSet();
     }
 
-    public function GetBalance($group,$date)
+    public function GetDistricts()
     {
-        return getdbvalue($this->db->dbh,'SELECT getmmfopeningbalbydate(?,?)',[$group,$date]);
+        $this->db->query('SELECT ID,UCASE(districtName) as itemName 
+                          FROM tbldistricts 
+                          WHERE (deleted = 0) AND (congregationId = :cid)
+                          ORDER BY itemName');
+        $this->db->bind(':cid',$_SESSION['congId']);
+        return $this->db->resultSet();
+    }
+
+    public function GetBalance($group,$date,$type)
+    {
+        if($type === 'group'){
+            return getdbvalue($this->db->dbh,'SELECT getmmfopeningbalbydate(?,?)',[$group,$date]);
+        }else{
+            return getdbvalue($this->db->dbh,'SELECT getmmfopeningbalbydate_district(?,?)',[$group,$date]);
+        }
     }
 
     public function CreateUpdate($data)
     {
         if(!$data['isedit']){
-            $this->db->query('INSERT INTO tblfundrequisition (ReqNo,RequisitionDate,GroupId,Purpose,AmountRequested,RequestedBy,DontDeduct,CongregationId) 
-                              VALUES(:reqno,:rdate,:gid,:purpose,:amount,:reqby,:deduct,:cid)');
+            $this->db->query('INSERT INTO tblfundrequisition (ReqNo,RequisitionDate,RequestType,DistrictId,GroupId,Purpose,AmountRequested,RequestedBy,DontDeduct,CongregationId) 
+                              VALUES(:reqno,:rdate,:rtype,:did,:gid,:purpose,:amount,:reqby,:deduct,:cid)');
             $this->db->bind(':reqno',$this->GetReqNo());
         }else{
-            $this->db->query('UPDATE tblfundrequisition SET RequisitionDate=:rdate,GroupId=:gid,Purpose=:purpose,AmountRequested=:amount,RequestedBy=:reqby,DontDeduct=:deduct 
+            $this->db->query('UPDATE tblfundrequisition SET RequisitionDate=:rdate,RequestType=:rtype,DistrictId=:did,GroupId=:gid,Purpose=:purpose,AmountRequested=:amount,RequestedBy=:reqby,DontDeduct=:deduct 
                               WHERE (ID = :id)');
         }
         $this->db->bind(':rdate',!empty($data['reqdate']) ? $data['reqdate'] : null);
-        $this->db->bind(':gid',!empty($data['group']) ? $data['group'] : null);
+        $this->db->bind(':rtype',!empty($data['type']) ? $data['type'] : null);
+        $this->db->bind(':did',$data['type'] === 'group' ? null : $data['group']);
+        $this->db->bind(':gid',$data['type'] === 'group' ? $data['group'] : null);
         $this->db->bind(':purpose',!empty($data['reason']) ? strtolower($data['reason']) : null);
         $this->db->bind(':amount',!empty($data['amount']) ? $data['amount'] : null);
         $this->db->bind(':reqby',$_SESSION['userId']);
@@ -122,9 +138,13 @@ class Groupfund
         return $this->db->resultSet();
     }
 
-    public function GetGroupName($id)
+    public function GetGroupName($type,$id)
     {
-        return getdbvalue($this->db->dbh,'SELECT groupName FROM tblgroups WHERE ID = ?',[$id]);
+        if($type === 'group'){
+            return getdbvalue($this->db->dbh,'SELECT groupName FROM tblgroups WHERE ID = ?',[$id]);
+        }else{
+            return getdbvalue($this->db->dbh,'SELECT districtName FROM tbldistricts WHERE ID = ?',[$id]);
+        }
     }
 
     public function Approve($data)
@@ -143,10 +163,12 @@ class Groupfund
             $this->db->execute();
 
             if(!$data['dontdeduct']){
-                $this->db->query('INSERT INTO tblmmf (TransactionDate,GroupId,Credit,BankId,Reference,Narration,TransactionType,TransactionId,
-                CongregationId) VALUES(:tdate,:gid,:credit,:bid,:reference,:narr,:ttype,:tid,:cid)');
+                $this->db->query('INSERT INTO tblmmf (TransactionDate,Type,DistrictId,GroupId,Credit,BankId,Reference,Narration,TransactionType,TransactionId,
+                CongregationId) VALUES(:tdate,:type,:did,:gid,:credit,:bid,:reference,:narr,:ttype,:tid,:cid)');
                 $this->db->bind(':tdate',!empty($data['paydate']) ? $data['paydate'] : null);
-                $this->db->bind(':gid',trim($_POST['groupid']));
+                $this->db->bind(':type',$data['type']);
+                $this->db->bind(':did', $data['type'] === 'district' ? $data['groupid'] : null);
+                $this->db->bind(':gid', $data['type'] === 'group' ? $data['groupid'] : null);
                 $this->db->bind(':credit',!empty($data['approved']) ? floatval($data['approved']) : null);
                 $this->db->bind(':bid',!empty($data['bank']) ? $data['bank'] : null);
                 $this->db->bind(':reference',!empty($data['reference']) ? strtolower($data['reference']) : null);
@@ -158,17 +180,26 @@ class Groupfund
             }
            
 
-            $gbhparent = getparentgl($this->db->dbh,'groups balances held');
-            // $pettycash_name = 
-            $cashparent = getparentgl($this->db->dbh,'cash at hand');
-            if(!$data['dontdeduct']){
-                saveToLedger($this->db->dbh,$data['paydate'],'groups balances held',$gbhparent,$data['approved'],0,$desc,
-                                            4,12,$data['id'],$_SESSION['congId']);
+            if($data['type'] === 'group'){
+                $gbhparent = getparentgl($this->db->dbh,'groups balances held');
+                if(!$data['dontdeduct']){
+                    saveToLedger($this->db->dbh,$data['paydate'],'groups balances held',$gbhparent,$data['approved'],0,$desc,
+                                                4,12,$data['id'],$_SESSION['congId']);
+                }else{
+                    saveToLedger($this->db->dbh,$data['paydate'],"groups' expenses","groups' expenses",$data['approved'],0,$desc,
+                                                2,12,$data['id'],$_SESSION['congId']);
+                }
             }else{
-                saveToLedger($this->db->dbh,$data['paydate'],"groups' expenses","groups' expenses",$data['approved'],0,$desc,
-                                            2,12,$data['id'],$_SESSION['congId']);
+                if(!$data['dontdeduct']){
+                    saveToLedger($this->db->dbh,$data['paydate'],'district funds held','district funds held',$data['approved'],0,$desc,
+                                                4,12,$data['id'],$_SESSION['congId']);
+                }else{
+                    saveToLedger($this->db->dbh,$data['paydate'],"groups' expenses","groups' expenses",$data['approved'],0,$desc,
+                                                2,12,$data['id'],$_SESSION['congId']);
+                }
             }
             
+            $cashparent = getparentgl($this->db->dbh,'cash at hand');
             if((int)$data['paymethod'] === 1){
                 saveToLedger($this->db->dbh,$data['paydate'],'cash at hand',$cashparent,0,$data['approved'],$desc,
                          3,12,$data['id'],$_SESSION['congId']);
