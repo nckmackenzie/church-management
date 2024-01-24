@@ -163,12 +163,12 @@
                 </li> -->
                 <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/groupfunds" class="nav-link">
-                        <p>Group funds requisition</p>
+                        <p>Funds requisition</p>
                     </a>
                 </li>
                 <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/groupfunds/approvals" class="nav-link">
-                        <p>Group funds approval</p>
+                        <p>Funds approval</p>
                     </a>
                 </li>
                 <li class="nav-item">
