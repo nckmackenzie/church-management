@@ -1384,4 +1384,66 @@ class Reports extends Controller {
             exit();
         }
     }
+
+    public function journals()
+    {
+        $data = [];
+        $this->view('reports/journals',$data);
+        exit;
+    }
+
+    public function journalsrpt()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'GET'){
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
+           $data = [
+                'from' => !empty(trim($_GET['from'])) ? date('Y-m-d',strtotime($_GET['from'])) : NULL,
+                'to' => !empty(trim($_GET['to'])) ? date('Y-m-d',strtotime($_GET['to'])) :NULL,
+            ];
+
+            $reports = $this->reportModel->GetJournalReport($data);
+            $output = '';
+            $output .= '
+                <table class="table table-bordered table-sm" id="table">
+                    <thead class="bg-lightblue">
+                        <tr>
+                            <th>Journal No</th>
+                            <th>Transaction Date</th>
+                            <th>Account</th>
+                            <th>Debit</th>
+                            <th>Credit</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+                    foreach($reports as $report) {
+                        $output .= '
+                            <tr>
+                                <td>'.$report->journalNo.'</td>
+                                <td>'.date('d-M-Y',strtotime($report->transactionDate)).'</td>
+                                <td>'.ucwords($report->account).'</td>
+                                <td>'.number_format($report->debit,2).'</td>
+                                <td>'.number_format($report->credit,2).'</td>
+                                <td>'.ucwords($report->narration).'</td>
+                            </tr>
+                        ';
+                    }
+                    $output .= '
+                    </tbody>
+                    <tfoot>
+                            <tr>
+                                <th colspan="3" style="text-align:center">Total:</th>
+                                <th id="debits"></th>
+                                <th id="credits"></th>
+                                <th></th>
+                            </tr>
+                    </tfoot>
+                </table>';
+            echo $output; 
+        }else{
+            redirect('users/deniedaccess');
+            exit();
+        }
+    }
+
 }

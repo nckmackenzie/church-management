@@ -628,7 +628,21 @@ class Report {
         return loadresultset($this->db->dbh,$sql,[$data['account'],$data['asdate']]);
     }
 
-    // function GetGroups($) {
-        
-    // }
+    public function GetJournalReport($data)
+    {
+        $this->db->query('SELECT journalNo,
+                                 transactionDate,
+                                 account,
+                                 debit,
+                                 credit,
+                                 narration
+                          FROM   tblledger
+                          WHERE  (transactionDate BETWEEN :tstart AND :tend) AND (congregationId = :cid) 
+                                 AND (isJournal=1)
+                          ORDER BY transactionDate');
+        $this->db->bind(':tstart',$data['from']);
+        $this->db->bind(':tend',$data['to']);
+        $this->db->bind(':cid',$_SESSION['congId']);
+        return $this->db->resultSet();
+    }
 }
