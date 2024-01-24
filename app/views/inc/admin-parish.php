@@ -228,6 +228,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/reports/journals" class="nav-link">
+                        <p>Journal Entries</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/parishreports/incomestatement" class="nav-link">
                         <p>Income Statement</p>
                     </a>
