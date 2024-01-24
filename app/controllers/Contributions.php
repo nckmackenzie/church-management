@@ -162,7 +162,7 @@ class Contributions extends Controller {
                 }
            }
 
-           if ($data['paymethod'] > 2 && empty($data['bank'])) {
+           if ($data['paymethod'] > 1 && empty($data['bank'])) {
                $data['bank_err'] = 'Select Bank';
            }
            if ($data['paymethod'] > 1 && empty($data['reference'])) {

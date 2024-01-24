@@ -289,7 +289,7 @@
         });
         $('#paymethod').change(function(){
             var paym = $(this).val();
-            if (paym > 2) {
+            if (paym > 1) {
                 $('#bank').attr('disabled',false);
                 $('#bank').prop("selectedIndex", 0);
             }
