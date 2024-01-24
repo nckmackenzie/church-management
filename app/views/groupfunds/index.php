@@ -49,7 +49,7 @@
                         <th class="d-none">ID</th>
                         <th>Req No</th>
                         <th>Req Date</th>
-                        <th>Group Name</th>
+                        <th>Group/District</th>
                         <th>Amount Requested</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -60,7 +60,7 @@
                                 <td class="d-none"><?php echo $request->ID;?></td>
                                 <td><?php echo $request->ReqNo;?></td>
                                 <td><?php echo date('d-M-Y',strtotime($request->RequestDate));?></td>
-                                <td><?php echo $request->GroupName;?></td>
+                                <td><?php echo $request->RequestedBy;?></td>
                                 <td><?php echo $request->AmountReq;?></td>
                                 <td><span class="badge badge-<?php badgeclasses($request->Status);?>"><?php echo $request->State;?></span></td>
                                 <td>
