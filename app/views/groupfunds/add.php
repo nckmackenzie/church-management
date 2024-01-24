@@ -19,9 +19,11 @@
     <section class="content">
         <div class="row">
             <div class="col-md-8 mx-auto">
-                <?php if(!empty($data['errmsg'])) : ?>
-                    <?php echo alert($data['errmsg']); ?>
-                <?php endif;?>
+                <div id="alertBox">
+                    <?php if(!empty($data['errmsg'])) : ?>
+                        <?php echo alert($data['errmsg']); ?>
+                    <?php endif;?>
+                </div>
                 <div class="card card-light">
                     <div class="card-header"><?php echo $data['title'];?></div>
                     <div class="card-body">
@@ -35,7 +37,7 @@
                                                value="<?php echo $data['reqno'];?>" readonly>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <div class="form-group">
                                         <label for="date">Request Date</label>
                                         <input type="date" name="date" id="date" 
@@ -44,14 +46,26 @@
                                         <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="type">Group/District</label>
+                                        <select name="type" id="type" class="form-control form-control-sm mandatory">
+                                            <option value="" selected disabled>Select group/district</option>
+                                            <option value="group" <?php selectdCheck($data['type'],'group'); ?>>Group</option>
+                                            <option value="district" <?php selectdCheck($data['type'],'district'); ?>>District</option>
+                                        </select>
+                                        <span class="invalid-feedback"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
                                     <div class="form-group">
                                         <label for="group">Group</label>
                                         <select name="group" id="group" class="form-control form-control-sm mandatory">
-                                            <option value="">Select group</option>
-                                            <?php foreach($data['groups'] as $group) : ?>
-                                                <option value="<?php echo $group->ID;?>" <?php selectdCheck($data['group'],$group->ID);?>><?php echo $group->groupName;?></option>
-                                            <?php endforeach; ?>
+                                            <?php if($data['isedit']) : ?>
+                                                <?php foreach($data['groups'] as $group) : ?>
+                                                    <option value="<?php echo $group->ID;?>" <?php selectdCheck($data['group'],$group->ID); ?>><?php echo $group->itemName; ?></option>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
                                         </select>
                                         <span class="invalid-feedback"></span>
                                     </div>
@@ -109,6 +123,6 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/add-v1.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/add-v2.js"></script>
 </body>
 </html>  
