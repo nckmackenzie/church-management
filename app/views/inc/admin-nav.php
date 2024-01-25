@@ -329,6 +329,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/reports/subaccounts" class="nav-link">
+                        <p>Sub Accounts Reports</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/reports/journals" class="nav-link">
                         <p>Journal Entries</p>
                     </a>
