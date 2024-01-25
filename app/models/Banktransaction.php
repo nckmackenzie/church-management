@@ -53,65 +53,106 @@ class Banktransaction
         return loadresultset($this->db->dbh,'SELECT ID,UCASE(AccountName) AS SubAccount FROM tblbanksubaccounts WHERE (BankId=?) AND (Deleted=0)',[$bankid]);
     }
 
+    public function GetAllSubaccounts()
+    {
+        return loadresultset($this->db->dbh,'SELECT ID,UCASE(AccountName) AS SubAccount,BankId FROM tblbanksubaccounts WHERE (Deleted=0)',[]);
+    }
+
+    function GetMainAccount($value)
+    {
+        $subaccount = explode('-',$value)[0];
+        return getdbvalue($this->db->dbh,'SELECT BankId FROM tblbanksubaccounts WHERE (ID=?)',[$subaccount]);
+    }
+
     public function Save($data)
     {
         try {
             
+            $bank = $data['issubtxn'] ? $this->GetMainAccount($data['bank']) : $data['bank'];
             $this->db->dbh->beginTransaction();
             $this->db->query('INSERT INTO tblbanktransactions (TransactionDate,TransactionTypeId,BankId,Amount,TransferToId,
-                                                               Reference,`Description`,DepositToSubAccounts,CongregationId) 
-                              VALUES(:ddate,:tid,:bid,:amount,:trans,:reference,:narr,:subs, :cid)');
+                                                               Reference,`Description`,DepositToSubAccounts,IsSubInterTransfer,CongregationId) 
+                              VALUES(:ddate,:tid,:bid,:amount,:trans,:reference,:narr,:subs,:subinter, :cid)');
             $this->db->bind(':ddate',$data['date']);
             $this->db->bind(':tid',$data['type']);
-            $this->db->bind(':bid',$data['bank']);
+            $this->db->bind(':bid',$bank);
             $this->db->bind(':amount',$data['amount']);
             $this->db->bind(':trans',$data['transfer']);
             $this->db->bind(':reference',$data['reference']);
             $this->db->bind(':narr',$data['description']);
             $this->db->bind(':subs',$data['deposittosubs']);
+            $this->db->bind(':subinter',$data['issubtxn']);
             $this->db->bind(':cid',$_SESSION['congId']);
             $this->db->execute();
             $tid = $this->db->dbh->lastInsertId();
 
-            for ($i=0; $i < count($data['subaccounts']); $i++) {
-                $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionId`, `SubAccountId`, `Amount`) 
-                                  VALUES (:tid,:sub,:amount)');
+            if(!is_null($data['subaccounts'])){
+                for ($i=0; $i < count($data['subaccounts']); $i++) {
+                    $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionId`, `SubAccountId`, `Amount`,TransactionType,Reference) 
+                                  VALUES (:tid,:sub,:amount,:ttype,:reference)');
+                    $this->db->bind(':tid',$tid);
+                    $this->db->bind(':sub',$data['subaccounts'][$i]->accountid);
+                    $this->db->bind(':amount',$data['subaccounts'][$i]->amount);
+                    $this->db->bind(':ttype',13);
+                    $this->db->bind(':reference',$data['reference']);
+                    $this->db->execute();
+                }
+            }
+
+            if($data['issubtxn']){
+                $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionId`, `SubAccountId`, `Amount`,FromAccountId,TransactionType,Reference) 
+                                  VALUES (:tid,:sub,:amount,:fromacc,:ttype,:reference)');
                 $this->db->bind(':tid',$tid);
-                $this->db->bind(':sub',$data['subaccounts'][$i]->accountid);
-                $this->db->bind(':amount',$data['subaccounts'][$i]->amount);
+                $this->db->bind(':sub',$data['transfer']);
+                $this->db->bind(':amount',$data['amount']);
+                $this->db->bind(':fromacc',$data['bank']);
+                $this->db->bind(':ttype',13);
+                $this->db->bind(':reference',$data['reference']);
+                $this->db->execute();
+
+                $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionId`, `SubAccountId`, `Amount`,ToAccountId,TransactionType,Reference) 
+                                  VALUES (:tid,:sub,:amount,:toacc,:ttype,:reference)');
+                $this->db->bind(':tid',$tid);
+                $this->db->bind(':sub',$data['bank']);
+                $this->db->bind(':amount',$data['amount'] * -1);
+                $this->db->bind(':toacc',$data['transfer']);
+                $this->db->bind(':ttype',13);
+                $this->db->bind(':reference',$data['reference']);
                 $this->db->execute();
             }
 
-            $narr = !empty($data['description']) ? strtolower($data['description']) : 'bank transaction reference ' .$data['reference'];
-            $cabparent = getparentgl($this->db->dbh,'cash at bank');
+            if(!$data['issubtxn']){
+                $narr = !empty($data['description']) ? strtolower($data['description']) : 'bank transaction reference ' .$data['reference'];
+                $cabparent = getparentgl($this->db->dbh,'cash at bank');
 
-            if((int)$data['type'] === 1){
-                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,$data['amount'],0,$narr,
-                            3,13,$tid,$_SESSION['congId']);
-                saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cabparent,0,$data['amount'],$narr,
-                            3,13,$tid,$_SESSION['congId']);
-                saveToBanking($this->db->dbh,$data['bank'],$data['date'],$data['amount'],0,1,
-                          $data['reference'],13,$tid,$_SESSION['congId']);
-            }elseif((int)$data['type'] === 2){
-                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,0,$data['amount'],$narr,
-                            3,13,$tid,$_SESSION['congId']);
-                saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cabparent,$data['amount'],0,$narr,
-                            3,13,$tid,$_SESSION['congId']);
-                saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],1,
-                             $data['reference'],13,$tid,$_SESSION['congId']);
-            }elseif((int)$data['type'] === 5){
-                $pid = $data['transfer'];
-                $pname = $this->getAccountName($pid)[0];
-                $accountid = $this->getAccountName($pid)[1];
-                $parentaccountname = getparentgl($this->db->dbh,$pname);
-                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,0,$data['amount'],$narr,
-                            3,13,$tid,$_SESSION['congId']);
-                saveToLedger($this->db->dbh,$data['date'],$pname,$parentaccountname,$data['amount'],0,$narr,
-                            $accountid,13,$tid,$_SESSION['congId']);
-                saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],1,
-                             $data['reference'],13,$tid,$_SESSION['congId']);
+                if((int)$data['type'] === 1){
+                    saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,$data['amount'],0,$narr,
+                                3,13,$tid,$_SESSION['congId']);
+                    saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cabparent,0,$data['amount'],$narr,
+                                3,13,$tid,$_SESSION['congId']);
+                    saveToBanking($this->db->dbh,$data['bank'],$data['date'],$data['amount'],0,1,
+                            $data['reference'],13,$tid,$_SESSION['congId']);
+                }elseif((int)$data['type'] === 2){
+                    saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,0,$data['amount'],$narr,
+                                3,13,$tid,$_SESSION['congId']);
+                    saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cabparent,$data['amount'],0,$narr,
+                                3,13,$tid,$_SESSION['congId']);
+                    saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],1,
+                                $data['reference'],13,$tid,$_SESSION['congId']);
+                }elseif((int)$data['type'] === 5){
+                    $pid = $data['transfer'];
+                    $pname = $this->getAccountName($pid)[0];
+                    $accountid = $this->getAccountName($pid)[1];
+                    $parentaccountname = getparentgl($this->db->dbh,$pname);
+                    saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,0,$data['amount'],$narr,
+                                3,13,$tid,$_SESSION['congId']);
+                    saveToLedger($this->db->dbh,$data['date'],$pname,$parentaccountname,$data['amount'],0,$narr,
+                                $accountid,13,$tid,$_SESSION['congId']);
+                    saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],1,
+                                $data['reference'],13,$tid,$_SESSION['congId']);
+                }
             }
-
+            
             if($data['transfer'] == '98'){
                 $this->db->query('INSERT INTO tblpettycash (ReceiptNo,TransactionDate,Debit,IsReceipt,BankId,Reference,Narration,TransactionType,TransactionId,CongregationId)
                                   VALUES(:rno,:tdate,:debit,:isreceipt,:bankid,:reference,:narr,:ttype,:tid,:cid)');

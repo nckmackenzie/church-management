@@ -29,6 +29,7 @@ class Banktransactions extends Controller
         $data= [
             'banks' => $this->bankmodel->GetBanks(),
             'accounts' => $this->bankmodel->GetOtherBanks(),
+            'subaccounts' => $this->bankmodel->GetAllSubaccounts(),
             'title' => 'Add transaction',
             'id' => '',
             'touched' => false,
@@ -41,7 +42,7 @@ class Banktransactions extends Controller
             'amount' => '',
             'transfer' => '',
             'deposittosubs' => false,
-            'subaccounts' => ''
+            // 'subaccounts' => ''
         ];
         $this->view('banktransactions/add',$data);
         exit;
@@ -71,14 +72,17 @@ class Banktransactions extends Controller
                 'id' => isset($fields->id) && !empty(trim($fields->id)) ? (int)trim($fields->id) : null,
                 'isedit' => converttobool($fields->isedit),
                 'date' => isset($fields->date) && !empty(trim($fields->date)) ? date('Y-m-d',strtotime($fields->date)) : null,
-                'bank' => isset($fields->bank) && !empty(trim($fields->bank)) ? (int)trim($fields->bank) : null,
+                'bank' => isset($fields->bank) && !empty(trim($fields->bank)) ? trim($fields->bank) : null,
                 'type' => isset($fields->type) && !empty(trim($fields->type)) ? (int)trim($fields->type) : null,
-                'transfer' => isset($fields->transferto) && !empty(trim($fields->transferto)) ? (int)trim($fields->transferto) : null,
+                'transfer' => isset($fields->transferto) && !empty(trim($fields->transferto)) ? trim($fields->transferto) : null,
                 'amount' => isset($fields->amount) && !empty(trim($fields->amount)) ? (int)trim($fields->amount) : null,
                 'reference' => isset($fields->reference) && !empty(trim($fields->reference)) ? trim($fields->reference) : null,
                 'description' => isset($fields->description) && !empty(trim($fields->description)) ? trim($fields->description) : null,
                 'deposittosubs' => isset($fields->deposittosubs) && trim($fields->deposittosubs) === 'on' ? true : false,
-                'subaccounts' => isset($fields->deposittosubs) && trim($fields->deposittosubs) === 'on' ? $fields->subaccounts : null
+                'subaccounts' => isset($fields->deposittosubs) && trim($fields->deposittosubs) === 'on' ? $fields->subaccounts : null,
+                'issubmain' => false,
+                'issubtransfer' => false,
+                'issubtxn' => false
             ];
 
             if(is_null($data['date']) || is_null($data['bank']) || is_null($data['type']) 
@@ -100,6 +104,41 @@ class Banktransactions extends Controller
                echo json_encode(['success' => false,'message' => 'Transfering accounts cannot be same']);
                exit;
             }
+
+            if(count(explode('-',$data['bank'])) > 1){
+                $data['issubmain'] = true;
+            }
+
+            if(!is_null($data['transfer']) && count(explode('-',$data['transfer'])) > 1){
+                $data['issubtransfer'] = true;
+            }
+
+            if($data['issubmain'] && $data['type'] !== 5){
+               http_response_code(400);
+               echo json_encode(['success' => false,'message' => 'Sub accounts can only transfer to other sub accounts.']);
+               exit;
+            }
+
+            if($data['issubmain'] && $data['type'] === 5 && !$data['issubtransfer']){
+                http_response_code(400);
+                echo json_encode(['success' => false,'message' => 'Sub accounts can only transfer to other sub accounts.']);
+                exit;
+            }
+
+            if(!$data['issubmain'] && $data['type'] === 5 && $data['issubtransfer']){
+                http_response_code(400);
+                echo json_encode(['success' => false,'message' => 'Main account cannot transfer to sub accounts.']);
+                exit;
+            }
+
+            if($data['issubmain'] && $data['issubtransfer']){
+                $data['issubtxn'] = true;
+                $data['type'] = 6;
+                $data['transfer'] = (int)explode('-',$data['transfer'])[0];
+                $data['bank'] = (int)explode('-',$data['bank'])[0];
+            }
+
+            // echo json_encode($data);
 
             if(!$this->bankmodel->CreateUpdate($data)){
                 http_response_code(500);
