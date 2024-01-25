@@ -58,10 +58,15 @@ class Banktransaction
         return loadresultset($this->db->dbh,'SELECT ID,UCASE(AccountName) AS SubAccount,BankId FROM tblbanksubaccounts WHERE (Deleted=0)',[]);
     }
 
+    function GetSubaccountName($id)
+    {
+        return getdbvalue($this->db->dbh,'SELECT AccountName FROM tblbanksubaccounts WHERE (ID=?)',[$id]);
+    }
+
     function GetMainAccount($value)
     {
-        $subaccount = explode('-',$value)[0];
-        return getdbvalue($this->db->dbh,'SELECT BankId FROM tblbanksubaccounts WHERE (ID=?)',[$subaccount]);
+        // $subaccount = explode('-',$value)[0];
+        return getdbvalue($this->db->dbh,'SELECT BankId FROM tblbanksubaccounts WHERE (ID=?)',[$value]);
     }
 
     public function Save($data)
@@ -69,6 +74,9 @@ class Banktransaction
         try {
             
             $bank = $data['issubtxn'] ? $this->GetMainAccount($data['bank']) : $data['bank'];
+            $from = $data['issubtxn'] ? $this->GetSubaccountName($data['bank']) : null;
+            $to = $data['issubtxn'] ? $this->GetSubaccountName($data['transfer']) : null;
+
             $this->db->dbh->beginTransaction();
             $this->db->query('INSERT INTO tblbanktransactions (TransactionDate,TransactionTypeId,BankId,Amount,TransferToId,
                                                                Reference,`Description`,DepositToSubAccounts,IsSubInterTransfer,CongregationId) 
@@ -88,35 +96,41 @@ class Banktransaction
 
             if(!is_null($data['subaccounts'])){
                 for ($i=0; $i < count($data['subaccounts']); $i++) {
-                    $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionId`, `SubAccountId`, `Amount`,TransactionType,Reference) 
-                                  VALUES (:tid,:sub,:amount,:ttype,:reference)');
+                    $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionDate`,`TransactionId`, `SubAccountId`, `Amount`,TransactionType,Narration,Reference) 
+                                      VALUES (:tdate,:tid,:sub,:amount,:ttype,:narr,:reference)');
+                    $this->db->bind(':tdate',$data['date']);
                     $this->db->bind(':tid',$tid);
                     $this->db->bind(':sub',$data['subaccounts'][$i]->accountid);
                     $this->db->bind(':amount',$data['subaccounts'][$i]->amount);
                     $this->db->bind(':ttype',13);
+                    $this->db->bind(':narr','sub-account deposit');
                     $this->db->bind(':reference',$data['reference']);
                     $this->db->execute();
                 }
             }
 
             if($data['issubtxn']){
-                $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionId`, `SubAccountId`, `Amount`,FromAccountId,TransactionType,Reference) 
-                                  VALUES (:tid,:sub,:amount,:fromacc,:ttype,:reference)');
+                $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionDate`,`TransactionId`, `SubAccountId`, `Amount`,FromAccountId,TransactionType,Narration,Reference) 
+                                  VALUES (:tdate,:tid,:sub,:amount,:fromacc,:ttype,:narr,:reference)');
+                $this->db->bind(':tdate',$data['date']);
                 $this->db->bind(':tid',$tid);
                 $this->db->bind(':sub',$data['transfer']);
                 $this->db->bind(':amount',$data['amount']);
                 $this->db->bind(':fromacc',$data['bank']);
                 $this->db->bind(':ttype',13);
+                $this->db->bind(':narr','Receipt from ' . $from);
                 $this->db->bind(':reference',$data['reference']);
                 $this->db->execute();
 
-                $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionId`, `SubAccountId`, `Amount`,ToAccountId,TransactionType,Reference) 
-                                  VALUES (:tid,:sub,:amount,:toacc,:ttype,:reference)');
+                $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionDate`,`TransactionId`, `SubAccountId`, `Amount`,ToAccountId,TransactionType,Narration,Reference) 
+                                  VALUES (:tdate,:tid,:sub,:amount,:toacc,:ttype,:narr,:reference)');
+                $this->db->bind(':tdate',$data['date']);
                 $this->db->bind(':tid',$tid);
                 $this->db->bind(':sub',$data['bank']);
                 $this->db->bind(':amount',$data['amount'] * -1);
                 $this->db->bind(':toacc',$data['transfer']);
                 $this->db->bind(':ttype',13);
+                $this->db->bind(':narr','Transfer to ' . $to);
                 $this->db->bind(':reference',$data['reference']);
                 $this->db->execute();
             }
