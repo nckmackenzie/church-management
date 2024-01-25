@@ -221,6 +221,17 @@ class Contribution {
                     $this->db->bind(':tid',$tid);
                     $this->db->bind(':cid',$_SESSION['congId']);
                     $this->db->execute();
+
+                    $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionDate`,`TransactionId`, `SubAccountId`, `Amount`,TransactionType,Narration,Reference) 
+                                  VALUES (:tdate,:tid,:sub,:amount,:ttype,:narr,:reference)');
+                    $this->db->bind(':tdate',$data['date']);
+                    $this->db->bind(':tid',$tid);
+                    $this->db->bind(':sub',$data['subaccount'][$i]);
+                    $this->db->bind(':amount',$data['amounts'][$i]);
+                    $this->db->bind(':ttype',1);
+                    $this->db->bind(':narr','Collection');
+                    $this->db->bind(':reference',!empty($data['reference']) ? strtolower($data['reference']) : NULL);
+                    $this->db->execute();
                 }
 
                 $accountparent = getparentgl($this->db->dbh,trim($data['accountsname'][$i]));
