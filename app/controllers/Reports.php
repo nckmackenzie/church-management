@@ -1446,4 +1446,68 @@ class Reports extends Controller {
         }
     }
 
+    public function subaccounts()
+    {
+        $data = [
+            'subaccounts' => $this->reportModel->GetSubaccounts(),
+        ];
+        $this->view('reports/subaccounts',$data);
+        exit;
+    }
+
+    public function subaccountsrpt()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'GET'){
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
+           $data = [
+                'account' => !empty(trim($_GET['account'])) ? (int)trim($_GET['account']) : NULL,
+                'from' => !empty(trim($_GET['from'])) ? date('Y-m-d',strtotime($_GET['from'])) : NULL,
+                'to' => !empty(trim($_GET['to'])) ? date('Y-m-d',strtotime($_GET['to'])) :NULL,
+            ];
+
+            $reports = $this->reportModel->GetSubAccountReport($data);
+            $output = '';
+            $output .= '
+                <table class="table table-bordered table-sm" id="table">
+                    <thead class="bg-lightblue">
+                        <tr>
+                            <th>Transaction Date</th>
+                            <th>Reference</th>
+                            <th>Money In</th>
+                            <th>Money Out</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+                    foreach($reports as $report) {
+                        $formattedoin = $report->AmountIn  > 0 ? number_format($report->AmountIn,2) : null;
+                        $formattedout = ($report->AmountOut * -1) > 0 ? number_format($report->AmountOut * -1,2) : null;
+                        $output .= '
+                            <tr>
+                                <td>'.date('d-M-Y',strtotime($report->TransactionDate)).'</td>
+                                <td>'.ucwords($report->Reference).'</td>
+                                <td>'.$formattedoin.'</td>
+                                <td>'.$formattedout.'</td>
+                                <td>'.ucwords($report->Narration).'</td>
+                            </tr>
+                        ';
+                    }
+                    $output .= '
+                    </tbody>
+                    <tfoot>
+                            <tr>
+                                <th colspan="2" style="text-align:center">Total:</th>
+                                <th id="debits"></th>
+                                <th id="credits"></th>
+                                <th></th>
+                            </tr>
+                    </tfoot>
+                </table>';
+            echo $output; 
+        }else{
+            redirect('users/deniedaccess');
+            exit();
+        }
+    }
+
 }

@@ -645,4 +645,17 @@ class Report {
         $this->db->bind(':cid',$_SESSION['congId']);
         return $this->db->resultSet();
     }
+
+    public function GetSubaccounts()
+    {
+        return loadresultset($this->db->dbh,'SELECT s.ID,ucase(s.AccountName) as AccountName
+                                             FROM `tblbanksubaccounts` s join tblaccounttypes a on s.BankId = a.ID WHERE
+                                             (s.Deleted=0) AND  (a.congregationId = ?);',[$_SESSION['congId']]);
+    }
+
+    public function GetSubAccountReport($data)
+    {
+        $sql = "CALL sp_get_subaccount_statement(?,?,?)";
+        return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$data['account']]);
+    }
 }
