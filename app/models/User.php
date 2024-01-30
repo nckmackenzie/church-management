@@ -7,14 +7,13 @@ class User {
         $this->db = new Database;
     }
 
-    public function create($data,$pass)
+    function create($data)
     {
-       
         $this->db->query('INSERT INTO tblusers (UserID,UserName,UsertypeId,`Password`,Active,contact,districtId,CongregationId) VALUES(:usid,:uname,:utype,:pass,:act,:contact,:district,:cong)');
         $this->db->bind(':usid',$data['userid']);
         $this->db->bind(':uname',$data['username']);
         $this->db->bind(':utype',$data['usertype']);
-        $this->db->bind(':pass',$pass);
+        $this->db->bind(':pass',password_hash($data['password'],PASSWORD_DEFAULT));
         $this->db->bind(':act',$data['active']);
         $this->db->bind(':contact',$data['contact']);
         $this->db->bind(':district',$data['district']);
@@ -26,13 +25,48 @@ class User {
         else{
             return false;
         }
-
+    }
+    public function update($data)
+    {
+       
+        $this->db->query('UPDATE tblusers SET UserName=:uname,UsertypeId=:utype,Active=:act,
+                                 contact=:contact,districtId=:district
+                          WHERE  (ID=:id)');
+        $this->db->bind(':uname',$data['username']);
+        $this->db->bind(':utype',$data['usertype']);
+        $this->db->bind(':act',$data['active']);
+        $this->db->bind(':contact',$data['contact']);
+        $this->db->bind(':district',$data['district']);
+        $this->db->bind(':id',$data['id']);
+        //execute
+        if ($this->db->execute()) {
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+    public function CreateUpdate($data)
+    {
+        if(!$data['isedit']){
+            return $this->create($data);
+        }else{
+            return $this->update($data);
+        }
+    }
+    public function CheckUserIdExists($userid,$id)
+    {
+        $count = getdbvalue($this->db->dbh,'SELECT count(*) 
+                                            FROM tblusers 
+                                            WHERE (UserID=?) AND (CongregationId=?) AND (ID <> ?)',[$userid,$_SESSION['congId'],$id]);
+        if($count > 0) return true;
+        return false;
     }
     public function checksuperuser($userid)
     {
         $this->db->query('SELECT superUser FROM tblusers WHERE (UserID=:id)');
         $this->db->bind(':id',$userid);
-        if($this->db->getValue == 1){
+        if($this->db->getValue() == 1){
             return true;
         }else{
             return false;
@@ -227,27 +261,7 @@ class User {
         $this->db->bind(':id',decryptId($id));
         return $this->db->single();
     }
-    public function update($data)
-    {
-       
-        $this->db->query('UPDATE tblusers SET UserName=:uname,UsertypeId=:utype,Active=:act,
-                                 contact=:contact,districtId=:district
-                          WHERE  (ID=:id)');
-        $this->db->bind(':uname',$data['username']);
-        $this->db->bind(':utype',$data['usertype']);
-        $this->db->bind(':act',$data['active']);
-        $this->db->bind(':contact',$data['contact']);
-        $this->db->bind(':district',$data['district']);
-        $this->db->bind(':id',$data['id']);
-        //execute
-        if ($this->db->execute()) {
-            return true;
-        }
-        else{
-            return false;
-        }
-
-    }
+   
     public function resetCredentials($data)
     {
         $this->db->query('UPDATE tblusers SET `Password`=:pass WHERE (ID=:id)');

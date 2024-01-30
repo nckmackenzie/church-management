@@ -1,5 +1,6 @@
 <?php
 class Users extends Controller{
+    private $userModel;
     public function __construct()
     {
         // if (!isset($_SESSION['userId']) || $_SESSION['userType'] > 2) {
@@ -35,91 +36,83 @@ class Users extends Controller{
             $districts = $this->userModel->getDistricts();
             $data = [
                 'districts' => $districts,
+                'id' => '',
+                'isedit' => false,
                 'userid' => '',
                 'username' => '',
-                'usertype' => '',
-                'active' => '',
+                'usertype' => '3',
+                'active' => '1',
                 'contact' => '',
                 'district' => '',
-                'userid_err' =>'',
-                'username_err' =>'',
-                'usertype_err' =>'',
-                'contact_err' =>'',
+                'errors' => []
             ];
             $this->view('users/register',$data);
         }
     }
-    public function create(){
+    public function createupdate(){
         //CHECK METHOD
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            //validate errors
-            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
            
             $districts = $this->userModel->getDistricts();
+            $fields = json_decode(file_get_contents('php://input'));
             $data = [
+                'id' => isset($fields->id) && !empty(trim($fields->id)) ? trim(strtolower($fields->id)) : null,
+                'isedit' => isset($fields->isedit) && !empty(trim($fields->isedit)) ? converttobool($fields->isedit) : false,
                 'districts' => $districts,
-                'userid' => trim(strtolower($_POST['userid'])),
-                'username' => trim(strtolower($_POST['username'])),
-                'usertype' => $_POST['usertype'],
-                'active' => $_POST['active'],
-                'contact' => $_POST['contact'],
-                'district' => !empty($_POST['district']) ? $_POST['district'] : NULL,
-                'userid_err' =>'',
-                'username_err' =>'',
-                'usertype_err' =>'',
-                'contact_err' =>'',
-            ];
-            if (empty($data['userid'])) {
-                $data['userid_err'] = 'Enter User Id';
-            }
-            if (empty($data['username'])) {
-                $data['username_err'] = 'Enter User Name';
-            }
-            if (empty($data['contact'])) {
-                $data['contact_err'] = 'Enter Contact';
-            }
-            if (empty($data['userid_err']) && empty($data['username_err']) && empty($data['contact_err'])) {
-                //hash password
-                $random = substr(md5(mt_rand()),0,7);
-                $hashed =  password_hash($random,PASSWORD_DEFAULT);
-                //register
-                if ($this->userModel->create($data,$hashed)) {
-                    $msg = 'Hi to access the PCEA Kalimoni System,click on the link provided herein.Login Credentials are: UserID is '.$data['userid'] . ' Password is '.$random.' then select your congregation from the dropdown. https://pceakalimoniparish.or.ke/app';
-                    $countryPrexix ='+254';
-                    $sb = substr($data['contact'],1);
-                    $full = $countryPrexix . $sb;
-                    sendLink($full,$msg);
-                    redirect('users/all');
-                }
-                else{
-                    die('Something Went Wrong');
-                }
-                
-            }
-            else{
-                $this->view('users/register',$data);
-            }
-        }    
-        else{
-           
-            $districts = $this->userModel->getDistricts();
-            $data = [
-                'districts' => $districts,
-                'userid' => '',
-                'username' => '',
-                'usertype' => '',
+                'userid' => isset($fields->userid) && !empty(trim($fields->userid)) ? trim(strtolower($fields->userid)) : null, 
+                'username' => isset($fields->username) && !empty(trim($fields->username)) ? trim(strtolower($fields->username)) : null,
+                'usertype' => isset($fields->usertype) && !empty(trim($fields->usertype)) ? (int)$fields->usertype : 3,
+                'active' => isset($fields->active) && !empty(trim($fields->active)) ? converttobool($fields->active) : true,
+                'contact' => isset($fields->contact) && !empty(trim($fields->contact)) ? $fields->contact : null,
+                'district' => isset($fields->district) && !empty(trim($fields->district)) ? $fields->district : null,
                 'password' => '',
-                'active' => '',
-                'contact' => '',
-                'districtid' => '',
-                'userid_err' =>'',
-                'username_err' =>'',
-                'usertype_err' =>'',
-                'district_err' =>'',
-                'pwd_err' =>'',
-                'contact_err' =>'',
+                'errors' => []
             ];
-        }
+
+            if (is_null($data['userid'])) {
+                array_push($data['errors'],'Enter user Id.');
+            }
+            if (is_null($data['username'])) {
+                array_push($data['errors'],'Enter user name.');
+            }
+            if (is_null($data['contact'])) {
+                array_push($data['errors'],'Enter user contact.');
+            }
+            if($data['usertype'] === 4 && is_null($data['district'])){
+                array_push($data['errors'],'Select user district.');
+            }
+
+            if(!is_null($data['userid']) && $this->userModel->CheckUserIdExists($data['userid'],$data['id'])){
+                array_push($data['errors'],'Userid already exists for another user.');
+            }
+
+            if(count($data['errors']) > 0){
+                http_response_code(400);
+                echo json_encode(['success' => false,'message' => $data['errors']]);
+                exit;
+            }
+
+            if(!$data['isedit']){
+                $data['password'] = substr(md5(mt_rand()),0,7);
+            }
+
+            if(!$this->userModel->CreateUpdate($data)){
+                http_response_code(400);
+                echo json_encode(['success' => false,'message' => 'Unable to create this user. Try again.']);
+                exit;
+            }
+
+            if(!$data['isedit']){
+                $msg = 'Hi to access the PCEA Kenyatta Rd System,click on the link provided herein.Login Credentials are: UserID is '.$data['userid'] . ' Password is '.$data['password'].' then select your congregation from the dropdown. https://cms.pceakalimoniparish.or.ke/users';
+                $sb = substr($data['contact'],1);
+                $full = '+254' . $sb;
+                sendLink($full,$msg);
+            }
+      
+            http_response_code($data['isedit'] ? 200 : 201);
+            echo json_encode(['success' => true,'message' => $data['isedit'] ? 'User edited successfully!' : 'User created successfully!']);
+            exit;
+        }    
     }
     public function login()
     {
@@ -380,81 +373,17 @@ class Users extends Controller{
         $data = [
             'districts' => $districts,
             'user' => $user,
-            'id' => '',
-            'username' => '',
-            'usertype' => '',
-            'active' => '',
-            'contact' => '',
-            'district' => '',
-            'username_err' =>'',
-            'usertype_err' =>'',
-            'district_err' =>'',
-            'contact_err' =>'',
+            'id' => $user->ID,
+            'isedit' => true,
+            'userid' => strtoupper($user->UserID) ?? '',
+            'username' => strtoupper($user->UserName) ?? '',
+            'usertype' => $user->UserTypeId ?? '3',
+            'active' => $user->UserTypeId ?? '1',
+            'contact' => $user->contact ?? '',
+            'district' => $user->districtId ?? '',
+            'errors' => []
         ];
-        $this->view('users/edit',$data);
-    }
-    public function update(){
-        //CHECK METHOD
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            //validate errors
-            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-            
-            $districts = $this->userModel->getDistricts();
-            $data = [
-                'user => '
-,               'id' => trim($_POST['id']),
-                'districts' => $districts,
-                'username' => trim(strtolower($_POST['username'])),
-                'usertype' => $_POST['usertype'],
-                'active' => $_POST['active'],
-                'contact' => $_POST['contact'],
-                'district' => !empty($_POST['district']) ? $_POST['district'] : NULL,
-                'userid_err' =>'',
-                'username_err' =>'',
-                'usertype_err' =>'',
-                'contact_err' =>'',
-            ];
-            $user = $this->userModel->getUser(encryptId($data['id']));
-            $data['user'] = $user;
-            if (empty($data['username'])) {
-                $data['username_err'] = 'Enter User Name';
-            }
-            if (empty($data['contact'])) {
-                $data['contact_err'] = 'Enter Contact';
-            }
-            if (empty($data['userid_err']) && empty($data['username_err']) && empty($data['contact_err'])) {
-                //update
-                if ($this->userModel->update($data)) {
-                   redirect('users/all');
-                }
-                else{
-                    die('Something Went Wrong');
-                }
-            }
-            else{
-                $this->view('users/edit',$data);
-            }
-        }    
-        else{
-            $districts = $this->userModel->getDistricts();
-            $data = [
-                'districts' => $districts,
-                'userid' => '',
-                'username' => '',
-                'usertype' => '',
-                'password' => '',
-                'active' => '',
-                'contact' => '',
-                'districtid' => '',
-                'userid_err' =>'',
-                'username_err' =>'',
-                'usertype_err' =>'',
-                'district_err' =>'',
-                'pwd_err' =>'',
-                'contact_err' =>'',
-            ];
-            $this->view('users/edit',$data);
-        }
+        $this->view('users/register',$data);
     }
     public function reset()
     {
