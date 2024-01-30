@@ -378,8 +378,16 @@ class User {
         $rightscount = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tbluserrights WHERE UserId = ?',[$id]);
         $logscount = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tbllogs WHERE UserId = ?',[$id]);
 
-        if((int)$rightscount !== 0 || (int)$logscount !== 0) {
-            return false;
+        if($rightscount !== 0){
+            $this->db->query('DELETE FROM tbluserrights WHERE UserId = :id');
+            $this->db->bind(':id',(int)$id);
+            $this->db->execute();
+        }
+
+        if($logscount !== 0){
+            $this->db->query('DELETE FROM tbllogs WHERE UserId = :id');
+            $this->db->bind(':id',(int)$id);
+            $this->db->execute();
         }
 
         $this->db->query("DELETE FROM tblusers WHERE ID = :id");
