@@ -98,8 +98,8 @@
                                 <td>
                                    <div class="btn-group">
                                         <a href="<?php echo URLROOT;?>/users/edit/<?php echo encryptId($user->ID);?>" class="btn btn-sm bg-olive custom-font">Edit</a>
-                                        <button type="button" class="btn btn-secondary btn-sm reset custom-font">Password Reset</button>
-                                        <button type="button" class="btn btn-danger btn-sm delete custom-font">Delete</button>
+                                        <button type="button" class="btn btn-secondary btn-sm reset custom-font"  data-contact="<?php echo $user->contact;?>" data-id="<?php echo $user->ID;?>">Password Reset</button>
+                                        <button type="button" class="btn btn-danger btn-sm delete custom-font" data-id="<?php echo $user->ID;?>">Delete</button>
                                    </div>
                                 </td>
                             </tr>
@@ -129,28 +129,16 @@
         //reset password
         $('#usersTable').on('click','.reset',function(){
           $('#resetModalCenter').modal('show');
-          $tr = $(this).closest('tr');
-
-          let data = $tr.children('td').map(function(){
-              return $(this).text();
-          }).get();
-          $('#contact').val(data[4]);
-          var currentRow = $(this).closest("tr");
-          var data1 = $('#usersTable').DataTable().row(currentRow).data();
-          $('#id').val(data1[0]);
+  
+          $('#contact').val($(this).data('contact'));
+          $('#id').val($(this).data('id'));
       });
 
       //reset password
       $('#usersTable').on('click','.delete',function(){
           $('#deleteModalCenter').modal('show');
-          $tr = $(this).closest('tr');
 
-          let data = $tr.children('td').map(function(){
-              return $(this).text();
-          }).get();
-          var currentRow = $(this).closest("tr");
-          var data1 = $('#usersTable').DataTable().row(currentRow).data();
-          $('#did').val(data1[0]);
+          $('#did').val($(this).data('id'));
       });
       
     });
