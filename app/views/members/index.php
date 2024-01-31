@@ -67,6 +67,13 @@
           <div class="col-sm-6">
             <a href="<?php echo URLROOT;?>/members/add" class="btn btn-success btn-sm custom-font">Add New</a>
           </div>
+          <?php if((int)$_SESSION['userType'] !== 4) : ?>
+            <div class="col-sm-3">
+              <select name="filter" id="filter" class="form-control form-control-sm">
+                <option value="" selected disabled>Filter by district</option>
+              </select>
+            </div>
+          <?php endif; ?>
         </div>
       </div><!-- /.container-fluid -->
     </section>
@@ -120,6 +127,9 @@
 <?php require APPROOT . '/views/inc/footer.php'?>
 <script>
     $(function(){
+      var urlParams = new URLSearchParams(window.location.search);
+      var isRedirect = !!urlParams.get('redirect') || false;  
+    
       var table = $('#membersTable').DataTable({
           'pageLength' : 25,
           'ordering' : false,
@@ -128,10 +138,35 @@
             { "visible" : false, "targets": 0},
             {"width" : "5%" , "targets": 2},
             {"width" : "10%" , "targets": 3}
-            <?php if ($_SESSION['userType'] <=2) : ?>
+         
             ,{"width" : "25%" , "targets": 6},
-            <?php endif;?>
-          ]
+
+          ],
+          "initComplete": function () {
+          this.api().columns([4]).every(function () {
+            var column = this;
+            var select = $('#filter');
+
+            select.on('change', function () {
+                var val = $.fn.dataTable.util.escapeRegex(
+                    $(this).val()
+                );
+                column.search(val ? '^' + val + '$' : '', true, false).draw();
+            });
+
+            column.data().unique().sort().each(function (d, j) {
+                select.append('<option value="' + d + '">' + d + '</option>')
+            });
+          });
+        }
+      });
+
+      if(isRedirect){
+        table.page(parseInt(localStorage.getItem('membersPage'))).draw( 'page' );
+      }
+
+      $(document).on('click', '#membersTable_next', function () {
+        localStorage.setItem('membersPage',table.page.info().page)
       });
 
       $('#membersTable').on('click','.btndel',function(){
