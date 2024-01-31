@@ -51,7 +51,7 @@ function sendSms($phone,$name,$id){
     $recipients = $phone;
 
     // Set your message
-    $message    = 'Hi, ' .$name .',To Update Your Info For PCEA Click On This Link: http://pceakalimoniparish.or.ke/update/mbs.php?rd='.$id;
+    $message    = 'Hi, ' .$name .',To Update Your Info For PCEA Click On This Link: https://member.pceakalimoniparish.or.ke/?rd='.$id;
 
     // Set your shortCode or senderId
     $from       = SENDER;
