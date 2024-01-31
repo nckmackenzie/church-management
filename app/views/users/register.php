@@ -115,7 +115,7 @@
                             </div>
                         </div><!--End Of Row -->
                         <div class="row">
-                            <div class="col-2">
+                            <div class="col-sm-2">
                                 <button   button type="submit" class="btn btn-block btn-sm bg-navy">Save</button>
                                 <input type="hidden" id="id" name="id" value="<?php echo $data['id'];?>"  >
                                 <input type="hidden" id="isedit" name="isedit" value="<?php echo $data['isedit'];?>"  >
