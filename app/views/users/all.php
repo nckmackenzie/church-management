@@ -46,7 +46,7 @@
               <div class="row">
                 <div class="col-md-9">
                   <label for="">Delete Selected User?</label>
-                  <input type="text" name="id" id="did">
+                  <input type="hidden" name="id" id="did">
                 </div>
               </div>
               <div class="modal-footer">
