@@ -461,3 +461,8 @@ function formatcontact($contact){
 function format_string($value) {
    return str_pad((string) $value, 3, "0", STR_PAD_LEFT);
 }
+
+function date_is_valid($dateString, $format = 'Y-m-d') {
+    $dateTime = DateTime::createFromFormat($format, $dateString);
+    return $dateTime && $dateTime->format($format) === $dateString;
+}
