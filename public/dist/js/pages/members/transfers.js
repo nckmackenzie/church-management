@@ -48,7 +48,7 @@ function validate() {
   let errorCount = 0;
 
   controls.forEach(contrl => {
-    if (!contrl.value || contrl.value === '') {
+    if (contrl.value === '') {
       contrl.classList.add('is-invalid');
       contrl.nextSibling.nextSibling.textContent = 'This field is required';
       errorCount++;

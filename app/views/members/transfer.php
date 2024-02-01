@@ -17,7 +17,7 @@
                       <div class="form-group">
                           <label for="congregationfrom">Current Congregation</label>
                           <select name="congregationfrom" id="congregationfrom" 
-                                  class="form-control">
+                                  class="form-control mandatory">
                               <option value="" selected disabled>Select congregation</option>
                               <?php foreach($data['congregations'] as $congregation) : ?>
                                  <option value="<?php echo $congregation->ID;?>"
@@ -33,7 +33,7 @@
                       <div class="form-group">
                           <label for="district">Current District</label>
                           <select name="district" id="district" 
-                                  class="form-control">
+                                  class="form-control mandatory">
                           </select>
                           <span class="invalid-feedback"></span>
                       </div>
@@ -51,7 +51,7 @@
                       <div class="form-group">
                           <label for="newcongregation">New Congregation</label>
                           <select name="newcongregation" id="newcongregation" 
-                                  class="form-control">
+                                  class="form-control mandatory">
                               <option value="" selected disabled>Select congregation</option>    
                               <?php foreach($data['congregations'] as $congregation) : ?>
                                  <option value="<?php echo $congregation->ID;?>"
@@ -122,6 +122,6 @@
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-multiselect/1.1.2/js/bootstrap-multiselect.min.js"></script>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/members/transfers.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/members/transfers-v1.js"></script>
 </body>
 </html>  
