@@ -39,7 +39,21 @@ class Member {
     }
     public function getMembers()
     {
-       $this->db->query("SELECT m.ID,
+        if((int)$_SESSION['userType'] === 4) {
+            $district = getdbvalue($this->db->dbh,'SELECT districtId FROM tblusers WHERE ID=?',[$_SESSION['userId']]);
+            $this->db->query("SELECT m.ID,
+                                ucase(m.memberName) as memberName,
+                                m.contact,
+                                IF(m.genderId=1,'MALE',IF(m.genderId=2,'FEMALE','NOT SPECIFIED')) AS gender,
+                                ucase(d.districtName) as district,
+                                ucase(p.positionName) as position
+                              FROM  tblmember m left join tbldistricts d on m.districtId=d.ID
+                                left join tblpositions p on m.positionId=p.ID
+                              WHERE (m.memberStatus=1) AND (m.districtId=:did) AND (m.deleted=0)
+                              ORDER BY memberName");
+            $this->db->bind(':did',$district);
+       }else{
+            $this->db->query("SELECT m.ID,
                                 ucase(m.memberName) as memberName,
                                 m.contact,
                                 IF(m.genderId=1,'MALE',IF(m.genderId=2,'FEMALE','NOT SPECIFIED')) AS gender,
@@ -49,8 +63,9 @@ class Member {
                               left join tblpositions p on m.positionId=p.ID
                         WHERE (m.memberStatus=1) AND (m.congregationId=:cid) AND (m.deleted=0)
                         ORDER BY memberName");
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();                ;
+            $this->db->bind(':cid',$_SESSION['congId']);
+       }
+       return $this->db->resultSet();                    ;
     }
     public function getMember($id)
     {
@@ -222,6 +237,16 @@ class Member {
             return false;
         }        
     }
+
+    public function CreateUpdate($data)
+    {
+        if($data['isedit']){
+            return $this->update($data);
+        }else{
+            return $this->create($data);
+        }
+    }
+
     public function getMemberDistrict($data)
     {
         $this->db->query('SELECT d.ID,UCASE(districtName) as districtName

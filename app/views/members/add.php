@@ -16,10 +16,19 @@
     <!-- Main content -->
     <section class="content">
         <div class="row">
+            <div class="col-sm-12" id="alertBox">
+                <?php if(count($data['errors']) > 0) : ?>
+                    <div class="alert custom-danger" >
+                        <?php foreach($data['errors'] as $error) : ?>
+                            <div><?php echo $error; ?></div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
             <div class="col-md-12">
                 <div class="card bg-light">
                     <div class="card-header">
-                        Create Member
+                        <?php echo $data['isedit'] ? 'Edit Member' : 'Create Member' ;?>
                     </div>
                     <div class="card-body ">
                         <form action="<?php echo URLROOT;?>/members/create" method="post">
@@ -28,21 +37,21 @@
                                     <div class="form-group">
                                         <label for="name">Member Name</label>
                                         <input type="text" name="name"
-                                            class="form-control form-control-sm mandatory
-                                            <?php echo (!empty($data['name_err'])) ? 'is-invalid' : ''?>"
-                                            id="name" value="<?php echo $data['name'];?>"
-                                            autocomplete="off">
-                                        <span class="invalid-feedback"><?php echo $data['name_err'];?></span>       
+                                               class="form-control form-control-sm mandatory"
+                                               id="name" value="<?php echo $data['name'];?>"
+                                               placeholder="jane doe..."
+                                               autocomplete="off">
+                                        <span class="invalid-feedback"></span>       
                                     </div>
                                 </div>
                                 <div class="col-md-2">
                                     <div class="form-group">
                                         <label for="idno">ID No</label>
                                         <input type="text" name="idno"
-                                            class="form-control form-control-sm 
-                                            <?php echo (!empty($data['idno_err'])) ? 'is-invalid' : ''?>"
-                                            id="idno" value="<?php echo $data['idno'];?>">
-                                        <span class="invalid-feedback"><?php echo $data['idno_err'];?></span>
+                                            class="form-control form-control-sm"
+                                            id="idno" value="<?php echo $data['idno'];?>"
+                                            placeholder="1234567">
+                                        <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-3">
@@ -52,7 +61,7 @@
                                             class="form-control form-control-sm"
                                             data-field="date" data-format="yyyy-MM-dd"
                                             value="<?php echo $data['dob'];?>"
-                                            autocomplete="off" readonly>
+                                            autocomplete="off">
                                         <div id="dtBox"></div>       
                                     </div>
                                 </div>
@@ -60,12 +69,11 @@
                             <div class="row">
                                 <div class="col-md-2">
                                     <div class="form-group">
-                                        <label for="gender">Gender</label>
+                                        <label for="gender">Sex</label>
                                         <select name="gender" id="gender" class="form-control form-control-sm">
                                             <option value="3" selected>Not Specified</option>
-                                            <option value="1" <?php selectdCheck($data['gender'], $data['one'])?>>Male</option>
-                                            <option value="2" <?php selectdCheck($data['gender'],$data['two']) ?>>Female</option>
-                                            
+                                            <option value="1" <?php selectdCheck($data['gender'], "1")?>>Male</option>
+                                            <option value="2" <?php selectdCheck($data['gender'],"2") ?>>Female</option>
                                         </select>
                                     </div>
                                 </div>
@@ -73,10 +81,10 @@
                                     <div class="form-group">
                                         <label for="contact">Contact</label>
                                         <input type="text" name="contact" id="contact"
-                                        class="form-control form-control-sm mandatory
-                                        <?php echo (!empty($data['contact_err'])) ? 'is-invalid' : ''?>" 
-                                        value="<?php echo $data['contact'];?>" maxlength="10" autocomplete="off">
-                                        <span class="invalid-feedback"><?php echo $data['contact_err'];?></span>
+                                               class="form-control form-control-sm mandatory" 
+                                               value="<?php echo $data['contact'];?>" maxlength="10" autocomplete="off"
+                                               placeholder="0700000000">
+                                        <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-3">
@@ -126,7 +134,7 @@
                                             class="form-control form-control-sm"
                                             data-field="date" data-format="yyyy-MM-dd"
                                             value="<?php echo $data['regdate'];?>"
-                                            autocomplete="off" readonly>
+                                            autocomplete="off">
                                         <div id="dtBoxRegistration"></div>
                                     </div>
                                 </div>
@@ -180,6 +188,7 @@
                                             <option value="2" <?php selectdCheck($data['membershipstatus'],2)?>>Adherent</option>
                                             <option value="3" <?php selectdCheck($data['membershipstatus'],3)?>>Associate</option>
                                             <option value="4" <?php selectdCheck($data['membershipstatus'],4)?>>Under-12</option>
+                                            <option value="5" <?php selectdCheck($data['membershipstatus'],5)?>>Child</option>
                                         </select>
                                     </div>
                                 </div>
@@ -200,7 +209,7 @@
                                         <input type="text" data-field="date" data-format="yyyy-MM-dd" 
                                             id="confirmeddate" name="confirmeddate"
                                             class="form-control form-control-sm"
-                                            value="<?php echo $data['confirmeddate'];?>" disabled>
+                                            value="<?php echo $data['confirmeddate'];?>">
                                         <div id="dtBoxConfirmed"></div>
                                     </div>
                                 </div>
@@ -223,7 +232,7 @@
                                         <input type="text" data-field="date" data-format="yyyy-MM-dd" 
                                             id="commissioneddate" name="commissioneddate"
                                             class="form-control form-control-sm"
-                                            value="<?php echo $data['commissioned'];?>" disabled>
+                                            value="<?php echo $data['commissioned'];?>">
                                         <div id="dtBoxCommissioned"></div>
                                     </div>
                                 </div>
@@ -231,8 +240,7 @@
                                     <div class="form-group">
                                         <label for="district">District:</label>
                                         <select name="district" id="district"
-                                                class="form-control form-control-sm mandatory
-                                                <?php echo (!empty($data['district_err'])) ? 'is-invalid' : ''?>">
+                                                class="form-control form-control-sm mandatory">
                                             <option value="" disabled selected>Select District</option>
                                             <?php foreach($data['districts'] as $district) : ?>
                                                 <option value="<?php echo $district->ID;?>"
@@ -241,7 +249,7 @@
                                                 </option>
                                             <?php endforeach; ?> 
                                         </select>
-                                        <span class="invalid-feedback"><?php echo $data['district_err'];?></span>
+                                        <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-5">
@@ -291,6 +299,7 @@
                                         <input type="email" id="email" name="email"
                                             class="form-control form-control-sm"
                                             value="<?php echo $data['email'];?>"
+                                            placeholder="jdoe@example.com"
                                             autocomplete="off">
                                     </div>
                                 </div>
@@ -300,6 +309,7 @@
                                         <input type="text" id="residence" name="residence"
                                             class="form-control form-control-sm" 
                                             value="<?php echo $data['residence'];?>"
+                                            placeholder="Athi"
                                             autocomplete="off">
                                     </div>
                                 </div>
@@ -307,6 +317,8 @@
                             <div class="row">
                                 <div class="col-3">
                                     <button type="submit" class="btn btn-sm bg-navy custom-font">Save</button>
+                                    <input type="hidden" value="<?php echo $data['isedit']; ?>" name="isedit">
+                                    <input type="hidden" value="<?php echo $data['id']; ?>" name="id">
                                 </div>
                             </div>
                         </form>    
@@ -317,17 +329,8 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/members/create.js"></script>
 <script>
-     let calculateAge = function(birthday) {
-        let now = new Date();
-        let past = new Date(birthday);
-        let nowYear = now.getFullYear();
-        let pastYear = past.getFullYear();
-        let age = nowYear - pastYear;
-
-        return age;
-	};
-
     $(function(){
         $('#occupation').select2();
         $("#dtBox").DateTimePicker();
@@ -336,101 +339,6 @@
         $("#dtBoxBaptised").DateTimePicker();
         $("#dtBoxConfirmed").DateTimePicker();
         $("#dtBoxCommissioned").DateTimePicker();
-
-        $('#dob').change(function(){
-            var $birthday = $('#dob').val();
-            // alert('Your age is ' + calculateAge($birthday) + ' years');
-            var years = calculateAge($birthday);
-            if (years < 18) {
-                $('#idno').attr('disabled',true);
-                $('#maritalstatus').attr('disabled',true);
-                $('#marriagetype').attr('disabled',true);
-                $('#marriagedate').attr('disabled',true);
-                $('#idno').val('');
-                $('#maritalstatus').val('');
-                $('#marriagetype').val('');
-            }
-            else{
-                $('#idno').attr('disabled',false);
-                $('#maritalstatus').attr('disabled',false);
-            }
-        });
-
-        $('#maritalstatus').on('change', function(){
-           if($(this).val() == '2'){
-             $('#marriagetype').attr('disabled',false);
-             $('#marriagedate').attr('disabled',false);
-            
-            }else{
-                $('#marriagetype').attr('disabled',true);
-                $('#marriagedate').attr('disabled',true);
-                $("#marriagetype option:selected").prop("selected", false)
-            }
-        });
-        $('#status').on('change',function(){
-           if($(this).val() == '4'){
-             $('#passeddate').attr('disabled',false);
-           }
-           else{
-            $('#passeddate').attr('disabled',true);
-           }    
-        });
-
-        $('#membershipstatus').on('change',function(){
-           if($(this).val() == '1'){
-               $('#confirmed').attr('disabled',false);
-               $('#commissioned').attr('disabled',false);
-           }
-           else{
-               $('#confirmed').attr('disabled',true);
-               $('#commissioned').attr('disabled',true);
-               $('#confirmeddate').attr('disabled',true);
-               $('#commissioneddate').attr('disabled',true);
-           }
-        });
-
-        $('#confirmed').on('change',function(){
-            if($(this).val() == '1'){
-              $('#confirmeddate').attr('disabled',false);
-            }
-            else{
-              $('#confirmeddate').attr('disabled',true); 
-            }
-        });
-
-        $('#commissioned').on('change',function(){
-            if($(this).val() == '1'){
-              $('#commissioneddate').attr('disabled',false);
-            }
-            else{
-              $('#commissioneddate').attr('disabled',true); 
-            }
-        });
-
-        $('#baptised').on('change',function(){
-            if($(this).val() == '1'){
-                $('#baptiseddate').attr('disabled',false);
-            }
-            else{
-                $('#baptiseddate').attr('disabled',true);
-            }
-        });
-
-        $('#occupation').on('change',function(){
-            if ($(this).val() == 'OTHER') {
-                $('#other').attr('readonly',false);
-                $('#other').focus();
-            }
-            else{
-                $('#other').attr('readonly',true);
-            }
-           
-        });
-
-        // $('#name').autocomplete(function(){
-        //     var name = $(this).val();
-        //     console.log(name);
-        // });
     });
 </script>
 </body>

@@ -1,5 +1,7 @@
 <?php
 class Members extends Controller {
+    private $authmodel;
+    private $memberModel;
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
@@ -28,6 +30,8 @@ class Members extends Controller {
             'districts' => $districts,
             'positions' => $positions,
             'occupations' => $occupations,
+            'id' => '',
+            'isedit' => false,
             'name' => '',
             'idno' => '',
             'dob' => '',
@@ -52,14 +56,7 @@ class Members extends Controller {
             'occupationother' => '',
             'residence' => '',
             'email' => '',
-            'name_err' => '',
-            'contact_err' => '',
-            'idno_err' =>'',
-            'district_err' => '',
-            'one' => '1',
-            'two' => 2,
-            'three' => 3,
-            'four' => 4,
+            'errors' => []
         ];
         $this->view('members/add',$data);
     }
@@ -72,78 +69,93 @@ class Members extends Controller {
             $positions = $this->memberModel->getPositions();
             $occupations = $this->memberModel->getOccupations();
             $data = [
-                // 'marriagestatuses' => $marriagestatus,
-                // 'districts' => $districts,
-                // 'positions' => $positions,
-                // 'occupations' => $occupations,
-                'id' => '',
-                'name' => trim(strtolower($_POST['name'])),
-                'idno' => !empty($_POST['idno']) ? trim($_POST['idno']) : NULL,
-                'dob' => !empty($_POST['dob']) ? trim($_POST['dob']) : NULL,
-                'gender' => trim($_POST['gender']),
-                'contact' => trim($_POST['contact']),
-                'maritalstatus' => !empty($_POST['maritalstatus']) ? trim($_POST['maritalstatus']) : NULL,
-                'marriagetype' => !empty($_POST['marriagetype']) ? $_POST['marriagetype'] : NULL,
-                'marriagedate' => !empty($_POST['marriagedate']) ? $_POST['marriagedate'] : NULL,
-                'regdate' => !empty($_POST['regdate']) ? trim($_POST['regdate']) : NULL,
-                'status' => trim($_POST['status']),
-                'passeddate' => !(empty($_POST['passeddate'])) ? trim($_POST['passeddate']) : NULL,
-                'baptised' => !empty($_POST['baptised']) ? trim($_POST['baptised']) : NULL,
-                'bapitiseddate' => !empty($_POST['baptiseddate']) ? trim($_POST['baptiseddate']) : NULL,
-                'membershipstatus' => !empty($_POST['membershipstatus']) ? 
-                                        trim($_POST['membershipstatus']) : NULL,
-                'confirmed' => !empty($_POST['confirmed']) ? trim($_POST['confirmed']) : NULL,
-                'confirmeddate' => !empty($_POST['confirmeddate']) ? trim($_POST['confirmeddate']) : NULL,
-                'commissioned' => !empty($_POST['commissioned']) ? trim($_POST['commissioned']) : NULL,
-                'commissioneddate' => !empty($_POST['commissioneddate']) ?
-                                        trim($_POST['commissioneddate']) : NULL,
-                'district'  => !empty($_POST['district']) ? trim($_POST['district']) : NULL ,
-                'position'  => !empty($_POST['position']) ? trim($_POST['position']) : NULL,
-                'occupation'  => !empty($_POST['occupation']) ? trim($_POST['occupation']) : NULL,
-                'occupationother' => !empty($_POST['occupationother']) ?
-                                        trim($_POST['occupationother']) : NULL,
-                'residence' => !empty($_POST['residence']) ? trim(strtolower($_POST['residence'])) : NULL,
-                'email' => !empty($_POST['email']) ? trim($_POST['email']) : NULL,
-                'name_err' => '',
-                'contact_err' => '',
-                'district_err' => '',
-                'idno_err' =>'',
-                'one' => 1,
-                'two' => 2,
-                'three' => 3,
-                'four' => 4,
+                'marriagestatuses' => $marriagestatus,
+                'districts' => $districts,
+                'positions' => $positions,
+                'occupations' => $occupations,
+                'isedit' => isset($_POST['isedit']) ? converttobool($_POST['isedit']) : false,
+                'id' =>  isset($_POST['id']) && !empty(trim($_POST['id'])) ? trim($_POST['id']) : null,
+                'name' => isset($_POST['name']) && !empty(trim($_POST['name'])) ? trim(strtolower($_POST['name'])) : null,
+                'idno' => isset($_POST['idno']) && !empty(trim($_POST['idno']))  ? trim($_POST['idno']) : null,
+                'dob' => isset($_POST['dob']) && !empty(trim($_POST['dob'])) ? date('Y-m-d',strtotime(trim($_POST['dob']))) : null,
+                'gender' => isset($_POST['gender']) && !empty(trim($_POST['gender'])) ? trim($_POST['gender']) : null,
+                'contact' => isset($_POST['contact']) && !empty(trim($_POST['contact'])) ? trim($_POST['contact']) : null,
+                'maritalstatus' =>  isset($_POST['maritalstatus']) && !empty(trim($_POST['maritalstatus']))  ? trim($_POST['maritalstatus']) : null,
+                'marriagetype' =>  isset($_POST['marriagetype']) && !empty(trim($_POST['marriagetype']))  ? $_POST['marriagetype'] : null,
+                'marriagedate' =>  isset($_POST['marriagedate']) && !empty(trim($_POST['marriagedate']))  ? date('Y-m-d',strtotime(trim($_POST['marriagedate']))) : null,
+                'regdate' => isset($_POST['regdate']) && !empty(trim($_POST['regdate'])) ? date('Y-m-d',strtotime(trim($_POST['regdate']))) : null,
+                'status' =>  isset($_POST['status']) && !empty(trim($_POST['status'])) ? trim($_POST['status']) : 1,
+                'passeddate' => isset($_POST['passeddate']) && !(empty($_POST['passeddate'])) ? date('Y-m-d',strtotime(trim($_POST['passeddate']))) : null,
+                'baptised' => isset($_POST['baptised']) && !empty($_POST['baptised']) ? trim($_POST['baptised']) : null,
+                'bapitiseddate' => isset($_POST['baptiseddate']) && !empty($_POST['baptiseddate']) ? date('Y-m-d',strtotime(trim($_POST['baptiseddate']))) : null,
+                'membershipstatus' => isset($_POST['membershipstatus']) && !empty($_POST['membershipstatus']) ? trim($_POST['membershipstatus']) : null,
+                'confirmed' => isset($_POST['confirmed']) && !empty($_POST['confirmed']) ? trim($_POST['confirmed']) : null,
+                'confirmeddate' => isset($_POST['confirmeddate']) && !empty($_POST['confirmeddate']) ? date('Y-m-d',strtotime(trim($_POST['confirmeddate']))) : null,
+                'commissioned' => isset($_POST['commissioned']) && !empty($_POST['commissioned']) ? trim($_POST['commissioned']) : null,
+                'commissioneddate' => isset($_POST['commissioneddate']) &&  !empty($_POST['commissioneddate']) ? date('Y-m-d',strtotime(trim($_POST['commissioneddate']))) : null,
+                'district'  => isset($_POST['district']) && !empty($_POST['district']) ? trim($_POST['district']) : null ,
+                'position'  => isset($_POST['position']) && !empty($_POST['position']) ? trim($_POST['position']) : null,
+                'occupation'  => isset($_POST['occupation']) && !empty($_POST['occupation']) ? trim($_POST['occupation']) : null,
+                'occupationother' => isset($_POST['occupationother']) && !empty($_POST['occupationother']) ? trim($_POST['occupationother']) : null,
+                'residence' => isset($_POST['residence']) && !empty($_POST['residence']) ? trim(strtolower($_POST['residence'])) : null,
+                'email' => isset($_POST['email']) && !empty($_POST['email']) ? trim($_POST['email']) : null,
+                'errors' => []
             ];
             //validate
-            if (empty($data['name'])) {
-                $data['name_err'] ='Enter Member Name';
+            if (is_null($data['name'])) {
+                array_push($data['errors'],'Enter Member Name.');
             }
-            if (empty($data['contact'])) {
-                $data['contact_err'] ='Enter Member Contact';
+            if (is_null($data['contact'])) {
+                array_push($data['errors'],'Enter member contact.');
             }
-            if (!empty($data['idno'])) {
+            if (!is_null($data['idno'])) {
                 if (!$this->memberModel->checkIDExists($data)) {
-                   $data['idno_err'] = 'ID No Already Entered';
+                   array_push($data['errors'],'ID No already exists.');
                 }
             }
-            if (empty($data['district']) || $data['district'] == NULL) {
-               $data['district_err'] = 'Select District';
+            if (is_null($data['district'])) {
+                array_push($data['errors'],'Select district.');
             }
-            if (empty($data['name_err']) && empty($data['contact_err']) && empty($data['district_err']) 
-                && empty($data['idno_err'])) {
-               // echo json_encode($data);
-                if ($this->memberModel->create($data)) {
-                    flash('member_msg','Member Added Successfully!');
-                    redirect('members');
-                }
-                else{
-                    flash('member_msg','Something Went Wrong!','alert alert-danger');
-                    redirect('members');
-                }
+            if(!is_null($data['dob']) && !date_is_valid($data['dob'])){
+                array_push($data['errors'],'Invalid date set as Date of birth.');
             }
-            else{
+            if(!is_null($data['marriagedate']) && !date_is_valid($data['marriagedate'])){
+                array_push($data['errors'],'Invalid date set as date of marriage.');
+            }
+            if(!is_null($data['regdate']) && !date_is_valid($data['regdate'])){
+                array_push($data['errors'],'Invalid date set as date of registration.');
+            }
+            if(!is_null($data['passeddate']) && !date_is_valid($data['passeddate'])){
+                array_push($data['errors'],'Invalid date set as date of passing.');
+            }
+            if(!is_null($data['bapitiseddate']) && !date_is_valid($data['bapitiseddate'])){
+                array_push($data['errors'],'Invalid date set as date of baptism.');
+            }
+            if(!is_null($data['confirmeddate']) && !date_is_valid($data['confirmeddate'])){
+                array_push($data['errors'],'Invalid date set as date of confirmation.');
+            }
+            if(!is_null($data['commissioneddate']) && !date_is_valid($data['commissioneddate'])){
+                array_push($data['errors'],'Invalid date set as date of commissioning.');
+            }
+
+            if(count($data['errors'])){
                 $this->view('members/add',$data);
+                exit;
             }
-        }
+
+            if (!$this->memberModel->CreateUpdate($data)) {
+                array_push($data['errors'],'Unable to save member. Try again later.');
+                $this->view('members/add',$data);
+                exit;
+            }
+               
+            flash('member_msg', $data['isedit'] ? 'Edited successfully!' : 'Saved successfully');
+            if(!$data['isedit']){
+                redirect('members');
+            }else{
+                redirect('members?redirect=true');
+            }
+          }
     }
     public function resend()
     {
@@ -169,19 +181,42 @@ class Members extends Controller {
         $positions = $this->memberModel->getPositions();
         $occupations = $this->memberModel->getOccupations();
         $member = $this->memberModel->getMember($id);
+        checkcenter($member->congregationId);
         $data = [
             'marriagestatuses' => $marriagestatus,
             'districts' => $districts,
             'positions' => $positions,
             'occupations' => $occupations,
-            'member' => $member
+            'member' => $member,
+            'id' => $member->ID,
+            'isedit' => true,
+            'name' => strtoupper($member->memberName),
+            'idno' => $member->idNo ?? '',
+            'dob' =>  $member->dob ?? '',
+            'gender' => $member->genderId ?? '',
+            'contact' => $member->contact,
+            'maritalstatus' => $member->maritalStatusId ?? '',
+            'marriagetype' => $member->marriageType ?? '',
+            'marriagedate' => $member->marriageDate ?? '',
+            'regdate' => $member->registartionDate ??  '',
+            'status' => $member->memberStatus ?? '',
+            'passeddate' => $member->passedOn ?? '',
+            'baptised' => $member->baptised ?? '',
+            'bapitiseddate' => $member->baptisedDate ?? '',
+            'membershipstatus' => $member->membershipStatus ?? '',
+            'confirmed' => $member->confirmed ?? '',
+            'confirmeddate' => $member->confirmedDate ?? '',
+            'commissioned' => $member->commissioned ?? '',
+            'commissioneddate' => $member->commissionedDate ?? '',
+            'district'  => $member->districtId ?? '',
+            'position'  => $member->positionId ?? '',
+            'occupation'  => $member->occupation ?? '',
+            'occupationother' => $member->other ?? '',
+            'residence' => $member->residence ?? '',
+            'email' => $member->email ?? '',
+            'errors' => []
         ];
-        if ($data['member']->congregationId != $_SESSION['congId']) {
-            redirect('members');
-        }
-        elseif ($data['member']->congregationId == $_SESSION['congId']) {
-            $this->view('members/edit',$data);
-        }
+        $this->view('members/add',$data);
     }
     public function delete()
     {
