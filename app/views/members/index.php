@@ -15,8 +15,8 @@
               <div class="row">
                 <div class="col-md-9">
                   <label for="">Are You Sure You Want To Delete Selected Member?</label>
-                  <input type="hidden" name="id" id="id">
-                  <input type="hidden" name="membername" id="membername">
+                  <input type="text" name="id" id="id">
+                  <input type="text" name="membername" id="membername">
                 </div>
               </div>
               <div class="modal-footer">
@@ -108,9 +108,9 @@
                                     <?php if ($_SESSION['userType'] <=2 ) : ?>
                                         <td>
                                             <div class="btn-group">
-                                                <button class="btn btn-sm bg-gray-dark custom-font resend">Resend Update Link</button>
+                                                <button class="btn btn-sm bg-gray-dark custom-font resend" data-id="<?php echo $member->ID;?>" data-contact="<?php echo $member->contact;?>">Resend Update Link</button>
                                                 <a href="<?php echo URLROOT;?>/members/edit/<?php echo $member->ID;?>" class="btn bg-olive custom-font btn-sm">Edit</a>
-                                                <button class="btn btn-danger custom-font btn-sm btndel">Delete</button>
+                                                <button class="btn btn-danger custom-font btn-sm btndel" data-id="<?php echo $member->ID;?>">Delete</button>
                                             </div>
                                         </td>
                                     <?php endif; ?> 
@@ -171,29 +171,12 @@
 
       $('#membersTable').on('click','.btndel',function(){
           $('#deleteModalCenter').modal('show');
-          $tr = $(this).closest('tr');
-
-          let data = $tr.children('td').map(function(){
-              return $(this).text();
-          }).get();
-          
-          $('#membername').val(data[0]);
-          var currentRow = $(this).closest("tr");
-          var data1 = $('#membersTable').DataTable().row(currentRow).data();
-          $('#id').val(data1[0]);
+          $('#id').val($(this).data('id'));
       });
       $('#membersTable').on('click','.resend',function(){
           $('#resendModalCenter').modal('show');
-          $tr = $(this).closest('tr');
-
-          let data = $tr.children('td').map(function(){
-              return $(this).text();
-          }).get();
-          
-          $('#contact').val(data[1]);
-          var currentRow = $(this).closest("tr");
-          var data1 = $('#membersTable').DataTable().row(currentRow).data();
-          $('#rid').val(data1[0]);
+          $('#rid').val($(this).data('id'));
+          $('#contact').val($(this).data('contact'));
       });
 
     });
