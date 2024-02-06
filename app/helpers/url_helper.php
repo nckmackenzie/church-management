@@ -333,7 +333,7 @@ function checkuserrights($con,$user,$form){
 }
 
 function checkrights($model,$form){
-    if((int)$_SESSION['userType'] > 2 && (int)$_SESSION['userType'] !== 6 && 
+    if(isset($_SESSION['userType']) && (int)$_SESSION['userType'] > 2 && (int)$_SESSION['userType'] !== 6 && 
         !$model->CheckRights($form)){
         redirect('users/deniedaccess');
         exit;
