@@ -22,16 +22,16 @@ class Mains extends Controller {
     {
         if($_SERVER['REQUEST_METHOD'] === 'POST')
         {
-            $congid = htmlentities(trim($_POST['congregation']));
+            $congid = isset($_POST['congregation']) && !empty(trim($_POST['congregation'])) ? trim($_POST['congregation']) : null;
             $congregation = $this->congregationmodel->getCongregation($congid);
             //unset congregation session vars
             unset($_SESSION['isParish']);
             unset($_SESSION['congId']);
             unset($_SESSION['congName']);
             //reset congregation session vars
-            $_SESSION['isParish'] = $congregation->IsParish;
+            $_SESSION['isParish'] = converttobool($congregation->IsParish);
             $_SESSION['congId'] = $congid;
-            $_SESSION['congName'] = strtoupper($congregation->CongregationName);
+            $_SESSION['congName'] = !is_null($congregation->CongregationName) ? strtoupper($congregation->CongregationName) : "" ;
             flash('main_msg','Successfully changed to '.ucwords($_SESSION['congName']));
             redirect('mains');
         }
