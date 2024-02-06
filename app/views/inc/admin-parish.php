@@ -26,6 +26,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/roles" class="nav-link">
+                        <p>Roles</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/users/activitylog" class="nav-link">
                         <p>Activity Logs</p>
                     </a>
