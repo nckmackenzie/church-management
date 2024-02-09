@@ -400,8 +400,15 @@ class Member {
     }
     public function getmembersbydistrict()
     {
-        $sql = 'SELECT ID,ucase(memberName) As MemberName FROM tblmember WHERE (congregationId = ?) AND (memberStatus = 1)';
-        return loadresultset($this->db->dbh,$sql,[(int)$_SESSION['congId']]);
+        if((int)$_SESSION['userType'] === 4) {
+            $district = getdbvalue($this->db->dbh,'SELECT districtId FROM tblusers WHERE ID=?',[$_SESSION['userId']]);
+            $sql = 'SELECT ID,ucase(memberName) As MemberName FROM tblmember WHERE (districtId = ?) AND (congregationId = ?) AND (memberStatus = 1)';
+            return loadresultset($this->db->dbh,$sql,[$district, (int)$_SESSION['congId']]);
+        }else{
+            $sql = 'SELECT ID,ucase(memberName) As MemberName FROM tblmember WHERE (congregationId = ?) AND (memberStatus = 1)';
+            return loadresultset($this->db->dbh,$sql,[(int)$_SESSION['congId']]);
+        }
+        
     }
     public function getcontacts($members)
     {
