@@ -160,7 +160,7 @@ class Report {
             $this->db->query('SELECT * FROM vw_family');
         }else{
             $this->db->query('SELECT * FROM vw_family
-                              WHERE  (districtId = :did)');
+                              WHERE  (district = :did)');
             $this->db->bind(':did',$district);
         }
         return $this->db->resultSet();
