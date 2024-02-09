@@ -107,6 +107,7 @@ $(function(){
         placeholder: "Select a Family Member"
     });
 
+   
     $('#type').change(function(){
         $('#familypart div').html('');
         var type = $(this).val();
@@ -271,16 +272,12 @@ $(function(){
             }
         });
     });
-    // function checkMemberDB(memberid){
-    //     $.ajax({
-    //         url : '<?php echo URLROOT;?>/members/checkfamily',
-    //         method : 'POST',
-    //         data : {memberid : memberid},
-    //         success : function(html){
-    //             console.log(html);
-    //         }
-    //     });
-    // }
+
+    $('#familyTable').on('click','.btnRemove',function(){
+        $(this).closest('tr').remove();
+
+          
+    });
 });
 
 

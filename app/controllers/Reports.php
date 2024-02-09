@@ -36,11 +36,11 @@ class Reports extends Controller {
                         <tr>
                             <th>Member Name</th>
                             <th>Gender</th>
-                            <th>ID No</th>
                             <th>Contact</th>
                             <th>District</th>
-                            <th>Remark</th>
                             <th>Status</th>
+                            <th>Remark</th>
+                            <th>Membership</th>
                         </tr>
                     </thead>
                     <tbody>';
@@ -49,9 +49,9 @@ class Reports extends Controller {
                         <tr>
                             <td>'.$member->memberName.'</td>
                             <td>'.$member->gender.'</td>
-                            <td>'.$member->idNo.'</td>
                             <td>'.$member->contact.'</td>
                             <td>'.$member->districtName.'</td>
+                            <td>'.$member->memberstatus.'</td>
                             <td>'.$member->positionName.'</td>
                             <td>'.$member->mstatus.'</td>
                         </tr>

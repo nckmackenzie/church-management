@@ -3,6 +3,7 @@ function activateMultiSelect() {
     $('#member').multiselect({
       includeSelectAllOption: true,
       buttonWidth: '100%',
+      maxHeight: 200,
     });
   });
 }
