@@ -120,7 +120,7 @@
                         fixedHeader : true,
                         'columnDefs' : [
                             {"width" : "10%" , "targets": 2},
-                            {"width" : "10%" , "targets": 3},
+                          
                             {"width" : "15%" , "targets": 1},
                         ],
                         "buttons": ["excel", "pdf","print"]

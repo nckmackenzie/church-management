@@ -28,7 +28,8 @@ class Report {
                 $this->db->query("SELECT UCASE(M.memberName) AS memberName,UCASE(G.gender) AS gender,
                                   M.idNo,M.contact,UCASE(D.districtName) as districtName,
                                   UCASE(P.positionName) AS positionName,
-                                  IF(membershipStatus = 1,'FULL',IF(membershipStatus=2,'ADHERENT',IF(membershipStatus=3,'ASSOCIATE',IF(membershipStatus=4, 'UNDER-12','NOT SPECIFIED')))) AS mstatus
+                                  IF(membershipStatus = 1,'FULL',IF(membershipStatus=2,'ADHERENT',IF(membershipStatus=3,'ASSOCIATE',IF(membershipStatus=4, 'UNDER-12','NOT SPECIFIED')))) AS mstatus,
+                                  IF(memberStatus = 1,'ACTIVE',IF(memberStatus=2,'DORMANT','DECEASED')) AS memberstatus
                                   FROM tblmember M LEFT JOIN tblpositions P ON M.positionId=P.ID LEFT JOIN
                                   tbldistricts D ON M.districtId=D.ID LEFT JOIN tblgender G ON M.genderId=G.
                                   ID WHERE (memberStatus = :sta) AND (M.congregationId = :cid) 
@@ -39,7 +40,8 @@ class Report {
                 $this->db->query("SELECT UCASE(M.memberName) AS memberName,UCASE(G.gender) AS gender,
                                   M.idNo,M.contact,UCASE(D.districtName) as districtName,
                                   UCASE(P.positionName) AS positionName,
-                                  IF(membershipStatus = 1,'FULL',IF(membershipStatus=2,'ADHERENT',IF(membershipStatus=3,'ASSOCIATE',IF(membershipStatus=4, 'UNDER-12','NOT SPECIFIED')))) AS mstatus
+                                  IF(membershipStatus = 1,'FULL',IF(membershipStatus=2,'ADHERENT',IF(membershipStatus=3,'ASSOCIATE',IF(membershipStatus=4, 'UNDER-12','NOT SPECIFIED')))) AS mstatus,
+                                  IF(memberStatus = 1,'ACTIVE',IF(memberStatus=2,'DORMANT','DECEASED')) AS memberstatus
                                   FROM tblmember M LEFT JOIN tblpositions P ON M.positionId=P.ID LEFT JOIN
                                   tbldistricts D ON M.districtId=D.ID LEFT JOIN tblgender G ON M.genderId=G.
                                   ID WHERE (memberStatus = :sta) AND (districtId=:did) ORDER BY memberName");
