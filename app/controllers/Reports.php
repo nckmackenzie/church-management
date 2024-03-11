@@ -1010,11 +1010,13 @@ class Reports extends Controller {
                     <thead class="bg-lightblue">
                         <tr>
                             <th>Balance Sheet As Of '.date("d/m/Y", strtotime($todate)).'</th>
+                            <th></th>
                         </tr>
                     </thead>   
                     <tbody>
                         <tr class="bg-olive">
-                            <td colspan="2">Assets</th>
+                            <td>Assets</th>
+                            <td></th>
                         </tr>';
                     foreach($assets as $asset){
                         $output .='
@@ -1029,7 +1031,8 @@ class Reports extends Controller {
                             <td style="font-weight: 700;">'.number_format($assetsTotal,2).'</td>
                         </tr>
                         <tr style="background-color: #e85858; color: #fff;">
-                            <td colspan="2">Liability & Equity</th>
+                            <td>Liability & Equity</th>
+                            <td></th>
                         </tr>';
                     foreach ($liablityequities as $liabilityequity) {
                         $output .='
