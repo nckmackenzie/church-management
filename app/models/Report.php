@@ -671,7 +671,21 @@ class Report {
 
     public function GetSubAccountReport($data)
     {
-        $sql = "CALL sp_get_subaccount_statement(?,?,?)";
-        return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$data['account']]);
+        if($data['account'] === 'all'){
+            $sql = 'SELECT 
+                        a.AccountName,
+                        ifnull(sum(t.Amount),0) as balance
+                    FROM 
+                        tblbanktransactions_subaccounts t join tblbanksubaccounts a on t.SubAccountId = a.ID
+                    WHERE 
+                        (a.Deleted = 0) AND (t.TransactionDate <= ?)
+                    GROUP BY a.AccountName;
+            ';
+            return loadresultset($this->db->dbh,$sql,[$data['from']]);
+        }else{
+            $sql = "CALL sp_get_subaccount_statement(?,?,?)";
+            return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$data['account']]);
+        }
+        
     }
 }

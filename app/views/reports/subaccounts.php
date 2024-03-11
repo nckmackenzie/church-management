@@ -11,6 +11,7 @@
             <label for="subaccounts">Sub account</label>
             <select name="subaccounts" id="subaccounts" class="form-control form-control-sm">
                 <option value="">Select sub account</option>
+                <option value="all">All</option>
                 <?php foreach($data['subaccounts'] as $account) : ?>
                     <option value="<?php echo $account->ID;?>"><?php echo $account->AccountName;?></option>
                 <?php endforeach; ?>
@@ -18,7 +19,7 @@
             <span class="invalid-feedback" id="subaccounts_err"></span>
           </div>
           <div class="col-md-3">
-            <label for="from">From</label>
+            <label for="from" id="fromLabel">From</label>
             <input type="date" name="from" id="from" class="form-control form-control-sm">
             <span class="invalid-feedback" id="from_err"></span>
           </div>
@@ -48,6 +49,18 @@
 <?php require APPROOT . '/views/inc/footer.php'?>
 <script>
     $(function(){
+
+        $('#subaccounts').change(function(){
+            const value = $(this).val();
+            if(value === 'all'){
+                $('#fromLabel').text('As of');
+                $('#to').prop('disabled', true);
+            }else{
+                $('#fromLabel').text('From');
+                $('#to').prop('disabled', false);
+            }
+        })
+
         $('#preview').click(function(){
             var table = $('#table').DataTable();
             //validate
@@ -56,7 +69,6 @@
             var bank_err = '';
            
             if($('#subaccounts').val() == ''){
-                console.log('first')
                 bank_err = 'Select Sub account';
                 $('#subaccounts_err').text(bank_err);
                 $('#subaccounts').addClass('is-invalid');
@@ -76,11 +88,11 @@
                 $('#from').removeClass('is-invalid');
             }
 
-            if($('#to').val() == ''){
+            if($('#to').val() == '' && $('#subaccounts').val() !== 'all'){
                 to_err = 'Select End Date';
                 $('#to_err').text(to_err);
                 $('#to').addClass('is-invalid');
-            }else{
+            }else if ($('#to').val() !== '' && $('#subaccounts').val() !== 'all'){
                 to_err = '';
                 $('#to_err').text(to_err);
                 $('#to').removeClass('is-invalid');
@@ -99,7 +111,9 @@
                     // console.log(data);
                     $('#results').html(data);
                     table.destroy();
-                    table = $('#table').DataTable({
+                    if(account !== 'all'){
+                     
+                        table = $('#table').DataTable({
                         pageLength : 100,
                         fixedHeader : true,
                         ordering : false,
@@ -133,7 +147,44 @@
                             $('#credits').html(format_number(updateValues(3)));
                             
                         }
-                    }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
+                        }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
+                    }
+                    else {
+                        
+                        table = $('#table').DataTable({
+                        pageLength : 100,
+                        fixedHeader : true,
+                        ordering : false,
+                        "responsive" : true,
+                        "buttons": ["excel", "pdf","print"],
+                        "footerCallback": function ( row, data, start, end, display ) {
+                            var api = this.api(), data;
+                             // Remove the formatting to get integer data for summation
+                            var intVal = function ( i ) {
+                                return typeof i === 'string' ?
+                                    i.replace(/[\$,]/g, '')*1 :
+                                    typeof i === 'number' ?
+                                        i : 0;
+                            };
+
+                            function updateValues(cl){
+                                total = api
+                                      .column( cl )
+                                      .data()
+                                      .reduce( function (a, b) {
+                                      return intVal(a) + intVal(b);
+                                      },0);
+                                return total;      
+                            }
+
+                            function format_number(n) {
+                              return n.toFixed(2).replace(/(\d)(?=(\d{3})+\.)/g, "$1,");
+                            }
+                            // Update footer
+                            $('#totals').html(format_number(updateValues(1)));
+                        }
+                        }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
+                    }
                 }
             });
         });
