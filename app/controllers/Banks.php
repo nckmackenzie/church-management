@@ -1,5 +1,9 @@
 <?php
 class Banks extends Controller{
+    private $bankModel;
+    private $authmodel;
+    private $reusablemodel;
+
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
@@ -14,7 +18,10 @@ class Banks extends Controller{
     public function index()
     {
         $banks = $this->bankModel->getBanks();
-        $data = ['banks' => $banks];
+        $data = [
+            'banks' => $banks,
+            'subaccounts' => $this->bankModel->GetSubaccounts()
+        ];
         $this->view('banks/index',$data);
     }
     public function add()
@@ -305,10 +312,37 @@ class Banks extends Controller{
                 redirect('banks');
                 exit;
             }
-            
         }
         else{
             redirect('banks');
+        }
+    }
+
+    public function openingbalance()
+    {
+        if ($_SERVER['REQUEST_METHOD'] == 'POST')
+        {
+            $data = [
+                'subaccount' => isset($_POST['subaccount']) && !empty(trim($_POST['subaccount'])) ? (int)trim($_POST['subaccount']) : null,
+                'asof' => isset($_POST['asof']) && !empty(trim($_POST['asof'])) ? date('Y-m-d',strtotime(trim($_POST['asof']))) : null,
+                'balance' => isset($_POST['balance']) && !empty(trim($_POST['balance'])) ? floatval(trim($_POST['balance'])) : null,
+            ];
+            
+            if(is_null($data['subaccount']) || is_null($data['asof']) || is_null($data['balance'])){
+                flash('bank_msg','Provide all required fields!',alerterrorclass());
+                redirect('banks');
+                exit;
+            }
+
+            if(!$this->bankModel->SetOpeningBalance($data)){
+                flash('bank_msg','Something Went Wrong while creating the opening balance!',alerterrorclass());
+                redirect('banks');
+                exit;
+            }
+
+            flash('bank_msg','Sub account opening balance set successfully!');
+            redirect('banks');
+            exit;
         }
     }
 }

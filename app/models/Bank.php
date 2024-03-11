@@ -13,6 +13,18 @@ class Bank {
             return false;
         }
     }
+
+    public function GetSubaccounts()
+    {
+        $sql = 'SELECT 
+                    s.ID,
+                    s.AccountName
+                FROM `tblbanksubaccounts` s join tblaccounttypes a on s.BankId = a.ID
+                WHERE (a.congregationId = ?) AND (s.Deleted = 0)
+                ORDER BY s.AccountName;';
+        return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
+    }
+
     public function getBanks()
     {
         $this->db->query('SELECT ID,
@@ -232,5 +244,26 @@ class Bank {
             }
             throw $e;
         }
+    }
+
+    public function SetOpeningBalance($data)
+    {
+        $id = getLastId($this->db->dbh,'tblbanktransactions_subaccounts');
+
+        $this->db->query('INSERT INTO tblbanktransactions_subaccounts (TransactionDate,TransactionId,SubAccountId,
+                                                                       Amount,ToAccountId,Narration,TransactionType,CongregationId)
+                          VALUES(:tdate,:tid,:subaccount,:amount,:toaccount,:narr,:ttype,:congid)');
+        $this->db->bind(':tdate',$data['asof']);
+        $this->db->bind(':tid',$id);
+        $this->db->bind(':subaccount',$data['subaccount']);
+        $this->db->bind(':amount',$data['balance']);
+        $this->db->bind(':toaccount',$data['subaccount']);
+        $this->db->bind(':narr','Sub account opening balance.');
+        $this->db->bind(':ttype',18);
+        $this->db->bind(':congid',$_SESSION['congId']);
+        if(!$this->db->execute()){
+            return false;
+        }
+        return true;
     }
 }
