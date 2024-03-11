@@ -300,40 +300,69 @@ class Reports extends Controller {
             $contributions = $this->reportModel->GetContributions($data);
             // print_r($contributions);
             $output = '';
-            $output .= '
-                <table id="table" class="table table-striped table-bordered table-sm">
-                    <thead class="bg-lightblue">
-                        <tr>
-                            <th>Date</th>
-                            <th>Contribution Account</th>
-                            <th>Contributed By</th>
-                            <th>Amount</th>
-                            <th>Pay Method</th>
-                            <th>Reference</th>
-                        </tr>
-                    </thead>
-                    <tbody>';
-                foreach ($contributions as $contribution) {
-                    $output .='
-                        <tr>
-                            <td>'.$contribution->contdate.'</td>
-                            <td>'.$contribution->conttype.'</td>
-                            <td>'.$contribution->cont.'</td>
-                            <td>'.number_format($contribution->amount,2).'</td>
-                            <td>'.$contribution->paymethod.'</td>
-                            <td>'.$contribution->paymentReference.'</td>
-                        </tr>';
-                }
+            if((int)$data['type'] !== 3) {
                 $output .= '
-                    </tbody>
-                    <tfoot>
+                    <table id="table" class="table table-striped table-bordered table-sm">
+                        <thead class="bg-lightblue">
                             <tr>
-                                <th colspan="3" style="text-align:right">Total:</th>
-                                <th id="total"></th>
-                                <th colspan="2"></th>
+                                <th>Date</th>
+                                <th>Contribution Account</th>
+                                <th>Contributed By</th>
+                                <th>Amount</th>
+                                <th>Pay Method</th>
+                                <th>Reference</th>
                             </tr>
-                    </tfoot>
-                </table>';
+                        </thead>
+                        <tbody>';
+                    foreach ($contributions as $contribution) {
+                        $output .='
+                            <tr>
+                                <td>'.$contribution->contdate.'</td>
+                                <td>'.$contribution->conttype.'</td>
+                                <td>'.$contribution->cont.'</td>
+                                <td>'.number_format($contribution->amount,2).'</td>
+                                <td>'.$contribution->paymethod.'</td>
+                                <td>'.$contribution->paymentReference.'</td>
+                            </tr>';
+                    }
+                    $output .= '
+                        </tbody>
+                        <tfoot>
+                                <tr>
+                                    <th colspan="3" style="text-align:right">Total:</th>
+                                    <th id="total"></th>
+                                    <th colspan="2"></th>
+                                </tr>
+                        </tfoot>
+                    </table>';
+            }else{
+                $output .= '
+                    <table id="table" class="table table-striped table-bordered table-sm">
+                        <thead class="bg-lightblue">
+                            <tr>
+                                <th>District</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>';
+                        foreach ($contributions as $contribution) {
+                            $output .='
+                                <tr>
+                                    <td>'.strtoupper($contribution->districtName).'</td>
+                                    <td>'.number_format($contribution->total_amount,2).'</td>
+                                </tr>';
+                        }
+                        $output .= '
+                            </tbody>
+                            <tfoot>
+                                    <tr>
+                                        <th>Total:</th>
+                                        <th id="total"></th>
+                                    </tr>
+                            </tfoot>
+                    </table>';
+            }
+            
             echo $output;
         }else{
             redirect('users');
@@ -981,11 +1010,13 @@ class Reports extends Controller {
                     <thead class="bg-lightblue">
                         <tr>
                             <th>Balance Sheet As Of '.date("d/m/Y", strtotime($todate)).'</th>
+                            <th></th>
                         </tr>
                     </thead>   
                     <tbody>
                         <tr class="bg-olive">
-                            <td colspan="2">Assets</th>
+                            <td>Assets</th>
+                            <td></th>
                         </tr>';
                     foreach($assets as $asset){
                         $output .='
@@ -1000,7 +1031,8 @@ class Reports extends Controller {
                             <td style="font-weight: 700;">'.number_format($assetsTotal,2).'</td>
                         </tr>
                         <tr style="background-color: #e85858; color: #fff;">
-                            <td colspan="2">Liability & Equity</th>
+                            <td>Liability & Equity</th>
+                            <td></th>
                         </tr>';
                     foreach ($liablityequities as $liabilityequity) {
                         $output .='
@@ -1460,49 +1492,80 @@ class Reports extends Controller {
         if($_SERVER['REQUEST_METHOD'] === 'GET'){
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
            $data = [
-                'account' => !empty(trim($_GET['account'])) ? (int)trim($_GET['account']) : NULL,
+                'account' => !empty(trim($_GET['account'])) ? trim($_GET['account']) : NULL,
                 'from' => !empty(trim($_GET['from'])) ? date('Y-m-d',strtotime($_GET['from'])) : NULL,
                 'to' => !empty(trim($_GET['to'])) ? date('Y-m-d',strtotime($_GET['to'])) :NULL,
             ];
-
+ 
             $reports = $this->reportModel->GetSubAccountReport($data);
             $output = '';
-            $output .= '
-                <table class="table table-bordered table-sm" id="table">
-                    <thead class="bg-lightblue">
-                        <tr>
-                            <th>Transaction Date</th>
-                            <th>Reference</th>
-                            <th>Money In</th>
-                            <th>Money Out</th>
-                            <th>Description</th>
-                        </tr>
-                    </thead>
-                    <tbody>';
-                    foreach($reports as $report) {
-                        $formattedoin = $report->AmountIn  > 0 ? number_format($report->AmountIn,2) : null;
-                        $formattedout = ($report->AmountOut * -1) > 0 ? number_format($report->AmountOut * -1,2) : null;
+            if($data['account'] !== 'all'){
+                $output .= '
+                    <table class="table table-bordered table-sm" id="table">
+                        <thead class="bg-lightblue">
+                            <tr>
+                                <th>Transaction Date</th>
+                                <th>Reference</th>
+                                <th>Money In</th>
+                                <th>Money Out</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>';
+                        foreach($reports as $report) {
+                            $formattedoin = $report->AmountIn  > 0 ? number_format($report->AmountIn,2) : null;
+                            $formattedout = ($report->AmountOut * -1) > 0 ? number_format($report->AmountOut * -1,2) : null;
+                            $output .= '
+                                <tr>
+                                    <td>'.date('d-M-Y',strtotime($report->TransactionDate)).'</td>
+                                    <td>'.ucwords($report->Reference).'</td>
+                                    <td>'.$formattedoin.'</td>
+                                    <td>'.$formattedout.'</td>
+                                    <td>'.ucwords($report->Narration).'</td>
+                                </tr>
+                            ';
+                        }
                         $output .= '
+                        </tbody>
+                        <tfoot>
+                                <tr>
+                                    <th colspan="2" style="text-align:center">Total:</th>
+                                    <th id="debits"></th>
+                                    <th id="credits"></th>
+                                    <th></th>
+                                </tr>
+                        </tfoot>
+                    </table>';
+            }else{
+                $output .= '
+                    <table class="table table-bordered table-sm" id="table">
+                        <thead class="bg-lightblue">
                             <tr>
-                                <td>'.date('d-M-Y',strtotime($report->TransactionDate)).'</td>
-                                <td>'.ucwords($report->Reference).'</td>
-                                <td>'.$formattedoin.'</td>
-                                <td>'.$formattedout.'</td>
-                                <td>'.ucwords($report->Narration).'</td>
+                                <th>Sub Account</th>
+                                <th>Balance</th>
                             </tr>
-                        ';
-                    }
-                    $output .= '
-                    </tbody>
-                    <tfoot>
-                            <tr>
-                                <th colspan="2" style="text-align:center">Total:</th>
-                                <th id="debits"></th>
-                                <th id="credits"></th>
-                                <th></th>
-                            </tr>
-                    </tfoot>
-                </table>';
+                        </thead>
+                        <tbody>';
+                        foreach($reports as $report) {
+                            $formatted_amount = number_format($report->balance,2);
+                            $output .= '
+                                <tr>
+                                    <td>'.ucwords($report->AccountName).'</td>
+                                    <td>'.$formatted_amount.'</td>
+                                </tr>
+                            ';
+                        }
+                        $output .= '
+                        </tbody>
+                        <tfoot>
+                                <tr>
+                                    <th style="text-align:center">Total:</th>
+                                    <th id="totals"></th>
+                                </tr>
+                        </tfoot>
+                    </table>';
+            }
+            
             echo $output; 
         }else{
             redirect('users/deniedaccess');

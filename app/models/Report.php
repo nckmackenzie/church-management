@@ -201,6 +201,20 @@ class Report {
             $this->db->bind(':startd',$data['start']);
             $this->db->bind(':endd',$data['end']);
             return $this->db->resultSet();
+        }elseif ($data['type'] == 3) {
+            $sql = 'SELECT 
+                        d.districtName,
+                        ifnull(sum(amount),0) as total_amount
+                    FROM 
+                        `tblcontributions_details` c left join tbldistricts d 
+                        on c.contributotDistrict = d.ID join tblcontributions_header h on c.HeaderId = h.ID
+                    WHERE (c.category = 3) AND (h.congregationId = :cong) AND (c.contributionDate BETWEEN :startd AND :endd)
+                    group by d.districtName;';
+            $this->db->query($sql);
+            $this->db->bind(':cong',$_SESSION['congId']);
+            $this->db->bind(':startd',$data['start']);
+            $this->db->bind(':endd',$data['end']);
+            return $this->db->resultSet();
         }
     }
     public function GetExpenses($data)
@@ -657,7 +671,21 @@ class Report {
 
     public function GetSubAccountReport($data)
     {
-        $sql = "CALL sp_get_subaccount_statement(?,?,?)";
-        return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$data['account']]);
+        if($data['account'] === 'all'){
+            $sql = 'SELECT 
+                        a.AccountName,
+                        ifnull(sum(t.Amount),0) as balance
+                    FROM 
+                        tblbanktransactions_subaccounts t join tblbanksubaccounts a on t.SubAccountId = a.ID
+                    WHERE 
+                        (a.Deleted = 0) AND (t.TransactionDate <= ?)
+                    GROUP BY a.AccountName;
+            ';
+            return loadresultset($this->db->dbh,$sql,[$data['from']]);
+        }else{
+            $sql = "CALL sp_get_subaccount_statement(?,?,?)";
+            return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$data['account']]);
+        }
+        
     }
 }

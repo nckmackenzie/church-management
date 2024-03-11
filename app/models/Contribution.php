@@ -222,8 +222,8 @@ class Contribution {
                     $this->db->bind(':cid',$_SESSION['congId']);
                     $this->db->execute();
 
-                    $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionDate`,`TransactionId`, `SubAccountId`, `Amount`,TransactionType,Narration,Reference) 
-                                  VALUES (:tdate,:tid,:sub,:amount,:ttype,:narr,:reference)');
+                    $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionDate`,`TransactionId`, `SubAccountId`, `Amount`,TransactionType,Narration,Reference,CongregationId) 
+                                  VALUES (:tdate,:tid,:sub,:amount,:ttype,:narr,:reference,:congid)');
                     $this->db->bind(':tdate',$data['date']);
                     $this->db->bind(':tid',$tid);
                     $this->db->bind(':sub',$data['subaccount'][$i]);
@@ -231,6 +231,7 @@ class Contribution {
                     $this->db->bind(':ttype',1);
                     $this->db->bind(':narr','Collection');
                     $this->db->bind(':reference',!empty($data['reference']) ? strtolower($data['reference']) : NULL);
+                    $this->db->bind(':congid',$_SESSION['congId']);
                     $this->db->execute();
                 }
 

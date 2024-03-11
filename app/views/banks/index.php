@@ -58,6 +58,58 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="balanceSubModalCenter" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="d-flex flex-column">
+          <h5 class="modal-title" id="">Set Sub Account opening balance</h5>
+          <p class="block text-danger">This action cannot be undone.</p>
+        </div>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+          <form action="<?php echo URLROOT;?>/banks/openingbalance" method="post" id="openingbalance">
+              <div class="row">
+                <div class="col-md-12">
+                  <div class="form-group">
+                    <label for="subaccount">Sub Account</label>
+                    <select name="subaccount" id="subaccount" class="form-control form-control-sm mandatory">
+                      <option value="" selected disabled>Select sub account</option>
+                      <?php foreach($data['subaccounts'] as $subaccount) : ?>
+                        <option value="<?php echo $subaccount->ID;?>"><?php echo ucwords($subaccount->AccountName);?></option>
+                      <?php endforeach; ?>
+                    </select>
+                    <span class="invalid-feedback"></span>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label for="asof">As Of</label>
+                    <input type="date" name="asof" id="asof" class="form-control form-control-sm mandatory">
+                    <span class="invalid-feedback"></span>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label for="balance">Balance</label>
+                    <input type="number" name="balance" id="balance" class="form-control form-control-sm mandatory">
+                    <span class="invalid-feedback"></span>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-success">Save</button>
+              </div>
+          </form>
+      </div>
+     
+    </div>
+  </div>
+</div>
   <!-- Content Wrapper. Contains page content -->
   <div class="content-wrapper">
     <!-- Content Header (Page header) -->
@@ -68,6 +120,7 @@
           <div class="col-sm-6">
             <a href="<?php echo URLROOT;?>/banks/add" class="btn btn-sm btn-success custom-font">Add New</a>
             <a href="<?php echo URLROOT;?>/banks/subaccount" class="btn btn-sm btn-info custom-font">Add Sub Account</a>
+            <button class="btn btn-sm btn-secondary custom-font">Set Sub Account Opening Balance</button>
           </div>
         </div>
       </div><!-- /.container-fluid -->
@@ -145,6 +198,10 @@
          ordering: false
       });
 
+      $('.btn-secondary').click(function(){
+        $('#balanceSubModalCenter').modal('show')
+      })
+
       $('#banksTable').on('click','.btndel',function(){
           $('#deleteModalCenter').modal('show');
           $tr = $(this).closest('tr');
@@ -172,5 +229,6 @@
       });
     });
 </script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/bank/balance.js"></script>
 </body>
 </html>
