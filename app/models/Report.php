@@ -201,6 +201,20 @@ class Report {
             $this->db->bind(':startd',$data['start']);
             $this->db->bind(':endd',$data['end']);
             return $this->db->resultSet();
+        }elseif ($data['type'] == 3) {
+            $sql = 'SELECT 
+                        d.districtName,
+                        ifnull(sum(amount),0) as total_amount
+                    FROM 
+                        `tblcontributions_details` c left join tbldistricts d 
+                        on c.contributotDistrict = d.ID join tblcontributions_header h on c.HeaderId = h.ID
+                    WHERE (c.category = 3) AND (h.congregationId = :cong) AND (c.contributionDate BETWEEN :startd AND :endd)
+                    group by d.districtName;';
+            $this->db->query($sql);
+            $this->db->bind(':cong',$_SESSION['congId']);
+            $this->db->bind(':startd',$data['start']);
+            $this->db->bind(':endd',$data['end']);
+            return $this->db->resultSet();
         }
     }
     public function GetExpenses($data)

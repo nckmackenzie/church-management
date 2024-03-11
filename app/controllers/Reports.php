@@ -300,40 +300,69 @@ class Reports extends Controller {
             $contributions = $this->reportModel->GetContributions($data);
             // print_r($contributions);
             $output = '';
-            $output .= '
-                <table id="table" class="table table-striped table-bordered table-sm">
-                    <thead class="bg-lightblue">
-                        <tr>
-                            <th>Date</th>
-                            <th>Contribution Account</th>
-                            <th>Contributed By</th>
-                            <th>Amount</th>
-                            <th>Pay Method</th>
-                            <th>Reference</th>
-                        </tr>
-                    </thead>
-                    <tbody>';
-                foreach ($contributions as $contribution) {
-                    $output .='
-                        <tr>
-                            <td>'.$contribution->contdate.'</td>
-                            <td>'.$contribution->conttype.'</td>
-                            <td>'.$contribution->cont.'</td>
-                            <td>'.number_format($contribution->amount,2).'</td>
-                            <td>'.$contribution->paymethod.'</td>
-                            <td>'.$contribution->paymentReference.'</td>
-                        </tr>';
-                }
+            if((int)$data['type'] !== 3) {
                 $output .= '
-                    </tbody>
-                    <tfoot>
+                    <table id="table" class="table table-striped table-bordered table-sm">
+                        <thead class="bg-lightblue">
                             <tr>
-                                <th colspan="3" style="text-align:right">Total:</th>
-                                <th id="total"></th>
-                                <th colspan="2"></th>
+                                <th>Date</th>
+                                <th>Contribution Account</th>
+                                <th>Contributed By</th>
+                                <th>Amount</th>
+                                <th>Pay Method</th>
+                                <th>Reference</th>
                             </tr>
-                    </tfoot>
-                </table>';
+                        </thead>
+                        <tbody>';
+                    foreach ($contributions as $contribution) {
+                        $output .='
+                            <tr>
+                                <td>'.$contribution->contdate.'</td>
+                                <td>'.$contribution->conttype.'</td>
+                                <td>'.$contribution->cont.'</td>
+                                <td>'.number_format($contribution->amount,2).'</td>
+                                <td>'.$contribution->paymethod.'</td>
+                                <td>'.$contribution->paymentReference.'</td>
+                            </tr>';
+                    }
+                    $output .= '
+                        </tbody>
+                        <tfoot>
+                                <tr>
+                                    <th colspan="3" style="text-align:right">Total:</th>
+                                    <th id="total"></th>
+                                    <th colspan="2"></th>
+                                </tr>
+                        </tfoot>
+                    </table>';
+            }else{
+                $output .= '
+                    <table id="table" class="table table-striped table-bordered table-sm">
+                        <thead class="bg-lightblue">
+                            <tr>
+                                <th>District</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>';
+                        foreach ($contributions as $contribution) {
+                            $output .='
+                                <tr>
+                                    <td>'.strtoupper($contribution->districtName).'</td>
+                                    <td>'.number_format($contribution->total_amount,2).'</td>
+                                </tr>';
+                        }
+                        $output .= '
+                            </tbody>
+                            <tfoot>
+                                    <tr>
+                                        <th>Total:</th>
+                                        <th id="total"></th>
+                                    </tr>
+                            </tfoot>
+                    </table>';
+            }
+            
             echo $output;
         }else{
             redirect('users');

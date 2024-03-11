@@ -16,6 +16,7 @@
                                 <select name="type" id="type" class="form-control form-control-sm">
                                     <option value="1">All</option>
                                     <option value="2">By Contribution Acc</option>
+                                    <option value="3">By District</option>
                                 </select>
                             </div>
                             <div class="col-md-3 mb-3">
@@ -145,7 +146,8 @@
                     // console.log(data);
                     $('#results').html(data);
                     table.destroy();
-                    table = $('#table').DataTable({
+                    if(Number(type) !== 3){
+                        table = $('#table').DataTable({
                         pageLength : 100,
                         fixedHeader : true,
                         ordering : false,
@@ -183,7 +185,44 @@
                             $('#total').html(format_number(updateValues(3)));
                             
                         }
-                    }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
+                        }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
+                    }else{
+                        table = $('#table').DataTable({
+                        pageLength : 100,
+                        fixedHeader : true,
+                        ordering : false,
+                        "responsive" : true,
+                        "buttons": ["excel", "pdf","print"],
+                        "footerCallback": function ( row, data, start, end, display ) {
+                            var api = this.api(), data;
+                             // Remove the formatting to get integer data for summation
+                            var intVal = function ( i ) {
+                                return typeof i === 'string' ?
+                                    i.replace(/[\$,]/g, '')*1 :
+                                    typeof i === 'number' ?
+                                        i : 0;
+                            };
+
+                            function updateValues(cl){
+                                total = api
+                                      .column( cl, {search:'applied'} )
+                                      .data()
+                                      .reduce( function (a, b) {
+                                      return intVal(a) + intVal(b);
+                                      },0);
+                                return total;      
+                            }
+
+                            function format_number(n) {
+                              return n.toFixed(2).replace(/(\d)(?=(\d{3})+\.)/g, "$1,");
+                            }
+                            // Update footer
+                            $('#total').html(format_number(updateValues(1)));
+                            
+                        }
+                        }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
+                    }
+                    
                 }
             });
 
