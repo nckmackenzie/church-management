@@ -96,22 +96,23 @@ class Banktransaction
 
             if(!is_null($data['subaccounts'])){
                 for ($i=0; $i < count($data['subaccounts']); $i++) {
-                    $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionDate`,`TransactionId`, `SubAccountId`, `Amount`,TransactionType,Narration,Reference) 
-                                      VALUES (:tdate,:tid,:sub,:amount,:ttype,:narr,:reference)');
+                    $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionDate`,`TransactionId`, `SubAccountId`, `Amount`,TransactionType,Narration,Reference,CongregationId) 
+                                      VALUES (:tdate,:tid,:sub,:amount,:ttype,:narr,:reference,:congid)');
                     $this->db->bind(':tdate',$data['date']);
                     $this->db->bind(':tid',$tid);
                     $this->db->bind(':sub',$data['subaccounts'][$i]->accountid);
                     $this->db->bind(':amount',$data['subaccounts'][$i]->amount);
                     $this->db->bind(':ttype',13);
                     $this->db->bind(':narr','sub-account deposit');
-                    $this->db->bind(':reference',$data['reference']);
+                    $this->db->bind(':narr','sub-account deposit');
+                    $this->db->bind(':congid',$_SESSION['congId']);
                     $this->db->execute();
                 }
             }
 
             if($data['issubtxn']){
-                $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionDate`,`TransactionId`, `SubAccountId`, `Amount`,FromAccountId,TransactionType,Narration,Reference) 
-                                  VALUES (:tdate,:tid,:sub,:amount,:fromacc,:ttype,:narr,:reference)');
+                $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionDate`,`TransactionId`, `SubAccountId`, `Amount`,FromAccountId,TransactionType,Narration,Reference,CongregationId) 
+                                  VALUES (:tdate,:tid,:sub,:amount,:fromacc,:ttype,:narr,:reference,:congid)');
                 $this->db->bind(':tdate',$data['date']);
                 $this->db->bind(':tid',$tid);
                 $this->db->bind(':sub',$data['transfer']);
@@ -120,10 +121,11 @@ class Banktransaction
                 $this->db->bind(':ttype',13);
                 $this->db->bind(':narr','Receipt from ' . $from);
                 $this->db->bind(':reference',$data['reference']);
+                $this->db->bind(':congid',$_SESSION['congId']);
                 $this->db->execute();
 
-                $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionDate`,`TransactionId`, `SubAccountId`, `Amount`,ToAccountId,TransactionType,Narration,Reference) 
-                                  VALUES (:tdate,:tid,:sub,:amount,:toacc,:ttype,:narr,:reference)');
+                $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionDate`,`TransactionId`, `SubAccountId`, `Amount`,ToAccountId,TransactionType,Narration,Reference,CongregationId) 
+                                  VALUES (:tdate,:tid,:sub,:amount,:toacc,:ttype,:narr,:reference,:congid)');
                 $this->db->bind(':tdate',$data['date']);
                 $this->db->bind(':tid',$tid);
                 $this->db->bind(':sub',$data['bank']);
@@ -132,6 +134,7 @@ class Banktransaction
                 $this->db->bind(':ttype',13);
                 $this->db->bind(':narr','Transfer to ' . $to);
                 $this->db->bind(':reference',$data['reference']);
+                $this->db->bind(':congid',$_SESSION['congId']);
                 $this->db->execute();
             }
 
@@ -235,11 +238,12 @@ class Banktransaction
             $this->db->execute();
 
             for ($i=0; $i < count($data['subaccounts']); $i++) {
-                $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionId`, `SubAccountId`, `Amount`) 
-                                  VALUES (:tid,:sub,:amount)');
+                $this->db->query('INSERT INTO `tblbanktransactions_subaccounts`(`TransactionId`, `SubAccountId`, `Amount`,CongregationId) 
+                                  VALUES (:tid,:sub,:amount,:congid)');
                 $this->db->bind(':tid',$data['id']);
                 $this->db->bind(':sub',$data['subaccounts'][$i]->accountid);
                 $this->db->bind(':amount',$data['subaccounts'][$i]->amount);
+                $this->db->bind(':congid',$_SESSION['congId']);
                 $this->db->execute();
             }
 
