@@ -1551,7 +1551,7 @@ class Reports extends Controller {
                             $output .= '
                                 <tr>
                                     <td>'.ucwords($report->AccountName).'</td>
-                                    <td>'.$formatted_amount.'</td>
+                                    <td><a target="_blank" href="'.URLROOT.'/reports/subaccountdetailed?subaccount='.$report->SubAccountId.'&asdate='.$data['from'].'">'.$formatted_amount.'</a></td>
                                 </tr>
                             ';
                         }
@@ -1572,5 +1572,49 @@ class Reports extends Controller {
             exit();
         }
     }
+    public function subaccountdetailed()
+    {
+        $this->view('reports/subaccountdetailed',[]);
+    } 
+    public function getsubaccountdetailedrpt(){
+        if($_SERVER['REQUEST_METHOD'] === 'GET')
+        {
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
+            $data = [
+                'account' => isset($_GET['account']) && !empty(trim($_GET['account'])) ? (int)trim($_GET['account']) : null,
+                'asdate' => isset($_GET['asdate']) && !empty(trim($_GET['asdate'])) ? date('Y-m-d',strtotime(trim($_GET['asdate']))) : null,
+                'results' => []
+            ];
 
+            //validate data
+            if(is_null($data['account']) || is_null($data['asdate'])){
+                http_response_code(400);
+                echo json_encode(['message' => 'Provide all required fields']);
+                exit;
+            }
+            
+            $results = $this->reportModel->GetDetailedSubAccountReport($data);
+            if(!$results){
+                http_response_code(500);
+                echo json_encode(['message' => 'Invalid report type']);
+                exit;
+            }
+
+            foreach($results as $result){
+                array_push($data['results'],[
+                    'transactionDate' => date('d-m-Y',strtotime($result->TransactionDate)),
+                    'amount' => floatval($result->Amount),
+                    'narration' => ucwords($result->Narration),
+                    'reference' => ucwords($result->Reference),
+                ]);
+            }
+
+            echo json_encode(['success' => true,'results' => $data['results']]);
+            exit;
+        }
+        else{
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
 }

@@ -673,6 +673,7 @@ class Report {
     {
         if($data['account'] === 'all'){
             $sql = 'SELECT 
+                        t.SubAccountId,
                         a.AccountName,
                         ifnull(sum(t.Amount),0) as balance
                     FROM 
@@ -687,5 +688,19 @@ class Report {
             return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$data['account']]);
         }
         
+    }
+
+    public function GetDetailedSubAccountReport($data)
+    {
+        $sql = 'SELECT 
+                    TransactionDate,
+                    Amount,
+                    Narration,
+                    Reference 
+                FROM 
+                    tblbanktransactions_subaccounts
+                WHERE
+                    (TransactionDate <= ?) AND (SubAccountId = ?)';
+        return loadresultset($this->db->dbh,$sql,[$data['asdate'],$data['account']]);
     }
 }

@@ -65,3 +65,8 @@ export async function getAccountsReport(account, asdate) {
   const url = `${HOST_URL}/reports/getbalancesheetdetailedrpt?asdate=${asdate}&account=${account}`;
   return await getRequest(url);
 }
+
+export async function getSubaccountsReport(account, asdate) {
+  const url = `${HOST_URL}/reports/getsubaccountdetailedrpt?asdate=${asdate}&account=${account}`;
+  return await getRequest(url);
+}
