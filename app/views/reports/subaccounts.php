@@ -167,21 +167,22 @@
                                         i : 0;
                             };
 
-                            function updateValues(cl){
-                                total = api
-                                      .column( cl )
-                                      .data()
-                                      .reduce( function (a, b) {
-                                      return intVal(a) + intVal(b);
-                                      },0);
-                                return total;      
-                            }
+                            // function updateValues(cl){
+                            //     total = api
+                            //           .column( cl )
+                            //           .data()
+                            //           .reduce( function (a, b) {
+                                        
+                            //           return intVal(a) + intVal(b);
+                            //           },0);
+                            //     return total;      
+                            // }
 
-                            function format_number(n) {
-                              return n.toFixed(2).replace(/(\d)(?=(\d{3})+\.)/g, "$1,");
-                            }
-                            // Update footer
-                            $('#totals').html(format_number(updateValues(1)));
+                            // function format_number(n) {
+                            //   return n.toFixed(2).replace(/(\d)(?=(\d{3})+\.)/g, "$1,");
+                            // }
+                            // // Update footer
+                            // $('#totals').html(format_number(updateValues(1)));
                         }
                         }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
                     }

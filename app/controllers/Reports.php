@@ -1499,6 +1499,7 @@ class Reports extends Controller {
  
             $reports = $this->reportModel->GetSubAccountReport($data);
             $output = '';
+            $totals = 0;
             if($data['account'] !== 'all'){
                 $output .= '
                     <table class="table table-bordered table-sm" id="table">
@@ -1547,6 +1548,7 @@ class Reports extends Controller {
                         </thead>
                         <tbody>';
                         foreach($reports as $report) {
+                            $totals = $totals + floatval($report->balance);
                             $formatted_amount = number_format($report->balance,2);
                             $output .= '
                                 <tr>
@@ -1560,7 +1562,7 @@ class Reports extends Controller {
                         <tfoot>
                                 <tr>
                                     <th style="text-align:center">Total:</th>
-                                    <th id="totals"></th>
+                                    <th id="totals">'.number_format($totals,2).'</th>
                                 </tr>
                         </tfoot>
                     </table>';
