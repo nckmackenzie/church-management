@@ -274,9 +274,9 @@ class Groupfunds extends Controller
                 $data['errmsg'] = 'Select bank';
             }
             //validate date
-            if($data['reqdate'] > $data['paydate']){
-                $data['errmsg'] = 'Payment date earlier than Requisition date';
-            }
+            // if($data['reqdate'] > $data['paydate']){
+            //     $data['errmsg'] = 'Payment date earlier than Requisition date';
+            // }
             if($data['approved'] > $data['amount']){
                 $data['errmsg'] = 'Payment amount greater than amount requested';
             }
