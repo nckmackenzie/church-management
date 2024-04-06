@@ -44,8 +44,8 @@ class Churchbudget {
 
     public function CheckYear($data)
     {
-        $sql = 'SELECT COUNT(*) FROM tblchurchbudget_header WHERE (yearId = ?) AND (ID <> ?)';
-        return getdbvalue($this->db->dbh,$sql,[$data['year'],$data['id']]);
+        $sql = 'SELECT COUNT(*) FROM tblchurchbudget_header WHERE (yearId = ?) AND (ID <> ?) AND (congregationId=?)';
+        return getdbvalue($this->db->dbh,$sql,[$data['year'],$data['id'],$_SESSION['congId']]);
     }
 
     function getnewid(){
