@@ -139,6 +139,7 @@ class Expenses extends Controller{
             'amount' => trim($_POST['amount']),
             'reference' => trim($_POST['reference']),
             'description' => trim($_POST['description']),
+            'reqid' => !empty($_POST['reqid']) ? $_POST['reqid'] : NULL,
             'file' => isset($_FILE) ? $_FILES['file'] : false,
             'filename' => '',
             'hasattachment' => 0,

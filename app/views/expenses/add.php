@@ -126,12 +126,20 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-3">
                                     <div class="form-group">
                                         <label for="cashtype">Deduction from</label>
                                         <select name="cashtype" id="cashtype" class="form-control form-control-sm mandatory">
                                              <option value="cash at hand" <?php selectdCheck('cash at hand',$data['deductfrom']);?>>Cash At Hand</option>   
                                              <option value="petty cash" <?php selectdCheck('petty cash',$data['deductfrom']);?>>Petty Cash</option>   
+                                        </select>        
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="reqid">Requisition Id</label>
+                                        <select name="reqid" id="reqid" class="form-control form-control-sm" disabled>
+                                            <option value="" selected disabled>Select req to account for</option>
                                         </select>        
                                     </div>
                                 </div>
@@ -259,6 +267,6 @@
     });
 
 </script>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/expenses/add-expense-v3.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/expenses/add-expense-v4.js"></script>
 </body>
 </html>  

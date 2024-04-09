@@ -110,13 +110,13 @@ class Expense {
     public function create($data)
     {
         //get names
-        // $this->db->query('SELECT accountType FROM tblaccounttypes WHERE (ID=:id)');
-        // $this->db->bind(':id',$data['account']);
-        // $accountname = $this->db->getValue();
-        // //
-        // $this->db->query('SELECT accountTypeId FROM tblaccounttypes WHERE (ID=:id)');
-        // $this->db->bind(':id',$data['account']);
-        // $accountid = $this->db->getValue();
+        $this->db->query('SELECT accountType FROM tblaccounttypes WHERE (ID=:id)');
+        $this->db->bind(':id',$data['account']);
+        $accountname = $this->db->getValue();
+        //
+        $this->db->query('SELECT accountTypeId FROM tblaccounttypes WHERE (ID=:id)');
+        $this->db->bind(':id',$data['account']);
+        $accountid = $this->db->getValue();
         //
         $id = getLastId($this->db->dbh,'tblexpenses');
         $fid = getYearId($this->db->dbh,$data['date']);
@@ -145,7 +145,7 @@ class Expense {
             $this->db->bind(':stat',0);
             $this->db->bind(':hasattach',$data['hasattachment']);   //to add                     
             $this->db->bind(':fname',$data['hasattachment'] === 1 ? $data['filename'] : NULL);   //to add 
-            $this->db->bind(':reqid', is_numeric($data['deductfrom']) ? (int)$data['deductfrom'] : NULL);    
+            $this->db->bind(':reqid', $data['reqid']);    
             $this->db->bind(':post',$_SESSION['userId']);                        
             $this->db->bind(':pdate',$today);  
             $this->db->bind(':cid',$_SESSION['congId']);  
@@ -167,27 +167,28 @@ class Expense {
 
             // $cashparent = getparentgl($this->db->dbh,'cash at bank');
             // $accparent = getparentgl($this->db->dbh,$accountname);
-            // if($data['deductfrom'] == 'petty cash' || $data['deductfrom'] == 'cash at hand' || empty($data['deductfrom'])){
+            // if(is_null($data['reqid'])){
             //     saveToLedger($this->db->dbh,$data['date'],$accountname,$accparent,$data['amount'],0,$data['description'],
             //                 $accountid,2,$id,$_SESSION['congId']);
-            //     // if ($data['paymethod'] == 1 && $data['deductfrom'] === 'petty cash') {
-            //     //     // saveToLedger($this->db->dbh,$data['date'],'petty cash',$cashparent,0,$data['amount'],$data['description'],
-            //     //     //             3,2,$id,$_SESSION['congId']);
-            //     // }elseif($data['paymethod'] == 1 && $data['deductfrom'] === 'cash at hand'){
-            //     //     saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cashparent,0,$data['amount'],$data['description'],
-            //     //                 3,2,$id,$_SESSION['congId']);
-            //     // }
-            //     // elseif ($data['paymethod'] == 2) {
-            //     //     saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,0,$data['amount'],$data['description'],
-            //     //                 3,2,$id,$_SESSION['congId']);
-            //     // }else{
-            //     //     saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,0,$data['amount'],$data['description'],
-            //     //                 3,2,$id,$_SESSION['congId']);
-            //     //     saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],2,
-            //     //                 $data['reference'],2,$id,$_SESSION['congId']);             
-            //     // }
+            //     if ($data['paymethod'] == 1 && $data['deductfrom'] === 'petty cash') {
+            //         saveToLedger($this->db->dbh,$data['date'],'petty cash',$cashparent,0,$data['amount'],$data['description'],
+            //                     3,2,$id,$_SESSION['congId']);
+            //     }elseif($data['paymethod'] == 1 && $data['deductfrom'] === 'cash at hand'){
+            //         saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cashparent,0,$data['amount'],$data['description'],
+            //                     3,2,$id,$_SESSION['congId']);
+            //     }
+            //     elseif ($data['paymethod'] == 2) {
+            //         saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,0,$data['amount'],$data['description'],
+            //                     3,2,$id,$_SESSION['congId']);
+            //     }else{
+            //         saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,0,$data['amount'],$data['description'],
+            //                     3,2,$id,$_SESSION['congId']);
+            //         saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],2,
+            //                     $data['reference'],2,$id,$_SESSION['congId']);             
+            //     }
             // }
 
+            // dont do check completely
             // if($data['paymethod'] == 1 && $data['deductfrom'] === 'petty cash'){
             //     saveToLedger($this->db->dbh,$data['date'],'petty cash',$cashparent,0,$data['amount'],$data['description'],
             //                     3,2,$id,$_SESSION['congId']);
@@ -264,7 +265,7 @@ class Expense {
 
             $cashparent = getparentgl($this->db->dbh,'cash at bank');
             $accparent = getparentgl($this->db->dbh,$accountname);
-            if($expense->deductfrom == 'petty cash' || $expense->deductfrom == 'cash at hand' || is_null($expense->deductfrom)){
+            if($expense->deductfrom == 'petty cash' || $expense->deductfrom == 'cash at hand' || is_null($expense->deductfrom) || is_null($expense->requisitionId) ){
                 saveToLedger($this->db->dbh,$expense->expenseDate,$accountname,$accparent,$expense->amount,0,$expense->narration,
                             $accountid,2,$data['id'],$_SESSION['congId']);
             }
@@ -334,13 +335,13 @@ class Expense {
     public function update($data)
     {
         //get names
-        // $this->db->query('SELECT accountType FROM tblaccounttypes WHERE (ID=:id)');
-        // $this->db->bind(':id',$data['account']);
-        // $accountname = $this->db->getValue();
-        // //
-        // $this->db->query('SELECT accountTypeId FROM tblaccounttypes WHERE (ID=:id)');
-        // $this->db->bind(':id',$data['account']);
-        // $accountid = $this->db->getValue();
+        $this->db->query('SELECT accountType FROM tblaccounttypes WHERE (ID=:id)');
+        $this->db->bind(':id',$data['account']);
+        $accountname = $this->db->getValue();
+        //
+        $this->db->query('SELECT accountTypeId FROM tblaccounttypes WHERE (ID=:id)');
+        $this->db->bind(':id',$data['account']);
+        $accountid = $this->db->getValue();
 
         $fid = getYearId($this->db->dbh,$data['date']);
         
@@ -362,57 +363,57 @@ class Expense {
             $this->db->bind(':amount',$data['amount']);                        
             $this->db->bind(':narr',strtolower($data['description']));                        
             $this->db->bind(':ref',strtolower($data['reference']));
-            $this->db->bind(':reqid', is_numeric($data['deductfrom']) ? (int)$data['deductfrom'] : NULL);                          
+            $this->db->bind(':reqid', $data['reqid']);                          
             $this->db->bind(':id',$data['id']); 
             $this->db->execute();
             
-            // if((int)$data['paymethod'] === 1 && $data['deductfrom'] === 'petty cash'){
-            //     $this->db->query('UPDATE tblpettycash SET TransactionDate=:tdate,Credit=:credit,Reference=:ref,
-            //                              Narration=:narr WHERE (ExpenseId=:eid)');
-            //     $this->db->bind(':tdate',date('Y-m-d',strtotime($data['date'])));
-            //     $this->db->bind(':credit',$data['amount']);
-            //     $this->db->bind(':ref',strtolower($data['reference']));
-            //     $this->db->bind(':narr',strtolower($data['description']));
-            //     $this->db->bind(':eid',$data['id']);
-            //     $this->db->execute();
-            // }
+            if((int)$data['paymethod'] === 1 && $data['deductfrom'] === 'petty cash'){
+                $this->db->query('UPDATE tblpettycash SET TransactionDate=:tdate,Credit=:credit,Reference=:ref,
+                                         Narration=:narr WHERE (ExpenseId=:eid)');
+                $this->db->bind(':tdate',date('Y-m-d',strtotime($data['date'])));
+                $this->db->bind(':credit',$data['amount']);
+                $this->db->bind(':ref',strtolower($data['reference']));
+                $this->db->bind(':narr',strtolower($data['description']));
+                $this->db->bind(':eid',$data['id']);
+                $this->db->execute();
+            }
 
-            // if((int)$data['expensetype'] === 2){
-            //     $this->db->query('UPDATE tblmmf SET TransactionDate=:tdate,GroupId=:gid,Credit=:credit,
-            //                                         BankId=:bid,Reference=:reference,Narration=:narr 
-            //                       WHERE (TransactionType = 2) AND (TransactionId = :id)');
-            //     $this->db->bind(':tdate',$data['date']);
-            //     $this->db->bind(':gid',$data['costcentre']);
-            //     $this->db->bind(':credit',$data['amount']);
-            //     $this->db->bind(':bid',$data['bank']);
-            //     $this->db->bind(':reference',strtolower($data['reference']));
-            //     $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : null);
-            //     $this->db->bind(':id',intval($data['id']));
-            //     $this->db->execute();
-            // }
+            // // if((int)$data['expensetype'] === 2){
+            // //     $this->db->query('UPDATE tblmmf SET TransactionDate=:tdate,GroupId=:gid,Credit=:credit,
+            // //                                         BankId=:bid,Reference=:reference,Narration=:narr 
+            // //                       WHERE (TransactionType = 2) AND (TransactionId = :id)');
+            // //     $this->db->bind(':tdate',$data['date']);
+            // //     $this->db->bind(':gid',$data['costcentre']);
+            // //     $this->db->bind(':credit',$data['amount']);
+            // //     $this->db->bind(':bid',$data['bank']);
+            // //     $this->db->bind(':reference',strtolower($data['reference']));
+            // //     $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : null);
+            // //     $this->db->bind(':id',intval($data['id']));
+            // //     $this->db->execute();
+            // // }
             
             // deleteLedgerBanking($this->db->dbh,2,$data['id']);
             // $cashparent = getparentgl($this->db->dbh,'cash at bank');
             // $accparent = getparentgl($this->db->dbh,$accountname);
-            // if($data['deductfrom'] == 'petty cash' || $data['deductfrom'] == 'cash at hand' || empty($data['deductfrom'])){
+            // if(is_null($data['reqid'])){
             //     saveToLedger($this->db->dbh,$data['date'],$accountname,$accparent,$data['amount'],0,$data['description'],
             //                 $accountid,2,$data['id'],$_SESSION['congId']);
-            //     // if ($data['paymethod'] == 1 && $data['deductfrom'] === 'petty cash') {
-            //     //     // saveToLedger($this->db->dbh,$data['date'],'petty cash',$cashparent,0,$data['amount'],$data['description'],
-            //     //     //             3,2,$id,$_SESSION['congId']);
-            //     // }elseif($data['paymethod'] == 1 && $data['deductfrom'] === 'cash at hand'){
-            //     //     saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cashparent,0,$data['amount'],$data['description'],
-            //     //                 3,2,$id,$_SESSION['congId']);
-            //     // }
-            //     // elseif ($data['paymethod'] == 2) {
-            //     //     saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,0,$data['amount'],$data['description'],
-            //     //                 3,2,$id,$_SESSION['congId']);
-            //     // }else{
-            //     //     saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,0,$data['amount'],$data['description'],
-            //     //                 3,2,$id,$_SESSION['congId']);
-            //     //     saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],2,
-            //     //                 $data['reference'],2,$id,$_SESSION['congId']);             
-            //     // }
+            //     if ($data['paymethod'] == 1 && $data['deductfrom'] === 'petty cash') {
+            //         saveToLedger($this->db->dbh,$data['date'],'petty cash',$cashparent,0,$data['amount'],$data['description'],
+            //                     3,2,$data['id'],$_SESSION['congId']);
+            //     }elseif($data['paymethod'] == 1 && $data['deductfrom'] === 'cash at hand'){
+            //         saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cashparent,0,$data['amount'],$data['description'],
+            //                     3,2,$data['id'],$_SESSION['congId']);
+            //     }
+            //     elseif ($data['paymethod'] == 2) {
+            //         saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,0,$data['amount'],$data['description'],
+            //                     3,2,$data['id'],$_SESSION['congId']);
+            //     }else{
+            //         saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,0,$data['amount'],$data['description'],
+            //                     3,2,$data['id'],$_SESSION['congId']);
+            //         saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],2,
+            //                     $data['reference'],2,$data['id'],$_SESSION['congId']);             
+            //     }
             // }
 
             // if($data['paymethod'] == 1 && $data['deductfrom'] === 'petty cash'){
