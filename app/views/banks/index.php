@@ -173,8 +173,10 @@
                                       <td class="sub-level-3"><?php echo $child->AccountName;?></td>
                                       <td><?php echo $child->Account;?></td>
                                       <td>
-                                          <a href="<?php echo URLROOT;?>/banks/editsubaccount/<?php echo $child->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
-                                          <button type="button" class="btn btn-sm btn-danger custom-font btndelsub">Delete</button>
+                                        <?php if($_SESSION['userType'] <=2) : ?>
+                                            <a href="<?php echo URLROOT;?>/banks/editsubaccount/<?php echo $child->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
+                                            <button type="button" class="btn btn-sm btn-danger custom-font btndelsub">Delete</button>
+                                        <?php endif; ?>
                                       </td>
                                   </tr>
                                 <?php endforeach; ?>
