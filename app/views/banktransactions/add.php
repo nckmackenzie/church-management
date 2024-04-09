@@ -80,9 +80,7 @@
                                             </optgroup>
                                             <optgroup label="Sub accounts">
                                                 <?php foreach($data['subaccounts'] as $subaccount) : ?>
-                                                    <?php if($subaccount->BankId == $bank->ID): ?>
-                                                        <option value="<?php echo $subaccount->ID;?>-sub"><?php echo $subaccount->SubAccount;?></option>
-                                                    <?php endif; ?>
+                                                    <option value="<?php echo $subaccount->ID;?>-sub"><?php echo $subaccount->SubAccount;?></option>
                                                 <?php endforeach; ?>    
                                             </optgroup>
                                         </select>
