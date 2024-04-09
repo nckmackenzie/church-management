@@ -135,9 +135,7 @@
                             <th>ID</th>
                             <th>Bank Name</th>
                             <th>Account No</th>
-                            <?php if ($_SESSION['userType'] <=2) : ?>
-                                <th>Action</th>
-                            <?php endif; ?>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -146,14 +144,14 @@
                                 <td><?php echo $bank->ID;?></td>
                                 <td><?php echo $bank->accountType;?></td>
                                 <td><?php echo $bank->accountNo;?></td>
-                                <?php if($_SESSION['userType'] <=2) : ?>
-                                  <td>
-                                    <div class="btn-group">
-                                        <a href="<?php echo URLROOT;?>/banks/edit/<?php echo $bank->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
-                                        <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
-                                    </div>
+                                <td>
+                                    <?php if($_SESSION['userType'] <=2) : ?>
+                                      <div class="btn-group">
+                                          <a href="<?php echo URLROOT;?>/banks/edit/<?php echo $bank->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
+                                          <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
+                                      </div>
+                                    <?php endif; ?>
                                   </td>     
-                                <?php endif; ?>
                             </tr>
                             <?php
                                 $con=new PDO('mysql:host=localhost;dbname='.DB_NAME.'',DB_USER,DB_PASS);
@@ -172,12 +170,12 @@
                                       <td><?php echo $child->ID;?></td>
                                       <td class="sub-level-3"><?php echo $child->AccountName;?></td>
                                       <td><?php echo $child->Account;?></td>
-                                      <?php if($_SESSION['userType'] <=2) : ?>
-                                        <td>
+                                      <td>
+                                          <?php if($_SESSION['userType'] <=2) : ?>
                                             <a href="<?php echo URLROOT;?>/banks/editsubaccount/<?php echo $child->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
                                             <button type="button" class="btn btn-sm btn-danger custom-font btndelsub">Delete</button>
-                                        </td>
-                                      <?php endif; ?>
+                                          <?php endif; ?>
+                                      </td>
                                   </tr>
                                 <?php endforeach; ?>
                             <?php endif; ?>
