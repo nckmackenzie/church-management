@@ -223,7 +223,7 @@ class Groupfunds extends Controller
             'reqdate' => date('d/m/Y',strtotime($request->RequisitionDate)),
             'amount' => number_format($request->AmountRequested,2),
             // 'availableamount' => number_format(floatval($this->fundmodel->GetBalance($request->GroupId,$request->RequisitionDate,$request->RequestType) + floatval($request->AmountRequested)),2),
-            'availableamount' => number_format(floatval($this->fundmodel->GetBalance($request->GroupId,$request->RequisitionDate,$request->RequestType) + floatval($request->AmountRequested)),2),
+            'availableamount' => number_format(floatval($this->fundmodel->GetBalance($request->GroupId,$request->RequisitionDate,$request->RequestType)),2),
             'reason' => strtoupper($request->Purpose),
             'dontdeduct' => $request->DontDeduct,
             'approved' => '',
