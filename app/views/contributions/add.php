@@ -117,7 +117,7 @@
                                         <label for="bank">Bank</label>
                                         <select name="bank" id="bank"
                                                 class="form-control form-control-sm" 
-                                                <?php echo ($data['paymethod'] < 3 || empty($data['paymethod'])) ? 'disabled' : ''?>>
+                                                <?php echo ($data['paymethod'] < 2 || empty($data['paymethod'])) ? 'disabled' : ''?>>
                                             <?php foreach($data['banks'] as $bank) : ?>
                                                 <option value="<?php echo $bank->ID;?>"
                                                 <?php selectdCheck($data['bank'],$bank->ID)?>>
@@ -134,7 +134,7 @@
                                     <div class="form-group">
                                         <label for="reference">Reference</label>
                                         <input type="text" name="reference" id="reference"
-                                               class="form-control form-control-sm
+                                               class="form-control form-control-sm mandatory
                                                <?php echo (!empty($data['ref_err'])) ? 'is-invalid' : ''?>"
                                                value="<?php echo $data['reference'];?>"
                                                placeholder="eg MPESA Reference,cheque No etc"
@@ -329,7 +329,7 @@
         })
     });
 </script>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/contributions-v1.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/contributions-v2.js"></script>
 <script type="module" src="<?php echo URLROOT;?>/dist/js/pages/contributions-collection.js"></script>
 </body>
 </html>  
