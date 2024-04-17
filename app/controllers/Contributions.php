@@ -60,7 +60,7 @@ class Contributions extends Controller {
             'id' => '',
             'isedit' => false,
             'date' => $date,
-            'paymethod' => '',
+            'paymethod' => '2',
             'bank' => '',
             'category' => 3,
             'reference' =>'',
