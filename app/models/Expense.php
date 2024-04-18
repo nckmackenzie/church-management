@@ -7,8 +7,9 @@ class Expense {
     }
     public function getExpenses()
     {
-        $this->db->query('SELECT * FROM vw_getexpenses WHERE (congregationId=:cid)
-                          AND (deleted=0)');
+        // $this->db->query('SELECT * FROM vw_getexpenses WHERE (congregationId=:cid)
+        //                   AND (deleted=0)');
+        $this->db->query('SELECT * FROM vw_getexpenses WHERE (congregationId=:cid)');
         $this->db->bind(':cid',$_SESSION['congId']);
         return $this->db->resultSet();                  
     }
