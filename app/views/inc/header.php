@@ -26,6 +26,9 @@
             color: black;
             border: 1px solid #CED4DA
         }
+        .deleted-row{
+            color: #fca5a5;
+        }
     </style>
 </head>
 
