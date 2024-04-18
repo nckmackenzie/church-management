@@ -81,7 +81,7 @@ class Groupbudget {
                                   VALUES(:hid,:aid,:amount)');
                 $this->db->bind(':hid',$id);
                 $this->db->bind(':aid',$data['accountsid'][$i]);
-                $this->db->bind(':amount',$data['amounts'][$i]);
+                $this->db->bind(':amount', !empty($data['amounts'][$i]) ? floatval($data['amounts'][$i]) : 0);
                 $this->db->execute();
             }
 
@@ -93,7 +93,7 @@ class Groupbudget {
 
         } catch (Exception $e) {
             if($this->db->dbh->inTransaction()){
-                $this->dbh->rollback();
+                $this->db->dbh->rollback();
             }
             throw $e;
         }
