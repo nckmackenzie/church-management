@@ -92,7 +92,7 @@
                     </thead>
                     <tbody>
                         <?php foreach($data['expenses'] as $expense) :?>
-                            <tr>
+                            <tr class="<?php echo converttobool($expense->deleted) ? "deleted-row" : "" ?>">
                                 <td><?php echo $expense->ID;?></td>
                                 <td><?php echo date('d-M-Y',strtotime($expense->expenseDate));?></td>
                                 <td><?php echo $expense->voucherNo;?></td>
@@ -100,25 +100,31 @@
                                 <td><?php echo $expense->amount;?></td>
                                 <td><?php echo $expense->category;?></td>
                                 <td><?php echo $expense->costcentre;?></td>
-                                <?php if($expense->status == 0) : ?>
-                                    <td><span class="badge bg-warning">Unapproved</span></td>
+                                <?php if(converttobool($expense->deleted)) : ?>
+                                  <td><span class="badge bg-danger">Cancelled</span></td>
                                 <?php else : ?>
-                                    <td><span class="badge bg-success">Approved</span></td>
-                                <?php endif; ?>    
+                                  <?php if($expense->status == 0) : ?>
+                                    <td><span class="badge bg-warning">Unapproved</span></td>
+                                  <?php else : ?>
+                                      <td><span class="badge bg-success">Approved</span></td>
+                                  <?php endif; ?>   
+                                <?php endif; ?>
                                 <td>
-                                    <div class="btn-group">
-                                      <?php if((int)$_SESSION['userType'] < 3 || (int)$_SESSION['userType'] > 4) : ?>
-                                          <?php if($expense->status == 0) : ?>
-                                              <button type="button" class="btn btn-sm btn-dark custom-font btnapprove"><i class="fas fa-check"></i></button>
-                                              <a href="<?php echo URLROOT;?>/expenses/edit/<?php echo $expense->ID;?>" class="btn btn-sm bg-olive btnedit custom-font"><i class="far fa-edit"></i></a>
-                                              <button type="button" class="btn btn-sm btn-danger custom-font btndel"><i class="far fa-trash-alt"></i></button>
+                                  <?php if(!converttobool($expense->deleted)) : ?>
+                                      <div class="btn-group">
+                                        <?php if((int)$_SESSION['userType'] < 3 || (int)$_SESSION['userType'] > 4) : ?>
+                                            <?php if($expense->status == 0) : ?>
+                                                <button type="button" class="btn btn-sm btn-dark custom-font btnapprove"><i class="fas fa-check"></i></button>
+                                                <a href="<?php echo URLROOT;?>/expenses/edit/<?php echo $expense->ID;?>" class="btn btn-sm bg-olive btnedit custom-font"><i class="far fa-edit"></i></a>
+                                                <button type="button" class="btn btn-sm btn-danger custom-font btndel"><i class="far fa-trash-alt"></i></button>
+                                            <?php endif; ?>
+                                        <?php endif; ?>  
+                                            <a target="_blank" href="<?php echo URLROOT;?>/expenses/print/<?php echo $expense->ID;?>" class="btn btn-sm bg-warning btnprint custom-font"><i class="fas fa-print"></i></a>
+                                          <?php if(strlen(trim($expense->fileName)) > 1) : ?>
+                                            <a target="_blank" href="<?php echo URLROOT;?>/img/<?php echo $expense->fileName;?>" class="btn btn-sm bg-info btnreceipt custom-font"><i class="far fa-file"></i></a>
                                           <?php endif; ?>
-                                      <?php endif; ?>  
-                                          <a target="_blank" href="<?php echo URLROOT;?>/expenses/print/<?php echo $expense->ID;?>" class="btn btn-sm bg-warning btnprint custom-font"><i class="fas fa-print"></i></a>
-                                        <?php if(strlen(trim($expense->fileName)) > 1) : ?>
-                                          <a target="_blank" href="<?php echo URLROOT;?>/img/<?php echo $expense->fileName;?>" class="btn btn-sm bg-info btnreceipt custom-font"><i class="far fa-file"></i></a>
-                                        <?php endif; ?>
-                                    </div>
+                                      </div>
+                                  <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
