@@ -347,6 +347,7 @@ class Contribution {
             $this->db->query('UPDATE tblcontributions_header SET deleted=:del WHERE (ID=:id)');
             $this->db->bind(':del',1);
             $this->db->bind(':id',$data['id']);
+            $this->db->execute();
 
             softdeleteLedgerBanking($this->db->dbh,1,$data['id']);
 
