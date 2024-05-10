@@ -160,7 +160,12 @@
                         pageLength : 100,
                         fixedHeader : true,
                         "responsive" : true,
-                        "buttons": ["excel", "pdf","print"],
+                        // "buttons": ["excel", "pdf","print"],
+                        buttons: [
+                            { extend: 'excelHtml5', footer: true },
+                            { extend: 'pdfHtml5', footer: true },
+                            "print"
+                        ],
                         "footerCallback": function ( row, data, start, end, display ) {
                             var api = this.api(), data;
                              // Remove the formatting to get integer data for summation

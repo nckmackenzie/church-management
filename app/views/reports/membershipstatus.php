@@ -84,7 +84,12 @@
                             {"width" : "15%" , "targets": 3},
                             {"width" : "15%" , "targets": 4},
                         ],
-                        "buttons": ["excel", "pdf","print"]
+                        // "buttons": ["excel", "pdf","print"]
+                        buttons: [
+                            { extend: 'excelHtml5', footer: true },
+                            { extend: 'pdfHtml5', footer: true },
+                            "print"
+                        ],
                     }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
                 }
             });

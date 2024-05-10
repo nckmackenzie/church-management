@@ -149,7 +149,12 @@ export function setdatatable(tbl, columnDefs = [], pageLength) {
       .DataTable({
         lengthChange: !1,
         pageLength: pageLength || 25,
-        buttons: ['print', 'excel', 'pdf'],
+        // buttons: ['print', 'excel', 'pdf'],
+        buttons: [
+          { extend: 'excelHtml5', footer: true },
+          { extend: 'pdfHtml5', footer: true },
+          'print',
+        ],
         columnDefs: columnDefs,
         ordering: false,
         drawCallback: function () {

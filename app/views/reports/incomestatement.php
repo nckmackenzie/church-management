@@ -105,7 +105,12 @@
                         ordering : false,
                         searching : false,
                         "responsive" : true,
-                        "buttons": ["excel", "pdf","print"],
+                        // "buttons": ["excel", "pdf","print"],
+                        buttons: [
+                            { extend: 'excelHtml5', footer: true },
+                            { extend: 'pdfHtml5', footer: true },
+                            "print"
+                        ],
                     }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
                 }
             });
