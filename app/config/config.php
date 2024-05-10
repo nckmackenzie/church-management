@@ -12,6 +12,6 @@ define('URLROOT','http://localhost/cms');
 define('SITENAME','Kenyatta Rd Parish');
 define('ENVIRONMENT','production');
 //SMS API VARS
-define('USER_SMS','jujafarmcms');
-define('APIKEY','f7a976d9fb97abe4f784a34a8b201286e6fa0adb10ace60269e0a81f5d564b53');
-define('SENDER','PCEAJUJAFAR');
+define('USER_SMS','kalimonicms');
+define('APIKEY','1bfbd0d5600bf3bdb5369eb34817b7776e95c53f896f7b9432ea29f419cc2064');
+define('SENDER','PCEAKALIMON');
