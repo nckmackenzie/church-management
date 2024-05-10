@@ -10,6 +10,7 @@ import {
 
 const usertypeSelect = document.getElementById('usertype');
 const districtSelect = document.getElementById('district');
+const roleSelect = document.getElementById('role');
 const form = document.querySelector('form');
 
 usertypeSelect.addEventListener('change', function (e) {
@@ -22,6 +23,12 @@ usertypeSelect.addEventListener('change', function (e) {
     districtSelect.disabled = true;
     districtSelect.classList.remove('mandatory');
   }
+  if (e.target.value === '2') {
+    roleSelect.disabled = true;
+  } else {
+    roleSelect.disabled = false;
+  }
+  roleSelect.value = '';
 });
 
 districtSelect.addEventListener('change', function () {
@@ -56,10 +63,10 @@ form.addEventListener('submit', async function (e) {
 
 function displayAlert(error) {
   const html = `
-    <div class="alert custom-danger" role="alert">
-      ${error.isArray() ? error.join('') : error}
-    </div>
-  `;
+      <div class="alert custom-danger" role="alert">
+        ${error.isArray() ? error.join('') : error}
+      </div>
+    `;
   alertBox.insertAdjacentHTML('afterbegin', html);
 }
 
