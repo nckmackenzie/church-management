@@ -115,8 +115,21 @@
                             </div>
                         </div><!--End Of Row -->
                         <div class="row">
+                            <div class="col-12">
+                                <div class="form-group">
+                                    <label for="role">Role</label>
+                                    <select name="role" id="role" class="form-control form-control-sm" <?php echo (int)$data['usertype'] < 3 ? 'disabled' : '' ;?>>
+                                        <option value="" selected disabled>Select role</option>    
+                                        <?php foreach($data['roles'] as $role): ?>
+                                            <option value="<?php echo $role->ID;?>" <?php selectdCheck($data['role'],$role->ID); ?>><?php echo $role->RoleName;?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
                             <div class="col-sm-2">
-                                <button   button type="submit" class="btn btn-block btn-sm bg-navy">Save</button>
+                                <button type="submit" class="btn btn-block btn-sm bg-navy">Save</button>
                                 <input type="hidden" id="id" name="id" value="<?php echo $data['id'];?>"  >
                                 <input type="hidden" id="isedit" name="isedit" value="<?php echo $data['isedit'];?>"  >
                             </div>
@@ -130,7 +143,7 @@
   </div>
   <!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/users/create.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/users/create-v1.js"></script>
 
 </body>
 </html>
