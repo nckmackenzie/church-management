@@ -415,14 +415,31 @@ function validateemail($email){
 //get submenus
 function getusermenuitems($con,$userid,$iscong)
 {
-    $sql = 'SELECT 
-                DISTINCT f.Module 
-            FROM 
-                tbluserrights r INNER JOIN tblforms f on r.FormId = f.ID 
-            WHERE (r.UserId = ?) AND (f.CongregationNav = ?)
-            ORDER BY f.ModuleId';
-    $stmt = $con->prepare($sql);
-    $stmt->execute([$userid,$iscong]);
+    $has_rights = getdbvalue($con,'SELECT COUNT(*) FROM tbluserrights WHERE UserId=?',[$userid]) > 0;
+    $role = getdbvalue($con,'SELECT RoleId FROM tblusers WHERE ID=?',[$userid]);
+    if($has_rights){
+        $sql = 'SELECT 
+                    DISTINCT f.Module 
+                FROM 
+                    tbluserrights r INNER JOIN tblforms f on r.FormId = f.ID 
+                WHERE (r.UserId = ?) AND (f.CongregationNav = ?)
+                ORDER BY f.ModuleId';
+        $stmt = $con->prepare($sql);
+        $stmt->execute([$userid,$iscong]);
+    }
+    if(!$has_rights && !is_null($role)){
+        $sql = 'SELECT 
+                    DISTINCT f.Module 
+                FROM 
+                    tblrolerights r INNER JOIN tblforms f on r.FormId = f.ID 
+                WHERE (r.RoleId = ?) AND (f.CongregationNav = ?)
+                ORDER BY f.ModuleId';
+        $stmt = $con->prepare($sql);
+        $stmt->execute([$role,$iscong]);
+    }
+    if(!$has_rights && is_null($role)){
+        return [];
+    }    
     $results = $stmt->fetchAll(PDO::FETCH_OBJ);
     $modules = array();
     foreach($results as $result) {
@@ -434,13 +451,30 @@ function getusermenuitems($con,$userid,$iscong)
 //get menu items
 function getmodulemenuitems($con,$userid,$module,$iscong)
 {
-    $sql = 'SELECT f.FormName,
-                   f.Path
-            FROM   tbluserrights r inner join tblforms f on r.FormId = f.ID
-            WHERE  r.UserId = :usid AND (f.Module = :menu) AND (f.CongregationNav = :iscong)
-            ORDER BY f.MenuOrder';
-    $stmt = $con->prepare($sql);
-    $stmt->bindValue(':usid',$userid);
+    $has_rights = getdbvalue($con,'SELECT COUNT(*) FROM tbluserrights WHERE UserId=?',[$userid]) > 0;
+    $role = getdbvalue($con,'SELECT RoleId FROM tblusers WHERE ID=?',[$userid]);
+
+    if($has_rights){
+        $sql = 'SELECT f.FormName,
+                       f.Path
+                FROM   tbluserrights r inner join tblforms f on r.FormId = f.ID
+                WHERE  r.UserId = :usid AND (f.Module = :menu) AND (f.CongregationNav = :iscong)
+                ORDER BY f.MenuOrder';
+        $stmt = $con->prepare($sql);
+        $stmt->bindValue(':usid',$userid);
+    }
+    if(!$has_rights && !is_null($role)){
+        $sql = 'SELECT f.FormName,
+                       f.Path
+                FROM   tblrolerights r inner join tblforms f on r.FormId = f.ID
+                WHERE  r.RoleId = :roleid AND (f.Module = :menu) AND (f.CongregationNav = :iscong)
+                ORDER BY f.MenuOrder';
+        $stmt = $con->prepare($sql);
+        $stmt->bindValue(':roleid',$role);
+    }
+    if(!$has_rights && is_null($role)){
+        return [];
+    }          
     $stmt->bindValue(':menu',$module);
     $stmt->bindValue(':iscong',$iscong);
     $stmt->execute();
