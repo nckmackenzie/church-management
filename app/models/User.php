@@ -250,7 +250,8 @@ class User {
         $this->db->bind(':pass',$data['password']);
         $this->db->bind(':id',$id);
         if ($this->db->execute()) {
-            return true;
+            $userid = getdbvalue($this->db->dbh,'SELECT UserID FROM tblusers WHERE (ID=?)',[$id]);
+            return $userid;
         }else{
             return false;
         }
@@ -268,7 +269,8 @@ class User {
         $this->db->bind(':pass',$data['password']);
         $this->db->bind(':id',$data['id']);
         if ($this->db->execute()) {
-            return true;
+            $userid = getdbvalue($this->db->dbh,'SELECT UserID FROM tblusers WHERE (ID=?)',[$data['id']]);
+            return $userid;
         }else{
             return false;
         }
