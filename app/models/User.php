@@ -9,7 +9,7 @@ class User {
 
     function create($data)
     {
-        $this->db->query('INSERT INTO tblusers (UserID,UserName,UsertypeId,`Password`,Active,contact,districtId,CongregationId) VALUES(:usid,:uname,:utype,:pass,:act,:contact,:district,:cong)');
+        $this->db->query('INSERT INTO tblusers (UserID,UserName,UsertypeId,`Password`,Active,contact,districtId,RoleId,CongregationId) VALUES(:usid,:uname,:utype,:pass,:act,:contact,:district,:roleid,:cong)');
         $this->db->bind(':usid',$data['userid']);
         $this->db->bind(':uname',$data['username']);
         $this->db->bind(':utype',$data['usertype']);
@@ -17,6 +17,7 @@ class User {
         $this->db->bind(':act',$data['active']);
         $this->db->bind(':contact',$data['contact']);
         $this->db->bind(':district',$data['district']);
+        $this->db->bind(':roleid',$data['role']);
         $this->db->bind(':cong',$_SESSION['congId']);
         //execute
         if ($this->db->execute()) {
@@ -30,13 +31,14 @@ class User {
     {
        
         $this->db->query('UPDATE tblusers SET UserName=:uname,UsertypeId=:utype,Active=:act,
-                                 contact=:contact,districtId=:district
+                                 contact=:contact,districtId=:district,RoleId=:roleid
                           WHERE  (ID=:id)');
         $this->db->bind(':uname',$data['username']);
         $this->db->bind(':utype',$data['usertype']);
         $this->db->bind(':act',$data['active']);
         $this->db->bind(':contact',$data['contact']);
         $this->db->bind(':district',$data['district']);
+        $this->db->bind(':roleid',$data['role']);
         $this->db->bind(':id',$data['id']);
         //execute
         if ($this->db->execute()) {
@@ -399,5 +401,10 @@ class User {
         }else{
             return false;
         }
+    }
+
+    public function getRoles()
+    {
+        return loadresultset($this->db->dbh,'SELECT ID,UCASE(RoleName) AS RoleName FROM tblroles WHERE (Deleted=0) ORDER BY RoleName',[]);
     }
 }

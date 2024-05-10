@@ -34,8 +34,10 @@ class Users extends Controller{
             redirect('');
         }else{
             $districts = $this->userModel->getDistricts();
+            $roles = $this->userModel->getRoles();
             $data = [
                 'districts' => $districts,
+                'roles' => $roles,
                 'id' => '',
                 'isedit' => false,
                 'userid' => '',
@@ -44,6 +46,7 @@ class Users extends Controller{
                 'active' => '1',
                 'contact' => '',
                 'district' => '',
+                'role' => '',
                 'errors' => []
             ];
             $this->view('users/register',$data);
@@ -54,17 +57,20 @@ class Users extends Controller{
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
            
             $districts = $this->userModel->getDistricts();
+            $roles = $this->userModel->getRoles();
             $fields = json_decode(file_get_contents('php://input'));
             $data = [
                 'id' => isset($fields->id) && !empty(trim($fields->id)) ? trim(strtolower($fields->id)) : null,
                 'isedit' => isset($fields->isedit) && !empty(trim($fields->isedit)) ? converttobool($fields->isedit) : false,
                 'districts' => $districts,
+                'roles' => $roles,
                 'userid' => isset($fields->userid) && !empty(trim($fields->userid)) ? trim(strtolower($fields->userid)) : null, 
                 'username' => isset($fields->username) && !empty(trim($fields->username)) ? trim(strtolower($fields->username)) : null,
                 'usertype' => isset($fields->usertype) && !empty(trim($fields->usertype)) ? (int)$fields->usertype : 3,
                 'active' => isset($fields->active) && !empty(trim($fields->active)) ? converttobool($fields->active) : true,
                 'contact' => isset($fields->contact) && !empty(trim($fields->contact)) ? $fields->contact : null,
                 'district' => isset($fields->district) && !empty(trim($fields->district)) ? $fields->district : null,
+                'role' => isset($fields->role) && !empty(trim($fields->role)) ? $fields->role : null,
                 'password' => '',
                 'errors' => []
             ];
@@ -371,8 +377,10 @@ class Users extends Controller{
     {
         $districts = $this->userModel->getDistricts();
         $user = $this->userModel->getUser($id);
+        $roles = $this->userModel->getRoles();
         $data = [
             'districts' => $districts,
+            'roles' => $roles,
             'user' => $user,
             'id' => $user->ID,
             'isedit' => true,
@@ -382,6 +390,7 @@ class Users extends Controller{
             'active' => $user->UserTypeId ?? '1',
             'contact' => $user->contact ?? '',
             'district' => $user->districtId ?? '',
+            'role' => $user->RoleId ?? '',
             'errors' => []
         ];
         $this->view('users/register',$data);
