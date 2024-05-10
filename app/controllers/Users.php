@@ -346,8 +346,9 @@ class Users extends Controller{
                 $random = substr(md5(mt_rand()),0,7);
                 $hashed =  password_hash($random,PASSWORD_DEFAULT);
                 $data['password'] = $hashed;
-                if ($this->userModel->resendCredentials($data)) {
-                    $message = 'Password Reset Successful! Your New Password Is '.$random .' click on the provided link to log in. ' . URLROOT;
+                $userid = $this->userModel->resendCredentials($data);
+                if ($userid) {
+                    $message = "Password Reset Successful! Your New Password Is $random . UserID is $userid . " . URLROOT;
                     $countryPrexix ='+254';
                     $sb = substr($data['phone'],1);
                     $full = $countryPrexix . $sb;
@@ -399,8 +400,9 @@ class Users extends Controller{
                 $random = substr(md5(mt_rand()),0,7);
                 $hashed =  password_hash($random,PASSWORD_DEFAULT);
                 $data['password'] = $hashed;
-                if ($this->userModel->resetCredentials($data)) {
-                    $message = 'Password Reset Successful! Your New Password Is '.$random .'click on the provided link to log in. ' . URLROOT;
+                $userid = $this->userModel->resetCredentials($data);
+                if ($userid) {
+                    $message = "Password Reset Successful! Your New Password Is $random .Your UserID is $userid .Click on the provided link to log in. " . URLROOT;
                     $countryPrexix ='+254';
                     $sb = substr($data['phone'],1);
                     $full = $countryPrexix . $sb;
