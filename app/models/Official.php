@@ -62,7 +62,7 @@ class Official{
         $this->db->query('SELECT ID,UCASE(yearName) as yearName 
                          FROM tblfiscalyears WHERE (closed=0) AND (deleted=0)
                          ORDER BY yearName');
-        $this->db->bind('cong',$_SESSION['congId']);
+        // $this->db->bind('cong',$_SESSION['congId']);
         return $this->db->resultSet();
     }
     public function create($data)
