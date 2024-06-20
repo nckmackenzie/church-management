@@ -563,4 +563,41 @@ class Members extends Controller {
             exit;
         }
     }
+
+    public function getmembers()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'GET')
+        {
+            $type = filter_input(INPUT_GET,'type',FILTER_SANITIZE_SPECIAL_CHARS);
+            $value = filter_input(INPUT_GET,'value',FILTER_SANITIZE_SPECIAL_CHARS);
+            $data = [
+                'members' => [],
+                'type' => !empty($type) ? $type : null,
+                'value' => !empty($value) ? $value : null
+            ];
+
+            //validate
+            if(is_null($data['type']) || is_null($data['value'])){
+                http_response_code(400);
+                echo json_encode(['success' => false,'message' => 'Provide all required fields']);
+                exit;
+            }
+
+            $members = $this->memberModel->get_members_by_criteria($type,$value);
+            foreach($members as $member){
+                array_push($data['members'],[
+                    'id' => $member->id,
+                    'label' => strtoupper($member->memberName)
+                ]);
+            }
+
+            echo json_encode(['data' => $data['members'],'success' => true]);
+            exit;
+        }
+        else
+        {
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
 }

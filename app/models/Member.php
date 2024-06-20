@@ -419,4 +419,20 @@ class Member {
         }
         return $contacts;
     }
+
+    public function get_members_by_criteria($type,$value = null)
+    {
+        if($type === 'all'){
+            $sql = 'SELECT ID as id, memberName FROM tblmember WHERE (congregationId=?) ORDER BY memberName';
+            return loadresultset($this->db->dbh,$sql,[(int)$_SESSION['congId']]);
+        }else if($type == 'district'){
+            $sql = 'SELECT ID as id, memberName FROM tblmember WHERE (districtId=?) ORDER BY memberName';
+            return loadresultset($this->db->dbh,$sql,[(int)$value]);
+        }else if($type == 'group'){
+            $sql = 'SELECT g.memberId as id, m.memberName FROM tblgroupmembership g join tblmember m on g.memberId = m.ID WHERE (g.groupId=?)';
+            return loadresultset($this->db->dbh,$sql,[(int)$value]);
+        }else{
+            return ['error' => 'Invalid Criteria'];
+        }
+    }
 }
