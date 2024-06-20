@@ -15,6 +15,11 @@
                     </div>
                     <div class="card-body">
                         <div class="col-md-9">
+                        <div class="form-group">
+                                <label for="member">Transfer Date</label>
+                                <input type="date" name="date" id="date" 
+                                       class="form form-control form-control-sm" value="<?php echo $data['date'];?>">
+                            </div>
                             <div class="form-group">
                                 <label for="member">Member</label>
                                 <select name="member" id="member" 
@@ -23,7 +28,6 @@
                                         <option value="<?php echo $member->ID;?>"><?php echo $member->memberName;?></option>    
                                     <?php endforeach; ?>
                                 </select>
-                                
                             </div>
                             <div class="form-group">
                                 <label for="olddistrict">Current District</label>
@@ -87,6 +91,7 @@
             var oldname =  $('#olddistrict').find('option:selected').text();
             var newname =  $('#newdistrict').find('option:selected').text();
             var name =  $('#member').find('option:selected').text();
+            var changeDate = $('#date').val()
             $('#oldname').val(oldname);
             $('#newname').val(newname);
             $('#name').val(name);
@@ -102,6 +107,7 @@
                         newd : newd, 
                         oldname : oldname,
                         newname : newname,
+                        date:changeDate,
                         name : name},
                 success : function(res){
                     $('.msg').html(res);
