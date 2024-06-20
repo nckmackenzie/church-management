@@ -258,7 +258,7 @@ class Member {
     public function changedistrict($data)
     {
         try {
-            $today = date('Y-m-d');
+            // $today = date('Y-m-d');
             $this->db->dbh->beginTransaction();
 
             $this->db->query('INSERT INTO tbldistrictchange (memberId,fromId,toId,transferDate,congregationId)
@@ -266,7 +266,7 @@ class Member {
             $this->db->bind(':mid',$data['member']);
             $this->db->bind(':fid',$data['old']);
             $this->db->bind(':tid',$data['new']);
-            $this->db->bind(':tdate',$today);
+            $this->db->bind(':tdate',$data['date']);
             $this->db->bind(':cid',$_SESSION['congId']);
             $this->db->execute();
 

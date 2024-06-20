@@ -313,7 +313,8 @@ class Members extends Controller {
         $districts = $this->memberModel->getDistricts();
         $data = [
             'members' => $members,
-            'districts' => $districts
+            'districts' => $districts,
+            'date' => date('Y-m-d')
         ];
         $this->view('members/change_district',$data);
     }
@@ -343,6 +344,7 @@ class Members extends Controller {
                 'oldname' => trim(strtolower($_POST['oldname'])),
                 'newname' => trim(strtolower($_POST['newname'])),
                 'name' => trim(strtolower($_POST['name'])),
+                'date' => isset($_POST['date']) && !empty($_POST['date']) ? date('Y-m-d',strtotime(trim($_POST['date']))) : date('Y-m-d'),
                 'err' => '',
                 'success' => ''
             ];
