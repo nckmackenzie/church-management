@@ -2,6 +2,9 @@
 
 class Clearbankings extends Controller
 {
+    private $clearmodel;
+    private $reusemodel;
+    private $authmodel;
     public function __construct()
     {
         if (!isset($_SESSION['userId']) ) {
@@ -9,13 +12,14 @@ class Clearbankings extends Controller
             exit;
         }
         $this->authmodel = $this->model('Auth');
-        checkrights($this->authmodel,'clear bankings');
+        
         $this->clearmodel = $this->model('Clearbanking');
         $this->reusemodel = $this->model('Reusables');
     }
 
     public function index()
     {
+        checkrights($this->authmodel,'clear bankings');
         $banks = $this->reusemodel->GetBanks();
         $data = [
             'banks' => $banks,
@@ -33,6 +37,7 @@ class Clearbankings extends Controller
                 'bank' => isset($_GET['bank']) && !empty(trim($_GET['bank'])) ? (int)trim($_GET['bank']) : NULL,
                 'from' => isset($_GET['from']) && !empty(trim($_GET['from'])) ? date('Y-m-d',strtotime(trim($_GET['from']))) : NULL,
                 'to' => isset($_GET['to']) && !empty(trim($_GET['to'])) ? date('Y-m-d',strtotime(trim($_GET['to']))) : NULL,
+                'status' => isset($_GET['status']) && !empty(trim($_GET['status'])) ? trim($_GET['status']) : NULL,
                 'bankings' => []
             ];
 
@@ -42,23 +47,39 @@ class Clearbankings extends Controller
                 exit;
             }
 
-            foreach($this->clearmodel->getBankings($data) as $banking){
-                array_push($data['bankings'],[
-                    'id' => $banking->ID,
-                    'transactionDate' => $banking->transactionDate,
-                    'amount' => $banking->Amount,
-                    'reference' => $banking->Reference
-                ]);
+            if(is_null($data['status'])){
+                foreach($this->clearmodel->getBankings($data) as $banking){
+                    array_push($data['bankings'],[
+                        'id' => $banking->ID,
+                        'transactionDate' => $banking->transactionDate,
+                        'amount' => $banking->Amount,
+                        'reference' => $banking->Reference
+                    ]);
+                }
+    
+                $values = $this->clearmodel->getAmounts($data);
+                $debits = $values[0];
+                $credits = $values[1];
+                $value = [
+                    'debits' => $debits,
+                    'credits' => $credits
+                ];
+                echo json_encode(['values' => $value, 'bankings' => $data['bankings']]);
+            }else{
+                foreach($this->clearmodel->getClearedBankings($data) as $banking){
+                    array_push($data['bankings'],[
+                        'id' => $banking->ID,
+                        'transactionDate' => date('d-m-Y',strtotime($banking->transactionDate)),
+                        'clearedDate' => date('Y-m-d',strtotime($banking->clearedDare)),
+                        'amount' => $banking->Amount,
+                        'reference' => $banking->Reference
+                    ]);
+                }
+                    
+                echo json_encode(['bankings' => $data['bankings']]);
             }
 
-            $values = $this->clearmodel->getAmounts($data);
-            $debits = $values[0];
-            $credits = $values[1];
-            $value = [
-                'debits' => $debits,
-                'credits' => $credits
-            ];
-            echo json_encode(['values' => $value, 'bankings' => $data['bankings']]);
+            
         }else{
             redirect('users/deniedaccess');
             exit();
@@ -156,6 +177,69 @@ class Clearbankings extends Controller
             $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $id = trim($_POST['id']);
             $this->clearmodel->delete($id);
+        }else{
+            redirect('users/deniedaccess');
+            exit();
+        }
+    }
+    public function modify()
+    {
+        checkrights($this->authmodel,'edit cleared bankings');
+        $banks = $this->reusemodel->GetBanks();
+        $data = [
+            'banks' => $banks,
+        ];
+        $this->view('clearbankings/modify',$data);
+        exit;
+    }
+
+    public function update()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST'){
+            $fields = json_decode(file_get_contents('php://input'));
+            $data = [
+                'table' => $fields->table
+            ];
+            $errorCount = 0;
+            $dateError = 0;
+            //validate
+            if(!is_countable($data['table'])) :
+                http_response_code(400);
+                echo json_encode(['message' => 'No bankings selected for clearing']);
+                exit;
+            endif;
+
+            for($i = 0; $i < count($data['table']); $i++) {
+                if(empty(trim($data['table'][$i]->clearDate)) || $data['table'][$i]->clearDate == ''){
+                    $errorCount ++;
+                }
+                if(date('Y-m-d',strtotime($data['table'][$i]->clearDate)) < date('Y-m-d',strtotime($data['table'][$i]->txnDate))){
+                    $dateError ++;
+                }
+            }
+
+            if($errorCount > 0){
+                http_response_code(400);
+                echo json_encode(['message' => 'Clear date not selected for '.$errorCount.' banking(s)']);
+                exit;
+            }
+
+            if($dateError > 0){
+                http_response_code(400);
+                echo json_encode(['message' => 'Clear date not earlier than transaction date in '.$dateError.' banking(s)']);
+                exit;
+            }
+
+            //not saved
+            if(!$this->clearmodel->Modify($data)){
+                http_response_code(500);
+                echo json_encode(['message' => 'Unable to clear selected bankings. Retry or contact admin']);
+                exit;
+            }
+
+            echo json_encode(['message' => 'Saved successfully','success' => true]);
+            exit;
+  
         }else{
             redirect('users/deniedaccess');
             exit();
