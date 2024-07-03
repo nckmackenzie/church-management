@@ -79,7 +79,7 @@
                         <div class="row">
                             <div class="col-md-3">
                                 <div class="form-group">
-                                    <label for="balance">Balance</label>
+                                    <label for="balance">Opening Balance</label>
                                     <input type="number" id="balance" class="form-control form-control-sm">
                                 </div>
                             </div>
