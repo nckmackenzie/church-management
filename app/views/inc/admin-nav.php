@@ -227,6 +227,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/clearbankings/modify" class="nav-link">
+                        <p>Edit Cleared Bankings</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/bankreconcilliations" class="nav-link">
                         <p>Bank Reconcilliation</p>
                     </a>
