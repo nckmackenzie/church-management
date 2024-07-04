@@ -25,6 +25,6 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/reports/pl/grouppl-income-detailed.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/reports/pl/grouppl-income-detailed-v1.js"></script>
 </body>
 </html>  

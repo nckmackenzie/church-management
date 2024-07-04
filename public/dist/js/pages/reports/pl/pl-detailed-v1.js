@@ -1,4 +1,8 @@
-import { formatDate, numberWithCommas } from '../../utils/utils.js';
+import {
+  formatDate,
+  numberWithCommas,
+  setdatatable,
+} from '../../utils/utils.js';
 import { getPlDetailed } from '../ajax.js';
 import { removeLoadingSpinner, setLoadingSpinner } from '../utils.js';
 
@@ -58,6 +62,7 @@ function bindTable(data, totals) {
     </table>
   `;
   tableContainer.innerHTML = html;
+  setdatatable('table', [], 100);
 }
 
 loadReport();
