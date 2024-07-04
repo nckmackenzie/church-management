@@ -1,15 +1,15 @@
 // prettier-ignore
 import { clearOnChange, validation, mandatoryFields,validateDate, numberWithCommas,
-        displayAlert,alertBox,setLoadingState,resetLoadingState } from '../utils/utils.js';
+    displayAlert,alertBox,setLoadingState,resetLoadingState } from '../utils/utils.js';
 // prettier-ignore
 import {clearForm, addBtn,fromDateInput,toDateInput,bankSelect,despositsInput,
-        withdrawalsInput,table,balanceInput,saveBtn } from './elements.js';
+    withdrawalsInput,table,balanceInput,saveBtn } from './elements.js';
 //prettier-ignore
 import { clearBankings, getBankings } from './ajax-requests.js';
 //prettier-ignore
 import {setLoadingSpinner,removeLoadingSpinner,appendData,updateSubTotal, calculateVariance,
-        tableData,
-        clear} from './functionalities.js'
+    tableData,
+    clear} from './functionalities.js'
 
 let selectedBankings = 0;
 let initialDeposits = 0;
