@@ -29,12 +29,14 @@ class Bankreconcilliations extends Controller
                 'balance' => trim($_GET['balance']),
            ];
 
+           $openingBalance = floatval($this->bankreconModel->getAmounts($data)[4]);
            $clearedDeposits = floatval($this->bankreconModel->getAmounts($data)[0]);
            $clearedWithdrawals = floatval($this->bankreconModel->getAmounts($data)[1]);
            $unclearedDeposits = floatval($this->bankreconModel->getAmounts($data)[2]);
            $unclearedWithdrawals = floatval($this->bankreconModel->getAmounts($data)[3]);
-           $variance =  (floatval($data['balance']) - ($clearedDeposits - $clearedWithdrawals));
-           $expectedBalance = ($clearedDeposits + $unclearedDeposits) - ($clearedWithdrawals + $unclearedWithdrawals);
+        //    $variance =  (floatval($data['balance']) - ($clearedDeposits - $clearedWithdrawals));
+           $expectedBalance = (($openingBalance + $clearedDeposits) - $clearedWithdrawals) - $unclearedDeposits + $unclearedWithdrawals;
+           $variance =  floatval($data['balance']) - $expectedBalance;
 
            $output = '';
            $output .='
@@ -45,8 +47,8 @@ class Bankreconcilliations extends Controller
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Balance</td>
-                            <td>'.number_format($data['balance'],2).'</td>
+                            <td>Opening Balance</td>
+                            <td>'.number_format($$openingBalance,2).'</td>
                         </tr>
                         <tr>
                             <td>Cleared Deposits</td>';
@@ -67,10 +69,6 @@ class Bankreconcilliations extends Controller
                                 $output .= '<td>'.number_format($clearedWithdrawals,2).'</td>';
                             }
                         $output .='
-                        </tr>
-                        <tr>
-                            <td>Variance</td>
-                            <td>'.number_format($variance,2).'</td>
                         </tr>
                         <tr>
                             <td>Uncleared Deposits</td>';
@@ -96,59 +94,13 @@ class Bankreconcilliations extends Controller
                             <td>Expected Balance</td>
                             <td>'.number_format($expectedBalance,2).'</td>
                         </tr>
+                        <tr>
+                            <td>Variance</td>
+                            <td>'.number_format($variance,2).'</td>
+                        </tr>
                     </tbody>
                 </table>           
            ';
-        //    $output .='
-        //         <table id="table" class="table table-striped table-bordered table-sm">
-        //             <thead>
-        //                 <th>Bank Reconcilliation</th>
-        //                 <th></th>
-        //             </thead>
-        //             <tbody>
-        //                 <tr>
-        //                     <td>Balance</td>
-        //                     <td>'.number_format($data['balance'],2).'</td>
-        //                 </tr>
-        //                 <tr>
-        //                     <td>Cleared Deposits</td>
-        //                     <td>'.number_format($clearedDeposits,2).'</td>
-        //                 </tr>
-        //                 <tr>
-        //                     <td>Cleared Withdrawals</td>
-        //                     <td>'.number_format($clearedWithdrawals,2).'</td>
-        //                 </tr>
-        //                 <tr>
-        //                     <td>Variance</td>
-        //                     <td>'.number_format($variance,2).'</td>
-        //                 </tr>
-        //                 <tr>
-        //                     <td>Uncleared Deposits</td>';
-        //                     if(floatval($unclearedDeposits) != 0){
-        //                         $route = URLROOT .'/bankreconcilliations/uncleared?type=deposit&bank='.$data['bank'].'&sdate='.$data['from'].'&edate='.$data['to'].'';
-        //                         $output .= '<td><a href="'.$route.'" class="" target="_blank">'.number_format($unclearedDeposits,2).'</a></td>';
-        //                     }else{
-        //                         $output .= '<td>'.number_format($unclearedDeposits,2).'</td>';
-        //                     }
-        //                 $output .='    
-        //                 </tr>
-        //                 <tr>
-        //                     <td>Uncleared Withdrawals</td>';
-        //                     if(floatval($unclearedWithdrawals) != 0){
-        //                         $route = URLROOT .'/bankreconcilliations/uncleared?type=withdraw&bank='.$data['bank'].'&sdate='.$data['from'].'&edate='.$data['to'].'';
-        //                         $output .= '<td><a href="'.$route.'" class="" target="_blank">'.number_format($unclearedWithdrawals,2).'</a></td>';
-        //                     }else{
-        //                         $output .= '<td>'.number_format($unclearedWithdrawals,2).'</td>';
-        //                     }
-        //                 $output .='    
-        //                 </tr>
-        //                 <tr>
-        //                     <td>Expected Balance</td>
-        //                     <td>'.number_format($expectedBalance,2).'</td>
-        //                 </tr>
-        //             </tbody>
-        //         </table>           
-        //    ';
 
            echo $output;
 

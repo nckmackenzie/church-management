@@ -28,7 +28,7 @@
             <span class="invalid-feedback" id="to_err"></span>
           </div>
           <div class="col-md-3">
-            <label for="balance">Balance</label>
+            <label for="balance">Closing Balance</label>
             <input type="number" name="balance" id="balance" class="form-control form-control-sm">
             <span class="invalid-feedback" id="balance_err"></span>
           </div>

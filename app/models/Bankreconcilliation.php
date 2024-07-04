@@ -31,6 +31,8 @@ class Bankreconcilliation
         $withdrawals = 0;
         $unclearedDeposits = 0;
         $unclearedWithdrawals = 0;
+        $sumofdeposits = 0;
+        $sumoofwithdrawals = 0;
 
         $this->db->query('SELECT IFNULL(SUM(debit),0) As SumOfDebits
                           FROM   tblbankpostings
@@ -75,6 +77,18 @@ class Bankreconcilliation
         $this->db->bind(':cid',$_SESSION['congId']);
         $unclearedWithdrawals = $this->db->getValue();
         array_push($amounts,$unclearedWithdrawals);
+
+        $sql = "SELECT 
+                    IFNULL(SUM(credit),0) As SumOfCredits
+                FROM   tblbankpostings
+                WHERE  (transactionDate < ? ) AND (deleted=0) AND (bankId=?) AND (congregationId=?)";
+        $sumoofwithdrawals = getdbvalue($this->db->dbh,$sql,[$data['from'],$data['bank'],$_SESSION['congId']]);
+        $sql = "SELECT 
+                    IFNULL(SUM(debit),0) As SumOfDebits
+                FROM   tblbankpostings
+                WHERE  (transactionDate < ? ) AND (deleted=0) AND (bankId=?) AND (congregationId=?)";
+        $sumofdeposits = getdbvalue($this->db->dbh,$sql,[$data['from'],$data['bank'],$_SESSION['congId']]);
+        array_push($amounts,floatval($sumofdeposits) - floatval($sumoofwithdrawals));
 
         return $amounts;
     }
