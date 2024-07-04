@@ -40,5 +40,28 @@
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
 <script type="module" src="<?php echo URLROOT;?>/dist/js/pages/bankings/reconcilliation-report.js"></script>
+<script>
+  $(function(){
+    $('#unclearedTable').DataTable({
+      lengthChange: !1,
+        pageLength: pageLength || 25,
+        // buttons: ['print', 'excel', 'pdf'],
+        buttons: [
+          { extend: 'excelHtml5', footer: true },
+          { extend: 'pdfHtml5', footer: true },
+          'print',
+        ],
+        columnDefs: columnDefs,
+        ordering: false,
+        drawCallback: function () {
+          $('.dataTables_paginate > .pagination').addClass(
+            'pagination-rounded'
+          );
+        },
+    }).buttons()
+      .container()
+      .appendTo(`#unclearedTable_wrapper .col-md-6:eq(0)`);;
+  })
+</script>
 </body>
 </html>  
