@@ -100,4 +100,26 @@ class Bankreconcilliation
         $this->db->bind(':cid',$_SESSION['congId']);
         return $this->db->resultSet();
     }
+
+    public function ClearedReport($data)
+    {
+        if($data['type'] === 'withdraw'){
+            $this->db->query('SELECT transactionDate,credit As amount,ucase(reference) as reference
+                              FROM tblbankpostings
+                              WHERE (transactionDate BETWEEN :sdate AND :edate) 
+                                    AND (bankId = :bid) AND (cleared = 1) AND (credit > 0) AND (deleted = 0) AND (congregationId = :cid)
+                              ORDER BY transactionDate');
+        }elseif($data['type'] === 'deposit'){
+            $this->db->query('SELECT transactionDate,debit As amount,ucase(reference) as reference
+                              FROM tblbankpostings
+                              WHERE (transactionDate BETWEEN :sdate AND :edate) 
+                                    AND (bankId = :bid) AND (cleared = 1) AND (debit > 0) AND (deleted = 0) AND (congregationId = :cid)
+                              ORDER BY transactionDate');
+        }
+        $this->db->bind(':sdate',$data['sdate']);
+        $this->db->bind(':edate',$data['edate']);
+        $this->db->bind(':bid',$data['bankid']);
+        $this->db->bind(':cid',$_SESSION['congId']);
+        return $this->db->resultSet();
+    }
 }
