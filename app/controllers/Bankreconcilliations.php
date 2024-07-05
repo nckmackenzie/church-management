@@ -24,8 +24,9 @@ class Bankreconcilliations extends Controller
            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW) ;
            $data = [
                 'bank' => trim($_GET['bank']),
-                'from' => trim($_GET['from']),
-                'to' => trim($_GET['to']),
+                'from' => isset($_GET['from']) && !empty(trim($_GET['from'])) ? date('Y-m-d',strtotime(trim($_GET['from']))) : null,
+                'to' => isset($_GET['from']) && !empty(trim($_GET['to'])) ? date('Y-m-d',strtotime(trim($_GET['to']))) : null,
+                // 'to' => trim($_GET['to']),
                 'balance' => trim($_GET['balance']),
            ];
 
@@ -48,7 +49,7 @@ class Bankreconcilliations extends Controller
                     <tbody>
                         <tr>
                             <td>Opening Balance</td>
-                            <td>'.number_format($$openingBalance,2).'</td>
+                            <td>'.number_format($openingBalance,2).'</td>
                         </tr>
                         <tr>
                             <td>Cleared Deposits</td>';
@@ -93,6 +94,10 @@ class Bankreconcilliations extends Controller
                         <tr>
                             <td>Expected Balance</td>
                             <td>'.number_format($expectedBalance,2).'</td>
+                        </tr>
+                        <tr>
+                            <td>Actual/Bank Balance</td>
+                            <td>'.number_format($data['balance'],2).'</td>
                         </tr>
                         <tr>
                             <td>Variance</td>
