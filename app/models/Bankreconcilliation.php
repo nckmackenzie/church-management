@@ -37,44 +37,48 @@ class Bankreconcilliation
         $this->db->query('SELECT IFNULL(SUM(debit),0) As SumOfDebits
                           FROM   tblbankpostings
                           WHERE  (transactionDate BETWEEN :tfrom AND :tto) AND (cleared=1) 
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid)');
+                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid) AND (clearedDare <= :tdate)');
         $this->db->bind(':tfrom',$data['from']);
         $this->db->bind(':tto',$data['to']);
         $this->db->bind(':bid',$data['bank']);
         $this->db->bind(':cid',$_SESSION['congId']);
+        $this->db->bind(':tdate',$data['to']);
         $deposits = $this->db->getValue();
         array_push($amounts,$deposits);
 
         $this->db->query('SELECT IFNULL(SUM(credit),0) As SumOfCredits
                           FROM   tblbankpostings
                           WHERE  (transactionDate BETWEEN :tfrom AND :tto) AND (cleared=1) 
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid)');
+                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid) AND (clearedDare <= :tdate)');
         $this->db->bind(':tfrom',$data['from']);
         $this->db->bind(':tto',$data['to']);
         $this->db->bind(':bid',$data['bank']);
         $this->db->bind(':cid',$_SESSION['congId']);
+        $this->db->bind(':tdate',$data['to']);
         $withdrawals = $this->db->getValue();
         array_push($amounts,$withdrawals);
 
         $this->db->query('SELECT IFNULL(SUM(debit),0) As SumOfDebits
                           FROM   tblbankpostings
-                          WHERE  (transactionDate BETWEEN :tfrom AND :tto) AND (cleared=0) 
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid)');
+                          WHERE  ((transactionDate BETWEEN :tfrom AND :tto) AND (cleared=0) 
+                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid)) OR (cleared=1 AND clearedDare > :tdate)');
         $this->db->bind(':tfrom',$data['from']);
         $this->db->bind(':tto',$data['to']);
         $this->db->bind(':bid',$data['bank']);
         $this->db->bind(':cid',$_SESSION['congId']);
+        $this->db->bind(':tdate',$data['to']);
         $unclearedDeposits = $this->db->getValue();
         array_push($amounts,$unclearedDeposits);
 
         $this->db->query('SELECT IFNULL(SUM(credit),0) As SumOfCredits
                           FROM   tblbankpostings
-                          WHERE  (transactionDate BETWEEN :tfrom AND :tto) AND (cleared=0) 
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid)');
+                          WHERE  ((transactionDate BETWEEN :tfrom AND :tto) AND (cleared=0) 
+                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid)) OR (cleared=1 AND clearedDare > :tdate)');
         $this->db->bind(':tfrom',$data['from']);
         $this->db->bind(':tto',$data['to']);
         $this->db->bind(':bid',$data['bank']);
         $this->db->bind(':cid',$_SESSION['congId']);
+        $this->db->bind(':tdate',$data['to']);
         $unclearedWithdrawals = $this->db->getValue();
         array_push($amounts,$unclearedWithdrawals);
 
