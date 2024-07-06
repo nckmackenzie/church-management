@@ -84,17 +84,21 @@ class Bankreconcilliation
         $unclearedWithdrawals = $this->db->getValue();
         array_push($amounts,$unclearedWithdrawals);
 
-        $sql = "SELECT  DISTINCT account,((gettotaldebits_bs(account,:asatdate,:cid)) -  
-				        (gettotalcredits_bs(account,:asatdate,:cid))) as bal
-	            FROM    tblledger
-                WHERE   transactionDate < :asatdate AND account = 'cash at bank' AND congregationId = :cid AND (deleted = 0);
-        ";
-        $this->db->query($sql);
+        $this->db->query('CALL sp_balancesheet_assets(:startd,:cong)');
+        $this->db->bind(':startd',$data['from']);
+        $this->db->bind(':cong',$_SESSION['congId']);
+        $results = $this->db->resultSet();
+        foreach($results as $result){
+            if(strtolower($result->account) === 'cash at bank'){
+                array_push($amounts,$result->bal);
+            }
+        }
+        // $this->db->query($sql);
         // $this->db->bind(':account','cash at bank');
-        $this->db->bind(':asatdate',$data['from']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        $result = $this->db->single();
-        array_push($amounts,$result->bal);
+        // $this->db->bind(':asatdate',$data['from']);
+        // $this->db->bind(':cid',$_SESSION['congId']);
+        // $result = $this->db->single();
+        // array_push($amounts,$result->bal);
         return $amounts;
     }
 
