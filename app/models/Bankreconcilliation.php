@@ -61,7 +61,9 @@ class Bankreconcilliation
         $this->db->query('SELECT IFNULL(SUM(debit),0) As SumOfDebits
                           FROM   tblbankpostings
                           WHERE  ((transactionDate BETWEEN :tfrom AND :tto) AND (cleared=0) 
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid)) OR (cleared=1 AND clearedDare > :tdate)');
+                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid)) 
+                                 OR (cleared=1 AND clearedDare > :tdate AND (transactionDate BETWEEN :tfrom AND :tto) 
+                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid))');
         $this->db->bind(':tfrom',$data['from']);
         $this->db->bind(':tto',$data['to']);
         $this->db->bind(':bid',$data['bank']);
@@ -73,7 +75,9 @@ class Bankreconcilliation
         $this->db->query('SELECT IFNULL(SUM(credit),0) As SumOfCredits
                           FROM   tblbankpostings
                           WHERE  ((transactionDate BETWEEN :tfrom AND :tto) AND (cleared=0) 
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid)) OR (cleared=1 AND clearedDare > :tdate)');
+                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid)) OR 
+                                 (cleared=1 AND clearedDare > :tdate AND (transactionDate BETWEEN :tfrom AND :tto)
+                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid))');
         $this->db->bind(':tfrom',$data['from']);
         $this->db->bind(':tto',$data['to']);
         $this->db->bind(':bid',$data['bank']);
@@ -104,14 +108,18 @@ class Bankreconcilliation
                               FROM tblbankpostings
                               WHERE ((transactionDate BETWEEN :sdate AND :edate) 
                                     AND (bankId = :bid) AND (cleared = 0) AND (credit > 0) 
-                                    AND (deleted = 0) AND (congregationId = :cid)) OR (cleared = 1 AND clearedDare > :tdate)
+                                    AND (deleted = 0) AND (congregationId = :cid)) OR 
+                                    (cleared = 1 AND clearedDare > :tdate AND (transactionDate BETWEEN :sdate AND :edate)
+                                    AND (bankId = :bid) AND (deleted = 0) AND (congregationId = :cid))
                               ORDER BY transactionDate');
         }elseif($data['type'] === 'deposit'){
             $this->db->query('SELECT transactionDate,debit As amount,ucase(reference) as reference
                               FROM tblbankpostings
                               WHERE ((transactionDate BETWEEN :sdate AND :edate) 
                                     AND (bankId = :bid) AND (cleared = 0) AND (debit > 0) AND 
-                                    (deleted = 0) AND (congregationId = :cid)) OR (cleared = 1 AND clearedDare > :tdate)
+                                    (deleted = 0) AND (congregationId = :cid)) OR (cleared = 1 AND clearedDare > :tdate AND  
+                                    (transactionDate BETWEEN :sdate AND :date) AND (bankId = :bid) AND  
+                                    (deleted = 0) AND (congregationId = :cid))
                               ORDER BY transactionDate');
         }
         $this->db->bind(':sdate',$data['sdate']);
