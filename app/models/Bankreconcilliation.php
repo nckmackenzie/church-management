@@ -86,18 +86,19 @@ class Bankreconcilliation
         $unclearedWithdrawals = $this->db->getValue();
         array_push($amounts,$unclearedWithdrawals);
 
-        $sql = "SELECT 
-                    IFNULL(SUM(credit),0) As SumOfCredits
-                FROM   tblbankpostings
-                WHERE  (transactionDate < ? ) AND (deleted=0) AND (bankId=?) AND (congregationId=?)";
-        $sumoofwithdrawals = getdbvalue($this->db->dbh,$sql,[$data['from'],$data['bank'],$_SESSION['congId']]);
-        $sql = "SELECT 
-                    IFNULL(SUM(debit),0) As SumOfDebits
-                FROM   tblbankpostings
-                WHERE  (transactionDate < ? ) AND (deleted=0) AND (bankId=?) AND (congregationId=?)";
-        $sumofdeposits = getdbvalue($this->db->dbh,$sql,[$data['from'],$data['bank'],$_SESSION['congId']]);
-        array_push($amounts,floatval($sumofdeposits) - floatval($sumoofwithdrawals));
-
+        $sql = "SELECT  
+                    DISTINCT account,((gettotaldebits_bs(:account,:asatdate,:cong)) -  
+				    (gettotalcredits_bs(:account,:asatdate,:cong))) as bal
+	            FROM  
+                    tblledger
+                WHERE  
+                    (account = :account) AND (transactionDate <= :asatdate) AND (congregationId = :cong) AND (deleted = 0);";
+        $this->db->query($sql);
+        $this->db->bind(':account','cash at bank');
+        $this->db->bind(':asatdate',$data['from']);
+        $this->db->bind(':cong',$_SESSION['congId']);
+        $opening_bal = $this->db->getValue();
+        array_push($amounts,$opening_bal);
         return $amounts;
     }
 
@@ -118,7 +119,7 @@ class Bankreconcilliation
                               WHERE ((transactionDate BETWEEN :sdate AND :edate) 
                                     AND (bankId = :bid) AND (cleared = 0) AND (debit > 0) AND
                                     (deleted = 0) AND (congregationId = :cid)) OR (cleared = 1 AND clearedDare > :tdate AND  
-                                    (transactionDate BETWEEN :sdate AND :date) AND (bankId = :bid) AND  
+                                    (transactionDate BETWEEN :sdate AND :edate) AND (bankId = :bid) AND  
                                     (deleted = 0) AND (congregationId = :cid))
                               ORDER BY transactionDate');
         }
