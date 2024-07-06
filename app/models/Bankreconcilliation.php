@@ -31,8 +31,6 @@ class Bankreconcilliation
         $withdrawals = 0;
         $unclearedDeposits = 0;
         $unclearedWithdrawals = 0;
-        $sumofdeposits = 0;
-        $sumoofwithdrawals = 0;
 
         $this->db->query('SELECT IFNULL(SUM(debit),0) As SumOfDebits
                           FROM   tblbankpostings
@@ -86,19 +84,17 @@ class Bankreconcilliation
         $unclearedWithdrawals = $this->db->getValue();
         array_push($amounts,$unclearedWithdrawals);
 
-        $sql = "SELECT  
-                    DISTINCT account,((gettotaldebits_bs(:account,:asatdate,:cong)) -  
-				    (gettotalcredits_bs(:account,:asatdate,:cong))) as bal
-	            FROM  
-                    tblledger
-                WHERE  
-                    (account = :account) AND (transactionDate <= :asatdate) AND (congregationId = :cong) AND (deleted = 0);";
+        $sql = "SELECT  DISTINCT account,((gettotaldebits_bs(account,:asatdate,:cid)) -  
+				        (gettotalcredits_bs(account,:asatdate,:cid))) as bal
+	            FROM    tblledger
+                WHERE   transactionDate < :asatdate AND account = 'cash at bank' AND congregationId = :cid AND (deleted = 0);
+        ";
         $this->db->query($sql);
-        $this->db->bind(':account','cash at bank');
+        // $this->db->bind(':account','cash at bank');
         $this->db->bind(':asatdate',$data['from']);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $opening_bal = $this->db->getValue();
-        array_push($amounts,$opening_bal);
+        $this->db->bind(':cid',$_SESSION['congId']);
+        $result = $this->db->single();
+        array_push($amounts,$result->bal);
         return $amounts;
     }
 
