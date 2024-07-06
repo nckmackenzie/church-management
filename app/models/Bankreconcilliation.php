@@ -107,19 +107,19 @@ class Bankreconcilliation
             $this->db->query('SELECT transactionDate,credit As amount,ucase(reference) as reference
                               FROM tblbankpostings
                               WHERE ((transactionDate BETWEEN :sdate AND :edate) 
-                                    AND (bankId = :bid) AND (cleared = 0) AND (credit > 0) AND (debit > 0)
+                                    AND (bankId = :bid) AND (cleared = 0) AND (credit > 0)
                                     AND (deleted = 0) AND (congregationId = :cid)) OR 
                                     (cleared = 1 AND clearedDare > :tdate AND (transactionDate BETWEEN :sdate AND :edate)
-                                    AND (bankId = :bid) AND (credit > 0) AND (debit > 0) AND (deleted = 0) AND (congregationId = :cid))
+                                    AND (bankId = :bid) AND (credit > 0) AND (deleted = 0) AND (congregationId = :cid))
                               ORDER BY transactionDate');
         }elseif($data['type'] === 'deposit'){
             $this->db->query('SELECT transactionDate,debit As amount,ucase(reference) as reference
                               FROM tblbankpostings
                               WHERE ((transactionDate BETWEEN :sdate AND :edate) 
-                                    AND (bankId = :bid) AND (cleared = 0) AND (debit > 0) AND (credit > 0) AND
+                                    AND (bankId = :bid) AND (cleared = 0) AND (debit > 0) AND
                                     (deleted = 0) AND (congregationId = :cid)) OR (cleared = 1 AND clearedDare > :tdate AND  
                                     (transactionDate BETWEEN :sdate AND :date) AND (bankId = :bid) AND  
-                                    (deleted = 0) AND (congregationId = :cid) AND (credit > 0) AND (debit > 0))
+                                    (deleted = 0) AND (congregationId = :cid))
                               ORDER BY transactionDate');
         }
         $this->db->bind(':sdate',$data['sdate']);
