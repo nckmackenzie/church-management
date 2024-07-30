@@ -70,6 +70,7 @@
                                                 class="form-control form-control-sm">
                                             <option value="1" <?php selectdCheck($data['expensetype'],1)?>>Church Expense</option>
                                             <option value="2" <?php selectdCheck($data['expensetype'],2)?>>Group Expense</option>    
+                                            <option value="3" <?php selectdCheck($data['expensetype'],3)?>>District Expense</option>    
                                         </select>
                                     </div>
                                 </div>
@@ -227,11 +228,6 @@
 
         $(window).on('load',function(){
             $('#bank').val('');
-            // var now = new Date();
-            // var day = ("0" + now.getDate()).slice(-2);
-            // var month = ("0" + (now.getMonth() + 1)).slice(-2);
-            // var today = now.getFullYear()+"-"+(month)+"-"+(day) ;
-            // $('#date').val(today);
             getCostCentre();
         });
 
@@ -267,6 +263,6 @@
     });
 
 </script>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/expenses/add-expense-v4.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/expenses/add-expense-v5.js"></script>
 </body>
 </html>  

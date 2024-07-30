@@ -9,7 +9,7 @@ class Expense {
     {
         // $this->db->query('SELECT * FROM vw_getexpenses WHERE (congregationId=:cid)
         //                   AND (deleted=0)');
-        $this->db->query('SELECT * FROM vw_getexpenses WHERE (congregationId=:cid)');
+        $this->db->query('SELECT * FROM vw_getexpenses_2 WHERE (congregationId=:cid)');
         $this->db->bind(':cid',$_SESSION['congId']);
         return $this->db->resultSet();                  
     }
@@ -72,6 +72,26 @@ class Expense {
         }
     }
 
+    public function GetGroupOrDistrict($category)
+    {
+        if ($category === 2) {
+            $this->db->query('SELECT ID,ucase(groupName) as cost_center
+                              FROM tblgroups WHERE (active=1) AND (deleted=0)
+                                   AND (congregationId=:cid)
+                              ORDER BY cost_center');
+            $this->db->bind(':cid',$_SESSION['congId']);
+            return $this->db->resultSet();                 
+        }else{
+            $this->db->query('SELECT ID,ucase(districtName) as cost_center
+                              FROM tbldistricts WHERE (deleted=0)
+                               AND (congregationId=:cid)
+                          ORDER BY cost_center');
+            $this->db->bind(':cid',$_SESSION['congId']);
+            return $this->db->resultSet(); 
+        }
+    }
+
+
     public function CheckOverSpent($data)
     {
         $yearid = getdbvalue($this->db->dbh,'SELECT getyearidbydate(?)',[$data['edate']]);
@@ -126,9 +146,9 @@ class Expense {
             //begin transaction
             $this->db->dbh->beginTransaction();
             $this->db->query('INSERT INTO tblexpenses (ID,fiscalYearId,voucherNo,expenseType,expenseDate,
-                                          accountId,groupId,paymethodId,deductfrom,bankId,amount,narration,
+                                          accountId,groupId,districtId,paymethodId,deductfrom,bankId,amount,narration,
                                           paymentReference,`status`,hasAttachment,`fileName`,requisitionId,postedBy,postedDate,congregationId)
-                              VALUES(:id,:fid,:vno,:etype,:edate,:aid,:gid,:pid,:dfrom,:bid,:amount,:narr,:ref,
+                              VALUES(:id,:fid,:vno,:etype,:edate,:aid,:gid,:did,:pid,:dfrom,:bid,:amount,:narr,:ref,
                                     :stat,:hasattach,:fname,:reqid,:post,:pdate,:cid)');
             $this->db->bind(':id',$id);
             $this->db->bind(':fid',$fid);                        
@@ -136,7 +156,8 @@ class Expense {
             $this->db->bind(':etype',$data['expensetype']);                        
             $this->db->bind(':edate',$data['date']);                        
             $this->db->bind(':aid',$data['account']);                        
-            $this->db->bind(':gid',$data['expensetype'] == 1 ? NULL : $data['costcentre']); 
+            $this->db->bind(':gid',$data['expensetype'] == 2 ? $data['costcentre'] : NULL); 
+            $this->db->bind(':did',$data['expensetype'] == 3 ? $data['costcentre'] : NULL); 
             $this->db->bind(':pid',$data['paymethod']);
             $this->db->bind(':dfrom',!empty($data['deductfrom']) ? $data['deductfrom'] : NULL);
             $this->db->bind(':bid',$data['bank']);                        
@@ -350,14 +371,15 @@ class Expense {
             //begin transaction
             $this->db->dbh->beginTransaction();
             $this->db->query('UPDATE tblexpenses SET fiscalYearId=:fid,expenseType=:etype,expenseDate
-                                     =:edate,accountId=:aid,groupId=:gid,paymethodId=:pid,deductfrom=:dfrom,bankId=:bid
+                                     =:edate,accountId=:aid,groupId=:gid,districtId=:did,paymethodId=:pid,deductfrom=:dfrom,bankId=:bid
                                      ,amount=:amount,narration=:narr,paymentReference=:ref,requisitionId=:reqid
                               WHERE (ID=:id)');
             $this->db->bind(':fid',$fid);                        
             $this->db->bind(':etype',$data['expensetype']);                        
             $this->db->bind(':edate',$data['date']);                        
             $this->db->bind(':aid',$data['account']);                        
-            $this->db->bind(':gid',$data['expensetype'] == 1 ? NULL : $data['costcentre']); 
+            $this->db->bind(':gid',$data['expensetype'] == 2 ? $data['costcentre'] : NULL); 
+            $this->db->bind(':did',$data['expensetype'] == 3 ? $data['costcentre'] : NULL); 
             $this->db->bind(':pid',$data['paymethod']);
             $this->db->bind(':dfrom',!empty($data['deductfrom']) ? $data['deductfrom'] : NULL);
             $this->db->bind(':bid',$data['bank']);                        
@@ -507,12 +529,20 @@ class Expense {
         return yearprotection($this->db->dbh,$yearid);
     }
 
-    function GetGroupBalance($group)
+    function GetGroupBalance($group,$type)
     {
-        $sql = 'SELECT r.ID,CONCAT("Req No ",r.ReqNo," - ",FORMAT(r.AmountApproved,2)) AS Formated 
+        if($type === 2){
+            $sql = 'SELECT r.ID,CONCAT("Req No ",r.ReqNo," - ",FORMAT(r.AmountApproved,2)) AS Formated 
                 FROM `tblfundrequisition` r 
                 WHERE r.GroupId = ?
                 HAVING getrequisitionbalance(r.ID) > 0;';
+        }else{
+            $sql = 'SELECT r.ID,CONCAT("Req No ",r.ReqNo," - ",FORMAT(r.AmountApproved,2)) AS Formated 
+                FROM `tblfundrequisition` r 
+                WHERE r.DistrictId = ?
+                HAVING getrequisitionbalance(r.ID) > 0;';
+        }
+        
         return loadresultset($this->db->dbh,$sql,[$group]);
     }
 }

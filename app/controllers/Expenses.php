@@ -102,15 +102,18 @@ class Expenses extends Controller{
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-           $category = trim($_POST['category']);
-           if ($category == 1) {
+           $category = (int)trim($_POST['category']);
+           if ($category === 1) {
                echo '<option value="0">CHURCH</option>';
            }
            else{
-                $groups = $this->expenseModel->getGroup();
+                $options = '<option value="" selected disabled>Select</option>';
+                // $groups = $this->expenseModel->getGroup();
+                $groups = $this->expenseModel->GetGroupOrDistrict($category);
                 foreach ($groups as $group ) {
-                    echo '<option value="'.$group->ID.'">'.$group->groupName.'</option>';
+                    $options .='<option value="'.$group->ID.'">'.$group->cost_center.'</option>';
                 }
+                echo $options;
            }
         }
     }
@@ -242,9 +245,10 @@ class Expenses extends Controller{
 
     public function getrequisitions(){
         $groupid = isset($_GET['group']) && !empty(trim($_GET['group'])) ? (int)trim($_GET['group']) : null;
+        $type = isset($_GET['type']) && !empty(trim($_GET['type'])) ? (int)trim($_GET['type']) : 2;
         $data = array();
 
-        $balances = $this->expenseModel->GetGroupBalance($groupid);
+        $balances = $this->expenseModel->GetGroupBalance($groupid,$type);
         foreach($balances as $balance){
             array_push($data,[
                 'id' => $balance->ID,
