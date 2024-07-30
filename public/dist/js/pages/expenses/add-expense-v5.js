@@ -31,8 +31,13 @@ expenseDateInput.addEventListener('change', async function (e) {
 
 expenseTypeSelect.addEventListener('change', async function (e) {
   accountSelect.innerHTML = '';
+  removeOptions(requisitionSelect);
+  requisitionSelect.disabled = true;
+  const selectedValue = e.target.value;
   const data = await sendHttpRequest(
-    `${expenseRoute}/getaccounts?type=${e.target.value}`
+    `${expenseRoute}/getaccounts?type=${
+      selectedValue == '2' ? selectedValue : '1'
+    }`
   );
 
   accountSelect.innerHTML =
@@ -60,13 +65,15 @@ expenseTypeSelect.addEventListener('change', async function (e) {
 });
 
 costCenterSelect.addEventListener('change', async function (e) {
-  getRequisitions(e.target.value);
+  const type = Number(expenseTypeSelect.value?.trim());
+  if (!type || type === 1) return;
+  getRequisitions(e.target.value, type);
 });
 
-async function getRequisitions(group) {
+async function getRequisitions(group, type) {
   removeOptions(requisitionSelect);
   const data = await sendHttpRequest(
-    `${expenseRoute}/getrequisitions?group=${group}`
+    `${expenseRoute}/getrequisitions?group=${group}&type=${type}`
   );
 
   if (data.length) {
@@ -89,7 +96,8 @@ function removeOptions(selectElement) {
 }
 
 accountSelect.addEventListener('change', async function (e) {
-  if (!e.target.value || e.target.value == '') return;
+  const type = Number(expenseTypeSelect.value?.trim());
+  if (!e.target.value || e.target.value == '' || type === 3) return;
   if (await checkOverSpent()) {
     $('#alertModal').modal('show');
   }
