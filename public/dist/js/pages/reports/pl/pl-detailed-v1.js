@@ -36,6 +36,7 @@ function bindTable(data, totals) {
                 <th>Amount</th>
                 <th>Narration</th>
                 <th>Transaction</th>
+                <th>Parent Account</th>
             </tr>
         </thead>
         <tbody>`;
@@ -47,6 +48,7 @@ function bindTable(data, totals) {
             <td>${numberWithCommas(dt.amount)}</td>
             <td>${dt.narration}</td>
             <td>${dt.transaction}</td>
+            <td>${dt.parentAccount}</td>
         </tr>
     `;
   });
@@ -54,9 +56,9 @@ function bindTable(data, totals) {
         </tbody>
         <tfoot>
             <tr>
-                <th colspan="2" style="text-align:center">Total</th>
+                <th colspan="3" style="text-align:center">Total</th>
                 <th id="total">${numberWithCommas(totals) || 0}</th>
-                <th colspan="2"></th>
+                <th colspan="3"></th>
             </tr>
         </tfoot>
     </table>
