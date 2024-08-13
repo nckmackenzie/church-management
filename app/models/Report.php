@@ -684,8 +684,17 @@ class Report {
             ';
             return loadresultset($this->db->dbh,$sql,[$data['from']]);
         }else{
-            $sql = "CALL sp_get_subaccount_statement(?,?,?)";
-            return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$data['account']]);
+            $sql = "SELECT IF(GroupId IS NULL,'district','group') As Category, IF(GroupId IS NULL,DistrictId,GroupId) As CategoryId 
+                    FROM `tblbanksubaccounts` 
+                    WHERE ID = ?;";
+            $details = loadsingleset($this->db->dbh,$sql,[$data['account']]);
+            // $sql = "CALL sp_get_subaccount_statement(?,?,?)";
+            if($details->Category === 'group'){
+                $sql = "CALL sp_get_subaccount_statement_with_expense_group(?,?,?,?)";
+            }else{
+                $sql = "CALL sp_get_subaccount_statement_with_expense_district(?,?,?,?)";
+            }
+            return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$data['account'],$details->CategoryId]);
         }
         
     }
