@@ -563,13 +563,13 @@ class Report {
     {
         if((int)$data['accounttype'] === 1)
         {
-            $sql = 'SELECT transactionDate,account,IFNULL(credit,0) as amount,narration,t.TransactionType
+            $sql = 'SELECT transactionDate,account,IFNULL(credit,0) as amount,narration,t.TransactionType,l.parentaccount
                     FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID
                     WHERE (parentaccount = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
                     ORDER BY transactionDate';
             return loadresultset($this->db->dbh,$sql,[$data['account'],$data['sdate'],$data['edate']]);
         }elseif ((int)$data['accounttype'] === 2) {
-            $sql = 'SELECT transactionDate,account,IFNULL(debit,0)as amount,narration,t.TransactionType
+            $sql = 'SELECT transactionDate,account,IFNULL(debit,0)as amount,narration,t.TransactionType,l.parentaccount
                     FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID
                     WHERE (parentaccount = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
                     ORDER BY transactionDate';

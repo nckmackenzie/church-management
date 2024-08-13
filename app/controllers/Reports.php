@@ -1403,7 +1403,8 @@ class Reports extends Controller {
                     'account' => ucwords($detail->account),
                     'amount' => $detail->amount,
                     'narration' => is_null($detail->narration) ? '' : ucfirst($detail->narration),
-                    'transaction' => ucfirst($detail->TransactionType)
+                    'transaction' => ucfirst($detail->TransactionType),
+                    'parentAccount' => ucfirst($detail->parentaccount),
                 ]);
             }
 
