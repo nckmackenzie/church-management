@@ -672,16 +672,6 @@ class Report {
     public function GetSubAccountReport($data)
     {
         if($data['account'] === 'all'){
-            // $sql = 'SELECT 
-            //             t.SubAccountId,
-            //             a.AccountName,
-            //             ifnull(sum(t.Amount),0) as balance
-            //         FROM 
-            //             tblbanktransactions_subaccounts t join tblbanksubaccounts a on t.SubAccountId = a.ID
-            //         WHERE 
-            //             (a.Deleted = 0) AND (t.TransactionDate <= ?)
-            //         GROUP BY a.AccountName;
-            // ';
             return loadresultset($this->db->dbh,'CALL sp_get_subaccounts_balances(?)',[$data['from']]);
         }else{
             $sql = "SELECT IF(GroupId IS NULL,'district','group') As Category, IF(GroupId IS NULL,DistrictId,GroupId) As CategoryId 
