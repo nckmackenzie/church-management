@@ -1549,12 +1549,12 @@ class Reports extends Controller {
                         </thead>
                         <tbody>';
                         foreach($reports as $report) {
-                            $totals = $totals + floatval($report->balance);
-                            $formatted_amount = number_format($report->balance,2);
+                            $totals = $totals + floatval($report->Balance);
+                            $formatted_amount = number_format($report->Balance,2);
                             $output .= '
                                 <tr>
                                     <td>'.ucwords($report->AccountName).'</td>
-                                    <td><a target="_blank" href="'.URLROOT.'/reports/subaccountdetailed?subaccount='.$report->SubAccountId.'&asdate='.$data['from'].'">'.$formatted_amount.'</a></td>
+                                    <td><a target="_blank" href="'.URLROOT.'/reports/subaccountdetailed?subaccount='.$report->ID.'&asdate='.$data['from'].'">'.$formatted_amount.'</a></td>
                                 </tr>
                             ';
                         }

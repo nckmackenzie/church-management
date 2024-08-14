@@ -672,17 +672,17 @@ class Report {
     public function GetSubAccountReport($data)
     {
         if($data['account'] === 'all'){
-            $sql = 'SELECT 
-                        t.SubAccountId,
-                        a.AccountName,
-                        ifnull(sum(t.Amount),0) as balance
-                    FROM 
-                        tblbanktransactions_subaccounts t join tblbanksubaccounts a on t.SubAccountId = a.ID
-                    WHERE 
-                        (a.Deleted = 0) AND (t.TransactionDate <= ?)
-                    GROUP BY a.AccountName;
-            ';
-            return loadresultset($this->db->dbh,$sql,[$data['from']]);
+            // $sql = 'SELECT 
+            //             t.SubAccountId,
+            //             a.AccountName,
+            //             ifnull(sum(t.Amount),0) as balance
+            //         FROM 
+            //             tblbanktransactions_subaccounts t join tblbanksubaccounts a on t.SubAccountId = a.ID
+            //         WHERE 
+            //             (a.Deleted = 0) AND (t.TransactionDate <= ?)
+            //         GROUP BY a.AccountName;
+            // ';
+            return loadresultset($this->db->dbh,'CALL sp_get_subaccounts_balances(?)',[$data['from']]);
         }else{
             $sql = "SELECT IF(GroupId IS NULL,'district','group') As Category, IF(GroupId IS NULL,DistrictId,GroupId) As CategoryId 
                     FROM `tblbanksubaccounts` 
@@ -701,15 +701,27 @@ class Report {
 
     public function GetDetailedSubAccountReport($data)
     {
-        $sql = 'SELECT 
-                    TransactionDate,
-                    Amount,
-                    Narration,
-                    Reference 
-                FROM 
-                    tblbanktransactions_subaccounts
-                WHERE
-                    (TransactionDate <= ?) AND (SubAccountId = ?)';
-        return loadresultset($this->db->dbh,$sql,[$data['asdate'],$data['account']]);
+        $sql = 'SELECT GroupDistrict,IF(GroupId IS NULL,DistrictId,GroupId) As CategoryId 
+                FROM `tblbanksubaccounts` 
+                WHERE ID = ?;';
+        $details = loadsingleset($this->db->dbh,$sql,[$data['account']]);
+        
+        // $sql = 'SELECT 
+        //             TransactionDate,
+        //             Amount,
+        //             Narration,
+        //             Reference 
+        //         FROM 
+        //             tblbanktransactions_subaccounts
+        //         WHERE
+        //             (TransactionDate <= ?) AND (SubAccountId = ?)';
+        // return loadresultset($this->db->dbh,$sql,[$data['asdate'],$data['account']]);
+        if($details->GroupDistrict === 'group'){
+            $sql = 'CALL sp_get_subaccounts_balances_breakdown_group(?,?,?)';
+            return loadresultset($this->db->dbh,$sql,[$data['asdate'],$details->CategoryId, $data['account']]);
+        }else{
+            $sql = 'CALL sp_get_subaccounts_balances_breakdown_district(?,?,?)';
+            return loadresultset($this->db->dbh,$sql,[$data['asdate'],$details->CategoryId, $data['account']]);
+        }
     }
 }
