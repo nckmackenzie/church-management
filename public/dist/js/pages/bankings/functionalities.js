@@ -26,22 +26,11 @@ export function appendData(data) {
     let html = `
         <tr>
             <td class="d-none bid">${dt.id}</td>
-            <td>
-                <div class="check-group">
-                    <input type="checkbox" class="chkbx" id="${dt.id}">
-                    <label for="${dt.id}"></label>
-                </div>  
-            </td>
-            <td><input type="date" class="table-input w-100 tdate" value="${
-              dt.transactionDate
-            }" readonly></td>
-            <td><input type="" class="table-input w-100 cleardate" readonly></td>
-            <td><input type="text" class="table-input w-100 amount" value="${numberWithCommas(
-              dt.amount
-            )}" readonly></td>
-            <td><input type="text" class="table-input w-100 reference" value="${
-              dt.reference
-            }" readonly></td>
+            <td><input type="checkbox" class="select-row" /></td>
+            <td>${dt.transactionDate}</td>
+            <td><input type="date" class="clear-date" disabled /></td>
+            <td>${numberWithCommas(dt.amount)}</td>
+            <td>${dt.reference}</td>
         </tr>
     `;
     tbody.insertAdjacentHTML('beforeend', html);
