@@ -64,7 +64,7 @@ class Bankreconcilliations extends Controller
                         <tr>
                             <td>Cleared Withdrawals</td>';
                             if(floatval($clearedWithdrawals) != 0){
-                                $route = URLROOT .'/bankreconcilliations/cleared?type=deposit&bank='.$data['bank'].'&sdate='.$data['from'].'&edate='.$data['to'].'';
+                                $route = URLROOT .'/bankreconcilliations/cleared?type=withdraw&bank='.$data['bank'].'&sdate='.$data['from'].'&edate='.$data['to'].'';
                                 $output .= '<td><a href="'.$route.'" class="" target="_blank">'.number_format($clearedWithdrawals,2).'</a></td>';
                             }else{
                                 $output .= '<td>'.number_format($clearedWithdrawals,2).'</td>';
