@@ -500,3 +500,9 @@ function date_is_valid($dateString, $format = 'Y-m-d') {
     $dateTime = DateTime::createFromFormat($format, $dateString);
     return $dateTime && $dateTime->format($format) === $dateString;
 }
+
+function subtractDay($date) {
+    $dateTime = new DateTime($date);
+    $dateTime->modify('-1 day');
+    return $dateTime->format('Y-m-d');
+}
