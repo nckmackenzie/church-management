@@ -84,8 +84,11 @@ class Bankreconcilliation
         $unclearedWithdrawals = $this->db->getValue();
         array_push($amounts,$unclearedWithdrawals);
 
+        $asofdate = subtractDay($data['from']);
+
         $this->db->query('CALL sp_balancesheet_assets(:startd,:cong)');
-        $this->db->bind(':startd',$data['from']);
+        // $this->db->bind(':startd',$data['from']);
+        $this->db->bind(':startd',$asofdate);
         $this->db->bind(':cong',$_SESSION['congId']);
         $results = $this->db->resultSet();
         foreach($results as $result){
