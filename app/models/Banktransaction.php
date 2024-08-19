@@ -229,7 +229,7 @@ class Banktransaction
             
             deleteLedgerBanking($this->db->dbh,13,$data['id']);
 
-            $this->db->query('DELETE FROM tblpettycash WHERE (TransactionTypeId = 13) AND (TransactionId=:tid)');
+            $this->db->query('DELETE FROM tblpettycash WHERE (TransactionType = 13) AND (TransactionId=:tid)');
             $this->db->bind(':tid',$data['id']);
             $this->db->execute();
 
