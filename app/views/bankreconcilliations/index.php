@@ -42,6 +42,10 @@
     <section class="content">
         <div class="row">
             <div class="col-md-12">
+                <!-- <div id="spinner" style="display:none;">Loading...</div> -->
+                <div id="spinner" style="display:none;">
+                    <div class="spinner md mx-auto"></div>
+                </div>
                 <div id="results" class="table-responsive">
 
                 </div>
@@ -110,8 +114,12 @@
                 url : '<?php echo URLROOT;?>/bankreconcilliations/bankrecon',
                 method : 'GET',
                 data : {bank : bank, from : from, to : to, balance : balance},
+                beforeSend: function() {        
+                    $('#spinner').show();
+                },
                 success : function(data){
-                    // console.log(data);
+                    $('#spinner').hide();
+                    
                     $('#results').html(data);
                     table.destroy();
                     table = $('#table').DataTable({
@@ -129,6 +137,10 @@
                         ],
                         "buttons": ["excel", "pdf","print"],
                     }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
+                },
+                error: function() {
+                    // Hide the spinner in case of an error
+                    $('#spinner').hide();
                 }
             });
         });
