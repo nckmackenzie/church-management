@@ -70,6 +70,7 @@ class Banktransactions extends Controller
             $fields = json_decode(file_get_contents('php://input'));
             $data = [
                 'id' => isset($fields->id) && !empty(trim($fields->id)) ? (int)trim($fields->id) : null,
+                'accounts' => $this->bankmodel->GetOtherBanks(),
                 'isedit' => converttobool($fields->isedit),
                 'date' => isset($fields->date) && !empty(trim($fields->date)) ? date('Y-m-d',strtotime($fields->date)) : null,
                 'bank' => isset($fields->bank) && !empty(trim($fields->bank)) ? trim($fields->bank) : null,
@@ -163,7 +164,8 @@ class Banktransactions extends Controller
         checkcenter($transaction->CongregationId);
         $data= [
             'banks' => $this->bankmodel->GetBanks(),
-            'accounts' => $this->reusemodel->GetAccountsAll(),
+            // 'accounts' => $this->reusemodel->GetAccountsAll(),
+            'accounts' => $this->bankmodel->GetOtherBanks(),
             'title' => 'Edit transaction',
             'id' => $transaction->ID,
             'touched' => false,

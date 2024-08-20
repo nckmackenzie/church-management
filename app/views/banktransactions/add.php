@@ -42,12 +42,14 @@
                                             <option value="" selected disabled>Select bank</option>
                                             <?php foreach($data['banks'] as $bank)  : ?>
                                                 <optgroup label="<?php echo $bank->Bank;?>">
-                                                    <option value="<?php echo $bank->ID;?>">MAIN ACCOUNT</option>
-                                                    <?php foreach($data['subaccounts'] as $subaccount) : ?>
-                                                        <?php if($subaccount->BankId == $bank->ID): ?>
-                                                            <option value="<?php echo $subaccount->ID;?>-sub"><?php echo $subaccount->SubAccount;?></option>
-                                                        <?php endif; ?>
-                                                    <?php endforeach; ?>
+                                                    <option value="<?php echo $bank->ID;?>" <?php selectdCheck($data['bank'],$bank->ID); ?>>MAIN ACCOUNT</option>
+                                                    <?php if(!is_null($data['subaccounts'])) : ?>
+                                                        <?php foreach($data['subaccounts'] as $subaccount) : ?>
+                                                            <?php if($subaccount->BankId == $bank->ID): ?>
+                                                                <option value="<?php echo $subaccount->ID;?>-sub" <?php selectdCheck($data['bank'],$subaccount->ID); ?>><?php echo $subaccount->SubAccount;?></option>
+                                                            <?php endif; ?>
+                                                        <?php endforeach; ?>   
+                                                    <?php endif; ?>                                                    
                                                 </optgroup>
                                             <?php endforeach; ?>
                                             
@@ -74,14 +76,18 @@
                                                 <?php echo !empty($data['transfer']) && !is_null($data['transfer']) ? '' : 'disabled' ;?>>
                                             <option value="" selected disabled>Select transfer account</option>
                                             <optgroup label="Main accounts">
-                                                <?php foreach($data['accounts'] as $account)  : ?>
-                                                    <option value="<?php echo $account->ID;?>" <?php selectdCheck($data['transfer'],$account->ID);?>><?php echo $account->Bank;?></option>
-                                                <?php endforeach; ?>
+                                                <?php if(!is_null($data['accounts']) && count($data['accounts']) > 0) : ?>
+                                                    <?php foreach($data['accounts'] as $account)  : ?>
+                                                        <option value="<?php echo $account->ID;?>" <?php selectdCheck($data['transfer'],$account->ID);?>><?php echo $account->Bank;?></option>
+                                                    <?php endforeach; ?>
+                                                <?php endif; ?>
                                             </optgroup>
                                             <optgroup label="Sub accounts">
-                                                <?php foreach($data['subaccounts'] as $subaccount) : ?>
-                                                    <option value="<?php echo $subaccount->ID;?>-sub"><?php echo $subaccount->SubAccount;?></option>
-                                                <?php endforeach; ?>    
+                                                <?php if(!is_null($data['subaccounts']) && count($data['subaccounts']) > 0) : ?>
+                                                    <?php foreach($data['subaccounts'] as $subaccount) : ?>
+                                                        <option value="<?php echo $subaccount->ID;?>-sub"><?php echo $subaccount->SubAccount;?></option>
+                                                    <?php endforeach; ?> 
+                                                <?php endif; ?>   
                                             </optgroup>
                                         </select>
                                         <span class="invalid-feedback"></span>
