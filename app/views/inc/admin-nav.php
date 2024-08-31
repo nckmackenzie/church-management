@@ -232,6 +232,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/bankreconcilliations/cashflow_statement" class="nav-link">
+                        <p>Cashflow Statement</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/bankreconcilliations" class="nav-link">
                         <p>Bank Reconcilliation</p>
                     </a>
