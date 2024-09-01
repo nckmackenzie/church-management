@@ -349,6 +349,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/reports/ledger_statement" class="nav-link">
+                        <p>Ledger Statement</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/reports/incomestatement" class="nav-link">
                         <p>Income Statement</p>
                     </a>
