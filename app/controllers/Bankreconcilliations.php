@@ -25,7 +25,7 @@ class Bankreconcilliations extends Controller
            $data = [
                 'bank' => trim($_GET['bank']),
                 'from' => isset($_GET['from']) && !empty(trim($_GET['from'])) ? date('Y-m-d',strtotime(trim($_GET['from']))) : null,
-                'to' => isset($_GET['from']) && !empty(trim($_GET['to'])) ? date('Y-m-d',strtotime(trim($_GET['to']))) : null,
+                'to' => isset($_GET['to']) && !empty(trim($_GET['to'])) ? date('Y-m-d',strtotime(trim($_GET['to']))) : null,
                 // 'to' => trim($_GET['to']),
                 'balance' => trim($_GET['balance']),
            ];
