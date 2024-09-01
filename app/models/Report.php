@@ -714,4 +714,11 @@ class Report {
             return loadresultset($this->db->dbh,$sql,[$data['asdate'],$details->CategoryId, $data['account']]);
         }
     }
+
+    public function GetAccountStatement($data)
+    {
+        $account = getdbvalue($this->db->dbh,'SELECT LOWER(accountType) FROM tblaccounttypes WHERE (ID = ?)',[$data['account']]);
+        $sql = "CALL sp_get_account_statement(?,?,?)";
+        return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$account]);
+    }
 }

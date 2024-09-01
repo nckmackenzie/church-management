@@ -2,6 +2,7 @@
 class Reports extends Controller {
     private $authmodel;
     private $reportModel;
+    private $reusableModel;
     public function __construct()
     {
        if (!isset($_SESSION['userId'])) {
@@ -10,6 +11,7 @@ class Reports extends Controller {
        }
        $this->authmodel = $this->model('Auth');
        $this->reportModel = $this->model('Report');
+       $this->reusableModel = $this->model('Reusables');
     }
     public function members()
     {
@@ -1619,5 +1621,76 @@ class Reports extends Controller {
             redirect('users/deniedaccess');
             exit;
         }
+    }
+    public function ledger_statement()
+    {
+        $data = [
+            'accounts' => $this->reusableModel->GetAccountsAll()
+        ];
+        $this->view('reports/ledger_statement',$data);
+    } 
+
+    public function ledgerstatementrpt()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'GET'){
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW) ;
+
+            $data = [
+                 'account' => isset($_GET['account']) && !empty(trim($_GET['account'])) ? (int)$_GET['account'] : null,
+                 'from' => isset($_GET['from']) && !empty(trim($_GET['from'])) ? date('Y-m-d',strtotime(trim($_GET['from']))) : null,
+                 'to' => isset($_GET['from']) && !empty(trim($_GET['to'])) ? date('Y-m-d',strtotime(trim($_GET['to']))) : null,
+            ];
+ 
+            $rows = $this->reportModel->GetAccountStatement($data);
+            $debitsTotal = 0;
+            $creditsTotal = 0;
+
+            $output = '';
+            $output .='
+                <table class="table table-bordered table-sm" id="table">
+                    <thead class="bg-lightblue">
+                        <tr>
+                            <th>Date</th>
+                            <th>Narraion</th>
+                            <th>Debit</th>
+                            <th>Credit</th>
+                            <th>Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+                    foreach($rows as $row) {
+                        $debitsTotal += floatval($row->debit);
+                        $creditsTotal += floatval($row->credit);
+                        $debit = floatval($row->debit) == 0 ? '' : number_format($row->debit,2);
+                        $credit = floatval($row->credit) == 0 ? '' : number_format($row->credit,2);
+                       
+                        $output .= '
+                            <tr>
+                                <td>'.date('d-m-Y',strtotime($row->transactionDate)).'</td>
+                                <td>'.ucwords($row->narration).'</td>
+                                <td>'.$debit.'</td>
+                                <td>'.$credit.'</td>
+                                <td>'.number_format($row->runningBalance,2).'</td>
+                            </tr>
+                        ';
+                    }
+                    $output .= '
+                    </tbody>
+                    <tfoot>
+                            <tr>
+                                <th style="text-align:center" colspan="2">Total:</th>
+                                <th id="debitsTotals">'.number_format($debitsTotal,2).'</th>
+                                <th id="creditsTotals">'.number_format($creditsTotal,2).'</th>
+                                <th></th>
+                            </tr>
+                    </tfoot>
+                </table>';
+
+            echo $output;
+ 
+         }else{
+             redirect('users/deniedaccess');
+             exit();
+         }
     }
 }
