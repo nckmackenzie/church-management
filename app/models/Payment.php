@@ -44,6 +44,7 @@ class Payment
             //loop through payments and save
             for($i = 0; $i < count($data['payments']); $i++) 
             {
+                $reference = !empty($data['payments'][$i]->cheque) ? strtolower($data['payments'][$i]->cheque) : NULL;
                 if(isset($data['payments'][$i]->payment) && floatval($data['payments'][$i]->payment) > 0) :
                     $this->db->query('INSERT INTO tblinvoice_payments_suppliers (paymentNo,paymentNo2,invoice_id,paymentDate,amount,paymentId,bankId,
                                                 paymentReference)
@@ -55,7 +56,7 @@ class Payment
                     $this->db->bind(':amount',floatval($data['payments'][$i]->payment));
                     $this->db->bind(':pid',$data['paymethod']);
                     $this->db->bind(':bid',$data['bank']);
-                    $this->db->bind(':ref',!empty($data['payments'][$i]->cheque) ? strtolower($data['payments'][$i]->cheque) : NULL);
+                    $this->db->bind(':ref',$reference);
                     $this->db->execute();
                     //get inserted id
                     $tid = $this->db->dbh->lastInsertId();
@@ -74,13 +75,13 @@ class Payment
                     $accountspayableparent = 'payables and accruals'; //parent account for payables
 
                     saveToLedger($this->db->dbh,$data['paydate'],'accounts payable',$accountspayableparent,$data['payments'][$i]->payment,0
-                                ,$data['payments'][$i]->cheque,4,7,$tid,$_SESSION['congId']);
+                                ,$data['payments'][$i]->cheque,4,7,$tid,$_SESSION['congId'],$reference);
                     if((int)$data['paymethod'] === 1){
                         saveToLedger($this->db->dbh,$data['paydate'],'petty cash',$cabparent,0,$data['payments'][$i]->payment
-                            ,$data['payments'][$i]->cheque,3,7,$tid,$_SESSION['congId']);
+                            ,$data['payments'][$i]->cheque,3,7,$tid,$_SESSION['congId'],$reference);
                     }else{
                         saveToLedger($this->db->dbh,$data['paydate'],'cash at bank',$cabparent,0,$data['payments'][$i]->payment
-                            ,$data['payments'][$i]->cheque,3,7,$tid,$_SESSION['congId']);
+                            ,$data['payments'][$i]->cheque,3,7,$tid,$_SESSION['congId'],$reference);
                         saveToBanking($this->db->dbh,$data['bank'],$data['paydate'],0,$data['payments'][$i]->payment,2,
                             $data['payments'][$i]->cheque,7,$tid,$_SESSION['congId']);
                     }

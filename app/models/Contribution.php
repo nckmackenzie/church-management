@@ -147,6 +147,7 @@ class Contribution {
     }
     public function save($data)
     {
+        $reference = !empty($data['reference']) ? strtolower($data['reference']) : NULL;
         try {
             //begin transaction
             $this->db->dbh->beginTransaction();
@@ -200,7 +201,7 @@ class Contribution {
                     $this->db->bind(':ccont',$data['contributorsid'][$i]);
                 }
                                             
-                $this->db->bind(':ref',!empty($data['reference']) ? strtolower($data['reference']) : NULL);                            
+                $this->db->bind(':ref',$reference);                            
                 $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : NULL);                            
                 $this->db->bind(':itype',1);                            
                 $this->db->bind(':for',$forgroup);                            
@@ -230,14 +231,14 @@ class Contribution {
                     $this->db->bind(':amount',$data['amounts'][$i]);
                     $this->db->bind(':ttype',1);
                     $this->db->bind(':narr','Collection');
-                    $this->db->bind(':reference',!empty($data['reference']) ? strtolower($data['reference']) : NULL);
+                    $this->db->bind(':reference',$reference);
                     $this->db->bind(':congid',$_SESSION['congId']);
                     $this->db->execute();
                 }
 
                 $accountparent = getparentgl($this->db->dbh,trim($data['accountsname'][$i]));
                 saveToLedger($this->db->dbh,$data['date'],strtolower($data['accountsname'][$i]),$accountparent,0,$data['amounts'][$i]
-                             ,$data['description'],$accountid,1,$tid,$_SESSION['congId']);
+                             ,$data['description'],$accountid,1,$tid,$_SESSION['congId'],$reference);
 
                 // if((int)$data['categoriesid'][$i] === 2 && (int)$accountid === 4){
                 //     $this->db->query('INSERT INTO tblmmf (TransactionDate,GroupId,Debit,Reference,Narration,TransactionType,
@@ -266,10 +267,10 @@ class Contribution {
             $cashparent = getparentgl($this->db->dbh,'cash at bank');
             if ($data['paymethod'] == 1) {
                 saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cashparent,$data['totalamount'],0,$data['description'],3,1,
-                            $tid,$_SESSION['congId']);
+                            $tid,$_SESSION['congId'],$reference);
             }else{
                 saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,$data['totalamount'],0,$data['description'],3,1,
-                            $tid,$_SESSION['congId']);
+                            $tid,$_SESSION['congId'],$reference);
                 // saveToBanking($this->db->dbh,$data['bank'],$data['date'],$data['totalamount'],0
                 //              ,1,$data['reference'],1,$tid,$_SESSION['congId']);            
             }
@@ -412,6 +413,7 @@ class Contribution {
     }
     public function update($data)
     {
+        $reference = !empty($data['reference']) ? strtolower($data['reference']) : NULL;
         try {
             //begin transaction
             $this->db->dbh->beginTransaction();
@@ -464,7 +466,7 @@ class Contribution {
                     $this->db->bind(':scont',NULL);
                     $this->db->bind(':ccont',$data['contributorsid'][$i]);
                 }                            
-                $this->db->bind(':ref',!empty($data['reference']) ? strtolower($data['reference']) : NULL);                            
+                $this->db->bind(':ref',$reference);                            
                 $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : NULL);                            
                 $this->db->bind(':itype',1);                            
                 $this->db->bind(':for',$forgroup);                            
@@ -489,7 +491,7 @@ class Contribution {
 
                 $accountparent = getparentgl($this->db->dbh,trim($data['accountsname'][$i]));
                 saveToLedger($this->db->dbh,$data['date'],strtolower($data['accountsname'][$i]),$accountparent,0,$data['amounts'][$i]
-                             ,$data['description'],$accountid,1,$data['id'],$_SESSION['congId']);
+                             ,$data['description'],$accountid,1,$data['id'],$_SESSION['congId'],$reference);
 
                 // if((int)$data['categoriesid'][$i] === 2 && (int)$accountid === 4){
                 //     $this->db->query('INSERT INTO tblmmf (TransactionDate,GroupId,Debit,Reference,TransactionType,
@@ -516,10 +518,10 @@ class Contribution {
             $cashparent = getparentgl($this->db->dbh,'cash at bank');
             if ($data['paymethod'] == 1) {
                 saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cashparent,$data['totalamount'],0,$data['description'],3,1,
-                            $data['id'],$_SESSION['congId']);
+                            $data['id'],$_SESSION['congId'],$reference);
             }else{
                 saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,$data['totalamount'],0,$data['description'],3,1,
-                            $data['id'],$_SESSION['congId']);
+                            $data['id'],$_SESSION['congId'],$reference);
             }
 
             if($data['paymethod'] > 1){

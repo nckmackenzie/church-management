@@ -144,16 +144,16 @@ class Banktransaction
 
                 if((int)$data['type'] === 1){
                     saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,$data['amount'],0,$narr,
-                                3,13,$tid,$_SESSION['congId']);
+                                3,13,$tid,$_SESSION['congId'],$data['reference']);
                     saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cabparent,0,$data['amount'],$narr,
-                                3,13,$tid,$_SESSION['congId']);
+                                3,13,$tid,$_SESSION['congId'],$data['reference']);
                     saveToBanking($this->db->dbh,$data['bank'],$data['date'],$data['amount'],0,1,
                             $data['reference'],13,$tid,$_SESSION['congId']);
                 }elseif((int)$data['type'] === 2){
                     saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,0,$data['amount'],$narr,
-                                3,13,$tid,$_SESSION['congId']);
+                                3,13,$tid,$_SESSION['congId'],$data['reference']);
                     saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cabparent,$data['amount'],0,$narr,
-                                3,13,$tid,$_SESSION['congId']);
+                                3,13,$tid,$_SESSION['congId'],$data['reference']);
                     saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],1,
                                 $data['reference'],13,$tid,$_SESSION['congId']);
                 }elseif((int)$data['type'] === 5){
@@ -162,9 +162,9 @@ class Banktransaction
                     $accountid = $this->getAccountName($pid)[1];
                     $parentaccountname = getparentgl($this->db->dbh,$pname);
                     saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,0,$data['amount'],$narr,
-                                3,13,$tid,$_SESSION['congId']);
+                                3,13,$tid,$_SESSION['congId'],$data['reference']);
                     saveToLedger($this->db->dbh,$data['date'],$pname,$parentaccountname,$data['amount'],0,$narr,
-                                $accountid,13,$tid,$_SESSION['congId']);
+                                $accountid,13,$tid,$_SESSION['congId'],$data['reference']);
                     saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],1,
                                 $data['reference'],13,$tid,$_SESSION['congId']);
                 }
@@ -288,16 +288,16 @@ class Banktransaction
 
                 if((int)$data['type'] === 1){
                     saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,$data['amount'],0,$narr,
-                                3,13,$data['id'],$_SESSION['congId']);
+                                3,13,$data['id'],$_SESSION['congId'],$data['reference']);
                     saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cabparent,0,$data['amount'],$narr,
-                                3,13,$data['id'],$_SESSION['congId']);
+                                3,13,$data['id'],$_SESSION['congId'],$data['reference']);
                     saveToBanking($this->db->dbh,$data['bank'],$data['date'],$data['amount'],0,1,
                             $data['reference'],13,$data['id'],$_SESSION['congId']);
                 }elseif((int)$data['type'] === 2){
                     saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,0,$data['amount'],$narr,
-                                3,13,$data['id'],$_SESSION['congId']);
+                                3,13,$data['id'],$_SESSION['congId'],$data['reference']);
                     saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cabparent,$data['amount'],0,$narr,
-                                3,13,$data['id'],$_SESSION['congId']);
+                                3,13,$data['id'],$_SESSION['congId'],$data['reference']);
                     saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],1,
                                 $data['reference'],13,$data['id'],$_SESSION['congId']);
                 }elseif((int)$data['type'] === 5){
@@ -306,9 +306,9 @@ class Banktransaction
                     $accountid = $this->getAccountName($pid)[1];
                     $parentaccountname = getparentgl($this->db->dbh,$pname);
                     saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,0,$data['amount'],$narr,
-                                3,13,$data['id'],$_SESSION['congId']);
+                                3,13,$data['id'],$_SESSION['congId'],$data['reference']);
                     saveToLedger($this->db->dbh,$data['date'],$pname,$parentaccountname,$data['amount'],0,$narr,
-                                $accountid,13,$data['id'],$_SESSION['congId']);
+                                $accountid,13,$data['id'],$_SESSION['congId'],$data['reference']);
                     saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],1,
                                 $data['reference'],13,$data['id'],$_SESSION['congId']);
                 }

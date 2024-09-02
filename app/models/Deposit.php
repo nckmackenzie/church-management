@@ -21,6 +21,7 @@ class Deposit
 
     public function CreateUpdate($data)
     {
+        $reference = !empty($data['reference']) ? strtolower($data['reference']) : null;
         try
         {
             $this->db->dbh->beginTransaction();
@@ -35,7 +36,7 @@ class Deposit
             $this->db->bind(':ddate',$data['date']);
             $this->db->bind(':bid',$data['bank']);
             $this->db->bind(':amount',$data['amount']);
-            $this->db->bind(':reference',!empty($data['reference']) ? strtolower($data['reference']) : null);
+            $this->db->bind(':reference',$reference);
             $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : null);
             if($data['isedit']){
                 $this->db->bind(':id',$data['id']);
@@ -53,9 +54,9 @@ class Deposit
             $cabparent = getparentgl($this->db->dbh,'cash at bank');
 
             saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,$data['amount'],0,$narr,
-                         3,13,$tid,$_SESSION['congId']);
+                         3,13,$tid,$_SESSION['congId'],$reference);
             saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cabparent,0,$data['amount'],$narr,
-                         3,13,$tid,$_SESSION['congId']);
+                         3,13,$tid,$_SESSION['congId'],$reference);
 
             saveToBanking($this->db->dbh,$data['bank'],$data['date'],$data['amount'],0,1,
                           !empty($data['reference']) ? $data['reference'] : NULL,13,$tid,$_SESSION['congId']);

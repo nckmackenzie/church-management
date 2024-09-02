@@ -90,11 +90,11 @@ class Groupcollection
             $accountid = $this->GetAccountType($data['accountid']);
             
             saveToLedger($this->db->dbh,$data['tdate'],$data['account'],$gbhparent,0,$data['amount']
-                        ,$data['narration'],$accountid,17,$tid,$_SESSION['congId']);
+                        ,$data['narration'],$accountid,17,$tid,$_SESSION['congId'],null);
 
             $cashparent = getparentgl($this->db->dbh,'cash at bank');
             saveToLedger($this->db->dbh,$data['tdate'],'cash at bank',$cashparent,$data['amount'],0,
-                         $data['narration'],3,17,$tid,$_SESSION['congId']);
+                         $data['narration'],3,17,$tid,$_SESSION['congId'],null);
 
             saveToBanking($this->db->dbh,$data['bankid'],$data['tdate'],$data['amount'],0
                          ,1,$data['narration'],17,$tid,$_SESSION['congId']);
@@ -134,11 +134,11 @@ class Groupcollection
             $accountid = $this->GetAccountType($data['accountid']);
             
             saveToLedger($this->db->dbh,$data['tdate'],$data['account'],$gbhparent,0,$data['amount']
-                        ,$data['narration'],$accountid,17,$data['id'],$_SESSION['congId']);
+                        ,$data['narration'],$accountid,17,$data['id'],$_SESSION['congId'],null);
 
             $cashparent = getparentgl($this->db->dbh,'cash at bank');
             saveToLedger($this->db->dbh,$data['tdate'],'cash at bank',$cashparent,$data['amount'],0,
-                         $data['narration'],3,17,$data['id'],$_SESSION['congId']);
+                         $data['narration'],3,17,$data['id'],$_SESSION['congId'],null);
 
             saveToBanking($this->db->dbh,$data['bankid'],$data['tdate'],$data['amount'],0
                          ,1,$data['narration'],17,$data['id'],$_SESSION['congId']);
