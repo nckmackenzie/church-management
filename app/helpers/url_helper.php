@@ -80,7 +80,7 @@ function getRecordExists($sql,$connection,$param)
 }
 function saveToLedger($connection,$date,$account,$parent,$debit,$credit,$narration,$accountId,$type,$tid,$cong,$reference){
     $sql = "INSERT INTO tblledger (transactionDate,account,parentaccount,debit,credit,narration,accountId,
-            transactionType,transactionId,congregationId,reference) VALUES(?,?,?,?,?,?,?,?,?,?.?)";
+            transactionType,transactionId,congregationId,reference) VALUES(?,?,?,?,?,?,?,?,?,?,?)";
     $stmt = $connection->prepare($sql);
     $stmt->execute([$date,$account,$parent,$debit,$credit,$narration,$accountId,$type,$tid,$cong,$reference]);
 }
