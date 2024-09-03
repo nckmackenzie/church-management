@@ -22,6 +22,13 @@
           </div>
           <div class="col-sm-3">
              <div class="form-group">
+                <label for="sdate">As of</label>
+                <input type="date" name="asofdate" id="asofdate" class="form-control form-control-sm mandatory">
+                <span class="invalid-feedback"></span>
+             </div>
+          </div>
+          <!-- <div class="col-sm-3">
+             <div class="form-group">
                 <label for="sdate">Start Date</label>
                 <input type="date" name="sdate" id="sdate" class="form-control form-control-sm mandatory">
                 <span class="invalid-feedback"></span>
@@ -33,8 +40,8 @@
                 <input type="date" name="edate" id="edate" class="form-control form-control-sm mandatory">
                 <span class="invalid-feedback"></span>
              </div>
-          </div>
-          <div class="col-sm-3"></div>
+          </div> -->
+          <div class="col-sm-6"></div>
           <div class="col-sm-2">
             <button type="button" class="btn btn-sm btn-primary preview">Preview</button>
           </div>
@@ -49,6 +56,6 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/reports/tb/tb.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/reports/tb/tb-v1.js"></script>
 </body>
 </html>  

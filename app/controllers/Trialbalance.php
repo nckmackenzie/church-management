@@ -2,6 +2,8 @@
 
 class Trialbalance extends Controller
 {
+    private $authmodel;
+    private $reportmodel;
     public function __construct()
     {
         if(!isset($_SESSION['userId'])){
@@ -25,12 +27,18 @@ class Trialbalance extends Controller
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'type' => isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : null,
-                'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
-                'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
+                'asofdate' => isset($_GET['asofdate']) && !empty(trim($_GET['asofdate'])) ? date('Y-m-d',strtotime(trim($_GET['asofdate']))) : null,
+                // 'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
+                // 'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
             ];
 
             //validate
-            if(is_null($data['type']) || is_null($data['sdate']) || is_null($data['edate'])) {
+            // if(is_null($data['type']) || is_null($data['sdate']) || is_null($data['edate'])) {
+            //     http_response_code(400);
+            //     echo json_encode(['message' => 'Fill all required fields']);
+            //     exit;
+            // }
+            if(is_null($data['type']) || is_null($data['asofdate'])) {
                 http_response_code(400);
                 echo json_encode(['message' => 'Fill all required fields']);
                 exit;

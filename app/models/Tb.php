@@ -10,11 +10,13 @@ class Tb
 
     public function GetReport($data)
     {
-        if($data['type'] === 'detailed'){
-            return loadresultset($this->db->dbh,'CALL sp_trialbalance(?,?,?)',[$data['sdate'],$data['edate'],$_SESSION['congId']]);
-        }elseif($data['type'] === 'summary'){
-            return loadresultset($this->db->dbh,'CALL sp_trialbalance_summary(?,?,?)',[$data['sdate'],$data['edate'],$_SESSION['congId']]);
-        }
+        // if($data['type'] === 'detailed'){
+        //     return loadresultset($this->db->dbh,'CALL sp_trialbalance(?,?,?)',[$data['sdate'],$data['edate'],$_SESSION['congId']]);
+        // }elseif($data['type'] === 'summary'){
+        //     return loadresultset($this->db->dbh,'CALL sp_trialbalance_summary(?,?,?)',[$data['sdate'],$data['edate'],$_SESSION['congId']]);
+        // }
+        $sql = 'CALL sp_get_trial_balance_updated(?,?,?)';
+        return loadresultset($this->db->dbh,$sql,[$data['asofdate'],$data['type'],$_SESSION['congId']]);
     }
 
     public function GetDetailedTbReport($data)
