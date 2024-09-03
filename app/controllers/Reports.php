@@ -1652,6 +1652,7 @@ class Reports extends Controller {
                         <tr>
                             <th>Date</th>
                             <th>Narraion</th>
+                            <th>Reference</th>
                             <th>Debit</th>
                             <th>Credit</th>
                             <th>Balance</th>
@@ -1668,6 +1669,7 @@ class Reports extends Controller {
                             <tr>
                                 <td>'.date('d-m-Y',strtotime($row->transactionDate)).'</td>
                                 <td>'.ucwords($row->narration).'</td>
+                                <td>'.ucwords($row->reference).'</td>
                                 <td>'.$debit.'</td>
                                 <td>'.$credit.'</td>
                                 <td>'.number_format($row->runningBalance,2).'</td>
