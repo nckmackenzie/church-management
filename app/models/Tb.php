@@ -25,17 +25,29 @@ class Tb
             return false;
         }
         $sql = '';
+        // if($data['type'] === 'summary'){
+        //     $sql = 'SELECT transactionDate,account,debit,credit,narration,t.TransactionType 
+        //             FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID 
+        //             WHERE (parentaccount = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
+        //             ORDER BY transactionDate';
+        // }elseif($data['type'] === 'detailed'){
+        //     $sql = 'SELECT transactionDate,account,debit,credit,narration,t.TransactionType 
+        //             FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID 
+        //             WHERE (account = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
+        //             ORDER BY transactionDate';
+        // }
+        // return loadresultset($this->db->dbh,$sql,[$data['account'],$data['sdate'],$data['edate']]);
         if($data['type'] === 'summary'){
             $sql = 'SELECT transactionDate,account,debit,credit,narration,t.TransactionType 
                     FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID 
-                    WHERE (parentaccount = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
+                    WHERE (parentaccount = ?) AND (transactionDate <= ?) AND (l.deleted = 0)
                     ORDER BY transactionDate';
         }elseif($data['type'] === 'detailed'){
             $sql = 'SELECT transactionDate,account,debit,credit,narration,t.TransactionType 
                     FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID 
-                    WHERE (account = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
+                    WHERE (account = ?) AND (transactionDate <= ?) AND (l.deleted = 0)
                     ORDER BY transactionDate';
         }
-        return loadresultset($this->db->dbh,$sql,[$data['account'],$data['sdate'],$data['edate']]);
+        return loadresultset($this->db->dbh,$sql,[$data['account'],$data['asofdate']]);
     }
 }

@@ -68,22 +68,28 @@ class Trialbalance extends Controller
             $data = [
                 'type' => isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : null,
                 'account' => isset($_GET['account']) && !empty(trim($_GET['account'])) ? trim($_GET['account']) : null,
-                'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
-                'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
+                'asofdate' => isset($_GET['asofdate']) && !empty(trim($_GET['asofdate'])) ? date('Y-m-d',strtotime(trim($_GET['asofdate']))) : null,
+                // 'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
+                // 'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
                 'results' => []
             ];
 
             //validate data
-            if(is_null($data['type']) || is_null($data['account']) || is_null($data['sdate']) || is_null($data['edate'])){
+            if(is_null($data['type']) || is_null($data['account']) || is_null($data['asofdate'])){
                 http_response_code(400);
                 echo json_encode(['message' => 'Provide all required fields']);
                 exit;
             }
-            if($data['sdate'] > $data['edate']){
-                http_response_code(400);
-                echo json_encode(['message' => 'Start date cannot be greater than end date']);
-                exit;
-            }
+            // if(is_null($data['type']) || is_null($data['account']) || is_null($data['sdate']) || is_null($data['edate'])){
+            //     http_response_code(400);
+            //     echo json_encode(['message' => 'Provide all required fields']);
+            //     exit;
+            // }
+            // if($data['sdate'] > $data['edate']){
+            //     http_response_code(400);
+            //     echo json_encode(['message' => 'Start date cannot be greater than end date']);
+            //     exit;
+            // }
 
             $results = $this->reportmodel->GetDetailedTbReport($data);
             if(!$results){
