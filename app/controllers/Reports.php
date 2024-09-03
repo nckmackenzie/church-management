@@ -1680,7 +1680,7 @@ class Reports extends Controller {
                     </tbody>
                     <tfoot>
                             <tr>
-                                <th style="text-align:center" colspan="2">Total:</th>
+                                <th style="text-align:center" colspan="3">Total:</th>
                                 <th id="debitsTotals">'.number_format($debitsTotal,2).'</th>
                                 <th id="creditsTotals">'.number_format($creditsTotal,2).'</th>
                                 <th></th>
