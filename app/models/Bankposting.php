@@ -91,17 +91,19 @@ class Bankposting
             $this->db->execute();
 
             $tid = $this->db->dbh->lastInsertId();
+            $cabparent = getparentgl($this->db->dbh,'cash at bank');
+            $accpareant = getparentgl($this->db->dbh,$accountname);
 
             if($transtype === 1 ){
-                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$data['amount'],0,
-                             $data['reference'],3,9,$tid,$_SESSION['congId']);
-                saveToLedger($this->db->dbh,$data['date'],'cash at hand',0,$data['amount'],
-                             $data['reference'],$accountid,9,$tid,$_SESSION['congId']);
+                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,$data['amount'],0,
+                             $data['reference'],3,9,$tid,$_SESSION['congId'],$data['reference']);
+                saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cabparent,0,$data['amount'],
+                             $data['reference'],$accountid,9,$tid,$_SESSION['congId'],$data['reference']);
             }else{
-                saveToLedger($this->db->dbh,$data['date'],$accountname,$data['amount'],0,
-                             $data['reference'],$accountid,9,$tid,$_SESSION['congId']);
-                saveToLedger($this->db->dbh,$data['date'],'cash at bank',0,$data['amount'],
-                             $data['reference'],3,9,$tid,$_SESSION['congId']);             
+                saveToLedger($this->db->dbh,$data['date'],$accountname,$accpareant,$data['amount'],0,
+                             $data['reference'],$accountid,9,$tid,$_SESSION['congId'],$data['reference']);
+                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,0,$data['amount'],
+                             $data['reference'],3,9,$tid,$_SESSION['congId'],$data['reference']);             
             }
 
             if ($this->db->dbh->commit()) {
@@ -151,16 +153,19 @@ class Bankposting
             $this->db->bind(':tid',$data['id']);
             $this->db->execute();
 
+            $cabparent = getparentgl($this->db->dbh,'cash at bank');
+            $accpareant = getparentgl($this->db->dbh,$accountname);
+
             if($transtype === 1 ){
-                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$data['amount'],0,
-                             $data['reference'],3,9,$data['id'],$_SESSION['congId']);
-                saveToLedger($this->db->dbh,$data['date'],$accountname,0,$data['amount'],
-                             $data['reference'],$accountid,9,$data['id'],$_SESSION['congId']);
+                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,$data['amount'],0,
+                             $data['reference'],3,9,$data['id'],$_SESSION['congId'],$data['reference']);
+                saveToLedger($this->db->dbh,$data['date'],$accountname,$accpareant,0,$data['amount'],
+                             $data['reference'],$accountid,9,$data['id'],$_SESSION['congId'],$data['reference']);
             }else{
-                saveToLedger($this->db->dbh,$data['date'],$accountname,$data['amount'],0,
-                             $data['reference'],$accountid,9,$data['id'],$_SESSION['congId']);
-                saveToLedger($this->db->dbh,$data['date'],'cash at bank',0,$data['amount'],
-                             $data['reference'],3,9,$data['id'],$_SESSION['congId']);             
+                saveToLedger($this->db->dbh,$data['date'],$accountname,$accpareant,$data['amount'],0,
+                             $data['reference'],$accountid,9,$data['id'],$_SESSION['congId'],$data['reference']);
+                saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,0,$data['amount'],
+                             $data['reference'],3,9,$data['id'],$_SESSION['congId'],$data['reference']);             
             }
 
             if ($this->db->dbh->commit()) {

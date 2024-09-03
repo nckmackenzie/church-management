@@ -176,7 +176,7 @@ class Supplierinvoice
                 $narr = 'supplier invoice no '.$data['invoiceno'];
                 saveToLedger($this->db->dbh,$data['idate'],$pname,$parentaccountname,
                              calculateVat($data['vattype'],$data['table'][$i]->gross)[2],0
-                            ,$narr,$singleAccountId,6,$tid,$_SESSION['congId']);
+                            ,$narr,$singleAccountId,6,$tid,$_SESSION['congId'],"supplier invoice-{$data['invoiceno']}");
             }
 
             $account = 'accounts payable';
@@ -185,7 +185,7 @@ class Supplierinvoice
             $three = 4;
             saveToLedger($this->db->dbh,$data['idate'],$account,$parentaccount,0,
                          calculateVat($data['vattype'],$data['totals'])[2]
-                        ,$narr,$three,6,$tid,$_SESSION['congId']); 
+                        ,$narr,$three,6,$tid,$_SESSION['congId'],"supplier invoice-{$data['invoiceno']}"); 
             //save to logs
             saveLog($this->db->dbh,$narr);
             if(!$this->db->dbh->commit()){
@@ -253,7 +253,7 @@ class Supplierinvoice
                 $narr = 'supplier invoice no '.$data['invoiceno'];
                 saveToLedger($this->db->dbh,$data['idate'],$pname,$parentaccountname,
                              calculateVat($data['vattype'],$data['table'][$i]->gross)[2],0
-                            ,$narr,$singleAccountId,6,$data['id'],$_SESSION['congId']);
+                            ,$narr,$singleAccountId,6,$data['id'],$_SESSION['congId'],"supplier invoice-{$data['invoiceno']}");
             }
 
             $account = 'accounts payable';
@@ -262,7 +262,7 @@ class Supplierinvoice
             $three = 4;
             saveToLedger($this->db->dbh,$data['idate'],$account,$parentaccount,0,
                          calculateVat($data['vattype'],$data['totals'])[2]
-                        ,$narr,$three,6,$data['id'],$_SESSION['congId']); 
+                        ,$narr,$three,6,$data['id'],$_SESSION['congId'],"supplier invoice-{$data['invoiceno']}"); 
             //save to logs
             saveLog($this->db->dbh,$narr);
             if(!$this->db->dbh->commit()){

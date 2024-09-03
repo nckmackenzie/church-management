@@ -717,8 +717,14 @@ class Report {
 
     public function GetAccountStatement($data)
     {
-        $account = getdbvalue($this->db->dbh,'SELECT LOWER(accountType) FROM tblaccounttypes WHERE (ID = ?)',[$data['account']]);
-        $sql = "CALL sp_get_account_statement(?,?,?)";
-        return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$account]);
+        $details = loadsingleset($this->db->dbh,'SELECT LOWER(accountType) as accountType,isSubCategory FROM tblaccounttypes WHERE (ID = ?)',[$data['account']]);
+        $account = $details->accountType;
+        $isSubcategory = converttobool($details->isSubCategory);
+        if($isSubcategory){
+            $sql = "CALL sp_get_account_statement(?,?,?,?)";
+        }else{
+            $sql = "CALL sp_get_account_statement_parent(?,?,?,?)";
+        }
+        return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$account,(int)$_SESSION['congId']]);
     }
 }

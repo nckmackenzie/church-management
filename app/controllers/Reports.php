@@ -1652,6 +1652,7 @@ class Reports extends Controller {
                         <tr>
                             <th>Date</th>
                             <th>Narraion</th>
+                            <th>Reference</th>
                             <th>Debit</th>
                             <th>Credit</th>
                             <th>Balance</th>
@@ -1668,6 +1669,7 @@ class Reports extends Controller {
                             <tr>
                                 <td>'.date('d-m-Y',strtotime($row->transactionDate)).'</td>
                                 <td>'.ucwords($row->narration).'</td>
+                                <td>'.ucwords($row->reference).'</td>
                                 <td>'.$debit.'</td>
                                 <td>'.$credit.'</td>
                                 <td>'.number_format($row->runningBalance,2).'</td>
@@ -1678,7 +1680,7 @@ class Reports extends Controller {
                     </tbody>
                     <tfoot>
                             <tr>
-                                <th style="text-align:center" colspan="2">Total:</th>
+                                <th style="text-align:center" colspan="3">Total:</th>
                                 <th id="debitsTotals">'.number_format($debitsTotal,2).'</th>
                                 <th id="creditsTotals">'.number_format($creditsTotal,2).'</th>
                                 <th></th>

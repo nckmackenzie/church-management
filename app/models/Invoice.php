@@ -144,14 +144,14 @@ class Invoice {
                 $parentaccountname = getparentgl($this->db->dbh,$pname);
                 saveToLedger($this->db->dbh,$data['invoicedate'],$pname,$parentaccountname,0,
                              calculateVat($data['vattype'],$gross)[2]
-                            ,$desc,$accountid,14,$tid,$_SESSION['congId']);
+                            ,$desc,$accountid,14,$tid,$_SESSION['congId'],"invoice-{$data['invoice']}");
             }
             $account = 'accounts receivable';
             $narr = 'Invoice #'.$data['invoice'];
             $three = 3;
             saveToLedger($this->db->dbh,$data['invoicedate'],$account,$account,
                          calculateVat($data['vattype'],$data['totals'])[2],0
-                        ,$narr,$three,14,$tid,$_SESSION['congId']); 
+                        ,$narr,$three,14,$tid,$_SESSION['congId'],"invoice-{$data['invoice']}"); 
             //save to logs
             saveLog($this->db->dbh,$narr);
             $this->db->dbh->commit();
@@ -213,14 +213,14 @@ class Invoice {
                 $parentaccountname = getparentgl($this->db->dbh,$pname);
                 saveToLedger($this->db->dbh,$data['invoicedate'],$pname,$parentaccountname,0,
                              calculateVat($data['vattype'],$gross)[2]
-                            ,$desc,$accountid,14,$tid,$_SESSION['congId']);
+                            ,$desc,$accountid,14,$tid,$_SESSION['congId'],"invoice-{$data['invoice']}");
             }
             $account = 'accounts receivable';
             $narr = 'Invoice #'.$data['invoice'];
             $three = 3;
             saveToLedger($this->db->dbh,$data['invoicedate'],$account,$account,
                          calculateVat($data['vattype'],$data['totals'])[2],0
-                        ,$narr,$three,14,$tid,$_SESSION['congId']); 
+                        ,$narr,$three,14,$tid,$_SESSION['congId'],"invoice-{$data['invoice']}"); 
             //save to logs
             saveLog($this->db->dbh, 'Updated '. $narr);
             $this->db->dbh->commit();
@@ -325,6 +325,7 @@ class Invoice {
             $bankname = strtolower($this->db->getValue());
         }
         try {
+            $reference = !empty($data['reference']) ? strtolower($data['reference']) : NULL;
             //begin transaction
             $this->db->dbh->beginTransaction();
             //invoice payments
@@ -336,7 +337,7 @@ class Invoice {
             $this->db->bind(':amount',$data['amount']);
             $this->db->bind(':pid',$data['paymethod']);
             $this->db->bind(':bid',$data['bank']);
-            $this->db->bind(':ref',!empty($data['reference']) ? strtolower($data['reference']) : NULL);
+            $this->db->bind(':ref',$reference);
             $this->db->execute();
             //update invoice table
             $tid = $this->db->dbh->lastInsertId();
@@ -353,20 +354,20 @@ class Invoice {
             $account = 'accounts receivable';
             $narr = 'Invoice '.$data['invoiceno'] .' Payment';
             saveToLedger($this->db->dbh,$data['paydate'],$account,$account,0,$data['amount']
-                        ,$narr,3,16,$tid,$_SESSION['congId']);
+                        ,$narr,3,16,$tid,$_SESSION['congId'],$reference);
 
             $cabparent = getparentgl($this->db->dbh,'cash at hand');            
             if ($data['paymethod'] == 1) {
                 saveToLedger($this->db->dbh,$data['paydate'],'cash at hand',$cabparent,$data['amount'],0
-                        ,$narr,3,16,$tid,$_SESSION['congId']);
+                        ,$narr,3,16,$tid,$_SESSION['congId'],$reference);
             }
             elseif ($data['paymethod'] == 2) {
                 saveToLedger($this->db->dbh,$data['paydate'],'cash at bank',$cabparent,$data['amount'],0
-                        ,$narr,3,16,$tid,$_SESSION['congId']);
+                        ,$narr,3,16,$tid,$_SESSION['congId'],$reference);
             }
             else {
                 saveToLedger($this->db->dbh,$data['paydate'],'cash at bank',$cabparent,$data['amount'],0
-                        ,$narr,3,16,$tid,$_SESSION['congId']);
+                        ,$narr,3,16,$tid,$_SESSION['congId'],$reference);
                 saveToBanking($this->db->dbh,$data['bank'],$data['paydate'],$data['amount'],0,1,
                               $data['reference'],16,$tid,$_SESSION['congId']);
             }

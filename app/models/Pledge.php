@@ -110,18 +110,18 @@ class Pledge{
             $cabparent = getparentgl($this->db->dbh,'cast at bank');
             if ($data['amountpaid'] > 0) {
                 saveToLedger($this->db->dbh,$data['date'],'donations and fundraising','other collections',0,$data['amountpaid'],$narr,
-                             1,3,$id,$_SESSION['congId']);
+                             1,3,$id,$_SESSION['congId'],$data['reference']);
                 if ($data['paymethod'] == 1) {
                     saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cabparent,$data['amountpaid'],0,$narr,
-                             3,3,$id,$_SESSION['congId']);
+                             3,3,$id,$_SESSION['congId'],$data['reference']);
                 }
                 elseif ($data['paymethod'] == 2) {
                     saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,$data['amountpaid'],0,$narr,
-                             3,3,$id,$_SESSION['congId']);
+                             3,3,$id,$_SESSION['congId'],$data['reference']);
                 }
                 else{
                     saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,$data['amountpaid'],0,$narr,
-                             3,3,$id,$_SESSION['congId']);
+                             3,3,$id,$_SESSION['congId'],$data['reference']);
                     saveToBanking($this->db->dbh,$data['bank'],$data['date'],$data['amountpaid'],
                                   $_SESSION['zero'],$_SESSION['one'],strtolower($data['reference']),3,$id,$_SESSION['congId']);         
                 }             
@@ -178,25 +178,25 @@ class Pledge{
             $this->db->bind(':bal',$balance);
             $this->db->bind(':pay',$data['paymethod']);
             $this->db->bind(':bid',$data['bank']);
-            $this->db->bind(':ref',strtolower($data['bank']));
+            $this->db->bind(':ref',$data['reference']);
             $this->db->execute();
             $tid = $this->db->dbh->lastInsertId();
             //ledgers
             $narr = 'Pledge Payment For '.$data['pledger'];
             saveToLedger($this->db->dbh,$data['date'],'donations and fundraising','other collections',0,$data['paid'],$narr,
-                             1,4,$tid,$_SESSION['congId']);
+                             1,4,$tid,$_SESSION['congId'],$data['reference']);
             $cabparent = getparentgl($this->db->dbh,'cast at bank');                 
             if ($data['paymethod'] == 1) {
                 saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cabparent,$data['paid'],0,$narr,
-                            3,4,$tid,$_SESSION['congId']);
+                            3,4,$tid,$_SESSION['congId'],$data['reference']);
             }
             elseif ($data['paymethod'] == 2) {
                 saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,$data['paid'],0,$narr,
-                            3,4,$tid,$_SESSION['congId']);
+                            3,4,$tid,$_SESSION['congId'],$data['reference']);
             }
             else{
                 saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,$data['paid'],0,$narr,
-                            3,4,$tid,$_SESSION['congId']);
+                            3,4,$tid,$_SESSION['congId'],$data['reference']);
                 saveToBanking($this->db->dbh,$data['bank'],$data['date'],$data['paid'],
                                 $_SESSION['zero'],$_SESSION['one'],strtolower($data['reference']),4,$tid,$_SESSION['congId']);         
             }

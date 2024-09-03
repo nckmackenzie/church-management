@@ -51,10 +51,10 @@ class Cashreceipt
             $cabparent = getparentgl($this->db->dbh,'cash at bank');
 
             saveToLedger($this->db->dbh,$data['date'],'petty cash',$cabparent,$data['amount'],0,$narr ,
-                         3,10,$tid,$_SESSION['congId']);
+                         3,10,$tid,$_SESSION['congId'],$data['reference']);
 
             saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,0,$data['amount'],$narr ,
-                         3,10,$tid,$_SESSION['congId']);
+                         3,10,$tid,$_SESSION['congId'],$data['reference']);
 
             saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],2,
                          $data['reference'],10,$tid,$_SESSION['congId']); 
@@ -95,10 +95,10 @@ class Cashreceipt
 
             $cabparent = getparentgl($this->db->dbh,'cash at bank');
             saveToLedger($this->db->dbh,$data['date'],'petty cash',$cabparent,$data['amount'],0,$narr,
-                         3,10,$data['id'],$_SESSION['congId']);
+                         3,10,$data['id'],$_SESSION['congId'],$data['reference']);
 
             saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cabparent,0,$data['amount'],$narr,
-                         3,10,$data['id'],$_SESSION['congId']);
+                         3,10,$data['id'],$_SESSION['congId'],$data['reference']);
             
             saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],2,
                          $data['reference'],10,$data['id'],$_SESSION['congId']);
@@ -114,8 +114,8 @@ class Cashreceipt
             if ($this->db->dbh->inTransaction()) {
                 $this->db->dbh->rollback();
             }
-            throw $e;
             return false;
+            // throw $e;
         }
     }
 

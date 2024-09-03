@@ -101,32 +101,40 @@
                 beforeSend: function() {        
                     $('#spinner').show();
                 },
-                success : function(data){
+                success: function(data) {
                     $('#spinner').hide();
-                    
+
+                    if ($.fn.DataTable.isDataTable('#table')) {
+                        $('#table').DataTable().clear().destroy();
+                    }
+
+                    $('#results').html('');
+
                     $('#results').html(data);
-                    table.destroy();
+
                     table = $('#table').DataTable({
-                        pageLength : 100,
-                        fixedHeader : true,
-                        ordering : false,
-                        searching : false,
+                        pageLength: 50,
+                        fixedHeader: true,
+                        ordering: false,
+                        searching: false,
                         bLengthChange: false,
-                        info : false,
-                        paging : false,
-                        "responsive" : true,
-                        'columnDefs' : [
-                            {"width" : "40%" , "targets": 1},
+                        info: false,
+                        paging: false,
+                        responsive: true,
+                        columnDefs: [
+                            {"width": "40%", "targets": 1},
                         ],
-                        "buttons": ["excel", "pdf","print"],
-                    }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
+                        buttons: ["excel", "pdf", "print"],
+                    });
+
+                    table.buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
                 },
                 error: function() {
                     $('#spinner').hide();
                 }
             });
         });       
-    });
+    });    
 </script>
 </body>
 </html>  

@@ -24,6 +24,6 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/reports/tb/tb-report.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/reports/tb/tb-report-v1.js"></script>
 </body>
 </html>  

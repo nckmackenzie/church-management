@@ -90,10 +90,10 @@ class Mmfreceipt
             $cashparent = getparentgl($this->db->dbh,'groups balances held');
 
             saveToLedger($this->db->dbh,$data['tdate'],'groups balances held',$gbhparent,$data['amount'],0,
-                         $data['reference'],4,11,$tid,$_SESSION['congId']);
+                         $data['reference'],4,11,$tid,$_SESSION['congId'],$data['reference']);
             
             saveToLedger($this->db->dbh,$data['tdate'],'cash at bank',$cashparent,0,$data['amount'],
-                         $data['reference'],3,11,$tid,$_SESSION['congId']);
+                         $data['reference'],3,11,$tid,$_SESSION['congId'],$data['reference']);
 
             saveToBanking($this->db->dbh,$data['bank'],$data['tdate'],0,$data['amount'],2,
                           $data['reference'],11,$tid,$_SESSION['congId']);

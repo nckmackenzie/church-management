@@ -71,14 +71,14 @@ class Supplier
 
                     if(floatval($data['balance']) > 0){
                         saveToLedger($this->db->dbh,$data['asof'],'accounts payable','payables and accruals',0,$data['balance']
-                                ,'supplier opening balance',4,15,$tid,$_SESSION['congId']);
+                                ,'supplier opening balance',4,15,$tid,$_SESSION['congId'],null);
                         saveToLedger($this->db->dbh,$data['asof'],'uncategorized expenses','uncategorized expenses',$data['balance'],0
-                            ,'supplier opening balance',2,15,$tid,$_SESSION['congId']);
+                            ,'supplier opening balance',2,15,$tid,$_SESSION['congId'],null);
                     }elseif(floatval($data['balance']) < 0) {
                         saveToLedger($this->db->dbh,$data['asof'],'accounts payable','payables and accruals',$data['balance'],0
-                                ,'supplier opening balance',4,15,$tid,$_SESSION['congId']);
+                                ,'supplier opening balance',4,15,$tid,$_SESSION['congId'],null);
                         saveToLedger($this->db->dbh,$data['asof'],'uncategorized expenses','uncategorized expenses',0,$data['balance']
-                            ,'supplier opening balance',2,15,$tid,$_SESSION['congId']);
+                            ,'supplier opening balance',2,15,$tid,$_SESSION['congId'],null);
                     }
                 }
             }

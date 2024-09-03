@@ -289,21 +289,21 @@ class Expense {
             $accparent = getparentgl($this->db->dbh,$accountname);
             if($expense->deductfrom == 'petty cash' || $expense->deductfrom == 'cash at hand' || is_null($expense->deductfrom) || is_null($expense->requisitionId) ){
                 saveToLedger($this->db->dbh,$expense->expenseDate,$accountname,$accparent,$expense->amount,0,$expense->narration,
-                            $accountid,2,$data['id'],$_SESSION['congId']);
+                            $accountid,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
             }
 
             if($expense->paymethodId == 1 && $expense->deductfrom === 'petty cash'){
                 saveToLedger($this->db->dbh,$expense->expenseDate,'petty cash',$cashparent,0,$expense->amount,$expense->narration,
-                                3,2,$data['id'],$_SESSION['congId']);
+                                3,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
             }elseif ($expense->paymethodId == 1 && $expense->deductfrom === 'cash at hand') {
                 saveToLedger($this->db->dbh,$expense->expenseDate,'cash at hand',$cashparent,0,$expense->amount,$expense->narration,
-                                3,2,$data['id'],$_SESSION['congId']);
+                                3,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
             }elseif($expense->paymethodId == 2){
                 saveToLedger($this->db->dbh,$expense->expenseDate,'cash at bank',$cashparent,0,$expense->amount,$expense->narration,
-                                3,2,$data['id'],$_SESSION['congId']);
+                                3,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
             }elseif ((int)$expense->paymethodId > 2) {
                 saveToLedger($this->db->dbh,$expense->expenseDate,'cash at bank',$cashparent,0,$expense->amount,$expense->narration,
-                                3,2,$data['id'],$_SESSION['congId']);
+                                3,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
                 saveToBanking($this->db->dbh,$expense->bankId,$expense->expenseDate,0,$expense->amount,2,
                               $expense->paymentReference,2,$data['id'],$_SESSION['congId']);             
             }
