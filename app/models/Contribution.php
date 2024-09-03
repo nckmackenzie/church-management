@@ -28,11 +28,12 @@ class Contribution {
                     FROM tblcontributions_header WHERE congregationId=? AND fiscalYearId=?";
             return format_string(intval(getdbvalue($this->db->dbh,$sql,[$_SESSION['congId'],$yearId])) + 1);
         }else{
-            $sql = 'SELECT IFNULL(receiptNo,1) AS receiptNo 
-                    FROM tblcontributions_header 
-                    WHERE congregationId=? AND fiscalYearId=?
-                    ORDER BY ID DESC
-                    LIMIT 1';
+            // $sql = 'SELECT IFNULL(receiptNo,1) AS receiptNo 
+            //         FROM tblcontributions_header 
+            //         WHERE congregationId=? AND fiscalYearId=?
+            //         ORDER BY ID DESC
+            //         LIMIT 1';
+            $sql = 'SELECT MAX(CAST(receiptNo AS UNSIGNED)) AS receiptNo FROM tblcontributions_header WHERE congregationId=? AND fiscalYearId=?';
             return intval(getdbvalue($this->db->dbh,$sql,[$_SESSION['congId'],$yearId])) + 1;
         }
     }
