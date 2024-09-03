@@ -107,7 +107,7 @@
                     $('#results').html(data);
                     table.destroy();
                     table = $('#table').DataTable({
-                        pageLength : 100,
+                        pageLength : 50,
                         fixedHeader : true,
                         ordering : false,
                         searching : false,
@@ -126,7 +126,7 @@
                 }
             });
         });       
-    });
+    });    
 </script>
 </body>
 </html>  
