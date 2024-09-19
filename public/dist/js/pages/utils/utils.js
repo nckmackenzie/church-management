@@ -139,33 +139,91 @@ export function formatDate(date) {
   const formattedToday = dd + '/' + mm + '/' + yyyy;
   return formattedToday;
 }
+// OLD METHOD BEFORE SUM WAS ASKED BY KIBUNYI
+// export function setdatatable(tbl, columnDefs = [], pageLength) {
+//   $(document).ready(function () {
+//     'use strict';
+//     var table = $(`#${tbl}`).DataTable();
+//     table.destroy();
+//     table = $(`#${tbl}`)
+//       .DataTable({
+//         lengthChange: !1,
+//         pageLength: pageLength || 25,
+//         // buttons: ['print', 'excel', 'pdf'],
+//         buttons: [
+//           { extend: 'excelHtml5', footer: true },
+//           { extend: 'pdfHtml5', footer: true },
+//           'print',
+//         ],
+//         columnDefs: columnDefs,
+//         ordering: false,
 
-export function setdatatable(tbl, columnDefs = [], pageLength) {
+//         drawCallback: function () {
+//           $('.dataTables_paginate > .pagination').addClass(
+//             'pagination-rounded'
+//           );
+//         },
+//       })
+//       .buttons()
+//       .container()
+//       .appendTo(`#${tbl}_wrapper .col-md-6:eq(0)`);
+//   });
+// }
+
+export function setdatatable(
+  tbl,
+  columnDefs = [],
+  pageLength,
+  calculateSum = false,
+  sumColumnIndex = null
+) {
   $(document).ready(function () {
     'use strict';
-    var table = $(`#${tbl}`).DataTable();
+    let table = $(`#${tbl}`).DataTable();
+
+    // Destroy previous instance if exists
     table.destroy();
-    table = $(`#${tbl}`)
-      .DataTable({
-        lengthChange: !1,
-        pageLength: pageLength || 25,
-        // buttons: ['print', 'excel', 'pdf'],
-        buttons: [
-          { extend: 'excelHtml5', footer: true },
-          { extend: 'pdfHtml5', footer: true },
-          'print',
-        ],
-        columnDefs: columnDefs,
-        ordering: false,
-        drawCallback: function () {
-          $('.dataTables_paginate > .pagination').addClass(
-            'pagination-rounded'
+
+    // Reinitialize the DataTable
+    table = $(`#${tbl}`).DataTable({
+      lengthChange: false,
+      pageLength: pageLength || 25,
+      buttons: [
+        { extend: 'excelHtml5', footer: true },
+        { extend: 'pdfHtml5', footer: true },
+        'print',
+      ],
+      columnDefs: columnDefs,
+      ordering: false,
+      drawCallback: function () {
+        $('.dataTables_paginate > .pagination').addClass('pagination-rounded');
+
+        // Check if sum needs to be calculated
+        if (calculateSum && sumColumnIndex !== null) {
+          let total = 0;
+          let api = this.api();
+
+          // Calculate the sum of the filtered rows for the specific column
+          total = api
+            .column(sumColumnIndex, { filter: 'applied' }) // Only consider filtered rows
+            .data()
+            .reduce((a, b) => {
+              // Remove commas if present and convert to a float
+              let x = parseFloat(a.toString().replace(/,/g, '')) || 0;
+              let y = parseFloat(b.toString().replace(/,/g, '')) || 0;
+              return x + y;
+            }, 0);
+
+          // Format the sum and display it in the footer
+          $(api.column(sumColumnIndex).footer()).html(
+            numberWithCommas(total.toFixed(2))
           );
-        },
-      })
-      .buttons()
-      .container()
-      .appendTo(`#${tbl}_wrapper .col-md-6:eq(0)`);
+        }
+      },
+    });
+
+    // Attach buttons container
+    table.buttons().container().appendTo(`#${tbl}_wrapper .col-md-6:eq(0)`);
   });
 }
 
