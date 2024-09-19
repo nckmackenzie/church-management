@@ -36,10 +36,11 @@
                                         <thead>
                                             <tr>
                                                 <th width="20%">Expense</th>
-                                                <th width="20%">Type Of Expense</th>
+                                                <th width="10%">Type Of Expense</th>
                                                 <th width="20%">Cost Center</th>
                                                 <th width="30%">Description</th>
                                                 <th width="10%">Amount</th>
+                                                <th width="10%">Pay Method</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -49,6 +50,7 @@
                                                 <td><?php echo $data['expense']->costcentre; ?></td>
                                                 <td><?php echo $data['expense']->narration; ?></td>
                                                 <td><?php echo $data['expense']->amount; ?></td>
+                                                <td><?php echo $data['expense']->paymentMethod; ?></td>
                                             </tr>
                                         </tbody>
                                     </table>
