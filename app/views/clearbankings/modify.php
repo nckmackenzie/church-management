@@ -86,6 +86,6 @@
     <!-- </form> -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/bankings/modify-cleared.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/bankings/modify-cleared-v1.js"></script>
 </body>
 </html> 
