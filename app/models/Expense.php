@@ -349,7 +349,7 @@ class Expense {
     }
     public function getExpenseFull($id)
     {
-        $this->db->query('SELECT * FROM vw_expensevoucher WHERE (ID=:id)');
+        $this->db->query('SELECT * FROM vw_expensevoucher_2 WHERE (ID=:id)');
         $this->db->bind(':id',$id);
         return $this->db->single();
     }
