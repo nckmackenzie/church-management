@@ -314,6 +314,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="<?php echo URLROOT;?>/reports/unaccounted_requisitions" class="nav-link">
+                        <p>Unaccounted Requisitions</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/reports/pledges" class="nav-link">
                         <p>Pledge Reports</p>
                     </a>
