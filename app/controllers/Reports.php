@@ -1695,4 +1695,71 @@ class Reports extends Controller {
              exit();
          }
     }
+
+    public function unaccounted_requisitions()
+    {
+        // $data = [
+        //     'subaccounts' => $this->reportModel->GetSubaccounts(),
+        // ];
+        $this->view('reports/unaccountedrequisitions',[]);
+        exit;
+    }
+
+    public function unaccounted_requisition_rpt()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'GET'){
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW) ;
+
+            $data = [
+                 'criteria' => isset($_GET['group']) && !empty(trim($_GET['group'])) ? $_GET['group'] : null,
+            ];
+ 
+            $rows = $this->reportModel->GetUnaccountedReport($data);
+
+
+            $output = '';
+            $output .='
+                <table class="table table-bordered table-sm" id="table">
+                    <thead class="bg-lightblue">
+                        <tr>
+                            <th>Date Requested</th>
+                            <th>Group/District</th>
+                            <th>Amount Requested</th>
+                            <th>Amount Approved</th>
+                            <th>Unaccounted Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+                    foreach($rows as $row) {
+                        if(floatval($row->UnaccountedAmount) > 0){                       
+                            $output .= '
+                                <tr>
+                                    <td>'.date('d-m-Y',strtotime($row->RequisitionDate)).'</td>
+                                    <td>'.$row->GroupDistrict.'</td>
+                                    <td>'.number_format($row->AmountRequested,2).'</td>
+                                    <td>'.number_format($row->AmountApproved,2).'</td>
+                                    <td>'.number_format($row->UnaccountedAmount,2).'</td>
+                                </tr>
+                            ';
+                        }
+                    }
+                    $output .= '
+                    </tbody>
+                    <tfoot>
+                            <tr>
+                                <th style="text-align:center" colspan="2">Total:</th>
+                                <th></th>
+                                <th></th>
+                                <th></th>
+                            </tr>
+                    </tfoot>
+                </table>';
+
+            echo $output;
+ 
+         }else{
+             redirect('users/deniedaccess');
+             exit();
+         }
+    }
 }

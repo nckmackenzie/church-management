@@ -727,4 +727,33 @@ class Report {
         }
         return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$account,(int)$_SESSION['congId']]);
     }
+
+    public function GetUnaccountedReport($data)
+    {
+        if($data['criteria'] === 'all'){
+            $sql = "SELECT 
+                        `RequisitionDate`,
+                        ucase(IF(r.RequestType = 'group',g.groupName,d.districtName)) as GroupDistrict,
+                        `AmountRequested`,
+                        `AmountApproved`,
+                        getrequisitionbalance(r.ID) AS UnaccountedAmount
+                    FROM `tblfundrequisition` r
+                        left join tbldistricts d on r.DistrictId = d.ID left join tblgroups g on r.GroupId = g.ID
+                    WHERE r.Status = 1";     
+            return loadresultset($this->db->dbh,$sql,[]);
+        }else{
+            $sql = "SELECT 
+                        `RequisitionDate`,
+                        ucase(IF(r.RequestType = 'group',g.groupName,d.districtName)) as GroupDistrict,
+                        `AmountRequested`,
+                        `AmountApproved`,
+                        getrequisitionbalance(r.ID) AS UnaccountedAmount
+                    FROM `tblfundrequisition` r
+                        left join tbldistricts d on r.DistrictId = d.ID left join tblgroups g on r.GroupId = g.ID
+                    WHERE (r.Status = 1) AND (r.RequestType = ?)";   
+            return loadresultset($this->db->dbh,$sql,[$data['criteria']]); 
+        }
+        
+        
+    }
 }
