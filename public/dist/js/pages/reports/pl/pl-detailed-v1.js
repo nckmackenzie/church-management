@@ -56,7 +56,7 @@ function bindTable(data, totals) {
         </tbody>
         <tfoot>
             <tr>
-                <th colspan="3" style="text-align:center">Total</th>
+                <th colspan="2" style="text-align:center">Total</th>
                 <th id="total">${numberWithCommas(totals) || 0}</th>
                 <th colspan="3"></th>
             </tr>
@@ -64,7 +64,34 @@ function bindTable(data, totals) {
     </table>
   `;
   tableContainer.innerHTML = html;
-  setdatatable('table', [], 100);
+  setdatatable('table', [], 100, true, 2);
+  // renderTable();
+}
+
+function renderTable() {
+  $(function () {
+    $('#table').DataTable();
+    // .buttons()
+    // .container()
+    // .appendTo('#table_wrapper .col-md-6:eq(0)');
+
+    // table.destroy();
+    // table = $('#table')
+    //   .DataTable({
+    //     pageLength: 25,
+    //     fixedHeader: true,
+
+    //     // "buttons": ["excel", "pdf","print"]
+    //     buttons: [
+    //       { extend: 'excelHtml5', footer: true },
+    //       { extend: 'pdfHtml5', footer: true },
+    //       'print',
+    //     ],
+    //   })
+    // .buttons()
+    // .container()
+    // .appendTo('#table_wrapper .col-md-6:eq(0)');
+  });
 }
 
 loadReport();
