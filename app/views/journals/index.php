@@ -38,6 +38,14 @@
             <div class="col-12" id="alertBox"></div>
             <div class="col-12"><?php flash('journal_msg');?></div>
           </div>
+          <div class="mt-2 mb-4 border p-2">
+            <div class="mb-2"><strong>Import from Excel</strong></div>
+            <div class="custom-file">
+              <input type="file" class="custom-file-input" id="fileInput">
+              <label class="custom-file-label" for="fileInput">Choose file</label>
+            </div>
+             <button class="btn btn-secondary btn-sm custom-font mt-2" id="validate">Validate</button> 
+          </div>
           <div class="row mb-2">
             <div class="col-sm-2">
               <button type="submit" class="btn btn-sm bg-navy custom-font btn-block save">Save</button>
@@ -154,6 +162,7 @@
     $('.select2').select2();
   })
 </script>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/journals/index.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" integrity="sha512-dfX5uYVXzyU8+KHqj8bjo7UkOdg18PaOtpa48djpNbZHwExddghZ+ZmzWT06R5v6NSk3ZUfsH6FNEDepLx9hPQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/journals/index-v1.js"></script>
 </body>
 </html>
