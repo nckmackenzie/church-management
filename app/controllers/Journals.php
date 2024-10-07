@@ -150,4 +150,41 @@ class Journals extends Controller{
             exit;
         }
     }
+
+    public function validateimport()
+    {
+        $fields = json_decode(file_get_contents('php://input')); //extract fields;
+        $data = [
+            'entries' => $fields->data
+        ];
+
+        $validated = [];
+        $errorCount = 0;
+
+        foreach($data['entries'] as $entry){
+            $accid = $this->journalModel->getaccount($entry->account);
+            if($accid === false){
+                $errorCount++;
+                continue;
+            }
+            array_push($validated,[
+                'accountId' => $accid,
+                'account' => $entry->account,
+                'debit' => floatval($entry->debit),
+                'credit' => floatval($entry->credit),
+                'narration' => $entry->description
+            ]);
+        }
+
+        if($errorCount > 0){
+            http_response_code(400);
+            echo json_encode(['message' => 'Entries not found','success' => false]);
+            exit;
+        }
+        else
+        {
+            echo json_encode(['message' => 'Entries found','success' => true,'data' => $validated]);
+            exit;
+        }
+    }
 }

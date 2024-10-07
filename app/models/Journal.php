@@ -152,4 +152,13 @@ class Journal {
         if(!$this->db->execute()) return false;
         return true;
     }
+
+    public function getaccount($account)
+    {
+        $count = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tblaccounttypes WHERE LOWER(accountType) = ?',[$account]);
+        if((int)$count === 0){
+            return false;
+        }
+        return getdbvalue($this->db->dbh,'SELECT ID FROM tblaccounttypes WHERE LOWER(accountType) = ?',[$account]);
+    }
 }
