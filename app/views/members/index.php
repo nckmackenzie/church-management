@@ -15,8 +15,8 @@
               <div class="row">
                 <div class="col-md-9">
                   <label for="">Are You Sure You Want To Delete Selected Member?</label>
-                  <input type="text" name="id" id="id">
-                  <input type="text" name="membername" id="membername">
+                  <input type="hidden" name="id" id="id">
+                  <input type="hidden" name="membername" id="membername">
                 </div>
               </div>
               <div class="modal-footer">
