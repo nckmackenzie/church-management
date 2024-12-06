@@ -188,7 +188,7 @@
                                             <option value="2" <?php selectdCheck($data['membershipstatus'],2)?>>Adherent</option>
                                             <option value="3" <?php selectdCheck($data['membershipstatus'],3)?>>Associate</option>
                                             <option value="4" <?php selectdCheck($data['membershipstatus'],4)?>>Under-12</option>
-                                            <option value="5" <?php selectdCheck($data['membershipstatus'],5)?>>Child</option>
+                                           
                                         </select>
                                     </div>
                                 </div>
