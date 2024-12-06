@@ -571,6 +571,23 @@ class Members extends Controller {
             echo $this->memberModel->checkfamily($member);
         }
     }
+
+    public function family_delete()
+    {
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
+            $data = [
+                'id' => $_POST['id'],
+            ];
+            if (isset($data['id'])) {
+                if ($this->memberModel->deletefamily($data)) {
+                    flash('member_family_msg','Member Family Deleted Successfully!');
+                    redirect('members/family');
+                }
+            }
+        }
+    }
+
     public function sendmessage()
     {
         $data = ['members' => $this->memberModel->getmembersbydistrict()];

@@ -505,4 +505,29 @@ class Member {
             throw $e;
         }
     }
+
+    public function deleteFamily($data)
+    {
+        try {
+            $this->db->dbh->beginTransaction();
+
+            $sql = 'DELETE FROM tblmember_family WHERE memberId = ?';
+            $stmt = $this->db->dbh->prepare($sql);
+            $stmt->execute([$data['id']]);
+
+            $act = 'Deleted Family Member For '.$data['membername'];
+            saveLog($this->db->dbh,$act);
+            if ($this->db->dbh->commit()) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        } catch (\Exception $e) {
+            if ($this->db->dbh->inTransaction()) {
+                $this->db->dbh->rollBack();
+            }
+            throw $e;
+        }
+    }
 }
