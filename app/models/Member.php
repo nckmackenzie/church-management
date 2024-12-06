@@ -393,8 +393,8 @@ class Member {
     public function checkfamily($member)
     {
         $this->db->query('SELECT COUNT(ID) 
-                          FROM   tblmember_family
-                          WHERE  (memberId = :mid) OR (familyMemberId = :mid)');
+                                    FROM   tblmember_family
+                               WHERE  (memberId = :mid) OR (familyMemberId = :mid)');
         $this->db->bind(':mid',$member);
         return $this->db->getValue();
     }
@@ -433,6 +433,76 @@ class Member {
             return loadresultset($this->db->dbh,$sql,[(int)$value]);
         }else{
             return ['error' => 'Invalid Criteria'];
+        }
+    }
+
+    public function getMembersFamily()
+    {
+        $sql = '
+            SELECT 
+                DISTINCT f.`memberId` as ID, 
+                ucase(m.memberName) as memberName, 
+                (select count(*) from tblmember_family where memberId = f.memberId) as familyCount 
+            FROM `tblmember_family` f join tblmember m on f.memberId = m.ID
+            WHERE
+                (m.congregationId = ?)
+            ORDER BY memberName; 
+        ';
+        return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
+    }
+
+    public function getFamilyMembers($memberId)
+    {
+        $sql = "SELECT 
+	                f.familyMemberId as mid,	
+                    ucase(m.memberName) as memberName,
+                    f.relationshipId,
+                    r.relationship,
+                    f.type
+                FROM `tblmember_family` f join tblmember m on f.familyMemberId = m.ID
+                    join tblrelationship r on f.relationshipId = r.ID
+                WHERE
+                    (f.memberId = ?)
+                ORDER BY memberName;
+        ";
+        return loadresultset($this->db->dbh,$sql,[$memberId]);
+    }
+
+    public function editfamily($data)
+    {
+        try {
+            $this->db->dbh->beginTransaction();
+
+            $sql = 'DELETE FROM tblmember_family WHERE memberId = ?';
+            $stmt = $this->db->dbh->prepare($sql);
+            $stmt->execute([$data['member']]);
+
+            $sql = 'INSERT INTO tblmember_family (`type`,memberId,memberName,familyMemberId,relationshipId,congregationId) 
+                    VALUES(?,?,?,?,?,?)';
+            //details  
+            for ($i=0; $i < count($data['details']); $i++) { 
+                $mid = $data['details'][$i]['mid'];
+                $rid = $data['details'][$i]['rid'];
+                $type = $data['details'][$i]['type'];
+                $name = $data['details'][$i]['name'];
+                               
+                $stmt = $this->db->dbh->prepare($sql);
+                $stmt->execute([$type,$data['member'],$name,$mid,$rid,$_SESSION['congId']]);
+            }    
+            
+            $act = 'Edited Family Member For '.$data['membername'];
+            saveLog($this->db->dbh,$act);
+            if ($this->db->dbh->commit()) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        } catch (\Exception $e) {
+            if ($this->db->dbh->inTransaction()) {
+                $this->db->dbh->rollBack();
+            }
+            throw $e;
         }
     }
 }

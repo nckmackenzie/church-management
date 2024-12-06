@@ -502,14 +502,41 @@ class Members extends Controller {
     public function family()
     {
         checkrights($this->authmodel,'member family');
+        $members = $this->memberModel->getMembersFamily();
+        // $relations = $this->memberModel->getRelationships();
+        $data = [
+            'members' => $members,
+            // 'relations' => $relations
+        ];
+        $this->view('members/family',$data);
+    }
+
+    public function family_add()
+    {
+        checkrights($this->authmodel,'member family');
         $members = $this->memberModel->getMembersByCongregation($_SESSION['congId']);
         $relations = $this->memberModel->getRelationships();
         $data = [
             'members' => $members,
             'relations' => $relations
         ];
-        $this->view('members/family',$data);
+        $this->view('members/family_add',$data);
     }
+
+    public function family_edit($id)
+    {
+        checkrights($this->authmodel,'member family');
+        $members = $this->memberModel->getMembersByCongregation($_SESSION['congId']);
+        $relations = $this->memberModel->getRelationships();
+        $data = [
+            'members' => $members,
+            'relations' => $relations,
+            'family' => $this->memberModel->getFamilyMembers($id),
+            'member' => $id
+        ];
+        $this->view('members/family_edit',$data);
+    }
+
     public function createfamily()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -522,6 +549,20 @@ class Members extends Controller {
             $this->memberModel->createfamily($data);
         }
     }
+
+    public function editfamily()
+    {
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
+            $data = [
+                'membername' => trim($_POST['membername']),
+                'member' => trim($_POST['member']),
+                'details' => $_POST['table_data']
+            ];
+            $this->memberModel->editfamily($data);
+        }
+    }
+
     public function checkfamily()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
