@@ -11,12 +11,11 @@
         </button>
       </div>
       <div class="modal-body">
-          <form action="<?php echo URLROOT;?>/members/delete" method="post">
+          <form action="<?php echo URLROOT;?>/members/family_delete" method="post">
               <div class="row">
                 <div class="col-md-9">
-                  <label for="">Are You Sure You Want To Delete Selected Member?</label>
-                  <input type="text" name="id" id="id">
-                  <input type="text" name="membername" id="membername">
+                  <label for="">Are You Sure You Want To Delete Selected Member family?</label>
+                  <input type="hidden" name="id" id="id">
                 </div>
               </div>
               <div class="modal-footer">
