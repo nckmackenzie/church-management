@@ -77,7 +77,7 @@
                                 $con->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
                                 $sql = 'SELECT t.ID,UCASE(t.accountType) as accountType,
                                                a.accountType as atype,brand_level(t.ID) AS levels,
-                                               t.isEditable
+                                               t.isEditable,t.active
                                         FROM   tblaccounttypes t inner join tblaccounttypes as a 
                                                on t.accountTypeId=a.ID
                                         WHERE  (t.isBank=0) AND (t.deleted=0) AND (t.parentId=?)';
@@ -87,7 +87,7 @@
                             ?>
                             <?php if($hasChildren) : ?>
                                 <?php foreach($stmt->fetchAll(PDO::FETCH_OBJ) as $child) : ?>
-                                  <tr>
+                                  <tr class="<?php echo !converttobool($child->active)  ? 'text-danger' : '';?>">
                                       <td><?php echo $child->ID;?></td>
                                       <td class="sub-level-3"><?php echo $child->accountType;?></td>
                                       <td><?php echo $child->atype;?></td>
