@@ -142,11 +142,13 @@
         $('#check').click(function(){
             if ($(this).prop('checked') == true) {
                 $('#subcategory').prop('disabled',false);
+                $('#forgroup').prop('disabled',true);
                 var parentId = $('#accounttype').val();
                 loadSubCategories(parentId);
             }
             else{
                 $('#subcategory').prop('disabled',true);
+                $('#forgroup').prop('disabled',false);
                 $('#subcategory').val('');
             }
         });
