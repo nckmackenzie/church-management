@@ -1,5 +1,7 @@
 <?php
 class Accounts extends Controller{
+    private $authmodel;
+    private $accountModel;
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
@@ -108,7 +110,7 @@ class Accounts extends Controller{
             'forgroup' => converttobool($account->forGroup),
             'issub' => converttobool($account->isSubCategory),
             'subcategory' => (int)$account->parentId,
-            'forgroup' => converttobool($account->forGroup),
+            'active' => converttobool($account->active),
             'check' => '',
             'name_err' => '',
             'account_err' => ''
@@ -138,6 +140,7 @@ class Accounts extends Controller{
                 'subcategory' => !empty($_POST['subcategory']) ? trim($_POST['subcategory']) : NULL,
                 'description' => trim($_POST['description']),
                 'forgroup' => isset($_POST['forgroup']) ? 1 : 0,
+                'active' => isset($_POST['active']) ? 1 : 0,
                 'name_err' => '',
                 'account_err' => ''
             ];
