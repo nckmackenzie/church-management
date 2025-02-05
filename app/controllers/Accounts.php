@@ -84,6 +84,11 @@ class Accounts extends Controller{
             if ($data['check'] == 1 && empty($data['subcategory'])) {
                 $data['account_err'] = 'Select Subcategory';
             }
+
+            if($data['check'] == 1 && $data['subcategory']){
+                $subaccount = $this->accountModel->getAccount($data['subcategory']);
+                $data['forgroup'] = $subaccount->forGroup;
+            }
             if (empty($data['name_err']) && empty($data['account_err'])) {
                 if ($this->accountModel->create($data)) {
                     flash('account_msg','Account Created Successfully');
