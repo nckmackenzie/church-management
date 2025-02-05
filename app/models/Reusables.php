@@ -17,7 +17,7 @@ class Reusables
     public function GetAccounts($id)
     {
         $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
-                          WHERE (accountTypeId = :id) AND (deleted=0) AND (isBank = 0) AND (parentId <> 0) ORDER BY accountType');
+                          WHERE (accountTypeId = :id) AND (deleted=0) AND (isBank = 0) AND (parentId <> 0) AND (active = 1) ORDER BY accountType');
         $this->db->bind(':id',$id);
         return $this->db->resultSet();                  
     }
@@ -25,7 +25,7 @@ class Reusables
     public function GetAccountsAll()
     {
         $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
-                          WHERE (deleted=0) AND (isBank = 0) AND (parentId <> 0) ORDER BY accountType');
+                          WHERE (deleted=0) AND (isBank = 0) AND (parentId <> 0) AND (active = 1) ORDER BY accountType');
         return $this->db->resultSet();                  
     }
 
@@ -36,7 +36,7 @@ class Reusables
 
     public function GetBanks()
     {
-        $sql = "SELECT ID,UCASE(CONCAT(accountType,'-',IFNULL(accountNo,''))) AS Bank FROM tblaccounttypes WHERE (isBank = 1) AND (deleted=0) AND CongregationId = ?";
+        $sql = "SELECT ID,UCASE(CONCAT(accountType,'-',IFNULL(accountNo,''))) AS Bank FROM tblaccounttypes WHERE (isBank = 1) AND (deleted=0) AND (active = 1) AND (CongregationId = ?)";
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
 
@@ -60,7 +60,7 @@ class Reusables
 
     public function GetBank($id)
     {
-        $sql = "SELECT UCASE(CONCAT(accountType,'-',IFNULL(accountNo,''))) AS Bank FROM tblaccounttypes WHERE isBank = 1 AND ID = ?";
+        $sql = "SELECT UCASE(CONCAT(accountType,'-',IFNULL(accountNo,''))) AS Bank FROM tblaccounttypes WHERE isBank = 1 AND active = 1 AND ID = ?";
         return getdbvalue($this->db->dbh,$sql,[(int)$id]);
     }
 
