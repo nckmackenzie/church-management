@@ -100,6 +100,18 @@
                                 </div>
                             </div>
                             <div class="row">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <div class="checkbox">    
+                                            <label class="custom-sm">
+                                                <input type="checkbox" id="active" name="active"
+                                                <?php echo ($data['active'] == 1) ? 'checked' : ''?>>Active
+                                            </label>       
+                                        </div>        
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
                                 <div class="col-3">
                                     <button type="submit" class="btn btn-sm bg-navy custom-font">Save</button>
                                     <input type="hidden" name="id" value="<?php echo $data['id'];?>">
