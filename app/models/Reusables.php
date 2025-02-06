@@ -22,10 +22,27 @@ class Reusables
         return $this->db->resultSet();                  
     }
 
+    public function GetChildAccounts($id)
+    {
+        $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
+                               WHERE (accountTypeId = :id) AND (deleted=0) AND (isBank = 0) AND (parentId <> 0) 
+                                AND (active = 1) AND (isSubCategory=1) ORDER BY accountType');
+        $this->db->bind(':id',$id);
+        return $this->db->resultSet();                  
+    }
+
     public function GetAccountsAll()
     {
         $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
                           WHERE (deleted=0) AND (isBank = 0) AND (parentId <> 0) AND (active = 1) ORDER BY accountType');
+        return $this->db->resultSet();                  
+    }
+
+    public function GetAccountsAllSubcategory()
+    {
+        $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
+                               WHERE (deleted=0) AND (isBank = 0) AND (parentId <> 0) 
+                               AND (active = 1) AND (isSubCategory=1) ORDER BY accountType');
         return $this->db->resultSet();                  
     }
 
