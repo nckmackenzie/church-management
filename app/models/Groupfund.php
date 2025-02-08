@@ -180,37 +180,42 @@ class Groupfund
                 $this->db->execute();
             }
            
-
-            if($data['type'] === 'group'){
-                $gbhparent = getparentgl($this->db->dbh,'groups balances held');
-                if(!$data['dontdeduct']){
-                    saveToLedger($this->db->dbh,$data['paydate'],'groups balances held',$gbhparent,$data['approved'],0,$desc,
-                                                4,12,$data['id'],$_SESSION['congId'],$reference);
-                }else{
-                    saveToLedger($this->db->dbh,$data['paydate'],"groups' expenses","groups' expenses",$data['approved'],0,$desc,
-                                                2,12,$data['id'],$_SESSION['congId'],$reference);
-                }
-            }else{
-                if(!$data['dontdeduct']){
-                    saveToLedger($this->db->dbh,$data['paydate'],'district funds held','district funds held',$data['approved'],0,$desc,
-                                                4,12,$data['id'],$_SESSION['congId'],$reference);
-                }else{
-                    saveToLedger($this->db->dbh,$data['paydate'],"groups' expenses","groups' expenses",$data['approved'],0,$desc,
-                                                2,12,$data['id'],$_SESSION['congId'],$reference);
-                }
-            }
-            
             $cashparent = getparentgl($this->db->dbh,'cash at hand');
-            if((int)$data['paymethod'] === 1){
-                saveToLedger($this->db->dbh,$data['paydate'],'cash at hand',$cashparent,0,$data['approved'],$desc,
-                         3,12,$data['id'],$_SESSION['congId'],$reference);
-            }else{
-                saveToLedger($this->db->dbh,$data['paydate'],'cash at bank',$cashparent,0,$data['approved'],$desc,
-                             3,12,$data['id'],$_SESSION['congId'],$reference);
+            saveToLedger($this->db->dbh,$data['paydate'],'cash holding account',$cashparent,$data['approved'],0,$desc,
+                                                3,12,$data['id'],$_SESSION['congId'],$reference);
 
-                saveToBanking($this->db->dbh,$data['bank'],$data['paydate'],0,$data['approved'],2,
-                             $data['reference'],12,$data['id'],$_SESSION['congId']); 
-            }
+            // if($data['type'] === 'group'){
+            //     $gbhparent = getparentgl($this->db->dbh,'groups balances held');
+            //     if(!$data['dontdeduct']){
+            //         saveToLedger($this->db->dbh,$data['paydate'],'groups balances held',$gbhparent,$data['approved'],0,$desc,
+            //                                     4,12,$data['id'],$_SESSION['congId'],$reference);
+            //     }else{
+            //         saveToLedger($this->db->dbh,$data['paydate'],"groups' expenses","groups' expenses",$data['approved'],0,$desc,
+            //                                     2,12,$data['id'],$_SESSION['congId'],$reference);
+            //     }
+            // }else{
+            //     if(!$data['dontdeduct']){
+            //         saveToLedger($this->db->dbh,$data['paydate'],'district funds held','district funds held',$data['approved'],0,$desc,
+            //                                     4,12,$data['id'],$_SESSION['congId'],$reference);
+            //     }else{
+            //         saveToLedger($this->db->dbh,$data['paydate'],"groups' expenses","groups' expenses",$data['approved'],0,$desc,
+            //                                     2,12,$data['id'],$_SESSION['congId'],$reference);
+            //     }
+            // }
+            
+            saveToLedger($this->db->dbh,$data['paydate'],'petty cash',$cashparent,0,$data['approved'],$desc,
+                         3,12,$data['id'],$_SESSION['congId'],$reference);
+
+            // if((int)$data['paymethod'] === 1){
+            //     saveToLedger($this->db->dbh,$data['paydate'],'cash at hand',$cashparent,0,$data['approved'],$desc,
+            //              3,12,$data['id'],$_SESSION['congId'],$reference);
+            // }else{
+            //     saveToLedger($this->db->dbh,$data['paydate'],'cash at bank',$cashparent,0,$data['approved'],$desc,
+            //                  3,12,$data['id'],$_SESSION['congId'],$reference);
+
+            //     saveToBanking($this->db->dbh,$data['bank'],$data['paydate'],0,$data['approved'],2,
+            //                  $data['reference'],12,$data['id'],$_SESSION['congId']); 
+            // }
 
             if(!$this->db->dbh->commit()){
                 return false;
