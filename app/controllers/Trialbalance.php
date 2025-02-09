@@ -67,7 +67,7 @@ class Trialbalance extends Controller
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'type' => isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : null,
-                'account' => isset($_GET['account']) && !empty(trim($_GET['account'])) ? trim($_GET['account']) : null,
+                'account' => isset($_GET['account']) && !empty(trim($_GET['account'])) ? str_replace("_","'",trim($_GET['account'])) : null,
                 'asofdate' => isset($_GET['asofdate']) && !empty(trim($_GET['asofdate'])) ? date('Y-m-d',strtotime(trim($_GET['asofdate']))) : null,
                 // 'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
                 // 'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
@@ -94,7 +94,7 @@ class Trialbalance extends Controller
             $results = $this->reportmodel->GetDetailedTbReport($data);
             if(!$results){
                 http_response_code(500);
-                echo json_encode(['message' => 'Invalid report type']);
+                echo json_encode(['message' => 'Something went wrong, try again later']);
                 exit;
             }
             foreach($results as $result){
