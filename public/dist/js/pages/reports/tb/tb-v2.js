@@ -79,10 +79,16 @@ function appendTbody(data, type, asofdate) {
       html += `
     <tr>
         <td>${String(account).toUpperCase()}</td>
-        <td class="text-center"><a target="_blank" href='${HOST_URL}/trialbalance/report?type=${type}&account=${account}&asofdate=${asofdate}'>
+        <td class="text-center"><a target="_blank" href='${HOST_URL}/trialbalance/report?type=${type}&account=${account.replaceAll(
+        "'",
+        '_'
+      )}&asofdate=${asofdate}'>
         ${isNaN(parseFloat(debit)) ? '' : numberWithCommas(debit)}</a>
         </td>
-        <td class="text-center"><a target="_blank" href='${HOST_URL}/trialbalance/report?type=${type}&account=${account}&asofdate=${asofdate}'>
+        <td class="text-center"><a target="_blank" href='${HOST_URL}/trialbalance/report?type=${type}&account=${account.replaceAll(
+        "'",
+        '_'
+      )}&asofdate=${asofdate}'>
         ${
           isNaN(parseFloat(credit))
             ? ''

@@ -360,6 +360,15 @@ class Report {
         $this->db->bind(':cid',$_SESSION['congId']);
         return $this->db->getValue();
     }
+    public function GetChildAccounts($data)
+    {
+        // before changes
+        $sql = 'SELECT account,(IFNULL(SUM(credit),0) + IFNULL(SUM(debit),0)) AS amount FROM tblledger 
+                WHERE (deleted = 0) AND (congregationId = ?) AND (transactionDate BETWEEN ? AND ?) AND (parentaccount=?)
+                GROUP BY account';
+        return loadresultset($this->db->dbh,$sql,[(int)$_SESSION['congId'],$data['sdate'],$data['edate'],$data['account']]);
+       
+    }
     public function GetTrialBalance($data)
     {
         $this->db->query('CALL sp_trialbalance(:startdate,:enddate,:cong)');
@@ -572,7 +581,24 @@ class Report {
         }
         
     }
-
+    public function GetPlChildAccountDetailed($data)
+    {
+        if((int)$data['accounttype'] === 1)
+        {
+            $sql = 'SELECT transactionDate,account,(IFNULL(credit,0) + IFNULL(debit,0)) as amount,narration,t.TransactionType,l.parentaccount
+                    FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID
+                    WHERE (account = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
+                    ORDER BY transactionDate';
+            return loadresultset($this->db->dbh,$sql,[$data['account'],$data['sdate'],$data['edate']]);
+        }elseif ((int)$data['accounttype'] === 2) {
+            $sql = 'SELECT transactionDate,account,(IFNULL(debit,0) + IFNULL(credit,0)) as amount,narration,t.TransactionType,l.parentaccount
+                    FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID
+                    WHERE (account = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
+                    ORDER BY transactionDate';
+            return loadresultset($this->db->dbh,$sql,[$data['account'],$data['sdate'],$data['edate']]);
+        }
+        
+    }
     public function GetGroupRevenues($data)
     {
         $sql = 'SELECT IFNULL(SUM(AmountApproved),0) AS Amount FROM tblfundrequisition WHERE (Deleted=0) AND (DontDeduct=1) AND (Status=1) AND (GroupId=?) AND (ApprovalDate BETWEEN ? AND ?)';
@@ -718,7 +744,11 @@ class Report {
         if($isSubcategory){
             $sql = "CALL sp_get_account_statement(?,?,?,?)";
         }else{
-            $sql = "CALL sp_get_account_statement_parent(?,?,?,?)";
+            if($data['subledgers'] == 1){
+                $sql = "CALL sp_get_account_statement_parent(?,?,?,?)";
+            }else{
+                $sql = "CALL sp_get_account_statement(?,?,?,?)";
+            }            
         }
         return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$account,(int)$_SESSION['congId']]);
     }
