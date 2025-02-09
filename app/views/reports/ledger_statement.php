@@ -22,18 +22,28 @@
                 <span class="invalid-feedback" id="account-err"></span>
              </div>
           </div>
-          <div class="col-sm-4">
+          <div class="col-sm-3">
              <div class="form-group">
                 <label for="sdate">Start Date</label>
                 <input type="date" name="sdate" id="sdate" class="form-control form-control-sm">
                 <span class="invalid-feedback"></span>
              </div>
           </div>
-          <div class="col-sm-4">
+          <div class="col-sm-3">
              <div class="form-group">
                 <label for="edate">End Date</label>
                 <input type="date" name="edate" id="edate" class="form-control form-control-sm">
                 <span class="invalid-feedback"></span>
+             </div>
+          </div>
+          <div class="col-sm-2">
+             <div class="form-group">
+             <label for="edate" style="color: #F4F6F9;">End Date</label>
+                <div class="checkbox">    
+                    <label class="custom-sm">
+                        <input type="checkbox" id="subledgers" name="subledgers" checked>Include Subledgers
+                    </label>       
+                </div>  
              </div>
           </div>
           <div class="col-sm-2">
@@ -79,6 +89,7 @@
             let account = $('#account').val();
             let from = $('#sdate').val();
             let to = $('#edate').val();
+            let subledgers = $('#subledgers').is(':checked') ? 1 : 0;
             if(!account || account.trim() === ''){
                
                 $('#account-err').addClass('d-block');
@@ -97,7 +108,7 @@
             $.ajax({
                 url : '<?php echo URLROOT;?>/reports/ledgerstatementrpt',
                 method : 'GET',
-                data : {account, from, to},
+                data : {account, from, to, subledgers},
                 beforeSend: function() {        
                     $('#spinner').show();
                 },
