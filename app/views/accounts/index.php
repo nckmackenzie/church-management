@@ -65,10 +65,9 @@
                                 <td><?php echo $account->atype;?></td>
                                 <?php if($_SESSION['userType'] <=2) : ?>
                                   <td>
-                                     <?php if($account->isEditable == 1) : ?>
+                                     <?php if($account->isEditable == 1 && converttobool($_SESSION['isParish'])) : ?>
                                         <a href="<?php echo URLROOT;?>/accounts/edit/<?php echo $account->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
-                                        
-                                    <?php endif;?>
+                                     <?php endif;?>
                                   </td>     
                                 <?php endif; ?>
                             </tr>
@@ -77,12 +76,12 @@
                                 $con->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
                                 $sql = 'SELECT t.ID,UCASE(t.accountType) as accountType,
                                                a.accountType as atype,brand_level(t.ID) AS levels,
-                                               t.isEditable,t.active
+                                               t.isEditable,t.active,t.congregationId
                                         FROM   tblaccounttypes t inner join tblaccounttypes as a 
                                                on t.accountTypeId=a.ID
-                                        WHERE  (t.isBank=0) AND (t.deleted=0) AND (t.parentId=?)';
+                                        WHERE  (t.isBank=0) AND (t.deleted=0) AND (t.parentId=?) AND (t.congregationId = 0 OR t.congregationId = ?)';
                                 $stmt = $con->prepare($sql);
-                                $stmt->execute([$account->ID]);
+                                $stmt->execute([$account->ID,$_SESSION['congId']]);
                                 $hasChildren = $stmt->rowCount() > 0 ? true : false;
                             ?>
                             <?php if($hasChildren) : ?>
@@ -92,8 +91,10 @@
                                       <td class="sub-level-3"><?php echo $child->accountType;?></td>
                                       <td><?php echo $child->atype;?></td>
                                       <td>
-                                          <a href="<?php echo URLROOT;?>/accounts/edit/<?php echo $child->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
-                                          <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
+                                          <?php if($account->isEditable == 1 && $_SESSION['userType'] <=2 && ((int)$child->congregationId === (int)$_SESSION['congId']) || converttobool($_SESSION['isParish']) && (int)$child->congregationId === 0) : ?>
+                                            <a href="<?php echo URLROOT;?>/accounts/edit/<?php echo $child->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
+                                            <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
+                                          <?php endif;?>
                                       </td>
                                   </tr>
                                 <?php endforeach; ?>
