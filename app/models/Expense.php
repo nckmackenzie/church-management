@@ -36,15 +36,17 @@ class Expense {
         if($type == 1){
             $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
                               WHERE ((accountTypeId = :expense) OR (accountTypeId = :asset)) 
-                             AND (deleted=0) AND (isBank = 0) AND (parentId <> 0) AND (active = 1) AND (isSubCategory=1) ORDER BY accountType');
+                             AND (deleted=0) AND (isBank = 0) AND (parentId <> 0) AND (active = 1)
+                             AND (isSubCategory=1) AND (congregationId = 0 OR congregationId = :cong) ORDER BY accountType');
         }else{
             $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
                                    WHERE ((accountTypeId = :expense) OR (accountTypeId = :asset)) 
                                    AND (deleted=0) AND (isBank = 0) AND (parentId <> 0) AND (forGroup = 1) 
-                                   AND (active = 1) AND (isSubCategory=1) ORDER BY accountType');
+                                   AND (active = 1) AND (isSubCategory=1) AND (congregationId = 0 OR congregationId = :cong) ORDER BY accountType');
         }
         $this->db->bind(':expense',2);
         $this->db->bind(':asset',3);
+        $this->db->bind(':cong',$_SESSION['congId']);
         return $this->db->resultSet();                  
     }
     
