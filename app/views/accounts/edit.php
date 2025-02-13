@@ -87,6 +87,23 @@
                                     </div>
                                 </div>
                             </div>
+                            <?php if(converttobool($_SESSION['isParish'])) : ?>
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="form-group">
+                                            <label for="congregation">Congregation</label>
+                                            <select name="congregation" id="congregation"
+                                                    class="form-control form-control-sm">
+                                                <option value="0">All</option>
+                                                <option value="<?php echo $_SESSION['congId'];?>"
+                                                    <?php selectdCheck($data['congregation'],$_SESSION['congId'])?>>
+                                                        <?php echo $data['congregationName'];?>
+                                                </option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif;?>
                             <div class="row">
                                 <div class="col-md-12">
                                     <div class="form-group">
