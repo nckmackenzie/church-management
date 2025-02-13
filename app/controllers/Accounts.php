@@ -2,6 +2,7 @@
 class Accounts extends Controller{
     private $authmodel;
     private $accountModel;
+    private $congregationModel;
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
@@ -11,6 +12,7 @@ class Accounts extends Controller{
         $this->authmodel = $this->model('Auth');
         checkrights($this->authmodel,'g/l accounts');
         $this->accountModel = $this->model('Account');
+        $this->congregationModel = $this->model('Congregation');
     }
     public function index()
     {
@@ -23,10 +25,12 @@ class Accounts extends Controller{
         $accounttypes = $this->accountModel->getAccountTypes();
         $data = [
             'accountname' => '',
+            'congregationName' => strtoupper($this->congregationModel->getCongregation($_SESSION['congId'])->CongregationName),
             'accounttypes' => $accounttypes,
             'accounts' => '',
             'accounttype' => '',
             'description' => '',
+            'congregation' => '',
             'forgroup' => '',
             'subcategory' => '',
             'check' => '',
@@ -63,8 +67,9 @@ class Accounts extends Controller{
                 'accounts' => '',
                 'check' => isset($_POST['check']) ? 1 : 0,
                 'subcategory' => !empty($_POST['subcategory']) ? trim($_POST['subcategory']) : NULL,
-                'description' => trim($_POST['description']),
+                'description' => !empty($_POST['description']) ? trim($_POST['description']) : NULL,
                 'forgroup' => isset($_POST['forgroup']) ? 1 : 0,
+                'congregation' => converttobool($_SESSION['isParish']) ? (!empty($_POST['congregation']) ? (int)$_POST['congregation'] : 0) : $_SESSION['congId'],
                 'name_err' => '',
                 'account_err' => ''
             ];
@@ -106,12 +111,14 @@ class Accounts extends Controller{
         $accounttypes = $this->accountModel->getAccountTypes();
         $data = [
             'id' => (int)$account->ID,
+            'congregationName' => strtoupper($this->congregationModel->getCongregation($_SESSION['congId'])->CongregationName),
             // 'account' => $account,
             'accountname' => ucwords($account->accountType),
             'accounttypes' => $accounttypes,
             'accounts' => '',
             'accounttype' => (int)$account->accountTypeId,
             'description' => ucwords($account->description),
+            'congregation' => (int)$account->congregationId,
             'forgroup' => converttobool($account->forGroup),
             'issub' => converttobool($account->isSubCategory),
             'subcategory' => (int)$account->parentId,
@@ -143,8 +150,9 @@ class Accounts extends Controller{
                 'accounts' => '',
                 'check' => isset($_POST['check']) ? 1 : 0,
                 'subcategory' => !empty($_POST['subcategory']) ? trim($_POST['subcategory']) : NULL,
-                'description' => trim($_POST['description']),
+                'description' => !empty($_POST['description']) ? trim($_POST['description']) : NULL,
                 'forgroup' => isset($_POST['forgroup']) ? 1 : 0,
+                'congregation' => converttobool($_SESSION['isParish']) ? (!empty($_POST['congregation']) ? (int)$_POST['congregation'] : 0) : $_SESSION['congId'],
                 'active' => isset($_POST['active']) ? 1 : 0,
                 'name_err' => '',
                 'account_err' => ''
