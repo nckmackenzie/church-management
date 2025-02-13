@@ -62,6 +62,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                <a href="<?php echo URLROOT;?>/accounts" class="nav-link">
+                        <p>G/L Accounts</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/groups" class="nav-link">
                         <p>Groups</p>
                     </a>
