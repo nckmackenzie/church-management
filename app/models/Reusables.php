@@ -17,8 +17,10 @@ class Reusables
     public function GetAccounts($id)
     {
         $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
-                          WHERE (accountTypeId = :id) AND (deleted=0) AND (isBank = 0) AND (parentId <> 0) AND (active = 1) ORDER BY accountType');
+                          WHERE (accountTypeId = :id) AND (deleted=0) AND (isBank = 0) AND (parentId <> 0) 
+                          AND (active = 1) AND (congregationId = 0 OR congregationId = :cong) ORDER BY accountType');
         $this->db->bind(':id',$id);
+        $this->db->bind(':cong',$_SESSION['congId']);
         return $this->db->resultSet();                  
     }
 
@@ -26,15 +28,18 @@ class Reusables
     {
         $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
                                WHERE (accountTypeId = :id) AND (deleted=0) AND (isBank = 0) AND (parentId <> 0) 
-                                AND (active = 1) AND (isSubCategory=1) ORDER BY accountType');
+                                AND (active = 1) AND (isSubCategory=1) AND (congregationId = 0 OR congregationId = :cong) ORDER BY accountType');
         $this->db->bind(':id',$id);
+        $this->db->bind(':cong',$_SESSION['congId']);
         return $this->db->resultSet();                  
     }
 
     public function GetAccountsAll()
     {
         $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
-                          WHERE (deleted=0) AND (isBank = 0) AND (parentId <> 0) AND (active = 1) ORDER BY accountType');
+                          WHERE (deleted=0) AND (isBank = 0) AND (parentId <> 0) 
+                          AND (active = 1) AND (congregationId = 0 OR congregationId = :cong) ORDER BY accountType');
+        $this->db->bind(':cong',$_SESSION['congId']);
         return $this->db->resultSet();                  
     }
 
@@ -42,7 +47,8 @@ class Reusables
     {
         $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
                                WHERE (deleted=0) AND (isBank = 0) AND (parentId <> 0) 
-                               AND (active = 1) AND (isSubCategory=1) ORDER BY accountType');
+                               AND (active = 1) AND (isSubCategory=1) AND (congregationId = 0 OR congregationId = :cong) ORDER BY accountType');
+        $this->db->bind(':cong',$_SESSION['congId']);
         return $this->db->resultSet();                  
     }
 

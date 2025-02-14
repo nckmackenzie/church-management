@@ -643,17 +643,9 @@ class Reports extends Controller {
 
             //values 
             $revenues = $this->reportModel->GetRevenues($data);
-            // $tithesofferings = $revenues[0];
-            // $mmfcollections = $revenues[1];
-            // $othercollections = $revenues[2];
-            // $revenue_total = floatval($tithesofferings) + floatval($mmfcollections) + floatval($othercollections);
             $revenue_total = 0;
             //expenses
             $expenses = $this->reportModel->GetExpensesPL($data);
-            // $admincost = $expenses[0];
-            // $hosptcost = $expenses[1];
-            // $optcost = $expenses[2];
-            // $staffcost = $expenses[3];
 
             // $expenses_total = floatval($admincost) + floatval($hosptcost) + floatval($optcost) + floatval($staffcost);
             $expenses_total = 0;

@@ -16,10 +16,11 @@ class Account {
     public function index()
     {
         $this->db->query('SELECT   t.ID,UCASE(t.accountType) as accountType,a.accountType as atype
-                                   ,brand_level(t.ID) AS levels,t.isEditable,t.active
+                                   ,brand_level(t.ID) AS levels,t.isEditable,t.active,t.congregationId
                           FROM     tblaccounttypes t inner join tblaccounttypes as a on t.accountTypeId=a.ID
-                          WHERE    (t.isBank=0) AND (t.deleted=0) AND (brand_level(t.ID) = 2)
+                          WHERE    (t.isBank=0) AND (t.deleted=0) AND (brand_level(t.ID) = 2) AND (t.congregationId = 0 OR t.congregationId = :cong)
                           ORDER BY t.accountTypeId ASC,brand_level(t.ID) ASC ');
+        $this->db->bind(':cong',$_SESSION['congId']);
         return $this->db->resultSet();
     }
     public function getAccountTypes()
@@ -60,14 +61,15 @@ class Account {
 
     public function create($data)
     {
-        $this->db->query('INSERT INTO tblaccounttypes (accountType,parentId,accountTypeId,isSubCategory,`description`,forGroup)
-                          VALUES(:atype,:pid,:accid,:issub,:narr,:forgroup)');
+        $this->db->query('INSERT INTO tblaccounttypes (accountType,parentId,accountTypeId,isSubCategory,`description`,forGroup,congregationId)
+                          VALUES(:atype,:pid,:accid,:issub,:narr,:forgroup,:cong)');
         $this->db->bind(':atype',strtolower($data['accountname']));
         $this->db->bind(':pid', ($data['check'] == 1) ? $data['subcategory'] : $data['accounttype']);
         $this->db->bind(':accid',$data['accounttype']);
         $this->db->bind(':issub',$data['check']);
         $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : NULL);
         $this->db->bind(':forgroup',$data['forgroup']);
+        $this->db->bind(':cong',$data['congregation']);
         if ($this->db->execute()) {
             $act = 'Created Account '.$data['accountname'];
             saveLog($this->db->dbh,$act);
@@ -90,7 +92,8 @@ class Account {
 
             $this->db->dbh->beginTransaction();
             $this->db->query('UPDATE tblaccounttypes SET accountType=:atype,parentId=:pid,accountTypeId=:accid,
-                                                         isSubCategory=:issub,`description`=:narr,forGroup=:forgroup,active=:active
+                                                         isSubCategory=:issub,`description`=:narr,forGroup=:forgroup,
+                                                         active=:active,congregationId=:cong
                               WHERE (ID=:id)');
             $this->db->bind(':atype',strtolower($data['accountname']));
             $this->db->bind(':pid', ($data['check'] == 1) ? $data['subcategory'] : $data['accounttype']);
@@ -99,6 +102,7 @@ class Account {
             $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : NULL);
             $this->db->bind(':forgroup',$data['forgroup']);
             $this->db->bind(':active',$data['active']);
+            $this->db->bind(':cong',$data['congregation']);
             $this->db->bind(':id',$data['id']);
             $this->db->execute();
 
