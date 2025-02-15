@@ -1149,10 +1149,19 @@ class Reports extends Controller {
             $todate = trim($_GET['todate']);
             $assets = $this->reportModel->GetAssets($todate);
             $liablityequities = $this->reportModel->GetLiablityEquity($todate);
-            $assetsTotal = $this->reportModel->GetAssetsTotal($todate);
-            $liablityequitiesTotal = $this->reportModel->GetLiabilityEquityTotal($todate);
-            $netIncome = $this->reportModel->GetNetIncome($todate);
-            $totalLiablityEquity = floatval($liablityequitiesTotal) + floatval($netIncome);
+
+            $assetsTotal = 0;
+            $liablityequitiesTotal = 0;
+            foreach($assets as $asset){
+                $assetsTotal += floatval($asset->balance);
+            }
+            foreach($liablityequities as $liabilityequity){
+                $liablityequitiesTotal += floatval($liabilityequity->balance);
+            }
+            // $assetsTotal = $this->reportModel->GetAssetsTotal($todate);
+            // $liablityequitiesTotal = $this->reportModel->GetLiabilityEquityTotal($todate);
+            // $netIncome = $this->reportModel->GetNetIncome($todate);
+            // $totalLiablityEquity = floatval($liablityequitiesTotal) + floatval($netIncome);
             $output = '';
             $output .= '
                 <table class="table table-bordered table-sm" id="table">
@@ -1170,8 +1179,8 @@ class Reports extends Controller {
                     foreach($assets as $asset){
                         $output .='
                         <tr>
-                            <td>'.strtoupper($asset->account).'</td>
-                            <td><a target="_blank" href="'.URLROOT.'/reports/balancesheetdetailed?account='.strtolower($asset->account).'&asdate='.$todate.'">'.number_format($asset->bal,2).'</a></td>
+                            <td>'.strtoupper($asset->parentaccount).'</td>
+                            <td><a target="_blank" href="'.URLROOT.'/reports/balancesheetdetailed?account='.strtolower($asset->parentaccount).'&asdate='.$todate.'">'.number_format($asset->balance,2).'</a></td>
                         </tr>';
                     }
                     $output .='
@@ -1186,18 +1195,15 @@ class Reports extends Controller {
                     foreach ($liablityequities as $liabilityequity) {
                         $output .='
                         <tr>
-                             <td>'.strtoupper($liabilityequity->account).'</td>
-                             <td><a target="_blank" href="'.URLROOT.'/reports/balancesheetdetailed?account='.strtolower($liabilityequity->account).'&asdate='.$todate.'">'.number_format((floatval($liabilityequity->bal) * -1),2).'</a></td>
+                             <td>'.strtoupper($liabilityequity->parentaccount).'</td>
+                             <td><a target="_blank" href="'.URLROOT.'/reports/balancesheetdetailed?account='.strtolower($liabilityequity->parentaccount).'&asdate='.$todate.'">'.number_format((floatval($liabilityequity->balance)),2).'</a></td>
                         </tr>';
                     } 
                     $output .='
-                        <tr>
-                            <td>NET INCOME</td>
-                            <td>'.number_format(floatval($netIncome),2).'</td>
-                        </tr>
+ 
                         <tr style="background-color: #f59595;">
                             <td style="font-weight: 700;">Liablity & Equity Total</td>
-                            <td style="font-weight: 700;">'.number_format($totalLiablityEquity,2).'</td>
+                            <td style="font-weight: 700;">'.number_format($liablityequitiesTotal,2).'</td>
                         </tr>
                     </tbody>
                 </table>';   
