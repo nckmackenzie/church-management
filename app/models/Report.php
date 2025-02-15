@@ -384,14 +384,17 @@ class Report {
     }
     public function GetAssets($date)
     {
-        $this->db->query('CALL sp_balancesheet_assets(:startd,:cong)');
+        // $this->db->query('CALL sp_balancesheet_assets(:startd,:cong)');
+        $this->db->query('CALL sp_get_assets(:startd,:cong)');
         $this->db->bind(':startd',$date);
         $this->db->bind(':cong',$_SESSION['congId']);
         return $this->db->resultSet();            
     }
     public function GetLiablityEquity($date)
     {
-        $this->db->query('CALL sp_balancesheet_liablityequity(:startd,:cong)');
+        // $this->db->query('CALL sp_balancesheet_liablityequity(:startd,:cong)');
+        // $this->db->query('CALL sp_get_liabilities_equity(:startd,:cong)'); // before v2
+        $this->db->query('CALL sp_get_liabilities_equity_v2(:startd,:cong)');
         $this->db->bind(':startd',$date);
         $this->db->bind(':cong',$_SESSION['congId']);
         return $this->db->resultSet();            
