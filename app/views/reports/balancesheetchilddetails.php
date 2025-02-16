@@ -42,16 +42,22 @@
     $('#results').hide();
     $('#error').hide();
 
-    $('.text-capitalize').text(`${account} Balance Sheet As At ${asdate}`);
+    $('.text-capitalize').text(`${account} break down As At ${asdate}`);
+
+    if(!account || !asdate){
+        $('#loading').hide();
+        $('#error').show();
+        $('#results').hide();
+        return;
+    }
 
       $.ajax({
-          url : '<?php echo URLROOT;?>/reports/getbalancesheetdetailedrpt',
+          url : '<?php echo URLROOT;?>/reports/balancesheetchilddetailsrpt',
           method : 'GET',
           data : {account, asdate},
           success : function(data){
             $('#loading').hide();
             $('#results').html(data).show();
-              // $('#results').html(data);
               table.destroy();
               table = $('#table').DataTable({
                   pageLength : 50,
@@ -64,6 +70,29 @@
                       { extend: 'pdfHtml5', footer: true },
                       "print"
                   ],
+                  drawCallback: function () {
+                    $('.dataTables_paginate > .pagination').addClass('pagination-rounded');                    
+                   
+                      let total = 0;
+                      let api = this.api();
+
+                      // Calculate the sum of the filtered rows for the specific column
+                      total = api
+                        .column(1, { filter: 'applied' }) // Only consider filtered rows
+                        .data()
+                        .reduce((a, b) => {
+                          // Remove commas if present and convert to a float
+                          let x = parseFloat(a.toString().replace(/,/g, '')) || 0;
+                          let y = parseFloat(b.toString().replace(/,/g, '')) || 0;
+                          return x + y;
+                        }, 0);
+
+                      // Format the sum and display it in the footer
+                      $(api.column(1).footer()).html(
+                        total.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')
+                      );
+                  
+              },
               }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
           },
           error: function() {
