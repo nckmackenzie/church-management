@@ -663,14 +663,74 @@ class Report {
         return loadresultset($this->db->dbh,$sql,[$data['group'],$data['sdate'],$data['edate']]);
     }
 
+    function GetAccountTypeId($account)
+    {
+        return getdbvalue($this->db->dbh,'SELECT accountTypeId 
+        FROM tblaccounttypes 
+        WHERE LOWER(accountType) = ? ',[strtolower($account)]);
+    }
+
+    public function GetBalanceSheetItemOpeningBalance($data)
+    {
+        $accountType = $this->GetAccountType($data['account']);
+
+        $yearStartDate = getdbvalue($this->db->dbh,'SELECT startDate FROM tblfiscalyears 
+                                                              WHERE ? BETWEEN startDate AND endDate',[$data['asdate']]);                                                    
+        $openingBalance = 0;
+        if((int)$accountType === 3){
+            $sql = "SELECT  IFNULL(SUM(debit - credit),0) AS OpeningBalance 
+                    FROM tblledger 
+                    WHERE (transactionDate < ?) AND (LOWER(account) = ?) AND (congregationId = ?) AND (deleted = 0)";
+            $openingBalance = getdbvalue($this->db->dbh,$sql,[$yearStartDate,$data['account'],$_SESSION['congId']]);
+        }else{
+            $sql = 'SELECT  IFNULL(SUM(credit - debit),0) AS OpeningBalance 
+                    FROM tblledger 
+                    WHERE (transactionDate < ?) AND (LOWER(account) = ?) AND (congregationId = ?) AND (deleted = 0)';
+        }
+        
+        $openingBalance = getdbvalue($this->db->dbh,$sql,[$yearStartDate,strtolower($data['account']),$_SESSION['congId']]);
+
+        return ['openingBalance' => $openingBalance,'yearStartDate' => $yearStartDate,'accountTypeId' => $accountType];
+    }
+
     public function GetDetailedBalanceSheetAccountReport($data)
     {
-        $sql = 'SELECT transactionDate,account,debit,credit,narration,t.TransactionType 
-                FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID 
-                WHERE (parentaccount = ?) AND (transactionDate <= ?) AND (l.deleted = 0)
-                ORDER BY transactionDate';
-     
-        return loadresultset($this->db->dbh,$sql,[$data['account'],$data['asdate']]);
+        $accountType = $this->GetAccountType($data['account']);
+        $sql = '';
+        if($accountType == 3){
+            $sql = 'SELECT l.account, SUM(l.debit - l.credit) AS balance 
+                     FROM tblledger l 
+                     WHERE l.transactionDate <= ? AND l.congregationId = ? AND LOWER(l.parentaccount) = ? AND l.deleted = 0  
+                     GROUP BY account;';
+        }else{
+            $sql = 'SELECT l.account, SUM(l.credit - l.debit) AS balance 
+                     FROM tblledger l 
+                     WHERE l.transactionDate <= ? AND l.congregationId = ? AND LOWER(l.parentaccount) = ? AND l.deleted = 0  
+                     GROUP BY account;';
+        }     
+        return loadresultset($this->db->dbh,$sql,[$data['asdate'],$_SESSION['congId'],strtolower($data['account'])]);
+    }
+
+    public function GetChildDetailedBalanceSheetAccountReport($data)
+    {
+        try {
+            if((int)$data['accountTypeId'] === 3){
+                $sql = 'SELECT l.transactionDate,l.account,SUM(l.debit - l.credit) AS amount,l.narration,t.TransactionType 
+                        FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID 
+                        WHERE (LOWER(account) = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0) AND (l.congregationId=?)
+                        ORDER BY transactionDate';
+            }else{
+                $sql = 'SELECT l.transactionDate,l.account,SUM(l.credit - l.debit) AS amount,l.narration,t.TransactionType 
+                        FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID 
+                        WHERE (LOWER(account) = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0) AND (l.congregationId=?)
+                        ORDER BY transactionDate';
+            }
+
+            return loadresultset($this->db->dbh,$sql,[$data['account'],$data['yearStartDate'],$data['asdate'],$_SESSION['congId']]);
+        } catch (\Exception $eh) {
+            error_log($eh->getMessage());
+            return false;
+        }
     }
 
     public function GetJournalReport($data)

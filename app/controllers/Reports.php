@@ -1226,7 +1226,6 @@ class Reports extends Controller {
             $data = [
                 'account' => isset($_GET['account']) && !empty(trim($_GET['account'])) ? trim($_GET['account']) : null,
                 'asdate' => isset($_GET['asdate']) && !empty(trim($_GET['asdate'])) ? date('Y-m-d',strtotime(trim($_GET['asdate']))) : null,
-                'results' => []
             ];
 
             //validate data
@@ -1235,28 +1234,129 @@ class Reports extends Controller {
                 echo json_encode(['message' => 'Provide all required fields']);
                 exit;
             }
-            
+           
             $results = $this->reportModel->GetDetailedBalanceSheetAccountReport($data);
+            $totals=0;
             if(!$results){
                 http_response_code(500);
                 echo json_encode(['message' => 'Invalid report type']);
                 exit;
             }
 
-            foreach($results as $result){
-                array_push($data['results'],[
-                    'transactionDate' => date('d-m-Y',strtotime($result->transactionDate)),
-                    'account' => ucwords($result->account),
-                    'debit' => floatval($result->debit) !== 0 ? floatval($result->debit) : '',
-                    'credit' => floatval($result->credit) !== 0 ? floatval($result->credit) : '',
-                    'narration' => ucwords($result->narration),
-                    'transactionType' => ucwords($result->TransactionType),
-                ]);
-            }
-
-            echo json_encode(['success' => true,'results' => $data['results']]);
+            $output = '';
+            $output .= '
+                <table class="table table-bordered table-sm" id="table">
+                    <thead class="bg-lightblue">
+                        <tr>
+                            <th>Account</th>
+                            <th></th>
+                        </tr>
+                    </thead>   
+                    <tbody>';
+                    foreach($results as $result){
+                        $totals += floatval($result->balance);
+                        $output .='
+                        <tr>
+                            <td>'.strtoupper($result->account).'</td>
+                            <td><a target="_blank" href="'.URLROOT.'/reports/balancesheetchilddetails?account='.strtolower($result->account).'&asdate='.$data['asdate'].'">'.number_format($result->balance,2).'</a></td>
+                        </tr>';
+                    }
+                    $output .='
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th style="text-align:right">Total:</th>
+                                <th>'.number_format($totals,2).'</th>
+                            </tr>
+                        </tfoot>
+                    </table>';
+            echo $output;
+       }
+        else{
+            redirect('users/deniedaccess');
             exit;
         }
+    }
+
+    public function balancesheetchilddetails()
+    {
+        $this->view('reports/balancesheetchilddetails',[]);
+    }
+
+    public function balancesheetchilddetailsrpt()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'GET')
+        {
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
+            $data = [
+                'account' => isset($_GET['account']) && !empty(trim($_GET['account'])) ? trim($_GET['account']) : null,
+                'asdate' => isset($_GET['asdate']) && !empty(trim($_GET['asdate'])) ? date('Y-m-d',strtotime(trim($_GET['asdate']))) : null,
+                'openingbal' => 0,
+                'yearStartDate' => null,
+                'accountTypeId' => null
+            ];
+
+            //validate data
+            if(is_null($data['account']) || is_null($data['asdate'])){
+                http_response_code(400);
+                echo json_encode(['message' => 'Provide all required fields']);
+                exit;
+            }
+
+            $openingBalanceDetails = $this->reportModel->GetBalanceSheetItemOpeningBalance($data);
+            $data['openingbal'] = $openingBalanceDetails['openingBalance'];
+            $data['yearStartDate'] = $openingBalanceDetails['yearStartDate'];
+            $data['accountTypeId'] = $openingBalanceDetails['accountTypeId'];
+
+            $results = $this->reportModel->GetChildDetailedBalanceSheetAccountReport($data);
+            $totals=0;
+            if(!$results){
+                http_response_code(500);
+                echo json_encode(['message' => 'Something went wrong while fetching report. Please try again']);
+                exit;
+            }
+
+            $output = '';
+            $output .= '
+                <table class="table table-bordered table-sm" id="table">
+                    <thead class="bg-lightblue">
+                        <tr>
+                            <th>Transaction Date</th>
+                            <th>Amount</th>
+                            <th>Narration</th>
+                            <th>Transaction Type</th>
+                        </tr>
+                    </thead>   
+                    <tbody>
+                        <tr>
+                            <td>'.date('d/M/Y',strtotime($data['yearStartDate'])).'</td>
+                            <td>'.number_format($data['openingbal'],2).'</td>
+                            <td>Opening Balance</td>
+                            <td></td>
+                        </tr>';                    
+                    foreach($results as $result){
+                        // $totals += floatval($result->amount);
+                        $output .='
+                        <tr>
+                            <td>'.date('d/m/Y',strtotime($result->transactionDate)).'</td>
+                            <td>'.number_format($result->amount,2).'</td>
+                            <td>'.ucwords($result->narration).'</td>
+                            <td>'.ucwords($result->TransactionType).'</td>
+                        </tr>';
+                    }
+                    $output .='
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th style="text-align:right">Total:</th>
+                                <th id="totals"></th>
+                                <th></th>
+                                <th></th>
+                            </tr>
+                        </tfoot>
+                    </table>';
+            echo $output;
+       }
         else{
             redirect('users/deniedaccess');
             exit;
