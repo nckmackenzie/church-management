@@ -18,13 +18,60 @@
 
     <!-- Main content -->
     <section class="content">
-        <div class="spinner-container d-flex justify-content-center"></div>
-        <div class="col-12">
-            <div class="table-responsive"></div>
-        </div>
+      <div class="row">
+            <div class="col-md-9 mx-auto">
+                <div id="results" class="table-responsive">
+                        
+                </div>
+                <div id="loading" style="display: none;">Loading...</div>
+                <div id="error" style="display: none; color: red;">An error occurred while fetching data.</div>
+            </div>
+      </div>
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/reports/balancesheet/index.js"></script>
+<script>
+  $(function(){
+    const urlSearchParams = new URLSearchParams(window.location.search);
+    const params = Object.fromEntries(urlSearchParams.entries());
+    var table = $('#table').DataTable();
+
+    const { account, asdate } = params;
+
+    $('#loading').show();
+    $('#results').hide();
+    $('#error').hide();
+
+    $('.text-capitalize').text(`${account} Balance Sheet As At ${asdate}`);
+
+      $.ajax({
+          url : '<?php echo URLROOT;?>/reports/getbalancesheetdetailedrpt',
+          method : 'GET',
+          data : {account, asdate},
+          success : function(data){
+            $('#loading').hide();
+            $('#results').html(data).show();
+              // $('#results').html(data);
+              table.destroy();
+              table = $('#table').DataTable({
+                  pageLength : 50,
+                  fixedHeader : true,
+                  ordering : false,
+                  searching : false,
+                  "responsive" : true,
+                  buttons: [
+                      { extend: 'excelHtml5', footer: true },
+                      { extend: 'pdfHtml5', footer: true },
+                      "print"
+                  ],
+              }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
+          },
+          error: function() {
+            $('#loading').hide();
+            $('#error').show();
+        }
+      });
+  });
+</script>
 </body>
 </html>  
