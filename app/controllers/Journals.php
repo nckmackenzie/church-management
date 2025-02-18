@@ -1,5 +1,7 @@
 <?php 
 class Journals extends Controller{
+    private $journalModel;
+    private $authmodel;
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
@@ -186,5 +188,65 @@ class Journals extends Controller{
             echo json_encode(['message' => 'Entries found','success' => true,'data' => $validated]);
             exit;
         }
+    }
+
+    public function getJournalDetails()
+    {
+        if($_SERVER['REQUEST_METHOD'] !== 'GET'){
+            redirect('users/deniedaccess');
+            exit;
+        }
+
+        $data = [
+            'id' => isset($_GET['id']) && !empty(trim($_GET['id'])) ? (int)trim(htmlentities($_GET['id'])) : null,
+            'type' => isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim(htmlentities($_GET['type'])) : null
+        ];
+
+        if(is_null($data['id']) || is_null($data['type'])){
+            http_response_code(400);
+            echo json_encode(['message' => 'Provide all required fields','success' => false]);
+            exit;
+        }
+
+        $details = $this->journalModel->getJournalDetails($data);
+
+        if($details === false){
+            http_response_code(404);
+            echo json_encode(['message' => 'Journal not found','success' => false]);
+            exit;
+        }
+
+        $output = '';
+        $output .= 
+        '<table class="table table-bordered table-striped">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Account</th>
+                    <th>Debit</th>
+                    <th>Credit</th>
+                    <th>Narration</th>
+                </tr>
+            </thead>
+            <tbody>';
+        
+        foreach($details as $detail){
+            $debit = floatval($detail->debit) > 0 ? number_format(floatval($detail->debit),2) : '';
+            $credit = floatval($detail->credit) > 0 ? number_format(floatval($detail->credit),2) : '';
+            $output .= 
+            '<tr>
+                <td>'.date('d/m/Y', strtotime($detail->transactionDate)).'</td>
+                <td>'.ucwords($detail->account).'</td>
+                <td>'.$debit.'</td>
+                <td>'.$credit.'</td>
+                <td>'.ucwords($detail->narration).'</td>
+            </tr>';
+        }
+        $output .= 
+          '</tbody>
+        </table>';
+        
+        http_response_code(200);
+        echo $output;
     }
 }
