@@ -17,7 +17,7 @@ class Journal {
     {
         $this->db->query('SELECT ID,UCASE(accountType) as accountType 
                           FROM tblaccounttypes 
-                          WHERE (deleted=0) AND (parentId <> 0) AND (active = 1)
+                          WHERE (deleted=0) AND (parentId <> 0) AND (active = 1) AND (isSubCategory = 1)
                                 AND (congregationId=:cid OR congregationId=0)
                           ORDER BY accountType');
         $this->db->bind(':cid',$_SESSION['congId']);
