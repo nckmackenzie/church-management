@@ -31,6 +31,38 @@
     </div>
   </div>
 </div>
+
+<!-- Modal -->
+<div class="modal fade" id="viewModalCenter" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLongTitle">View Transaction journal entry</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">   
+        <div class="row">
+          <div class="col-md-9">
+            <div id="error" style="display: none; color: red;">An error occurred while fetching data.</div>
+            <input type="hidden" name="id" id="viewid">
+          </div>
+          <div class="col-md-12">
+            <div id="results" class="table-responsive"></div>
+            <div id="loading" style="display: none;">Loading...</div>
+            <div id="error" style="display: none; color: red;">An error occurred while fetching data.</div>
+          </div>
+          </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+     
+    </div>
+  </div>
+</div>
+
 <!-- Modal -->
 <div class="modal fade" id="approveModalCenter" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
@@ -120,6 +152,7 @@
                                             <?php endif; ?>
                                         <?php endif; ?>  
                                             <a target="_blank" href="<?php echo URLROOT;?>/expenses/print/<?php echo $expense->ID;?>" class="btn btn-sm bg-warning btnprint custom-font"><i class="fas fa-print"></i></a>
+                                            <button type="button" class="btn btn-sm btn-secondary custom-font btnview" data-id="<?php echo $expense->ID;?>"><i class="far fa-eye"></i></button>
                                           <?php if(strlen(trim($expense->fileName)) > 1) : ?>
                                             <a target="_blank" href="<?php echo URLROOT;?>/img/<?php echo $expense->fileName;?>" class="btn btn-sm bg-info btnreceipt custom-font"><i class="far fa-file"></i></a>
                                           <?php endif; ?>
@@ -182,6 +215,36 @@
           var currentRow = $(this).closest("tr");
           var data1 = $('#expensesTable').DataTable().row(currentRow).data();
           $('#aid').val(data1[0]);
+      });
+      $('#expensesTable').on('click','.btnview',function(){
+        $('#viewModalCenter').modal('show');
+        $('#loading').show();
+        $('#results').hide();
+        $('#error').hide();
+          $tr = $(this).closest('tr');
+
+          let data = $tr.children('td').map(function(){
+              return $(this).text();
+          }).get();
+          var currentRow = $(this).closest("tr");
+          var data1 = $('#expensesTable').DataTable().row(currentRow).data();
+          $('#viewid').val(data1[0]);
+
+          $.ajax({
+            url: "<?php echo URLROOT;?>/journals/getJournalDetails",
+            method: "GET",
+            data: {id: data1[0], type: 2},
+            success: function(data){
+              console.log(data)
+              $('#loading').hide();
+              $('#results').html(data).show();
+            },
+            error: function(err) {
+              console.log(err)
+              $('#loading').hide();
+              $('#error').show();
+            }
+          });
       });
     });
 </script>

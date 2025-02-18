@@ -161,4 +161,18 @@ class Journal {
         }
         return getdbvalue($this->db->dbh,'SELECT ID FROM tblaccounttypes WHERE LOWER(accountType) = ?',[$account]);
     }
+
+    public function getJournalDetails($data)
+    {
+        $sql = 'SELECT 
+                    l.ID,
+                    l.transactionDate,
+                    l.account,
+                    l.debit,
+                    l.credit,
+                    l.narration
+                FROM `tblledger` l 
+                WHERE (transactionId = ?) AND (transactionType = ?) AND (l.deleted = 0) AND (l.congregationId=?)';
+        return loadresultset($this->db->dbh,$sql,[(int)$data['id'],$data['type'],(int)$_SESSION['congId']]);
+    }
 }
