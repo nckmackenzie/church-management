@@ -108,6 +108,33 @@
     </section>
     <!-- Main content -->
     <section class="content">
+        <?php if($_SESSION['userType'] <= 2) : ?>
+          <div class="col-md-6 mx-auto">
+            <div class="alert custom-danger alert-dismissible fade approval-error" role="alert">
+              <strong>Error!</strong> Something went wrong while performing this action.
+              <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="card card-body bg-light">
+              <div class="card-title mb-2">Reset Approval Status for selected financial year.</div>
+              <form action="<?php echo URLROOT;?>/expenses/resetApproval" method="post" id="resetApproval">
+                  <div class="form-group">
+                    <label for="year">Financial Year</label>
+                    <select name="year" id="year" 
+                            class="form-control form-control-sm">
+                        <option value="" selected disabled>Select year</option>    
+                        <?php foreach($data['years'] as $year) : ?>
+                            <option value="<?php echo $year->ID;?>"><?php echo strtolower($year->yearName);?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <span class="invalid-feedback">Select financial year</span>
+                  </div>
+                  <button type="submit" class="btn btn-sm bg-navy btnsubmit">Submit</button>
+              </form>
+            </div>
+          </div>
+        <?php endif; ?>
         <div class="row">
             <div class="col-md-12 table-responsive">
                 <table class="table table-striped table-bordered table-sm" id="expensesTable">
@@ -183,6 +210,36 @@
             {"width" : "15%" , "targets": 8},
           ]
       });
+
+      $('#resetApproval').submit(function(e){
+        e.preventDefault();
+        var year = $('#year').val();
+        if(year == null || year == ""){
+          $('#year').addClass('is-invalid');
+          return false;
+        }
+        $('#year').attr('disabled',true);
+        $('.btnsubmit').attr('disabled',true);
+        $.ajax({
+            url: "<?php echo URLROOT;?>/expenses/resetApprovals",
+            method: "POST",
+            data: { year },
+            dataType: "json",
+            success: function(data){
+              location.reload();
+            },
+            error: function() {
+              $('.approval-error').addClass('show');
+              $('#year').attr('disabled',false);
+              $('.btnsubmit').attr('disabled',false);
+            }
+        });
+
+      });
+
+      $('#year').change(function(){
+        $('#year').removeClass('is-invalid');
+      });
       
       $(".btnapprove").attr('title', 'Approve');
       $(".btnedit").attr('title', 'Edit');
@@ -235,12 +292,10 @@
             method: "GET",
             data: {id: data1[0], type: 2},
             success: function(data){
-              console.log(data)
               $('#loading').hide();
               $('#results').html(data).show();
             },
             error: function(err) {
-              console.log(err)
               $('#loading').hide();
               $('#error').show();
             }

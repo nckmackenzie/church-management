@@ -87,6 +87,11 @@ class Reusables
         return getdbvalue($this->db->dbh,$sql,[(int)$id]);
     }
 
+    public function GetOpenedFiscalYears()
+    {
+        $sql = 'SELECT ID,yearName FROM tblfiscalyears WHERE deleted=0 AND closed=0 ORDER BY yearName';
+        return loadresultset($this->db->dbh,$sql,[]);
+    }
     public function GetFiscalYear($date)
     {
         $sql = 'SELECT ID FROM tblfiscalyears WHERE ? BETWEEN startDate AND endDate AND deleted=0';

@@ -584,4 +584,52 @@ class Expense {
         
         return loadresultset($this->db->dbh,$sql,[$group]);
     }
+
+    public function resetApprovals($data)
+    {
+        
+        try {
+
+            $this->db->dbh->beginTransaction();
+
+            $year = getdbvalue($this->db->dbh,'SELECT ID FROM tblfiscalyears WHERE ID = ?',[$data['year']]);
+            if(!$year){
+                throw new \Exception('Year not found');
+            }
+
+            $expenseIds = loadresultset($this->db->dbh,'SELECT ID FROM tblexpenses WHERE (fiscalYearId = ?)',[$year]);
+
+            foreach($expenseIds as $exp){
+                $this->db->query('UPDATE tblpettycash SET Deleted = 1 WHERE (ExpenseId=:eid)');
+                $this->db->bind(':eid',$exp->ID);
+                $this->db->execute();
+
+                $this->db->query('UPDATE tblledger SET deleted = 1 WHERE (transactionType=2) AND (transactionId=:eid)');
+                $this->db->bind(':eid',$exp->ID);
+                $this->db->execute();
+
+                $this->db->query('UPDATE tblbankpostings SET deleted = 1 WHERE (transactionType=2) AND (transactionId=:eid)');
+                $this->db->bind(':eid',$exp->ID);
+                $this->db->execute();
+                       
+            }
+
+            $this->db->query('UPDATE tblexpenses SET `status` = 0 WHERE (fiscalYearId=:id)');
+            $this->db->bind(':id',$year); 
+            $this->db->execute();
+            
+            if ($this->db->dbh->commit()) {
+                return true;
+            }
+            else{
+                return false;
+            }     
+
+        } catch (\Exception $e) {
+            if ($this->db->dbh->inTransaction()) {
+                $this->db->dbh->rollback();
+            }
+            error_log($e->getMessage(),0);
+        }
+    }
 }
