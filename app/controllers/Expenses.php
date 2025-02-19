@@ -18,7 +18,7 @@ class Expenses extends Controller{
     public function index()
     {
         $expenses = $this->expenseModel->getExpenses();
-        $data = ['expenses' => $expenses];
+        $data = ['expenses' => $expenses,'years' => $this->reusemodel->GetOpenedFiscalYears()];
         $this->view('expenses/index',$data);
     }
 
@@ -422,5 +422,32 @@ class Expenses extends Controller{
             ]);
         }
         echo json_encode($data);
+    }
+
+    public function resetApprovals()
+    {
+        if($_SERVER['REQUEST_METHOD'] !== 'POST'){
+            redirect('users/deniedaccess');
+            exit;
+        }
+
+        $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
+        $data = [
+            'year' => isset($_POST['year']) && !empty(trim($_POST['year'])) ? (int)trim($_POST['year']) : NULL,
+        ];
+
+        if($data['year'] === NULL){
+            http_response_code(400);
+            echo json_encode(['error' => 'Year not set']);
+            exit;
+        }
+
+        if(!$this->expenseModel->resetApprovals($data)){
+            http_response_code(500);
+            echo json_encode(['error' => 'There was a problem perfoming this task']);
+            exit;
+        }
+
+        echo json_encode(['success' => 'Approvals reset successfully']);
     }
 }
