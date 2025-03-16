@@ -44,7 +44,7 @@ class Contributions extends Controller {
 
     public function add()
     {
-        $accounts = $this->reusemodel->GetChildAccounts(1);
+        $accounts = $this->reusemodel->GetAccountsAllSubcategory();
         $date = date('Y-m-d', strtotime($_SESSION['processdate']));
         $paymethods = $this->reusemodel->PaymentMethods();
         $banks = $this->reusemodel->GetBanks();
@@ -98,7 +98,7 @@ class Contributions extends Controller {
            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
         //    $receiptNo = $this->contributionModel->receiptNo();
         //    $receiptNo = $this->getreceiptno();
-           $accounts = $this->reusemodel->GetChildAccounts(1);
+           $accounts = $this->reusemodel->GetAccountsAllSubcategory();
            $paymethods = $this->reusemodel->PaymentMethods();
            $banks = $this->reusemodel->GetBanks();
            $categories = $this->contributionModel->getCategories();
@@ -239,7 +239,7 @@ class Contributions extends Controller {
     {
        $header = $this->contributionModel->contributionHeader(trim($id));
        $details = $this->contributionModel->getContribution($id);
-       $accounts = $this->reusemodel->GetChildAccounts(1);
+       $accounts = $this->reusemodel->GetAccountsAllSubcategory();
        $paymethods = $this->reusemodel->PaymentMethods();
        $banks = $this->reusemodel->GetBanks();
        $categories = $this->contributionModel->getCategories();
