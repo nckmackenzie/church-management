@@ -133,6 +133,7 @@
           var currentRow = $(this).closest("tr");
           var data1 = $('#accountsTable').DataTable().row(currentRow).data();
           $('#id').val(data1[0]);
+        // dummy code
       });
     });
 </script>
