@@ -91,10 +91,15 @@
                                       <td class="sub-level-3"><?php echo $child->accountType;?></td>
                                       <td><?php echo $child->atype;?></td>
                                       <td>
-                                          <?php if($account->isEditable == 1 && $_SESSION['userType'] <=2 && ((int)$child->congregationId === (int)$_SESSION['congId']) || (converttobool($_SESSION['isParish']) && (int)$child->congregationId === 0)) || (int)$_SESSION['userType']  < 2 : ?>
-                                            <a href="<?php echo URLROOT;?>/accounts/edit/<?php echo $child->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
-                                            <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
-                                          <?php endif;?>
+                                          <?php if (
+    ($account->isEditable == 1 && $_SESSION['userType'] <= 2 && (int)$child->congregationId === (int)$_SESSION['congId']) 
+    || (converttobool($_SESSION['isParish']) && (int)$child->congregationId === 0) 
+    || (int)$_SESSION['userType'] < 2
+) : ?>
+    <a href="<?php echo URLROOT; ?>/accounts/edit/<?php echo $child->ID; ?>" class="btn btn-sm bg-olive custom-font">Edit</a>
+    <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
+<?php endif; ?>
+
                                       </td>
                                   </tr>
                                 <?php endforeach; ?>
