@@ -3,3 +3,4 @@ public/plugins
 app/config/config.php
 public/.htaccess
 public/dist/js/pages/utils/utils.js
+public/error_log

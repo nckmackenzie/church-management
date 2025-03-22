@@ -366,4 +366,35 @@ class Groupfunds extends Controller
             exit;
         }
     }
+
+    public function unapprove()
+    {
+        if($_SERVER['REQUEST_METHOD'] === 'POST'){
+            $_POST = filter_input_array(INPUT_POST, FILTER_UNSAFE_RAW);
+            $id = isset($_POST['uid']) && !empty(trim($_POST['uid'])) ? trim($_POST['uid']) : '';
+            
+            //no id
+            if(empty($id)){
+                flash('approval_msg', 'Unable to get selected approval!','alert custom-danger alert-dismissible fade show');
+                redirect('groupfunds/approvals');
+                exit;
+            }
+            
+            //unable to delete
+            $response = $this->fundmodel->Unapprove($id);
+            if(!$response){
+                flash('approval_msg', 'Unable to delete selected request','alert custom-danger alert-dismissible fade show');
+                redirect('groupfunds/approvals');
+                exit;
+            }
+
+            flash('approval_msg', 'Unapproved successfully!');
+            redirect('groupfunds/approvals');
+            exit;
+
+        }else{
+            redirect('users/deniedaccess');
+            exit;
+        }
+    }
 }

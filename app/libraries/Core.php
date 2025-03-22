@@ -15,7 +15,7 @@ class Core {
         // print_r($this->getUrl());
         $url = $this->getUrl();
         //Look for contoller for first index
-        if (file_exists('../app/controllers/'.ucwords($url[0]).'.php')) {
+        if ($url && file_exists('../app/controllers/'.ucwords($url[0]).'.php')) {
             #if exists set as currrentController
             $this->currentController = ucwords($url[0]);
             //unset zero index

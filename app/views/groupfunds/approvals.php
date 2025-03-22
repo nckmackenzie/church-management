@@ -56,6 +56,33 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="unapproveModalCenter" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLongTitle">Unapprove requisition</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+          <form action="<?php echo URLROOT;?>/groupfunds/unapprove" method="post">
+              <div class="row">
+                <div class="col-md-12">
+                  <p>Are your sure you want to unapprove this requisition approval</p>
+                  <input type="hidden" name="uid" id="uid">
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-danger">Unapprove</button>
+              </div>
+          </form>
+      </div>
+     
+    </div>
+  </div>
+</div>
 <div class="content-wrapper">
     <!-- Content Header (Page header) -->
     <section class="content-header">
@@ -94,6 +121,8 @@
                                             <?php if((int)$approval->Status === 0) : ?>
                                                 <a href="<?php echo URLROOT;?>/groupfunds/approve/<?php echo $approval->ID;?>" class="btn btn-sm bg-olive custom-font">Approve</a>
                                                 <button type="button" class="btn btn-sm btn-danger custom-font btnreject">Reject</button>
+                                            <?php elseif((int)$approval->Status === 1) : ?>
+                                               <button type="button" class="btn btn-sm btn-danger custom-font btnunapprove">Unapprove</button>
                                             <?php else: ?>
                                                 <?php if((int)$approval->DiffInDate <= 1) : ?>    
                                                   <button type="button" class="btn btn-sm btn-warning custom-font btndel">Reverse</button>
@@ -143,6 +172,16 @@
               return $(this).text();
           }).get();
           $('#rid').val(data[0]);
+      });
+
+      $('#reqTable').on('click','.btnunapprove',function(){
+          $('#unapproveModalCenter').modal('show');
+          $tr = $(this).closest('tr');
+
+          let data = $tr.children('td').map(function(){
+              return $(this).text();
+          }).get();
+          $('#uid').val(data[0]);
       });
     });
 </script>
