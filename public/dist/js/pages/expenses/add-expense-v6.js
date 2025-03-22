@@ -82,6 +82,7 @@ async function getRequisitions(group, type) {
       let newOption = new Option(dt.label, dt.id);
       requisitionSelect.add(newOption, undefined);
     });
+    cashtypeSelect.value = 'cash holding';
   } else {
     requisitionSelect.disabled = false;
   }

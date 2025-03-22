@@ -118,6 +118,7 @@
                                         <select name="cashtype" id="cashtype" class="form-control form-control-sm mandatory">
                                              <option value="cash at hand" <?php selectdCheckEdit($data['deductfrom'],$data['expense']->deductfrom,'cash at hand');?>>Cash At Hand</option>   
                                              <option value="petty cash" <?php selectdCheckEdit($data['deductfrom'],$data['expense']->deductfrom,'petty cash');?>>Petty Cash</option>   
+                                             <option value="cash holding" <?php selectdCheck('cash holding',$data['deductfrom']);?>>Cash Holding Acc</option>   
                                         </select>        
                                     </div>
                                 </div>
@@ -242,6 +243,6 @@
         }
     });
 </script>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/expenses/add-expense-v2.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/expenses/add-expense-v6.js"></script>
 </body>
 </html>  
