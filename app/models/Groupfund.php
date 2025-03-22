@@ -303,4 +303,41 @@ class Groupfund
             error_log($e->getMessage(),0);
         }
     }
+
+    public function Unapprove($id)
+    {
+        try {
+            $this->db->dbh->beginTransaction();
+            
+           
+            $this->db->query('UPDATE tblfundrequisition 
+                                SET AmountApproved = :app,ApprovalDate=:appdate,ApprovedBy = :appby,`Status` = 0
+                              WHERE (ID = :id)');
+            $this->db->bind(':app',null);
+            $this->db->bind(':appdate',null);
+            $this->db->bind(':appby',null);
+            $this->db->bind(':id',$id);
+            $this->db->execute();
+
+            $this->db->query('DELETE from tblmmf 
+                                   WHERE (TransactionType = 12) AND (TransactionId = :id)');
+            $this->db->bind(':id',$id);
+            $this->db->execute();
+            
+
+            deleteLedgerBanking($this->db->dbh,12,$id);           
+            if(!$this->db->dbh->commit()){
+                return false;
+            }else{                
+                return true;
+            }
+
+        } catch (Exception $e) {
+            if($this->db->dbh->inTransaction()){
+                $this->db->dbh->rollback();
+            }
+            error_log($e->getMessage(),0);
+            return false;
+        }
+    }
 }
