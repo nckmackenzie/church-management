@@ -26,6 +26,14 @@ groupdistrictSelect.addEventListener('change', async function (e) {
         `;
       groupSelect.insertAdjacentHTML('beforeend', html);
     });
+
+  if (e.target.value === 'group') {
+    dontDeductChkbox.disabled = false;
+    dontDeductChkbox.checked = false;
+  } else {
+    dontDeductChkbox.disabled = true;
+    dontDeductChkbox.checked = true;
+  }
 });
 
 //form submit
