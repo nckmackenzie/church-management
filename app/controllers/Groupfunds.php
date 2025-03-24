@@ -95,7 +95,7 @@ class Groupfunds extends Controller
                $data['errmsg'] = 'Fill all required fields';
             }
 
-            if(($data['amount'] > $data['availableamount']) && !$data['dontdeduct']){
+            if(($data['amount'] > $data['availableamount']) && !$data['dontdeduct'] && $data['type'] === 'group'){
                 $data['errmsg'] = 'Requesting more than is available';
             }
 
@@ -147,7 +147,7 @@ class Groupfunds extends Controller
             'id' => $request->ID,
             'isedit' => true,
             'reqdate' => $request->RequisitionDate,
-            'group' => $request->GroupId,
+            'group' => $request->RequestType === 'group' ? $request->GroupId : ($request->RequestType === 'district' ? $request->DistrictId : $request->ChurchCategoryId),
             'amount' => $request->AmountRequested,
             'availableamount' => floatval($this->fundmodel->GetBalance($request->GroupId,$request->RequisitionDate,$request->RequestType)) + floatval($request->AmountRequested),
             'reason' => strtoupper($request->Purpose),

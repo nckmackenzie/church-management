@@ -53,6 +53,7 @@
                                             <option value="" selected disabled>Select group/district</option>
                                             <option value="group" <?php selectdCheck($data['type'],'group'); ?>>Group</option>
                                             <option value="district" <?php selectdCheck($data['type'],'district'); ?>>District</option>
+                                            <option value="church" <?php selectdCheck($data['type'],'church'); ?>>Church</option>
                                         </select>
                                         <span class="invalid-feedback"></span>
                                     </div>
@@ -123,6 +124,6 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/add-v2.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/add-v3.js"></script>
 </body>
 </html>  

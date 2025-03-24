@@ -63,17 +63,30 @@ class Groupfund
     public function CreateUpdate($data)
     {
         if(!$data['isedit']){
-            $this->db->query('INSERT INTO tblfundrequisition (ReqNo,RequisitionDate,RequestType,DistrictId,GroupId,Purpose,AmountRequested,RequestedBy,DontDeduct,CongregationId) 
-                              VALUES(:reqno,:rdate,:rtype,:did,:gid,:purpose,:amount,:reqby,:deduct,:cid)');
+            $this->db->query('INSERT INTO tblfundrequisition (ReqNo,RequisitionDate,RequestType,DistrictId,GroupId,ChurchCategoryId,Purpose,AmountRequested,RequestedBy,DontDeduct,CongregationId) 
+                              VALUES(:reqno,:rdate,:rtype,:did,:gid,:catid,:purpose,:amount,:reqby,:deduct,:cid)');
             $this->db->bind(':reqno',$this->GetReqNo());
         }else{
-            $this->db->query('UPDATE tblfundrequisition SET RequisitionDate=:rdate,RequestType=:rtype,DistrictId=:did,GroupId=:gid,Purpose=:purpose,AmountRequested=:amount,RequestedBy=:reqby,DontDeduct=:deduct 
+            $this->db->query('UPDATE tblfundrequisition SET RequisitionDate=:rdate,RequestType=:rtype,DistrictId=:did,GroupId=:gid,ChurchCategoryId=:catid,Purpose=:purpose,AmountRequested=:amount,RequestedBy=:reqby,DontDeduct=:deduct 
                               WHERE (ID = :id)');
         }
         $this->db->bind(':rdate',!empty($data['reqdate']) ? $data['reqdate'] : null);
         $this->db->bind(':rtype',!empty($data['type']) ? $data['type'] : null);
-        $this->db->bind(':did',$data['type'] === 'group' ? null : $data['group']);
-        $this->db->bind(':gid',$data['type'] === 'group' ? $data['group'] : null);
+        if($data['type'] === 'church'){
+            $this->db->bind(':did',null);
+            $this->db->bind(':gid',null);
+            $this->db->bind(':catid',$data['group']);
+        }elseif($data['type'] === 'district'){
+            $this->db->bind(':did',$data['group']);
+            $this->db->bind(':gid',null);
+            $this->db->bind(':catid',null);
+        }elseif($data['type'] === 'group'){
+            $this->db->bind(':did',null);
+            $this->db->bind(':gid',$data['group']);
+            $this->db->bind(':catid',null);
+        }
+        // $this->db->bind(':did',$data['type'] === 'group' ? null : $data['group']);
+        // $this->db->bind(':gid',$data['type'] === 'group' ? $data['group'] : null);
         $this->db->bind(':purpose',!empty($data['reason']) ? strtolower($data['reason']) : null);
         $this->db->bind(':amount',!empty($data['amount']) ? $data['amount'] : null);
         $this->db->bind(':reqby',$_SESSION['userId']);
