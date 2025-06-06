@@ -43,8 +43,8 @@ class Expenses extends Controller{
 
     public function add()
     {
-        // $accounts = $this->reusemodel->GetAccounts(2);
-        $accounts = $this->expenseModel->GetAccounts(1);
+        $accounts = $this->reusemodel->GetAccountsAllSubcategory();
+        // $accounts = $this->expenseModel->GetAccounts(1);
         $date = date('Y-m-d',strtotime($_SESSION['processdate']));
         $paymethods = $this->reusemodel->PaymentMethods();
         $banks = $this->reusemodel->GetBanks();
