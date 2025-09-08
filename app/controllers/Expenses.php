@@ -122,6 +122,7 @@ class Expenses extends Controller{
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
+            $expenseType = $_POST['expensetype'];
             $accounts = $this->expenseModel->GetAccounts($_POST['expensetype']);
             $paymethods = $this->reusemodel->PaymentMethods();
             $banks = $this->reusemodel->GetBanks();
@@ -412,7 +413,7 @@ class Expenses extends Controller{
     public function getaccounts()
     {
         $type = isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : NULL;
-        $accounts = $this->expenseModel->GetAccounts($type);
+        $accounts = $type == 2 ? $this->expenseModel->GetAccounts($type) : $this->reusemodel->GetAccountsAllSubcategory();
         $data = array();
 
         foreach($accounts as $account){
