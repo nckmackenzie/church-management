@@ -55,6 +55,31 @@
                                         </tbody>
                                     </table>
                                 </div>
+                                <div class="col-12 table-responsive">
+                                    <div class="card-header text-center h3">Journal</div>
+                                    <table class="table table-bordered table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Account</th>
+                                                <th>Debit</th>
+                                                <th>Credit</th>
+                                                <th>Narration</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach($data['journalDetails'] as $detail): ?>
+                                                <tr>
+                                                    <td><?php echo date('d/m/Y', strtotime($detail->transactionDate)); ?></td>
+                                                    <td><?php echo ucwords($detail->account); ?></td>
+                                                    <td><?php echo floatval($detail->debit) > 0 ? number_format(floatval($detail->debit),2) : ''; ?></td>
+                                                    <td><?php echo floatval($detail->credit) > 0 ? number_format(floatval($detail->credit),2) : ''; ?></td>
+                                                    <td><?php echo ucwords($detail->narration); ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>    
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>
