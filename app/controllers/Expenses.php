@@ -406,7 +406,8 @@ class Expenses extends Controller{
     public function print($id)
     {
         $expense = $this->expenseModel->getExpenseFull($id);
-        $data = ['expense' => $expense];
+        $journalDetails = $this->expenseModel->getJournalDetails($id);
+        $data = ['expense' => $expense, 'journalDetails' => $journalDetails];
         $this->view('expenses/print',$data);
     }
 

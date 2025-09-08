@@ -164,6 +164,62 @@ class Journal {
 
     public function getJournalDetails($data)
     {
+        if(!isset($data['id']) || empty(trim($data['id'])) || !is_numeric($data['id'])){
+            return [];
+        }
+        if((int)$data['type'] === 2){
+           $expense = loadsingleset($this->db->dbh,'SELECT * FROM tblexpenses WHERE ID=?',[(int)$data['id']]);
+           $status = (int)$expense->status;
+           if($status == 1){
+                $sql = 'SELECT 
+                        l.ID,
+                        l.transactionDate,
+                        l.account,
+                        l.debit,
+                        l.credit,
+                        l.narration
+                    FROM `tblledger` l 
+                    WHERE (transactionId = ?) AND (transactionType = ?) AND (l.deleted = 0) AND (l.congregationId=?)';
+                return loadresultset($this->db->dbh,$sql,[(int)$expense->ID,2,(int)$_SESSION['congId']]);
+            }else {
+                $this->db->query('SELECT accountType FROM tblaccounttypes WHERE (ID=:id)');
+                $this->db->bind(':id',$expense->accountId);
+                $accountname = $this->db->getValue();
+
+                if(!is_null($expense->requisitionId)){
+                        $creditAccount = 'cash holding account';
+                }else{
+                    if($expense->paymethodId == 1 && $expense->deductfrom === 'petty cash'){
+                        $creditAccount = 'petty cash';
+                    }elseif ($expense->paymethodId == 1 && $expense->deductfrom === 'cash at hand') {
+                        $creditAccount = 'cash at hand';
+                    }elseif ($expense->paymethodId == 1 && $expense->deductfrom === 'cash holding account') {
+                        $creditAccount = 'cash holding account';
+                    }else{
+                        $creditAccount = 'cash at bank';
+                    }
+                }
+
+                return array(
+                    (object)array(
+                        'ID' => 1,
+                        'transactionDate' => $expense->expenseDate,
+                        'account' => $accountname,
+                        'debit' => $expense->amount,
+                        'credit' => 0,
+                        'narration' => $expense->narration
+                    ),
+                    (object)array(
+                        'ID' => 2,
+                        'transactionDate' => $expense->expenseDate,
+                        'account' => $creditAccount,
+                        'debit' => 0,
+                        'credit' => $expense->amount,
+                        'narration' => $expense->narration
+                    )
+                );
+            }
+        }
         $sql = 'SELECT 
                     l.ID,
                     l.transactionDate,
