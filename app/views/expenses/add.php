@@ -264,6 +264,6 @@
     });
 
 </script>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/expenses/add-expense-v6.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/expenses/add-expense-v7.js"></script>
 </body>
 </html>  
