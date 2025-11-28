@@ -44,6 +44,7 @@ btnPreview.addEventListener('click', async function () {
   const data = await getTrialBalance(reportType, asofdateVal);
   removeLoadingSpinner(resultsDiv);
   if (data && data.success) {
+    console.log(data);
     resultsDiv.innerHTML = appendTbody(data.results, reportType, asofdateVal);
     const table = document.getElementById('table');
     const debitTotal = document.getElementById('debittotal');
@@ -66,36 +67,33 @@ function appendTbody(data, type, asofdate) {
 </thead>
 <tbody>`;
   data.forEach(dt => {
-    if (dt.net_balance !== '') {
-      const account = dt.account;
-      const debit =
-        !isNaN(parseFloat(dt.net_balance)) && parseFloat(dt.net_balance) > 0
-          ? parseFloat(dt.net_balance)
-          : '';
-      const credit =
-        !isNaN(parseFloat(dt.net_balance)) && parseFloat(dt.net_balance) < 0
-          ? parseFloat(dt.net_balance) * -1
-          : '';
-      html += `
+    const { account, debit, credit } = dt;
+    html += `
     <tr>
         <td>${String(account).toUpperCase()}</td>
-        <td class="text-center"><a target="_blank" href='${HOST_URL}/trialbalance/report?type=${type}&account=${account.replaceAll(
-        "'",
-        '_'
-      )}&asofdate=${asofdate}'>
-        ${isNaN(parseFloat(debit)) ? '' : numberWithCommas(debit)}</a>
+        <td class="text-center">
+          ${
+            !isNaN(parseFloat(debit)) && parseFloat(debit) !== 0
+              ? `<a target="_blank" href='${HOST_URL}/trialbalance/report?type=${type}&account=${account.replaceAll(
+                  "'",
+                  '_'
+                )}&asofdate=${asofdate}'>
+        ${numberWithCommas(debit)}</a>`
+              : ''
+          }
         </td>
-        <td class="text-center"><a target="_blank" href='${HOST_URL}/trialbalance/report?type=${type}&account=${account.replaceAll(
-        "'",
-        '_'
-      )}&asofdate=${asofdate}'>
-        ${
-          isNaN(parseFloat(credit))
-            ? ''
-            : numberWithCommas(parseFloat(credit).toFixed(2))
-        }</a></td>
+        <td class="text-center">
+          ${
+            !isNaN(parseFloat(credit)) && parseFloat(credit) !== 0
+              ? `<a target="_blank" href='${HOST_URL}/trialbalance/report?type=${type}&account=${account.replaceAll(
+                  "'",
+                  '_'
+                )}&asofdate=${asofdate}'>
+        ${numberWithCommas(parseFloat(credit).toFixed(2))}</a>`
+              : ''
+          }
+        </td>
     </tr>`;
-    }
   });
   html += `
 </tbody>
