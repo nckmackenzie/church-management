@@ -1707,21 +1707,44 @@ class Reports extends Controller {
                                 <th>Money In</th>
                                 <th>Money Out</th>
                                 <th>Description</th>
+                                <th>Running Balance</th>
                             </tr>
                         </thead>
                         <tbody>';
+                        $balance = 0;
                         foreach($reports as $report) {
-                            $formattedoin = $report->AmountIn  > 0 ? number_format($report->AmountIn,2) : null;
-                            $formattedout = ($report->AmountOut * -1) > 0 ? number_format($report->AmountOut * -1,2) : null;
+                            $moneyIn = $report->AmountIn;
+                            $moneyOut = $report->AmountOut * -1;
+
+                            $formattedIn  = $moneyIn > 0 ? number_format($moneyIn, 2) : null;
+                            $formattedOut = $moneyOut > 0 ? number_format($moneyOut, 2) : null;
+
+                            $balance += ($moneyIn - $moneyOut);
+                            $formattedBalance = number_format($balance, 2);
+
                             $output .= '
                                 <tr>
-                                    <td>'.date('d-M-Y',strtotime($report->TransactionDate)).'</td>
+                                    <td>'.date("d-M-Y", strtotime($report->TransactionDate)).'</td>
                                     <td>'.ucwords($report->Reference).'</td>
-                                    <td>'.$formattedoin.'</td>
-                                    <td>'.$formattedout.'</td>
+                                    <td>'.$formattedIn.'</td>
+                                    <td>'.$formattedOut.'</td>
                                     <td>'.ucwords($report->Narration).'</td>
+                                    <td>'.$formattedBalance.'</td>
                                 </tr>
                             ';
+
+                            // before running balance calculation
+                            // $formattedoin = $report->AmountIn  > 0 ? number_format($report->AmountIn,2) : null;
+                            // $formattedout = ($report->AmountOut * -1) > 0 ? number_format($report->AmountOut * -1,2) : null;
+                            // $output .= '
+                            //     <tr>
+                            //         <td>'.date('d-M-Y',strtotime($report->TransactionDate)).'</td>
+                            //         <td>'.ucwords($report->Reference).'</td>
+                            //         <td>'.$formattedoin.'</td>
+                            //         <td>'.$formattedout.'</td>
+                            //         <td>'.ucwords($report->Narration).'</td>
+                            //     </tr>
+                            // ';
                         }
                         $output .= '
                         </tbody>
@@ -1730,6 +1753,7 @@ class Reports extends Controller {
                                     <th colspan="2" style="text-align:center">Total:</th>
                                     <th id="debits"></th>
                                     <th id="credits"></th>
+                                    <th></th>
                                     <th></th>
                                 </tr>
                         </tfoot>
