@@ -176,6 +176,11 @@
                                                 <button type="button" class="btn btn-sm btn-dark custom-font btnapprove"><i class="fas fa-check"></i></button>
                                                 <a href="<?php echo URLROOT;?>/expenses/edit/<?php echo $expense->ID;?>" class="btn btn-sm bg-olive btnedit custom-font"><i class="far fa-edit"></i></a>
                                                 <button type="button" class="btn btn-sm btn-danger custom-font btndel"><i class="far fa-trash-alt"></i></button>
+                                            <?php else : ?>
+                                                <?php if((int)$_SESSION['userType'] < 3) : ?>
+                                                    <a href="<?php echo URLROOT;?>/expenses/edit/<?php echo $expense->ID;?>" class="btn btn-sm bg-olive btnedit custom-font"><i class="far fa-edit"></i></a>
+                                                    <button type="button" class="btn btn-sm btn-danger custom-font btndel"><i class="far fa-trash-alt"></i></button>
+                                                <?php endif; ?>
                                             <?php endif; ?>
                                         <?php endif; ?>  
                                             <a target="_blank" href="<?php echo URLROOT;?>/expenses/print/<?php echo $expense->ID;?>" class="btn btn-sm bg-warning btnprint custom-font"><i class="fas fa-print"></i></a>
