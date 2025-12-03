@@ -121,6 +121,7 @@
             <a href="<?php echo URLROOT;?>/banks/add" class="btn btn-sm btn-success custom-font">Add New</a>
             <a href="<?php echo URLROOT;?>/banks/subaccount" class="btn btn-sm btn-info custom-font">Add Sub Account</a>
             <button class="btn btn-sm btn-secondary custom-font">Set Sub Account Opening Balance</button>
+            <a href="<?php echo URLROOT;?>/banks/subaccountbalances" class="btn btn-sm btn-info custom-font">Opening Bal entries(Sub Account)</a>
           </div>
         </div>
       </div><!-- /.container-fluid -->

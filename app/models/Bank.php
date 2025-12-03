@@ -266,4 +266,55 @@ class Bank {
         }
         return true;
     }
+
+    public function GetSubAccountOpeningBalances()
+    {
+        $sql = 'SELECT 
+                    t.ID,
+                    t.TransactionDate,
+                    ucase(s.AccountName) as AccountName,
+                    `Amount`,
+                    `Narration`    
+                FROM `tblbanktransactions_subaccounts` t join tblbanksubaccounts s on t.SubAccountId = s.ID
+                WHERE t.TransactionType = 18 AND (t.CongregationId = ?)
+                ORDER BY t.TransactionDate DESC;';
+        return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
+    }
+
+    public function GetOpeningBalanceEntry($id)
+    {
+        $sql = 'SELECT 
+                    t.ID,
+                    t.TransactionDate,
+                    t.SubAccountId,
+                    t.Amount
+                FROM `tblbanktransactions_subaccounts` t
+                WHERE t.TransactionType = 18 AND t.ID = ? AND (t.CongregationId = ?)
+                LIMIT 1;';
+        return loadsingleset($this->db->dbh,$sql,[$id,$_SESSION['congId']]);
+    }
+
+    public function UpdateSubAccountOpeningBalance($data)
+    {
+        $this->db->query('UPDATE tblbanktransactions_subaccounts 
+                               SET TransactionDate=:tdate,Amount=:amount 
+                               WHERE (ID=:id) AND (TransactionType=18)');
+        $this->db->bind(':tdate',$data['asof']);
+        $this->db->bind(':amount',$data['balance']);
+        $this->db->bind(':id',$data['id']);
+        if(!$this->db->execute()){
+            return false;
+        }
+        return true;
+    }
+
+    public function DeleteSubAccountOpeningBalance($data)
+    {
+        $this->db->query('DELETE FROM tblbanktransactions_subaccounts WHERE (ID=:id) AND (TransactionType=18)');
+        $this->db->bind(':id',$data['id']);
+        if(!$this->db->execute()){
+            return false;
+        }
+        return true;
+    }
 }

@@ -345,4 +345,119 @@ class Banks extends Controller{
             exit;
         }
     }
+
+    public function subaccountbalances()
+    {
+        $data = [
+            'entries' => $this->bankModel->GetSubAccountOpeningBalances(),
+        ];
+        $this->view('banks/subaccountbalances',$data);
+    }
+
+    public function editbalance($id)
+    {
+        $entry = $this->bankModel->GetOpeningBalanceEntry($id);
+        $data = [
+            'subaccounts' => $this->bankModel->GetSubaccounts(),
+            'id' => $entry->ID,
+            'subaccount' => $entry->SubAccountId,
+            'asof' => $entry->TransactionDate,
+            'balance' => $entry->Amount,
+            'isedit' => true,
+            'subaccount_err' => '',
+            'asof_err' => '',
+            'balance_err' => ''         
+        ];
+        $this->view('banks/editbalance',$data);
+    }
+
+    public function updatebalance()
+    {
+        $entry = $this->bankModel->GetOpeningBalanceEntry($_POST['id']);
+        if(!$entry){
+            flash('subaccountbal_msg','Invalid entry selected!',alerterrorclass());
+            redirect('banks/subaccountbalances');
+            exit;
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
+            $data = [
+                'subaccounts' => $this->bankModel->GetSubaccounts(),
+                'id' => isset($_POST['id']) && !empty(trim($_POST['id'])) ? trim($_POST['id']) : null,
+                'subaccount' => $entry->SubAccountId,
+                'asof' => isset($_POST['asof']) && !empty(trim($_POST['asof'])) ? date('Y-m-d',strtotime(trim($_POST['asof']))) : null,
+                'balance' => isset($_POST['balance']) && !empty(trim($_POST['balance'])) ? floatval(trim($_POST['balance'])) : null,
+                'isedit' => true,
+                'subaccount_err' => '',
+                'asof_err' => '',
+                'balance_err' => ''      
+            ];
+        //    print_r($data['bank']);
+            //validate
+            if (is_null($data['subaccount'])) {
+                $data['subaccount_err'] = 'Enter Sub Account';
+            }
+            if (is_null($data['asof'])) {
+                $data['asof_err'] = 'Enter As Of Date';
+            }
+            if(is_null($data['balance'])){
+                $data['balance_err'] = 'Enter Balance Amount';
+            }
+
+            if (empty($data['subaccount_err']) && empty($data['asof_err']) && empty($data['balance_err'])) {
+                if ($this->bankModel->UpdateSubAccountOpeningBalance($data)) {
+                    flash('subaccountbal_msg','Opening Balance Updated Successfully!');
+                    redirect('banks/subaccountbalances');
+                }
+                else{
+                    flash('subaccountbal_msg','Something Went Wrong!','alert custom-danger');
+                    redirect('banks/subaccountbalances');
+                }
+            }
+            else{
+                $this->view('banks/editbalance',$data);
+            }
+        }
+        else{
+            $data = [
+                'id' => '',
+                'subaccount' => '',
+                'account' => '',
+                'name_err' => '',
+                'account_err' => '',
+            ];
+            $this->view('banks/edit',$data);
+        }
+    }
+
+    public function deletebalanceentry()
+    {
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
+            $data = [
+                'id' => isset($_POST['id']) && !empty(trim($_POST['id'])) ? trim($_POST['id']) : null,
+            ];
+
+            if(is_null($data['id'])){
+                flash('subaccountbal_msg','No selection detected!',alerterrorclass());
+                redirect('banks/subaccountbalances');
+                exit;
+            }
+                    
+            if ($this->bankModel->DeleteSubAccountOpeningBalance($data)) {
+                flash('subaccountbal_msg','Entry Deleted Successfully!');
+                redirect('banks/subaccountbalances');
+                exit;
+            }
+            else{
+                flash('subaccountbal_msg','Something Went Wrong!',alerterrorclass());
+                redirect('banks/subaccountbalances');
+                exit;
+            }
+        }
+        else{
+            redirect('banks/subaccountbalances');
+        }
+    }
 }
