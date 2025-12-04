@@ -346,6 +346,7 @@ class Expenses extends Controller{
                 'reference' => trim($_POST['reference']),
                 'description' => trim($_POST['description']),
                 'reqid' => $_POST['cashtype'] === 'cash holding' ? $expense->requisitionId : NULL,
+                'expense' => $expense,
                 'date_err' => '',
                 'amount_err' => '',
                 'ref_err' => '',
