@@ -143,7 +143,7 @@ class Expenses extends Controller{
             'amount' => trim($_POST['amount']),
             'reference' => trim($_POST['reference']),
             'description' => trim($_POST['description']),
-            'reqid' => !empty($_POST['reqid']) ? $_POST['reqid'] : NULL,
+            'reqid' => $_POST['cashtype'] === 'cash holding' ? (!empty($_POST['reqid']) ? $_POST['reqid'] : NULL) : NULL,
             'file' => isset($_FILE) ? $_FILES['file'] : false,
             'filename' => '',
             'hasattachment' => 0,
@@ -284,17 +284,19 @@ class Expenses extends Controller{
         $paymethods = $this->reusemodel->PaymentMethods();
         $banks = $this->reusemodel->GetBanks();
         $groups = $this->expenseModel->getGroup();
+        $expenseType = (int)$expense->expenseType;
         checkcenter($expense->congregationId);
+        $requisitions = $this->expenseModel->GetRequisitions($expenseType == 2 ? $expense->groupId : $expense->districtId,$expenseType);
         if($this->reusemodel->CheckYearClosed($expense->fiscalYearId)) :
-         flash('contribution_msg','Cannot edit transactions for closed year','alert custom-danger alert-dismissible fade show');
-         redirect('contributions');
+         flash('expense_msg','Cannot edit transactions for closed year','alert custom-danger alert-dismissible fade show');
+         redirect('expenses');
          exit;
        endif; 
         $data = [
             'expense' => $expense,
             'voucher' => '',
             'date' => '',
-            'expensetype' => '',
+            'expensetype' => $expenseType,
             'accounts' => $accounts,
             'account' => '',
             'groups' => $groups,
@@ -302,6 +304,7 @@ class Expenses extends Controller{
             'paymethods' => $paymethods,
             'paymethod' => '',
             'deductfrom' => '',
+            'requisitions' => $requisitions ?? [],
             'banks' => $banks,
             'bank' => '',
             'amount' => '',
@@ -321,25 +324,36 @@ class Expenses extends Controller{
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
+            $expenseType = $_POST['expensetype'];
+            $accounts = $this->expenseModel->GetAccounts($_POST['expensetype']);
+            $paymethods = $this->reusemodel->PaymentMethods();
+            $banks = $this->reusemodel->GetBanks();
+            $expense = $this->expenseModel->getExpense((int)trim($_POST['id']));
             $data = [
                 'id' => trim($_POST['id']),
                 'voucher' => trim($_POST['voucher']),
                 'date' => trim($_POST['date']),
                 'expensetype' => trim($_POST['expensetype']),
-                'account' => trim($_POST['account']),
-                'costcentre' => trim($_POST['costcentre']),
+                'accounts' => $accounts,
+                'account' => !empty($_POST['account']) ? trim($_POST['account']) : '',
+                'costcentre' => !empty($_POST['costcentre']) ? trim($_POST['costcentre']) : '',
+                'paymethods' => $paymethods,
+                'paymethod' => !empty($_POST['paymethod']) ? trim($_POST['paymethod']) : '',
                 'deductfrom' => !empty($_POST['cashtype']) ? trim($_POST['cashtype']) : '',
-                'paymethod' => trim($_POST['paymethod']),
+                'banks' => $banks,
                 'bank' => !empty($_POST['bank']) ? trim($_POST['bank']) : NULL,
                 'amount' => trim($_POST['amount']),
                 'reference' => trim($_POST['reference']),
                 'description' => trim($_POST['description']),
+                'reqid' => $_POST['cashtype'] === 'cash holding' ? $expense->requisitionId : NULL,
                 'date_err' => '',
                 'amount_err' => '',
                 'ref_err' => '',
                 'desc_err' => '',
-                'bank_err' => ''
+                'bank_err' => '',
             ];
+            
+                        
             if (empty($data['date'])) {
                 $data['date_err'] = 'Select Date';
             }
@@ -356,23 +370,80 @@ class Expenses extends Controller{
                 $data['bank'] = 'Select Bank';
             }
             if (empty($data['date_err']) && empty($data['amount_err']) && empty($data['ref_err']) 
-                && empty ($data['desc_err']) && empty($data['bank_err'])) {
+                && empty ($data['desc_err']) && empty($data['bank_err']) && empty($data['filename_err'])) {
+                
                 if ($this->expenseModel->update($data)) {
                     flash('expense_msg',"Expense Updated Successfully!");
                     redirect('expenses');
                 }
                 else{
-                    flash('expense_msg',"Something Went Wrong!",'alert custom-danger');
+                    flash('expense_msg',"Expense wasnt updated!",'alert custom-danger');
                     redirect('expenses');
                 }
+                
             }
             else{
-                $this->view('expenses/edit',$data);
+                $this->view('expenses/expense',$data);
             }
         }
         else{
-            redirect('expenses');
+            redirect('users/deniedaccess');
+            exit;
         }
+        // if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+        //     $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
+        //     $data = [
+        //         'id' => trim($_POST['id']),
+        //         'voucher' => trim($_POST['voucher']),
+        //         'date' => trim($_POST['date']),
+        //         'expensetype' => trim($_POST['expensetype']),
+        //         'account' => trim($_POST['account']),
+        //         'costcentre' => trim($_POST['costcentre']),
+        //         'deductfrom' => !empty($_POST['cashtype']) ? trim($_POST['cashtype']) : '',
+        //         'paymethod' => trim($_POST['paymethod']),
+        //         'bank' => !empty($_POST['bank']) ? trim($_POST['bank']) : NULL,
+        //         'amount' => trim($_POST['amount']),
+        //         'reference' => trim($_POST['reference']),
+        //         'description' => trim($_POST['description']),
+        //         'date_err' => '',
+        //         'amount_err' => '',
+        //         'ref_err' => '',
+        //         'desc_err' => '',
+        //         'bank_err' => ''
+        //     ];
+        //     if (empty($data['date'])) {
+        //         $data['date_err'] = 'Select Date';
+        //     }
+        //     if (empty($data['amount'])) {
+        //         $data['amount_err'] = 'Enter Amount';
+        //     }
+        //     if (empty($data['reference'])) {
+        //         $data['ref_err'] = 'Enter Payment Reference';
+        //     }
+        //     if (empty($data['description'])) {
+        //         $data['desc_err'] = 'Enter Brief Description On Expense';
+        //     }
+        //     if ($data['paymethod'] > 2 && (empty($data['bank']) || $data['bank'] == NULL)) {
+        //         $data['bank'] = 'Select Bank';
+        //     }
+        //     if (empty($data['date_err']) && empty($data['amount_err']) && empty($data['ref_err']) 
+        //         && empty ($data['desc_err']) && empty($data['bank_err'])) {
+        //         if ($this->expenseModel->update($data)) {
+        //             flash('expense_msg',"Expense Updated Successfully!");
+        //             redirect('expenses');
+        //         }
+        //         else{
+        //             flash('expense_msg',"Something Went Wrong!",'alert custom-danger');
+        //             redirect('expenses');
+        //         }
+        //     }
+        //     else{
+        //         $this->view('expenses/edit',$data);
+        //     }
+        // }
+        // else{
+        //     redirect('expenses');
+        // }
     }
 
     public function delete()
@@ -387,7 +458,7 @@ class Expenses extends Controller{
 
             if($this->expenseModel->YearIsClosed($data['id'])){
                 flash('expense_msg','Cannot delete transactions for closed year','alert custom-danger alert-dismissible fade show');
-                redirect('contributions');
+                redirect('expenses');
                 exit;
             }
 

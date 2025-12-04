@@ -263,6 +263,6 @@
     });
 
 </script>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/expenses/add-expense-v7.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/expenses/add-expense-v8.js"></script>
 </body>
 </html>  

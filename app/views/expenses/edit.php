@@ -48,6 +48,7 @@
                                                 class="form-control form-control-sm">
                                             <option value="1" <?php selectdCheckEdit($data['expensetype'],$data['expense']->expenseType,1)?>>Church Expense</option>
                                             <option value="2" <?php selectdCheckEdit($data['expensetype'],$data['expense']->expenseType,2)?>>Group Expense</option>    
+                                            <option value="3" <?php selectdCheckEdit($data['expensetype'],$data['expense']->expenseType,3)?>>District Expense</option>    
                                         </select>
                                     </div>
                                 </div>
@@ -112,13 +113,28 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-3">
                                     <div class="form-group">
                                         <label for="cashtype">Deduction from</label>
                                         <select name="cashtype" id="cashtype" class="form-control form-control-sm mandatory">
-                                             <option value="cash at hand" <?php selectdCheckEdit($data['deductfrom'],$data['expense']->deductfrom,'cash at hand');?>>Cash At Hand</option>   
                                              <option value="petty cash" <?php selectdCheckEdit($data['deductfrom'],$data['expense']->deductfrom,'petty cash');?>>Petty Cash</option>   
                                              <option value="cash holding" <?php selectdCheck('cash holding',$data['deductfrom']);?>>Cash Holding Acc</option>   
+                                        </select>        
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="reqid">Requisition Id</label>
+                                        <select name="reqid" id="reqid" class="form-control form-control-sm mandatory" disabled>
+                                            <option value="" selected disabled></option>
+                                            <?php if($data['expense']->deductfrom === 'cash holding') : ?>
+                                                <?php foreach($data['requisitions'] as $req) : ?>
+                                                    <option value="<?php echo $req->ID; ?>"
+                                                        <?php selectdCheckEdit($data['requisition'],$data['expense']->requisitionId,$req->ID);?>>
+                                                        <?php echo strtoupper($req->Formated); ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
                                         </select>        
                                     </div>
                                 </div>
