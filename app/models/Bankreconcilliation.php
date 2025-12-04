@@ -112,6 +112,7 @@ class Bankreconcilliation
         $withdrawals = 0;
         $unclearedDeposits = 0;
         $unclearedWithdrawals = 0;
+        
 
         $this->db->query('SELECT IFNULL(SUM(debit),0) As SumOfDebits
                           FROM   tblbankpostings
@@ -125,6 +126,7 @@ class Bankreconcilliation
         $deposits = $this->db->getValue();
         array_push($amounts,$deposits);
 
+        
         $this->db->query('SELECT IFNULL(SUM(credit),0) As SumOfCredits
                           FROM   tblbankpostings
                           WHERE  (transactionDate BETWEEN :tfrom AND :tto) AND (cleared=1) 
@@ -136,7 +138,7 @@ class Bankreconcilliation
         $this->db->bind(':tdate',$data['to']);
         $withdrawals = $this->db->getValue();
         array_push($amounts,$withdrawals);
-
+        
         $this->db->query('SELECT IFNULL(SUM(debit),0) As SumOfDebits
                           FROM   tblbankpostings
                           WHERE  ((transactionDate BETWEEN :tfrom AND :tto) AND (cleared=0) 
@@ -150,7 +152,7 @@ class Bankreconcilliation
         $this->db->bind(':tdate',$data['to']);
         $unclearedDeposits = $this->db->getValue();
         array_push($amounts,$unclearedDeposits);
-
+        
         $this->db->query('SELECT IFNULL(SUM(credit),0) As SumOfCredits
                           FROM   tblbankpostings
                           WHERE  ((transactionDate BETWEEN :tfrom AND :tto) AND (cleared=0) 
@@ -164,19 +166,34 @@ class Bankreconcilliation
         $this->db->bind(':tdate',$data['to']);
         $unclearedWithdrawals = $this->db->getValue();
         array_push($amounts,$unclearedWithdrawals);
-
+     
         $asofdate = $data['to'];
 
-        $this->db->query('CALL sp_balancesheet_assets(:startd,:cong)');
+        $this->db->query('SELECT (ifnull(sum(l.debit),0) - ifnull(sum(l.credit),0)) 
+                          FROM tblledger l 
+                          WHERE transactionDate <= :asofdate AND l.account = :account AND congregationId = :cong AND (deleted = 0);');
         // $this->db->bind(':startd',$data['from']);
-        $this->db->bind(':startd',$asofdate);
+        $this->db->bind(':asofdate',$asofdate);
+        $this->db->bind(':account','cash at bank');
         $this->db->bind(':cong',$_SESSION['congId']);
-        $results = $this->db->resultSet();
-        foreach($results as $result){
-            if(strtolower($result->account) === 'cash at bank'){
-                array_push($amounts,$result->bal);
-            }
-        }
+        $result = $this->db->getValue();
+        array_push($amounts,$result);
+        // $results = $this->db->resultSet();
+        // foreach($results as $result){
+        //     if(strtolower($result->account) === 'cash at bank'){
+        //         array_push($amounts,$result->bal);
+        //     }
+        // }
+        // $this->db->query('CALL sp_balancesheet_assets(:startd,:cong)');
+        // // $this->db->bind(':startd',$data['from']);
+        // $this->db->bind(':startd',$asofdate);
+        // $this->db->bind(':cong',$_SESSION['congId']);
+        // $results = $this->db->resultSet();
+        // foreach($results as $result){
+        //     if(strtolower($result->account) === 'cash at bank'){
+        //         array_push($amounts,$result->bal);
+        //     }
+        // }
         // $this->db->query($sql);
         // $this->db->bind(':account','cash at bank');
         // $this->db->bind(':asatdate',$data['from']);
