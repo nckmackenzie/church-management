@@ -18,6 +18,8 @@ paymethodSelect.addEventListener('change', function (e) {
     cashtypeSelect.value = '';
     cashtypeSelect.disabled = true;
     cashtypeSelect.classList.remove('mandatory');
+    requisitionSelect.value = '';
+    requisitionSelect.disabled = true;
   }
 });
 
@@ -50,7 +52,7 @@ expenseTypeSelect.addEventListener('change', async function (e) {
         <option value="${req.id}" >${req.label}</option>
     `;
       accountSelect.insertAdjacentHTML('beforeend', html);
-    });  
+    });
 });
 
 costCenterSelect.addEventListener('change', async function (e) {
@@ -76,6 +78,15 @@ async function getRequisitions(group, type) {
     requisitionSelect.disabled = false;
   }
 }
+
+cashtypeSelect.addEventListener('change', async function (e) {
+  if (e.target.value !== 'cash holding') {
+    requisitionSelect.value = '';
+    requisitionSelect.disabled = true;
+  } else {
+    requisitionSelect.disabled = false;
+  }
+});
 
 function removeOptions(selectElement) {
   var i,
