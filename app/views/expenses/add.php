@@ -131,7 +131,6 @@
                                     <div class="form-group">
                                         <label for="cashtype">Deduction from</label>
                                         <select name="cashtype" id="cashtype" class="form-control form-control-sm mandatory">
-                                             <option value="cash at hand" <?php selectdCheck('cash at hand',$data['deductfrom']);?>>Cash At Hand</option>   
                                              <option value="petty cash" <?php selectdCheck('petty cash',$data['deductfrom']);?>>Petty Cash</option>   
                                              <option value="cash holding" <?php selectdCheck('cash holding',$data['deductfrom']);?>>Cash Holding Acc</option>   
                                         </select>        
