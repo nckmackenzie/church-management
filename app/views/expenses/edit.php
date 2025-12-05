@@ -145,7 +145,7 @@
                                         <select name="bank" id="bank" 
                                                 class="form-control form-control-sm
                                                 <?php echo (!empty($data['bank_err'])) ? 'is-invalid' : ''?>"
-                                                <?php echo (empty($data['paymethod']) || (int)$data['expense']->paymethodId < 3) ? 'disabled' : ''?>>
+                                                <?php echo (int)$data['expense']->paymethodId < 3 ? 'disabled' : ''?>>
                                             
                                                 <?php foreach($data['banks'] as $bank) :?> 
                                                     <option value="<?php echo $bank->ID;?>"
