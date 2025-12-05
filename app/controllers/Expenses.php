@@ -303,7 +303,7 @@ class Expenses extends Controller{
             'costcentre' => '',
             'paymethods' => $paymethods,
             'paymethod' => '',
-            'deductfrom' => '',
+            'deductfrom' =>  (int)$expense->paymethodId <= 2 ? $expense->deductfrom : '',
             'requisitions' => $requisitions ?? [],
             'banks' => $banks,
             'bank' => '',
@@ -370,6 +370,11 @@ class Expenses extends Controller{
             if ($data['paymethod'] > 2 && (empty($data['bank']) || $data['bank'] == NULL)) {
                 $data['bank'] = 'Select Bank';
             }
+            if((int)$data['paymethod'] > 2){
+                $data['deductfrom'] = null;
+                $data['reqid'] = null;
+            }
+
             if (empty($data['date_err']) && empty($data['amount_err']) && empty($data['ref_err']) 
                 && empty ($data['desc_err']) && empty($data['bank_err']) && empty($data['filename_err'])) {
                 

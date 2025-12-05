@@ -116,7 +116,8 @@
                                 <div class="col-md-3">
                                     <div class="form-group">
                                         <label for="cashtype">Deduction from</label>
-                                        <select name="cashtype" id="cashtype" class="form-control form-control-sm mandatory">
+                                        <select <?php echo (empty($data['paymethod']) || (int)$data['expense']->paymethodId > 2) ? 'disabled' : ''?> name="cashtype" id="cashtype" class="form-control form-control-sm mandatory">
+                                             <option selected disabled></option>
                                              <option value="petty cash" <?php selectdCheckEdit($data['deductfrom'],$data['expense']->deductfrom,'petty cash');?>>Petty Cash</option>   
                                              <option value="cash holding" <?php selectdCheck('cash holding',$data['deductfrom']);?>>Cash Holding Acc</option>   
                                         </select>        
@@ -144,7 +145,7 @@
                                         <select name="bank" id="bank" 
                                                 class="form-control form-control-sm
                                                 <?php echo (!empty($data['bank_err'])) ? 'is-invalid' : ''?>"
-                                                <?php echo (empty($data['paymethod']) || $data['expense']->paymethodId < 3) ? 'disabled' : ''?>>
+                                                <?php echo (empty($data['paymethod']) || (int)$data['expense']->paymethodId < 3) ? 'disabled' : ''?>>
                                             
                                                 <?php foreach($data['banks'] as $bank) :?> 
                                                     <option value="<?php echo $bank->ID;?>"
