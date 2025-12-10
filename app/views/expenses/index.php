@@ -223,6 +223,11 @@
           $('#year').addClass('is-invalid');
           return false;
         }
+
+        if(!confirm('Are you sure you want to reset the approval status for the selected financial year?')){
+          return false;
+        }
+
         $('#year').attr('disabled',true);
         $('.btnsubmit').attr('disabled',true);
         $.ajax({
