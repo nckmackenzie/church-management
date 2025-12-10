@@ -63,7 +63,7 @@
                   pageLength : 50,
                   fixedHeader : true,
                   ordering : false,
-                  searching : false,
+                  searching : true,
                   "responsive" : true,
                   buttons: [
                       { extend: 'excelHtml5', footer: true },

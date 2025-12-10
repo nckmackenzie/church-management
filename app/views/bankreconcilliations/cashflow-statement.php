@@ -126,7 +126,7 @@
                         pageLength : 100,
                         fixedHeader : true,
                         ordering : false,
-                        searching : false,
+                        searching : true,
                         bLengthChange: false,
                         info : false,
                         paging : false,

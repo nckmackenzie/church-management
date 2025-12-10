@@ -129,7 +129,7 @@
                         pageLength : 100,
                         fixedHeader : true,
                         ordering : false,
-                        searching : false,
+                        searching : true,
                         "responsive" : true,
                         // "buttons": ["excel", "pdf","print"],
                         buttons: [
