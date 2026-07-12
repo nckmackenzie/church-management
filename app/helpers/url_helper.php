@@ -3,19 +3,17 @@
 function redirect($page){
     header('location: ' . URLROOT . '/' . $page);
 }
-function encrypt($string){
-    $newVal = ($string * 123456789);
+function encrypt($string) {
+    $newVal = (string)($string * 123456789);
     $key = 'MAL_979805';
     $result = '';
-    $test = '';
-    for ($i=0; $i <strlen($newVal) ; $i++) { 
-        $char = substr($newVal, $i,1);
-        $keychar = substr($key, ($i % strlen($key))-1,1);
-        $char = chr(ord($char)+ord($keychar));
-        //$test[$char]=ord($char)+ord($keychar);
-        $result.=$char;
+    for ($i = 0; $i < strlen($newVal); $i++) {
+        $char = substr($newVal, $i, 1);
+        $keychar = substr($key, ($i % strlen($key)) - 1, 1);
+        $result .= chr(ord($char) + ord($keychar));
     }
-    return urlencode(base64_encode($result));
+    // URL-safe base64: + -> -, / -> _, strip padding
+    return rtrim(strtr(base64_encode($result), '+/', '-_'), '=');
 }
 
 function decrypt($string){
