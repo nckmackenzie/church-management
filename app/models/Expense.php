@@ -134,6 +134,53 @@ class Expense {
         
     }
     
+    /**
+     * Computes what the total ledger debit and credit would be for an expense,
+     * mirroring the exact branch logic used by approve_expense() and update() when
+     * they post to the ledger. Returns [$debit, $credit]. saveToBanking() rows are
+     * excluded because they post to tblbankpostings, not tblledger.
+     */
+    private function computeLedgerTotals($p)
+    {
+        $amount = (float)$p['amount'];
+        $debit  = 0;
+        $credit = 0;
+
+        if (!is_null($p['requisitionId'])) {
+            $debit  += $amount; // expense account
+            $credit += $amount; // cash holding account
+        } else {
+            if ($p['deductfrom'] == 'petty cash' || $p['deductfrom'] == 'cash at hand' || is_null($p['deductfrom']) || is_null($p['requisitionId'])) {
+                $debit += $amount; // expense account
+            }
+            if ($p['paymethod'] == 1 && $p['deductfrom'] === 'petty cash') {
+                $credit += $amount;
+            } elseif ($p['paymethod'] == 1 && $p['deductfrom'] === 'cash at hand') {
+                $credit += $amount;
+            } elseif ($p['paymethod'] == 1 && $p['deductfrom'] === 'cash holding account') {
+                $credit += $amount;
+            } elseif ($p['paymethod'] == 2) {
+                $credit += $amount;
+            } elseif ((int)$p['paymethod'] > 2) {
+                $credit += $amount; // cash at bank
+            }
+        }
+
+        return [$debit, $credit];
+    }
+
+    /**
+     * Guards against posting an unbalanced ledger entry. Throws before any mutation
+     * so the caller's catch block rolls back (or, when called pre-transaction, simply
+     * aborts with nothing written).
+     */
+    private function assertLedgerBalanced($debit, $credit)
+    {
+        if (round($debit, 2) !== round($credit, 2)) {
+            throw new \Exception('Unbalanced ledger entry: total debit ('.$debit.') does not equal total credit ('.$credit.')');
+        }
+    }
+
     public function create($data)
     {
         //get names
@@ -200,14 +247,22 @@ class Expense {
     {
 
        try {
-            
+
+            $expense = loadsingleset($this->db->dbh,'SELECT * FROM tblexpenses WHERE ID=?',[(int)$data['id']]);
+
+            list($ledgerDebit, $ledgerCredit) = $this->computeLedgerTotals([
+                'amount'        => $expense->amount,
+                'requisitionId' => $expense->requisitionId,
+                'deductfrom'    => $expense->deductfrom,
+                'paymethod'     => $expense->paymethodId,
+            ]);
+            $this->assertLedgerBalanced($ledgerDebit, $ledgerCredit);
+
             $this->db->dbh->beginTransaction();
 
             $this->db->query('UPDATE tblexpenses SET `status` = 1 WHERE (ID=:id)');
             $this->db->bind(':id',$data['id']);
             $this->db->execute();
-
-            $expense = loadsingleset($this->db->dbh,'SELECT * FROM tblexpenses WHERE ID=?',[(int)$data['id']]);
 
             $this->db->query('SELECT accountType FROM tblaccounttypes WHERE (ID=:id)');
             $this->db->bind(':id',$expense->accountId);
@@ -315,6 +370,17 @@ class Expense {
         // throw new \Exception('test message');
         
         try {
+
+            if ($data['expense']->status == 1) {
+                list($ledgerDebit, $ledgerCredit) = $this->computeLedgerTotals([
+                    'amount'        => $data['amount'],
+                    'requisitionId' => $data['reqid'],
+                    'deductfrom'    => $data['deductfrom'],
+                    'paymethod'     => $data['paymethod'],
+                ]);
+                $this->assertLedgerBalanced($ledgerDebit, $ledgerCredit);
+            }
+
             //begin transaction
             $this->db->dbh->beginTransaction();
             $this->db->query('UPDATE tblexpenses SET fiscalYearId=:fid,expenseType=:etype,expenseDate
