@@ -385,18 +385,18 @@ class Report {
     public function GetAssets($date)
     {
         // $this->db->query('CALL sp_balancesheet_assets(:startd,:cong)');
-        $this->db->query('CALL sp_get_assets(:startd,:cong)');
-        $this->db->bind(':startd',$date);
+        $this->db->query('CALL sp_BalanceSheet_Assets(:cong,:startd)');
         $this->db->bind(':cong',$_SESSION['congId']);
+        $this->db->bind(':startd',$date);
         return $this->db->resultSet();            
     }
     public function GetLiablityEquity($date)
     {
         // $this->db->query('CALL sp_balancesheet_liablityequity(:startd,:cong)');
         // $this->db->query('CALL sp_get_liabilities_equity(:startd,:cong)'); // before v2
-        $this->db->query('CALL sp_get_liabilities_equity_v2(:startd,:cong)');
-        $this->db->bind(':startd',$date);
+        $this->db->query('CALL sp_BalanceSheet_LiabilitiesEquity(:cong,:startd)');
         $this->db->bind(':cong',$_SESSION['congId']);
+        $this->db->bind(':startd',$date);
         return $this->db->resultSet();            
     }
     public function GetAssetsTotal($date)
@@ -714,19 +714,20 @@ class Report {
     public function GetChildDetailedBalanceSheetAccountReport($data)
     {
         try {
-            if((int)$data['accountTypeId'] === 3){
-                $sql = 'SELECT l.transactionDate,l.account,SUM(l.debit - l.credit) AS amount,l.narration,t.TransactionType 
-                        FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID 
-                        WHERE (LOWER(account) = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0) AND (l.congregationId=?)
-                        ORDER BY transactionDate';
-            }else{
-                $sql = 'SELECT l.transactionDate,l.account,SUM(l.credit - l.debit) AS amount,l.narration,t.TransactionType 
-                        FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID 
-                        WHERE (LOWER(account) = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0) AND (l.congregationId=?)
-                        ORDER BY transactionDate';
-            }
+            $sql = 'CALL sp_BalanceSheet_AccountDrilldown(?,?,?,?)';
+            // if((int)$data['accountTypeId'] === 3){
+            //     $sql = 'SELECT l.transactionDate,l.account,SUM(l.debit - l.credit) AS amount,l.narration,t.TransactionType 
+            //             FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID 
+            //             WHERE (LOWER(account) = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0) AND (l.congregationId=?)
+            //             ORDER BY transactionDate';
+            // }else{
+            //     $sql = 'SELECT l.transactionDate,l.account,SUM(l.credit - l.debit) AS amount,l.narration,t.TransactionType 
+            //             FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID 
+            //             WHERE (LOWER(account) = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0) AND (l.congregationId=?)
+            //             ORDER BY transactionDate';
+            // }
 
-            return loadresultset($this->db->dbh,$sql,[$data['account'],$data['yearStartDate'],$data['asdate'],$_SESSION['congId']]);
+            return loadresultset($this->db->dbh,$sql,[$data['account'],$_SESSION['congId'],$data['yearStartDate'],$data['asdate']]);
         } catch (\Exception $eh) {
             error_log($eh->getMessage());
             return false;

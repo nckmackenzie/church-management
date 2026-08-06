@@ -1153,10 +1153,10 @@ class Reports extends Controller {
             $assetsTotal = 0;
             $liablityequitiesTotal = 0;
             foreach($assets as $asset){
-                $assetsTotal += floatval($asset->balance);
+                $assetsTotal += floatval($asset->amount);
             }
             foreach($liablityequities as $liabilityequity){
-                $liablityequitiesTotal += floatval($liabilityequity->balance);
+                $liablityequitiesTotal += floatval($liabilityequity->amount);
             }
             // $assetsTotal = $this->reportModel->GetAssetsTotal($todate);
             // $liablityequitiesTotal = $this->reportModel->GetLiabilityEquityTotal($todate);
@@ -1177,11 +1177,13 @@ class Reports extends Controller {
                             <td></th>
                         </tr>';
                     foreach($assets as $asset){
-                        $output .='
-                        <tr>
-                            <td>'.strtoupper($asset->parentaccount).'</td>
-                            <td><a target="_blank" href="'.URLROOT.'/reports/balancesheetdetailed?account='.strtolower($asset->parentaccount).'&asdate='.$todate.'">'.number_format($asset->balance,2).'</a></td>
-                        </tr>';
+                        if(floatval($asset->amount) != 0){
+                            $output .='
+                            <tr>
+                                <td>'.strtoupper($asset->account).'</td>
+                                <td><a target="_blank" href="'.URLROOT.'/reports/balancesheetdetailed?account='.strtolower($asset->account).'&asdate='.$todate.'">'.number_format($asset->amount,2).'</a></td>
+                            </tr>';
+                        }
                     }
                     $output .='
                         <tr style="background-color: #abebbc;">
@@ -1193,11 +1195,13 @@ class Reports extends Controller {
                             <td></th>
                         </tr>';
                     foreach ($liablityequities as $liabilityequity) {
-                        $output .='
-                        <tr>
-                             <td>'.strtoupper($liabilityequity->parentaccount).'</td>
-                             <td><a target="_blank" href="'.URLROOT.'/reports/balancesheetdetailed?account='.strtolower($liabilityequity->parentaccount).'&asdate='.$todate.'">'.number_format((floatval($liabilityequity->balance)),2).'</a></td>
-                        </tr>';
+                        if(floatval($liabilityequity->amount) != 0){
+                            $output .='
+                            <tr>
+                                <td>'.strtoupper($liabilityequity->account).'</td>
+                                <td><a target="_blank" href="'.URLROOT.'/reports/balancesheetdetailed?account='.strtolower($liabilityequity->account).'&asdate='.$todate.'">'.number_format((floatval($liabilityequity->amount)),2).'</a></td>
+                            </tr>';
+                        }
                     } 
                     $output .='
  
