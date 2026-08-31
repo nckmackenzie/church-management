@@ -27,7 +27,7 @@ groupdistrictSelect.addEventListener('change', async function (e) {
       groupSelect.insertAdjacentHTML('beforeend', html);
     });
 
-  if (e.target.value === 'group') {
+  if (e.target.value === 'group' || e.target.value === 'district') {
     dontDeductChkbox.disabled = false;
     dontDeductChkbox.checked = false;
   } else {
@@ -83,7 +83,7 @@ async function getvalue() {
   )
     return;
   const data = await sendHttpRequest(
-    `${HOST_URL}/groupfunds/getamountavailable?group=${groupSelect.value}&date=${date.value}&type=${groupdistrictSelect.value}`
+    `${HOST_URL}/groupfunds/getamountavailable?group=${groupSelect.value}&date=${date.value}&type=${groupdistrictSelect.value}`,
   );
   amountAvailable.value = data;
 }
@@ -94,7 +94,7 @@ async function getGroupOrDistrict(type) {
     'GET',
     undefined,
     {},
-    alertBox
+    alertBox,
   );
 
   return data;
