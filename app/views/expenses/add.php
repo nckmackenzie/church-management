@@ -133,6 +133,7 @@
                                         <select name="cashtype" id="cashtype" class="form-control form-control-sm mandatory">
                                              <option value="petty cash" <?php selectdCheck('petty cash',$data['deductfrom']);?>>Petty Cash</option>   
                                              <option value="cash holding" <?php selectdCheck('cash holding',$data['deductfrom']);?>>Cash Holding Acc</option>   
+                                             <option value="development petty cash" <?php selectdCheck('development petty cash',$data['deductfrom']);?>>Development Petty Cash</option>   
                                         </select>        
                                     </div>
                                 </div>

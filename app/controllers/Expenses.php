@@ -272,6 +272,9 @@ class Expenses extends Controller{
                 if ($this->expenseModel->approve($data)) {
                     flash('expense_msg',"Expense Approved Successfully!");
                     redirect('expenses');# code...
+                }else{
+                    flash('expense_msg','Cannot approve expense due to an internal error.','alert custom-danger');
+                    redirect('expenses');
                 }
             }
         }

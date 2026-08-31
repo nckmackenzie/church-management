@@ -150,7 +150,7 @@ class Expense {
             $debit  += $amount; // expense account
             $credit += $amount; // cash holding account
         } else {
-            if ($p['deductfrom'] == 'petty cash' || $p['deductfrom'] == 'cash at hand' || is_null($p['deductfrom']) || is_null($p['requisitionId'])) {
+            if ($p['deductfrom'] == 'petty cash' || $p['deductfrom'] == 'development petty cash' || $p['deductfrom'] == 'cash at hand' || is_null($p['deductfrom']) || is_null($p['requisitionId'])) {
                 $debit += $amount; // expense account
             }
             if ($p['paymethod'] == 1 && $p['deductfrom'] === 'petty cash') {
@@ -158,6 +158,8 @@ class Expense {
             } elseif ($p['paymethod'] == 1 && $p['deductfrom'] === 'cash at hand') {
                 $credit += $amount;
             } elseif ($p['paymethod'] == 1 && $p['deductfrom'] === 'cash holding account') {
+                $credit += $amount;
+            } elseif ($p['paymethod'] == 1 && $p['deductfrom'] === 'development petty cash') {
                 $credit += $amount;
             } elseif ($p['paymethod'] == 2) {
                 $credit += $amount;
@@ -300,7 +302,7 @@ class Expense {
                 saveToLedger($this->db->dbh,$expense->expenseDate,'cash holding account',$cashparent,0,$expense->amount,$expense->narration,
                               3,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
             }else{
-                if($expense->deductfrom == 'petty cash' || $expense->deductfrom == 'cash at hand' || is_null($expense->deductfrom) || is_null($expense->requisitionId) ){
+                if($expense->deductfrom == 'petty cash' || $expense->deductfrom == 'development petty cash' || $expense->deductfrom == 'cash at hand' || is_null($expense->deductfrom) || is_null($expense->requisitionId) ){
                     saveToLedger($this->db->dbh,$expense->expenseDate,$accountname,$accparent,$expense->amount,0,$expense->narration,
                                 $accountid,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
                 }
@@ -309,6 +311,9 @@ class Expense {
                                     3,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
                 }elseif ($expense->paymethodId == 1 && $expense->deductfrom === 'cash at hand') {
                     saveToLedger($this->db->dbh,$expense->expenseDate,'cash at hand',$cashparent,0,$expense->amount,$expense->narration,
+                                    3,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
+                }elseif ($expense->paymethodId == 1 && $expense->deductfrom === 'development petty cash') {                    
+                    saveToLedger($this->db->dbh,$expense->expenseDate,'petty cash development',$cashparent,0,$expense->amount,$expense->narration,
                                     3,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
                 }elseif ($expense->paymethodId == 1 && $expense->deductfrom === 'cash holding account') {
                     saveToLedger($this->db->dbh,$expense->expenseDate,'cash holding account',$cashparent,0,$expense->amount,$expense->narration,
@@ -440,7 +445,7 @@ class Expense {
                     saveToLedger($this->db->dbh,$data['date'],'cash holding account',$cashparent,0,$data['amount'],$data['description'],
                                 3,2,$data['id'],$_SESSION['congId'],$data['reference']);
                 }else{
-                    if($data['deductfrom'] == 'petty cash' || $data['deductfrom'] == 'cash at hand' || is_null($data['deductfrom']) || is_null($data['reqid']) ){
+                    if($data['deductfrom'] == 'petty cash' || $data['deductfrom'] == 'development petty cash' || $data['deductfrom'] == 'cash at hand' || is_null($data['deductfrom']) || is_null($data['reqid']) ){
                         saveToLedger($this->db->dbh,$data['date'],$accountname,$accparent,$data['amount'],0,$data['description'],
                                     $accountid,2,$data['id'],$_SESSION['congId'],$data['reference']);
                     }
@@ -449,6 +454,9 @@ class Expense {
                                         3,2,$data['id'],$_SESSION['congId'],$data['reference']);
                     }elseif ($data['paymethod'] == 1 && $data['deductfrom'] === 'cash at hand') {
                         saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cashparent,0,$data['amount'],$data['description'],
+                                        3,2,$data['id'],$_SESSION['congId'],$data['reference']);
+                    }elseif ($data['paymethod'] == 1 && $data['deductfrom'] === 'development petty cash') {
+                        saveToLedger($this->db->dbh,$data['date'],'petty cash development',$cashparent,0,$data['amount'],$data['description'],
                                         3,2,$data['id'],$_SESSION['congId'],$data['reference']);
                     }elseif ($data['paymethod'] == 1 && $data['deductfrom'] === 'cash holding account') {
                         saveToLedger($this->db->dbh,$data['date'],'cash holding account',$cashparent,0,$data['amount'],$data['description'],
