@@ -169,12 +169,18 @@ class Bankreconcilliation
      
         $asofdate = $data['to'];
 
-        $this->db->query('SELECT (IFNULL(SUM(debit),0) - IFNULL(SUM(credit),0))
-                          FROM tblbankpostings
-                          WHERE transactionDate <= :asofdate AND bankId = :bank
-                                AND congregationId = :cong AND deleted = 0');
+        // $this->db->query('SELECT (IFNULL(SUM(debit),0) - IFNULL(SUM(credit),0))
+        //                   FROM tblbankpostings
+        //                   WHERE transactionDate <= :asofdate AND bankId = :bank
+        //                         AND congregationId = :cong AND deleted = 0');
+        // $this->db->bind(':asofdate',$asofdate);
+        // $this->db->bind(':bank',$data['bank']);
+        // $this->db->bind(':cong',$_SESSION['congId']);
+        $this->db->query('SELECT (ifnull(sum(l.debit),0) - ifnull(sum(l.credit),0))
+                          FROM tblledger l 
+                          WHERE transactionDate <= :asofdate AND l.account = :account AND congregationId = :cong AND (deleted = 0);');
         $this->db->bind(':asofdate',$asofdate);
-        $this->db->bind(':bank',$data['bank']);
+        $this->db->bind(':account','cash at bank');
         $this->db->bind(':cong',$_SESSION['congId']);
         $result = $this->db->getValue();
         array_push($amounts,$result);
