@@ -1,6 +1,8 @@
 <?php
 class Bank {
     private $db;
+    const OPENING_BALANCE_EQUITY_ID = 20; // tblaccounttypes.ID of 'opening balance equity'
+    const OPENING_BALANCE_NARRATION = 'opening balance equity';
     public function __construct()
     {
         $this->db =  new Database;
@@ -47,11 +49,45 @@ class Bank {
             return true;
         }
     }
+    /**
+     * Create a bank (and its opening balance). Returns
+     * ['success' => bool, 'errors' => string[]]; an empty errors list on failure
+     * means an unexpected error (logged).
+     */
+    /**
+     * Validate the opening balance typed on the add-bank form. Returns an error
+     * message, or null when it is acceptable. Blank / 0 means no opening balance.
+     */
+    public static function openingBalanceError($value)
+    {
+        $value = trim((string)$value);
+        if ($value === '') {
+            return null;
+        }
+        if (!preg_match('/^[+-]?(\d+\.?\d*|\.\d+)$/',$value)) {
+            return 'Opening balance must be a number.';
+        }
+        if ($value[0] === '-' && (float)$value != 0) {
+            return 'Opening balance cannot be negative. Enter an overdrawn balance later with a journal.';
+        }
+        $decimals = strpos($value,'.') === false ? '' : rtrim(substr($value,strpos($value,'.') + 1),'0');
+        if (strlen($decimals) > 2) {
+            return 'Opening balance cannot have more than 2 decimal places.';
+        }
+        return null;
+    }
+
     public function create($data)
     {
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
+        $error = self::openingBalanceError($data['openingbal']);
+        if ($error !== null) {
+            return ['success' => false,'errors' => [$error]];
+        }
         try {
             //start transaction
-            $this->db->dbh->beginTransaction();
+            $pdo->beginTransaction();
             $this->db->query('INSERT INTO tblaccounttypes (accountType,accountTypeId,parentId,
                               isBank,accountNo,congregationId,isSubCategory) VALUES(:bname,:tid,:pid,:isbank,:acc,:cid,:issub)');
             $this->db->bind(':bname',$data['bankname']);
@@ -59,48 +95,48 @@ class Bank {
             $this->db->bind(':pid',33);
             $this->db->bind(':isbank',1);
             $this->db->bind(':acc',!empty($data['account']) ? $data['account'] : NULL);
-            $this->db->bind(':cid',$_SESSION['congId']);
+            $this->db->bind(':cid',$cong);
             $this->db->bind(':issub',1);
             $this->db->execute();
-            $tid =$this->db->dbh->lastInsertId();
+            $tid = (int)$pdo->lastInsertId();
 
-            if ($data['openingbal'] > 0) {
-                $sql = 'SELECT COUNT(ID) FROM tblaccounttypes WHERE (accountType=?)';
-                $param = trim('opening balance equity');
-                if (getRecordExists($sql,$this->db->dbh,$param) == 0) {
-                    $this->db->query('INSERT INTO tblaccounttypes (accountType,accountTypeId,parentId)
-                                      VALUES(:atype,:aid,:pid)');
-                    $this->db->bind(':atype',$param);
-                    $this->db->bind(':aid',6);
-                    $this->db->bind(':pid',6);
-                    $this->db->execute();
-                }
-
-                $cabparent = getparentgl($this->db->dbh,'cash at bank'); //cash at bank parent
-
-                saveToLedger($this->db->dbh,$data['asof'],$param,$param,0,$data['openingbal'],$param,6,8,
-                             $tid,$_SESSION['congId'],null);
-                saveToLedger($this->db->dbh,$data['asof'],'cash at bank',$cabparent,$data['openingbal'],0,$param,3,8,
-                             $tid,$_SESSION['congId'],null);
-                saveToBanking($this->db->dbh,$tid,$data['asof'],$data['openingbal'],0,4,$param,8,
-                              $tid,$_SESSION['congId']);             
+            // zero / blank opening balance posts nothing
+            if ((float)$data['openingbal'] > 0) {
+                Ledger::post($pdo,[
+                    'congregationId' => $cong,
+                    'entryDate' => $data['asof'],
+                    'transactionTypeId' => 8,
+                    'transactionId' => $tid,
+                    'reference' => self::OPENING_BALANCE_NARRATION,
+                    'description' => self::OPENING_BALANCE_NARRATION
+                ],[
+                    Ledger::debit($tid,$data['openingbal'],self::OPENING_BALANCE_NARRATION),
+                    Ledger::credit(self::OPENING_BALANCE_EQUITY_ID,$data['openingbal'],self::OPENING_BALANCE_NARRATION)
+                ]);
+                Ledger::syncBankPostings($pdo,$cong,8,$tid,'B/F');
+                // the opening balance is the statement's starting balance: created reconciled
+                $pdo->prepare('UPDATE tblbankpostings SET cleared = 1, clearedDare = ?
+                               WHERE transactionType = 8 AND transactionId = ? AND congregationId = ? AND deleted = 0')
+                    ->execute([$data['asof'],$tid,$cong]);
             }
             //save logs
             $act = 'Created Bank '.$data['bankname'];
-            saveLog($this->db->dbh,$act);
+            saveLog($pdo,$act);
 
             //commit transaction
-            if ($this->db->dbh->commit()) {
-               return true;
+            $pdo->commit();
+            return ['success' => true,'errors' => []];
+        } catch (LedgerException $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
             }
-            else{
-                return false;
-            }
+            return ['success' => false,'errors' => $e->getErrors()];
         } catch (\Exception $e) {
-            if ($this->db->dbh->inTransaction()) {
-                $this->db->dbh->rollback();
+            if ($pdo->inTransaction()) {
+                $pdo->rollback();
             }
             error_log($e->getMessage(),0);
+            return ['success' => false,'errors' => []];
         }
     }
     public function getbank($id)
@@ -124,47 +160,88 @@ class Bank {
         }
     }
 
+    /**
+     * Reasons the bank cannot be deleted (empty = it can). Only the bank's own
+     * opening balance (type 8, transactionId = bank id) is ignored.
+     */
     public function checkreferenced($id)
     {
-        $count = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tblbankpostings WHERE bankId = ?',[(int)$id]);
+        $id = (int)$id;
+        $cong = (int)$_SESSION['congId'];
+        $reasons = [];
+
+        $count = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tblbankpostings
+                                            WHERE bankId = ? AND deleted = 0
+                                              AND NOT (transactionType = 8 AND transactionId = ?)',[$id,$id]);
         if((int)$count > 0){
-            return false;
-        }else{
-            return true;
+            $reasons[] = 'Cannot delete: the bank has '.(int)$count.' active bank posting(s) other than its opening balance';
         }
+
+        $count = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM journal_lines l
+                                            JOIN journal_entries e ON e.ID = l.journalEntryId
+                                            WHERE l.accountId = ? AND e.deleted = 0
+                                              AND NOT (e.transactionTypeId = 8 AND e.transactionId = ? AND e.congregationId = ?)',
+                            [$id,$id,$cong]);
+        if((int)$count > 0){
+            $reasons[] = 'Cannot delete: the bank is used on '.(int)$count.' active ledger line(s) other than its opening balance';
+        }
+        $cleared = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tblbankpostings
+                                              WHERE bankId = ? AND transactionType = 8 AND transactionId = ?
+                                                AND congregationId = ? AND deleted = 0 AND cleared = 1',[$id,$id,$cong]);
+        if((int)$cleared > 0){
+            $reasons[] = 'Cannot delete: the opening balance has been reconciled. Correct it with a journal instead.';
+        }
+        return $reasons;
     }
 
+    /** Returns ['success' => bool, 'errors' => string[]] (empty errors on failure = unexpected error, logged). */
     public function delete($data)
     {
-       
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
+        $id = (int)$data['id'];
         try {
             //start transaction
-            $this->db->dbh->beginTransaction();
+            $pdo->beginTransaction();
+
+            $owner = getdbvalue($pdo,'SELECT congregationId FROM tblaccounttypes WHERE ID = ? AND isBank = 1 AND deleted = 0',[$id]);
+            if($owner === false || $owner === null || (int)$owner !== $cong){
+                $pdo->rollBack();
+                return ['success' => false,'errors' => ['Bank not found for this congregation']];
+            }
+            $reasons = $this->checkreferenced($id);
+            if($reasons){
+                $pdo->rollBack();
+                return ['success' => false,'errors' => $reasons];
+            }
+
             $this->db->query('UPDATE tblaccounttypes SET deleted=:del WHERE (ID=:id)');
             $this->db->bind(':del',1);
-            $this->db->bind(':id',$data['id']);
+            $this->db->bind(':id',$id);
             $this->db->execute();
 
-            $this->db->query('DELETE FROM tblledger WHERE (transactionType = 8) AND (transactionId = :id)');
-            $this->db->bind(':id',$data['id']);
-            $this->db->execute();
-            
+            // opening balance (if any) is voided, never hard-deleted
+            Ledger::void($pdo,$cong,8,$id);
+            Ledger::voidBankPostings($pdo,$cong,8,$id);
+
             //save logs
             $act = 'Deleted Bank '.$data['bankname'];
-            saveLog($this->db->dbh,$act);
+            saveLog($pdo,$act);
 
             //commit transaction
-            if ($this->db->dbh->commit()) {
-               return true;
+            $pdo->commit();
+            return ['success' => true,'errors' => []];
+        } catch (LedgerException $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
             }
-            else{
-                return false;
-            }
+            return ['success' => false,'errors' => $e->getErrors()];
         } catch (\Exception $e) {
-            if ($this->db->dbh->inTransaction()) {
-                $this->db->dbh->rollback();
+            if ($pdo->inTransaction()) {
+                $pdo->rollback();
             }
-            throw $e;
+            error_log($e->getMessage(),0);
+            return ['success' => false,'errors' => []];
         }
     }
 

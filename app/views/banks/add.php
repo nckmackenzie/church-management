@@ -42,9 +42,11 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="openingbal">Opening Balance</label>
-                                    <input type="number" name="openingbal" id="openingbal"
-                                        class="form-control form-control-sm" 
+                                    <input type="number" name="openingbal" id="openingbal" step="0.01" min="0"
+                                        class="form-control form-control-sm
+                                        <?php echo (!empty($data['openingbal_err'])) ? 'is-invalid' : ''?>" 
                                         value="<?php echo $data['openingbal'];?>">
+                                    <span class="invalid-feedback"><?php echo $data['openingbal_err'] ?? '';?></span>
                                 </div>
                                 <div class="form-group">
                                     <label for="asof">Opening Balance</label>

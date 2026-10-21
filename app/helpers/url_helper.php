@@ -180,6 +180,9 @@ function encryptId($id)
 }
 function decryptId($encryptedId)
 {
+    if (!is_numeric($encryptedId)) {
+        return 0; // not an ID we issued: callers treat 0 as 'not found'
+    }
     $id = $encryptedId / (2020 * 7);
     return (int)$id;
 }

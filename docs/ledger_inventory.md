@@ -26,8 +26,8 @@ A type is **Done** only after the browser test on dev (create, edit, delete in t
 | Step | Types | Code | Library tests | Browser test | Status |
 |---|---|---|---|---|---|
 | 8.1 | 5 Journals | **Migrated** 2026-10-21 (8.1 + 8.1b) | 56/56 pass | Passed 2026-10-21 | **Done** |
-| 8.2 | 8 Bank opening balance + bank create/delete | Old code | – | – | In progress (prompt written) |
-| 8.3 | 9 Bank postings, 13 Bank txns / deposits | Old code | – | – | Not started |
+| 8.2 | 8 Bank opening balance + bank create/delete | **Migrated** 2026-10-21 (8.2 + 8.2b) | 56/56 pass | Pending | Coded, awaiting browser test |
+| 8.3 | 9 Bank postings, 13 Bank transactions (deposits form removed) | **Migrated** 2026-10-21 (8.3 + 8.3b; 8.3c pending) | 56/56 + 57 + 36 functional | Pending | Coded, 8.3c in progress |
 | 8.4 | 1 Contributions, 10 Petty cash | Old code | – | – | Not started |
 | 8.5 | 2 Expenses | Old code | – | – | Not started |
 | 8.6 | 3/4 Pledges | Old code | – | – | Not started |
@@ -36,6 +36,25 @@ A type is **Done** only after the browser test on dev (create, edit, delete in t
 | 8.9 | 11, 17, 12 MMF / group collections / group funds | Old code | – | – | Not started |
 | 8.10 | Account screens | Old code | – | – | Not started |
 | 8.11 | Clean-up of `url_helper.php` helpers | Old code | – | – | Not started |
+
+### Inferred accounts — ask the user before migrating (decision 16)
+
+The old code picked these accounts in the backend instead of letting the user choose. **The new code must not infer any account**: before each step's prompt, ask the user how each one is chosen (normally a form dropdown validated by `Ledger`). Status per account:
+
+| Step | Type / path | Account the old code assumed | How it is chosen now |
+|---|---|---|---|
+| 8.2 | 8 Bank opening balance | 'opening balance equity' (by name, auto-created) | **Fixed system account ID 20**, confirmed |
+| 8.3 | 9 Bank posting, method 1 (create only) | 'cash at hand' (update used the chosen contra) | User's contra account (dropdown) |
+| 8.3 | 13 Bank transaction deposit / withdrawal | 'cash at hand' (34) | **"Crediting/Debiting account" dropdown** (PAY_CASH = accounts under 22, decision 19), stored in `CashAccountId` (8.3b/8.3c) |
+| 8.3 | 13 Transfer | target by name (`getAccountName`) | Transfer dropdown by ID |
+| 8.4 | 1 Contributions, 10 Petty cash receipts | 'cash at bank' / payment-method accounts | **Ask** (question D: payment methods) |
+| 8.4 | 13 Transfer → petty cash receipt (`Banktransaction::savePettyCash()`) | receipt in `tblpettycash` only when the target is **98** (not 194 'petty cash development') | **Ask** (with petty cash receipts) |
+| 8.5 | 2 Expenses | 'petty cash', 'development petty cash' (no such row; real one is 'petty cash development'), 'cash at hand', 'cash holding account'; `Expenses.php:61` default 'petty cash' | **Ask** |
+| 8.6 | 3/4 Pledges | 'cast at bank' (typo) | **Ask** (bank / cash dropdown?) |
+| 8.7 | 6 Supplier invoices, 7 payments, 15 opening balance | 'accounts payable' (no chart row), parent 'payables and accruals' | **Ask** (question C) |
+| 8.8 | 14 Customer invoices, 16 payments | 'accounts receivable' (ID 9 by name, `$three = 3`) | **Ask** (fixed system account or chosen?) |
+| 8.9 | 11 MMF receipts | 'groups balances held' (no chart row), 'cash at bank' | **Ask** |
+| 8.9 | 17 Group collections, 12 Group fund approvals | 'cash at bank', group funds-held accounts | **Ask** |
 
 **8.1 journals — what changed (supersedes the journal entries in §1, §3, §5, §8, §9, §10 below):**
 
@@ -47,6 +66,19 @@ A type is **Done** only after the browser test on dev (create, edit, delete in t
 - `app/libraries/Ledger.php`: `syncBankPostings()`, `voidBankPostings()`, private `bankMethodId()` added (unknown method → `LedgerException`).
 - DB (dev): `tbltransactionmethods` row **7 'Journal'** added (`scripts/sql/add_journal_method.sql` = F13 in `ledger_fixes.sql`; **must run on production at cutover**).
 - New read-only check: `scripts/sql/ledger_verify_v10.sql` (bank lines vs bank postings). On dev: part A 0 rows; part B 2 legacy groups (type 1 `transactionId = 0`, receipt 1890), resolved by F14 + exclusion of bank rows 682, 696, 1565 (handover question F).
+
+**8.2 banks — what changed (supersedes the bank entries in §1c, §3, §7 below):**
+
+- `app/models/Bank.php`: `create()` posts the opening balance with `Ledger::post()` (type 8, Dr the new bank ID / Cr opening balance equity **ID 20**) + `syncBankPostings(..., 'B/F')`; the by-name lookup/auto-create of 'opening balance equity', `saveToLedger`, `saveToBanking`, `'cash at bank'` and `getparentgl()` are gone. `checkreferenced()` returns reasons: active bank rows or active journal lines other than the bank's own type-8 ones (old guard counted every `tblbankpostings` row, deleted and own type-8 included, so a bank with an opening balance could never be deleted). `delete()` runs in one transaction: ownership check, guard, soft delete, `Ledger::void()` + `voidBankPostings()` (old: hard `DELETE FROM tblledger`). `update()` unchanged (name / account no only; the opening balance is not editable).
+- `app/controllers/Banks.php`: shows Ledger / guard messages instead of generic ones.
+- 8.2b: `Bank::openingBalanceError()` (controller + model) rejects negative, non-numeric and > 2-decimal opening balances; the opening-balance bank row is created cleared (`clearedDare` = as-of date); `checkreferenced()` also refuses delete when that row is cleared. Nothing in the app un-clears a bank row (`Clearbanking` only clears / changes the date), so a bank with an opening balance can't be deleted from the UI.
+
+**8.3 bank postings / bank transactions — what changed (supersedes §1b/§1c/§3/§5/§9 entries for types 9 and 13):**
+
+- `app/models/Bankposting.php` (type 9): the `tblbankpostings` row is the source record (no `syncBankPostings`); `create/update/delete` in one transaction with `Ledger::post()` / `void()` (hard `DELETE FROM tblledger` removed); bank by ID (PAY_BANK), contra = non-bank posting account (old: generic 'cash at bank', and create credited 'cash at hand' while update credited the contra); edit un-clears the row only when bank, side or amount change; contra dropdown congregation-filtered, posting accounts only; edit/update/delete refuse any row that isn't an active type-9 row of the congregation (old: any row by ID, any congregation).
+- `app/models/Banktransaction.php` (type 13): `Save/Update/Delete` use `Ledger::post()` + `syncBankPostings()` / `void()` + `voidBankPostings()`; dropdowns from `Ledger::listPaymentAccounts()`; bank-to-bank transfers write two bank rows (old: one); ownership check on update/delete; sub-account transfers (type 6) post nothing. **8.3b:** 'cash at hand' (34) replaced by a user-chosen "Crediting/Debiting account" (new column `CashAccountId`, backfilled 34 — what the old code posted); bank row methods per type (1 deposit, 2 withdrawal, 1 transfer); `tblbanktransactions.Amount` int → decimal(18,2) and no `(int)` cast; sub-account `:reference` bound in `Save()` and `Update()`'s sub-account loop now writes the same columns as `Save()`. Script `scripts/sql/bank_txn_cash_account.sql` (production at cutover). **8.3c (in progress):** PAY_CASH limited to accounts under 22.
+- `Deposit.php` / `tbldesposits`: form removed from the app; out of scope (type 13 = bank transactions only).
+- `Clearbanking::delete()`, `Clearbankings::delete()` and the unused delete modal removed. `views/banks/add.php`: opening balance `step="0.01" min="0"`.
 
 ## Summary
 

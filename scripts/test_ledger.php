@@ -67,7 +67,8 @@ function pick(PDO $db, int $cong, string $where): ?int
 }
 
 $bank    = pick($db, $cong, 'isBank = 1');
-$cash    = pick($db, $cong, 'isBank = 0 AND accountTypeId = 3');
+$cash    = pick($db, $cong, 'isBank = 0 AND parentId = ' . Ledger::CASH_ROOT);          // a real cash account
+$asset   = pick($db, $cong, 'isBank = 0 AND accountTypeId = 3 AND parentId <> ' . Ledger::CASH_ROOT); // asset outside 'cash and cash equivalents'
 $expense = pick($db, $cong, 'accountTypeId = 2');
 $income  = pick($db, $cong, 'accountTypeId = 1');
 $st = $db->prepare('SELECT a.ID FROM tblaccounttypes a
@@ -162,11 +163,52 @@ try {
     }, LedgerException::class, 'not a bank');
     expectError('expense account rejected for cash/M-Pesa', function () use ($db, $cong, $expense) {
         Ledger::assertPaymentAccount($db, $cong, $expense, Ledger::PAY_CASH);
-    }, LedgerException::class, 'not an asset');
+    }, LedgerException::class, 'not a cash account');
+    expectError('asset outside cash and cash equivalents rejected for cash/M-Pesa', function () use ($db, $cong, $asset) {
+        Ledger::assertPaymentAccount($db, $cong, $asset, Ledger::PAY_CASH);
+    }, LedgerException::class, "must be under 'cash and cash equivalents'");
     $banks = array_column(Ledger::listPaymentAccounts($db, $cong, Ledger::PAY_BANK), 'ID');
     $cashes = array_column(Ledger::listPaymentAccounts($db, $cong, Ledger::PAY_CASH), 'ID');
     check('bank dropdown lists only banks', in_array($bank, $banks, true) && !in_array($cash, $banks, true), count($banks) . ' banks');
     check('cash dropdown lists no banks', in_array($cash, $cashes, true) && !in_array($bank, $cashes, true), count($cashes) . ' accounts');
+    // 'cash and cash equivalents' tree (task 8.3c)
+    check('account under 22 accepted for cash', $cash !== null && Ledger::assertPaymentAccount($db, $cong, $cash, Ledger::PAY_CASH) === $cash);
+    check('asset outside 22 absent from the cash list', $asset !== null && !in_array($asset, $cashes, true));
+    check('reporting account 22 itself is not a cash account', !in_array(Ledger::CASH_ROOT, $cashes, true));
+    $tree = $db->prepare('WITH RECURSIVE t (ID) AS (SELECT ID FROM tblaccounttypes WHERE parentId = ? AND deleted = 0
+                                                   UNION SELECT a.ID FROM tblaccounttypes a JOIN t ON a.parentId = t.ID WHERE a.deleted = 0)
+                          SELECT ID FROM t');
+    $tree->execute([Ledger::CASH_ROOT]);
+    $under22 = array_map('intval', $tree->fetchAll(PDO::FETCH_COLUMN));
+    check('every account in the cash list is a descendant of 22', $cashes && !array_diff(array_map('intval', $cashes), $under22), count($cashes) . ' accounts');
+    check('bank accounts (under 33 under 22) still refused for cash', !in_array($bank, $cashes, true));
+
+    // shared amount check
+    check('amountError accepts 100.50 and .5', Ledger::amountError('100.50') === null && Ledger::amountError('.5') === null);
+    check('amountError refuses blank, 0, negative, text', Ledger::amountError('') !== null && Ledger::amountError('0') !== null
+        && Ledger::amountError('-5') !== null && Ledger::amountError('abc') !== null);
+    check('amountError refuses 3 decimals', stripos(Ledger::amountError('1.234') ?? '', '2 decimal places') !== false);
+    check('amountError uses the label', strpos(Ledger::amountError('x', 'Sub account amount') ?? '', 'Sub account amount') === 0);
+
+    // account chart changes made inside this (rolled back) transaction
+    $mk = $db->prepare('INSERT INTO tblaccounttypes (accountType, accountTypeId, parentId, isBank, congregationId, isSubCategory, active, deleted)
+                         VALUES (?, 3, ?, 0, 0, ?, 1, ?)');
+    $mk->execute(['zz test deleted parent', Ledger::CASH_ROOT, 0, 1]);
+    $delParent = (int) $db->lastInsertId();
+    $mk->execute(['zz test child of deleted parent', $delParent, 1, 0]);
+    $orphan = (int) $db->lastInsertId();
+    check('account under a deleted parent is not postable', !Ledger::isPostingAccount($db, $orphan, $cong));
+    expectError('account under a deleted parent is refused', function () use ($db, $cong, $orphan) {
+        Ledger::assertPaymentAccount($db, $cong, $orphan, Ledger::PAY_CASH);
+    }, LedgerException::class, 'deleted parent');
+    $mk->execute(['zz test new cash account', Ledger::CASH_ROOT, 1, 0]);
+    $newCash = (int) $db->lastInsertId();
+    expectError('cash tree is cached until cleared', function () use ($db, $cong, $newCash) {
+        Ledger::assertPaymentAccount($db, $cong, $newCash, Ledger::PAY_CASH);
+    }, LedgerException::class, 'not a cash account');
+    Ledger::clearCashCache();
+    check('after clearCashCache a new account under 22 is accepted', Ledger::assertPaymentAccount($db, $cong, $newCash, Ledger::PAY_CASH) === $newCash);
+    check('and it appears in the cash list', in_array($newCash, array_column(Ledger::listPaymentAccounts($db, $cong, Ledger::PAY_CASH), 'ID')));
 
     // 7. Void, and journal numbers are never reused
     check('void returns true', Ledger::void($db, $cong, 5, $j1) === true);

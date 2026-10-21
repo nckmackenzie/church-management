@@ -75,7 +75,19 @@ class Ledger
     const TYPE_JOURNAL = 5;
 
     const PAY_BANK = 'bank';   // payment method is bank-related -> a bank account (isBank = 1)
-    const PAY_CASH = 'cash';   // cash, M-Pesa etc. -> an asset posting account that is not a bank
+    const PAY_CASH = 'cash';   // cash, M-Pesa etc. -> a non-bank posting account under CASH_ROOT
+
+    /**
+     * ID of the fixed system account 'cash and cash equivalents' (confirmed by the user, like
+     * opening balance equity 20). PAY_CASH accounts are its descendants, at any depth.
+     */
+    const CASH_ROOT = 22;
+
+    /**
+     * @var array<int, array{pdo: PDO, set: array<int, true>}> descendants of CASH_ROOT per connection, cached per
+     * request. The entry keeps the PDO object, so its spl_object_id cannot be reused by another connection.
+     */
+    private static $cashTree = [];
 
     // -----------------------------------------------------------------
     // Line builders
@@ -167,10 +179,18 @@ class Ledger
             $db->prepare('DELETE FROM journal_lines WHERE journalEntryId = ?')->execute([$existingId]);
             $entryId = $existingId;
         } else {
-            $db->prepare('INSERT INTO journal_entries
-                              (congregationId, entryDate, transactionTypeId, transactionId, journalNo, reference, description, deleted)
-                          VALUES (?, ?, ?, ?, ?, ?, ?, 0)')
-               ->execute([$cong, $date, $type, $txn, $journalNo, $ref, $desc]);
+            try {
+                $db->prepare('INSERT INTO journal_entries
+                                  (congregationId, entryDate, transactionTypeId, transactionId, journalNo, reference, description, deleted)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, 0)')
+                   ->execute([$cong, $date, $type, $txn, $journalNo, $ref, $desc]);
+            } catch (PDOException $e) {
+                // two saves of the same new source at once: the unique key stops the second one
+                if (((string) $e->getCode()) === '23000' && (int) ($e->errorInfo[1] ?? 0) === 1062) {
+                    throw new LedgerException(['this transaction was just saved by someone else; reload and try again']);
+                }
+                throw $e;
+            }
             $entryId = (int) $db->lastInsertId();
         }
 
@@ -372,6 +392,22 @@ class Ledger
         return $st->rowCount();
     }
 
+    /**
+     * Shared check for an amount typed on a form: a number greater than zero with at most
+     * 2 decimals. Returns an error message or null. $label starts the message.
+     */
+    public static function amountError($amount, string $label = 'Amount'): ?string
+    {
+        $s = trim((string) $amount);
+        if (!preg_match('/^(\d+\.?\d*|\.\d+)$/', $s) || (float) $s <= 0) {
+            return "$label must be a number greater than zero";
+        }
+        if (round((float) $s, 2) != (float) $s) {
+            return "$label cannot have more than 2 decimal places";
+        }
+        return null;
+    }
+
     // -----------------------------------------------------------------
     // Payment accounts (payment method dropdowns)
     // -----------------------------------------------------------------
@@ -379,14 +415,14 @@ class Ledger
     /**
      * Validate the account chosen for a payment method and return it.
      *   PAY_BANK: must be a bank account (isBank = 1)
-     *   PAY_CASH: must be an Asset (type 3) account that is not a bank
+     *   PAY_CASH: must not be a bank and must sit under 'cash and cash equivalents' (CASH_ROOT)
      * In both cases it must be a posting account.
      */
     public static function assertPaymentAccount(PDO $db, int $cong, int $accountId, string $kind): int
     {
         $info = self::accountInfo($db, [$accountId])[$accountId] ?? null;
         $why  = self::whyNotPostable($info, $cong, false);
-        if ($why === null) { $why = self::whyNotPaymentKind($info, $kind); }
+        if ($why === null) { $why = self::whyNotPaymentKind($db, $info, $kind); }
         if ($why !== null) {
             throw new LedgerException(["payment account $accountId: $why"]);
         }
@@ -399,15 +435,19 @@ class Ledger
      */
     public static function listPaymentAccounts(PDO $db, int $cong, string $kind): array
     {
-        $st = $db->prepare('SELECT ID FROM tblaccounttypes
-                            WHERE deleted = 0 AND active = 1 AND congregationId IN (0, ?)
-                              AND ' . ($kind === self::PAY_BANK ? 'isBank = 1' : 'isBank = 0 AND accountTypeId = 3'));
-        $st->execute([$cong]);
-        $ids = array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN));
+        if ($kind === self::PAY_BANK) {
+            $st = $db->prepare('SELECT ID FROM tblaccounttypes
+                                WHERE deleted = 0 AND active = 1 AND congregationId IN (0, ?) AND isBank = 1');
+            $st->execute([$cong]);
+            $ids = array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN));
+        } else {
+            // same set assertPaymentAccount() checks against; the rules below drop the rest
+            $ids = array_keys(self::cashTree($db));
+        }
 
         $out = [];
         foreach (self::accountInfo($db, $ids) as $id => $a) {
-            if (self::whyNotPostable($a, $cong, false) === null && self::whyNotPaymentKind($a, $kind) === null) {
+            if (self::whyNotPostable($a, $cong, false) === null && self::whyNotPaymentKind($db, $a, $kind) === null) {
                 $out[] = ['ID' => $id, 'accountType' => $a['accountType'], 'parentName' => $a['parentName']];
             }
         }
@@ -535,6 +575,7 @@ class Ledger
         $st = $db->prepare('SELECT a.ID, a.accountType, a.accountTypeId, a.parentId, a.isSubCategory, a.isBank,
                                    a.active, a.deleted, a.congregationId,
                                    p.parentId    AS grandParentId,
+                                   p.deleted     AS parentDeleted,
                                    p.accountType AS parentName,
                                    (SELECT COUNT(*) FROM tblaccounttypes c
                                      WHERE c.parentId = a.ID AND c.deleted = 0) AS childCount
@@ -556,6 +597,7 @@ class Ledger
         if (!in_array((int) $a['congregationId'], [0, $cong], true)) { return "'{$a['accountType']}' belongs to another congregation"; }
         if ((int) $a['parentId'] === 0)                          { return "'{$a['accountType']}' is a root account"; }
         if ($a['grandParentId'] === null)                        { return "'{$a['accountType']}' has a missing parent account"; }
+        if ((int) $a['parentDeleted'] === 1)                    { return "'{$a['accountType']}' is under a deleted parent account"; }
         if ((int) $a['grandParentId'] === 0)                     { return "'{$a['accountType']}' is a top-level reporting account"; }
         if ((int) $a['childCount'] > 0)                          { return "'{$a['accountType']}' has sub-accounts (reporting account)"; }
         if ((int) $a['isSubCategory'] !== 1)                     { return "'{$a['accountType']}' is not marked as a posting account"; }
@@ -563,7 +605,38 @@ class Ledger
         return null;
     }
 
-    private static function whyNotPaymentKind(?array $a, string $kind): ?string
+    /**
+     * IDs of every non-deleted descendant of CASH_ROOT, at any depth (CASH_ROOT itself excluded).
+     * UNION (not UNION ALL) de-duplicates, so a parent cycle cannot loop forever.
+     *
+     * @return array<int, true>
+     */
+    private static function cashTree(PDO $db): array
+    {
+        $key = spl_object_id($db);
+        if (!isset(self::$cashTree[$key])) {
+            $st = $db->prepare('WITH RECURSIVE tree (ID) AS (
+                                    SELECT ID FROM tblaccounttypes WHERE parentId = ? AND deleted = 0
+                                    UNION
+                                    SELECT a.ID FROM tblaccounttypes a JOIN tree t ON a.parentId = t.ID WHERE a.deleted = 0
+                                 ) SELECT ID FROM tree');
+            $st->execute([self::CASH_ROOT]);
+            $set = [];
+            foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $id) {
+                if ((int) $id !== self::CASH_ROOT) { $set[(int) $id] = true; }
+            }
+            self::$cashTree[$key] = ['pdo' => $db, 'set' => $set];
+        }
+        return self::$cashTree[$key]['set'];
+    }
+
+    /** Forget the cached 'cash and cash equivalents' tree (after the chart of accounts changes in the same request). */
+    public static function clearCashCache(): void
+    {
+        self::$cashTree = [];
+    }
+
+    private static function whyNotPaymentKind(PDO $db, ?array $a, string $kind): ?string
     {
         if ($a === null) { return 'does not exist'; }
         if ($kind === self::PAY_BANK) {
@@ -571,7 +644,9 @@ class Ledger
         }
         if ($kind === self::PAY_CASH) {
             if ((int) $a['isBank'] === 1)        { return "'{$a['accountType']}' is a bank account; choose a bank payment method"; }
-            if ((int) $a['accountTypeId'] !== 3) { return "'{$a['accountType']}' is not an asset account"; }
+            if (!isset(self::cashTree($db)[(int) $a['ID']])) {
+                return "'{$a['accountType']}' is not a cash account (must be under 'cash and cash equivalents')";
+            }
             return null;
         }
         return "unknown payment kind '$kind'";
