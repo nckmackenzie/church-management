@@ -90,6 +90,13 @@ expectError('refuses to write outside a transaction', function () use ($db, $con
     Ledger::nextJournalNo($db, $cong);
 }, LogicException::class, 'transaction');
 
+expectError('bank sync refuses to run outside a transaction', function () use ($db, $cong) {
+    Ledger::syncBankPostings($db, $cong, 2, 1, 'journal');
+}, LogicException::class, 'transaction');
+expectError('bank void refuses to run outside a transaction', function () use ($db, $cong) {
+    Ledger::voidBankPostings($db, $cong, 2, 1);
+}, LogicException::class, 'transaction');
+
 $db->beginTransaction();
 try {
     // 2. Journal numbers
@@ -189,6 +196,115 @@ try {
     } else {
         echo '  (legacy mirror off: LEDGER_LEGACY_WRITE not true)' . PHP_EOL;
     }
+
+    // 10. Bank postings (tblbankpostings sync)
+    $bank2 = null;
+    $st = $db->prepare('SELECT ID FROM tblaccounttypes WHERE isBank = 1 AND deleted = 0 AND active = 1
+                        AND congregationId IN (0, ?) AND ID <> ? ORDER BY ID');
+    $st->execute([$cong, $bank]);
+    foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $id) {
+        if (Ledger::isPostingAccount($db, (int) $id, $cong)) { $bank2 = (int) $id; break; }
+    }
+    if ($bank2 === null) { throw new RuntimeException('need a second posting bank account for the bank tests'); }
+
+    $rows = function (int $t, int $x, bool $all = false) use ($db, $cong) {
+        $st = $db->prepare('SELECT * FROM tblbankpostings WHERE congregationId = ? AND transactionType = ? AND transactionId = ?'
+                           . ($all ? '' : ' AND deleted = 0') . ' ORDER BY ID');
+        $st->execute([$cong, $t, $x]);
+        return $st->fetchAll();
+    };
+    $journalMethod = (int) $db->query("SELECT ID FROM tbltransactionmethods WHERE LOWER(methodName) = 'journal'")->fetchColumn();
+    check('Journal method exists in tbltransactionmethods', $journalMethod > 0, 'ID ' . $journalMethod);
+    $B1  = $TEST_TXN + 1;
+    $hb  = ['congregationId' => $cong, 'entryDate' => date('Y-m-d'), 'transactionTypeId' => 2,
+            'transactionId' => $B1, 'reference' => 'REF1', 'description' => 'bank test'];
+
+    // bank debit line -> one uncleared row
+    Ledger::post($db, $hb, [Ledger::debit($bank, '500.00', 'dep memo'), Ledger::credit($income, '500.00')]);
+    check('sync returns 1 for one bank line', Ledger::syncBankPostings($db, $cong, 2, $B1, 'journal') === 1);
+    $r = $rows(2, $B1);
+    $m = $r ? $r[0] : [];
+    check('one uncleared bank row, debit side', count($r) === 1 && (int) $m['bankId'] === $bank && (int) $m['cleared'] === 0
+          && abs($m['debit'] - 500) < 0.005 && abs($m['credit']) < 0.005 && $m['clearedDare'] === null);
+    check('row has method, reference and narration', (int) $m['transactionMethod'] === $journalMethod && $m['reference'] === 'REF1'
+          && $m['narration'] === 'dep memo' && (int) $m['transactionType'] === 2 && (int) $m['transactionId'] === $B1);
+    check('calling sync again changes nothing', Ledger::syncBankPostings($db, $cong, 2, $B1, 'journal') === 1
+          && count($rows(2, $B1, true)) === 1);
+
+    // mark cleared, edit narration only -> same row, still cleared
+    $db->prepare('UPDATE tblbankpostings SET cleared = 1, clearedDare = ? WHERE ID = ?')->execute(['2026-01-05', $m['ID']]);
+    Ledger::post($db, $hb, [Ledger::debit($bank, '500.00', 'new memo'), Ledger::credit($income, '500.00')]);
+    Ledger::syncBankPostings($db, $cong, 2, $B1, 'journal');
+    $r = $rows(2, $B1);
+    check('narration edit keeps the same cleared row', count($r) === 1 && (int) $r[0]['ID'] === (int) $m['ID']
+          && (int) $r[0]['cleared'] === 1 && $r[0]['clearedDare'] === '2026-01-05' && $r[0]['narration'] === 'new memo');
+
+    // change bank amount -> old soft-deleted, new uncleared
+    Ledger::post($db, $hb, [Ledger::debit($bank, '750.50', 'new memo'), Ledger::credit($income, '750.50')]);
+    Ledger::syncBankPostings($db, $cong, 2, $B1, 'journal');
+    $r   = $rows(2, $B1);
+    $all = $rows(2, $B1, true);
+    check('amount edit: old row soft-deleted, new uncleared row',
+          count($all) === 2 && count($r) === 1 && (int) $r[0]['ID'] !== (int) $m['ID'] && (int) $r[0]['cleared'] === 0
+          && abs($r[0]['debit'] - 750.50) < 0.005 && (int) $all[0]['deleted'] === 1);
+
+    // move the bank line to another bank
+    Ledger::post($db, $hb, [Ledger::debit($bank2, '750.50', 'new memo'), Ledger::credit($income, '750.50')]);
+    Ledger::syncBankPostings($db, $cong, 2, $B1, 'journal');
+    $r = $rows(2, $B1);
+    check("bank edit $bank -> $bank2: old soft-deleted, new row on new bank",
+          count($r) === 1 && (int) $r[0]['bankId'] === $bank2 && count($rows(2, $B1, true)) === 3);
+
+    // transfer: two bank lines, opposite sides
+    $B2 = $TEST_TXN + 2;
+    $ht = array_merge($hb, ['transactionId' => $B2]);
+    Ledger::post($db, $ht, [Ledger::debit($bank2, 200, 'to second bank'), Ledger::credit($bank, 200, 'from first bank')]);
+    check('transfer syncs 2 rows', Ledger::syncBankPostings($db, $cong, 2, $B2, 'journal') === 2);
+    $r  = $rows(2, $B2);
+    $dr = null;
+    $cr = null;
+    foreach ($r as $x) { if ($x['debit'] > 0) { $dr = $x; } else { $cr = $x; } }
+    check('transfer rows are on opposite sides of the right banks', count($r) === 2 && $dr && $cr
+          && (int) $dr['bankId'] === $bank2 && (int) $cr['bankId'] === $bank
+          && abs($dr['debit'] - 200) < 0.005 && abs($cr['credit'] - 200) < 0.005);
+    check('transfer re-sync with no change keeps both rows', Ledger::syncBankPostings($db, $cong, 2, $B2, 'journal') === 2
+          && count($rows(2, $B2, true)) === 2);
+
+    // remove all bank lines
+    Ledger::post($db, $ht, [Ledger::debit($expense, 200), Ledger::credit($cash, 200)]);
+    check('removing all bank lines returns 0', Ledger::syncBankPostings($db, $cong, 2, $B2, 'journal') === 0);
+    check('...and soft-deletes the rows', count($rows(2, $B2)) === 0 && count($rows(2, $B2, true)) === 2);
+
+    // unknown method fails loudly and writes nothing
+    $B5 = $TEST_TXN + 5;
+    Ledger::post($db, array_merge($hb, ['transactionId' => $B5]), [Ledger::debit($bank, 40), Ledger::credit($income, 40)]);
+    foreach (['nonsense', '999', ''] as $bad) {
+        expectError("unknown method '$bad' is rejected", function () use ($db, $cong, $B5, $bad) {
+            Ledger::syncBankPostings($db, $cong, 2, $B5, $bad);
+        }, LedgerException::class, 'unknown bank transaction method');
+    }
+    check('...and no bank row was written', count($rows(2, $B5, true)) === 0);
+    check('method can be given by ID or name', Ledger::syncBankPostings($db, $cong, 2, $B5, (string) $journalMethod) === 1
+          && Ledger::syncBankPostings($db, $cong, 2, $B5, 'JOURNAL') === 1 && count($rows(2, $B5, true)) === 1);
+    // void + voidBankPostings
+    $B3 = $TEST_TXN + 3;
+    $hv = array_merge($hb, ['transactionId' => $B3]);
+    Ledger::post($db, $hv, [Ledger::debit($bank, 90), Ledger::credit($income, 90)]);
+    Ledger::syncBankPostings($db, $cong, 2, $B3, 'journal');
+    check('void entry', Ledger::void($db, $cong, 2, $B3) === true);
+    check('voidBankPostings returns 1', Ledger::voidBankPostings($db, $cong, 2, $B3) === 1);
+    check('entry and rows are deleted', Ledger::getEntry($db, $cong, 2, $B3) === null && count($rows(2, $B3)) === 0
+          && Ledger::voidBankPostings($db, $cong, 2, $B3) === 0);
+
+    // source with no active entry
+    $B4 = $TEST_TXN + 4;
+    check('no active entry: sync returns 0', Ledger::syncBankPostings($db, $cong, 2, $B4, 'journal') === 0
+          && count($rows(2, $B4)) === 0);
+    $db->prepare('INSERT INTO tblbankpostings (bankId, transactionDate, debit, credit, transactionMethod, transactionType, transactionId, congregationId)
+                  VALUES (?, ?, 5, 0, 1, 2, ?, ?)')->execute([$bank, date('Y-m-d'), $B4, $cong]);
+    check('no active entry: sync soft-deletes leftover rows', Ledger::syncBankPostings($db, $cong, 2, $B4, 'journal') === 0
+          && count($rows(2, $B4)) === 0 && count($rows(2, $B4, true)) === 1);
+
 } catch (Throwable $e) {
     check('unexpected error', false, $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')');
 } finally {

@@ -248,6 +248,131 @@ class Ledger
     }
 
     // -----------------------------------------------------------------
+    // Bank postings (tblbankpostings cashbook)
+    // -----------------------------------------------------------------
+
+    /**
+     * Make the non-deleted tblbankpostings rows of a source match the bank
+     * lines (isBank = 1) of its active entry. Returns the number of active
+     * bank rows afterwards.
+     *
+     * Matching is on bankId + side + amount (ROUND 2, tolerance 0.005, the
+     * columns are FLOAT): a matched row is updated in place and keeps
+     * cleared / clearedDare; an unmatched row is soft-deleted; an unmatched
+     * line gets a new uncleared row. accountId is left NULL, as saveToBanking()
+     * does. Rows are never hard-deleted.
+     */
+    public static function syncBankPostings(PDO $db, int $cong, int $type, int $txn, string $method, ?string $reference = null): int
+    {
+        self::requireTransaction($db);
+
+        $entry = self::getEntry($db, $cong, $type, $txn);
+        if ($entry === null) {
+            self::voidBankPostings($db, $cong, $type, $txn);
+            return 0;
+        }
+
+        $info   = self::accountInfo($db, array_column($entry['lines'], 'accountId'));
+        $wanted = [];
+        foreach ($entry['lines'] as $l) {
+            if ((int) ($info[(int) $l['accountId']]['isBank'] ?? 0) !== 1) { continue; }
+            $isDebit  = $l['dc'] === self::DEBIT;
+            $wanted[] = [
+                'bankId'    => (int) $l['accountId'],
+                'debit'     => $isDebit ? $l['amount'] : '0.00',
+                'credit'    => $isDebit ? '0.00' : $l['amount'],
+                'narration' => self::blankToNull($l['memo']) ?? $entry['description'],
+            ];
+        }
+
+        $date = $entry['entryDate'];
+        $ref  = $reference !== null ? self::blankToNull($reference) : null;
+        if ($ref === null) { $ref = $entry['reference']; }
+
+        $st = $db->prepare('SELECT ID, bankId, debit, credit FROM tblbankpostings
+                            WHERE congregationId = ? AND transactionType = ? AND transactionId = ? AND deleted = 0
+                            ORDER BY ID FOR UPDATE');
+        $st->execute([$cong, $type, $txn]);
+        $existing = $st->fetchAll(PDO::FETCH_ASSOC);
+
+        $upd = $db->prepare('UPDATE tblbankpostings
+                             SET transactionDate = ?, reference = ?, narration = ?, transactionMethod = ?
+                             WHERE ID = ?');
+        $ins = $db->prepare('INSERT INTO tblbankpostings
+                                 (bankId, transactionDate, debit, credit, transactionMethod, reference, cleared, clearedDare,
+                                  narration, transactionType, transactionId, congregationId, deleted)
+                             VALUES (?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?, ?, 0)');
+        $del = $db->prepare('UPDATE tblbankpostings SET deleted = 1 WHERE ID = ?');
+
+        $methodIds = [];
+        $used      = [];
+        $active    = 0;
+
+        foreach ($wanted as $w) {
+            $methodId = self::bankMethodId($db, $method, $methodIds);
+            $hit = null;
+            foreach ($existing as $i => $r) {
+                if (isset($used[$i]) || (int) $r['bankId'] !== $w['bankId']) { continue; }
+                if (abs(round((float) $r['debit'], 2) - (float) $w['debit']) < 0.005
+                    && abs(round((float) $r['credit'], 2) - (float) $w['credit']) < 0.005) {
+                    $hit = $i;
+                    break;
+                }
+            }
+            if ($hit !== null) {
+                $used[$hit] = true;
+                $upd->execute([$date, $ref, $w['narration'], $methodId, $existing[$hit]['ID']]);
+            } else {
+                $ins->execute([$w['bankId'], $date, $w['debit'], $w['credit'], $methodId, $ref,
+                               $w['narration'], $type, $txn, $cong]);
+            }
+            $active++;
+        }
+
+        foreach ($existing as $i => $r) {
+            if (!isset($used[$i])) { $del->execute([$r['ID']]); }
+        }
+
+        return $active;
+    }
+
+    /**
+     * tblbankpostings.transactionMethod is a foreign key to tbltransactionmethods.
+     * $method is an existing ID or a method name (case-insensitive); anything
+     * else is rejected.
+     */
+    private static function bankMethodId(PDO $db, string $method, array &$cache): int
+    {
+        $key = strtolower(trim($method));
+        if (!array_key_exists($key, $cache)) {
+            if ($key !== '' && ctype_digit($key)) {
+                $st = $db->prepare('SELECT ID FROM tbltransactionmethods WHERE ID = ?');
+                $st->execute([(int) $key]);
+            } else {
+                $st = $db->prepare('SELECT ID FROM tbltransactionmethods WHERE LOWER(methodName) = ?');
+                $st->execute([$key]);
+            }
+            $found = $st->fetchColumn();
+            $cache[$key] = $found === false ? 0 : (int) $found;
+        }
+        if ($cache[$key] <= 0) {
+            throw new LedgerException(["unknown bank transaction method '$method'"]);
+        }
+        return $cache[$key];
+    }
+
+    /** Soft-delete every non-deleted bank row of a source; returns how many. */
+    public static function voidBankPostings(PDO $db, int $cong, int $type, int $txn): int
+    {
+        self::requireTransaction($db);
+
+        $st = $db->prepare('UPDATE tblbankpostings SET deleted = 1
+                            WHERE congregationId = ? AND transactionType = ? AND transactionId = ? AND deleted = 0');
+        $st->execute([$cong, $type, $txn]);
+        return $st->rowCount();
+    }
+
+    // -----------------------------------------------------------------
     // Payment accounts (payment method dropdowns)
     // -----------------------------------------------------------------
 
