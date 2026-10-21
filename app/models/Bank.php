@@ -53,15 +53,16 @@ class Bank {
             //start transaction
             $this->db->dbh->beginTransaction();
             $this->db->query('INSERT INTO tblaccounttypes (accountType,accountTypeId,parentId,
-                              isBank,accountNo,congregationId) VALUES(:bname,:tid,:pid,:isbank,:acc,:cid)');
+                              isBank,accountNo,congregationId,isSubCategory) VALUES(:bname,:tid,:pid,:isbank,:acc,:cid,:issub)');
             $this->db->bind(':bname',$data['bankname']);
             $this->db->bind(':tid',3);
-            $this->db->bind(':pid',22);
+            $this->db->bind(':pid',33);
             $this->db->bind(':isbank',1);
             $this->db->bind(':acc',!empty($data['account']) ? $data['account'] : NULL);
             $this->db->bind(':cid',$_SESSION['congId']);
+            $this->db->bind(':issub',1);
             $this->db->execute();
-            $tid = $this->db->dbh->lastInsertId();
+            $tid =$this->db->dbh->lastInsertId();
 
             if ($data['openingbal'] > 0) {
                 $sql = 'SELECT COUNT(ID) FROM tblaccounttypes WHERE (accountType=?)';

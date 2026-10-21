@@ -16,6 +16,11 @@ class Database {
     private $stmt;
     private $error;
 
+    public function pdo(): PDO
+    {
+        return $this->dbh;
+    }
+
     public function __construct()
     {
         $dsn = 'mysql:host=' . $this->host . ';dbname=' . $this->dbname;
