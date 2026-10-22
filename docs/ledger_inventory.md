@@ -28,7 +28,7 @@ A type is **Done** only after the browser test on dev (create, edit, delete in t
 | 8.1 | 5 Journals | **Migrated** 2026-10-21 (8.1 + 8.1b) | 56/56 pass | Passed 2026-10-21 | **Done** |
 | 8.2 | 8 Bank opening balance + bank create/delete | **Migrated** 2026-10-21 (8.2 + 8.2b) | 56/56 pass | Passed 2026-10-21 | **Done** |
 | 8.3 | 9 Bank postings, 13 Bank transactions (deposits form removed) | **Migrated** 2026-10-21 (8.3 + 8.3b + 8.3c) | 71/71 + 57 + 48 functional | Passed 2026-10-21 | **Done** |
-| 8.4 | 1 Contributions, 10 Petty cash | **Migrated** 2026-10-21 (8.4b; 8.4c pending) | 71/71 + 146 functional | Pending | Coded, follow-up 8.4c in progress |
+| 8.4 | 1 Contributions, 10 Petty cash | **Migrated** 2026-10-21 (8.4b–8.4d) | 115 + 163 + 28 + 23 | Passed 2026-10-22 | **Done** |
 | 8.5 | 2 Expenses | Old code | – | – | Not started |
 | 8.6 | 3/4 Pledges | Old code | – | – | Not started |
 | 8.7 | 6, 7, 15 Suppliers | Old code | – | – | Not started |
@@ -83,6 +83,8 @@ The old code picked these accounts in the backend instead of letting the user ch
 - `Clearbanking::delete()`, `Clearbankings::delete()` and the unused delete modal removed. `views/banks/add.php`: opening balance `step="0.01" min="0"`.
 
 **8.4 inventory (2026-10-21):** payment methods are `tblpaymentmethods` (1 cash, 2 mpesa, 3 cheque, 4 bank; only rule `paymethod == 1` → cash). Type 10 never used on dev. Collection rows take their income account from `tblbanksubaccounts.AccountId`. 23 existing-code issues (receipt number check/sequence, unvalidated edit id → `transactionId = 0`, ownership and closed-year gaps, petty cash screen editing transfer receipts, petty cash reports ignoring `Deleted`, stale sub-account rows) — all to be fixed in 8.4b.
+
+**8.4c/8.4d (2026-10-21):** closed-year lock moved into `Ledger::post()` / `void()` (covers every migrated type; unmigrated types still unprotected until their step); `Year::delete()` guarded (closed and empty years only), overlap check includes deleted years; `tblpettycash.PettyCashAccountId` FK. Receipts with legacy `subaccount = 0` editable again.
 
 ## Summary
 
