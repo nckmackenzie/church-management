@@ -72,8 +72,10 @@ table.addEventListener('click', function (e) {
 dateInput.addEventListener('change', async function (e) {
   const date = e.target.value;
 
+  // on edit the receipt keeps its number unless the date moves it to another fiscal year
+  const id = form.querySelector('input[name="id"]').value;
   const receiptNo = await sendHttpRequest(
-    `${HOST_URL}/contributions/receiptno?txndate=${date}`,
+    `${HOST_URL}/contributions/receiptno?txndate=${date}&id=${encodeURIComponent(id)}`,
     'GET',
     undefined,
     {},

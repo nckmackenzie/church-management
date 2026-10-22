@@ -26,9 +26,9 @@ A type is **Done** only after the browser test on dev (create, edit, delete in t
 | Step | Types | Code | Library tests | Browser test | Status |
 |---|---|---|---|---|---|
 | 8.1 | 5 Journals | **Migrated** 2026-10-21 (8.1 + 8.1b) | 56/56 pass | Passed 2026-10-21 | **Done** |
-| 8.2 | 8 Bank opening balance + bank create/delete | **Migrated** 2026-10-21 (8.2 + 8.2b) | 56/56 pass | Pending | Coded, awaiting browser test |
-| 8.3 | 9 Bank postings, 13 Bank transactions (deposits form removed) | **Migrated** 2026-10-21 (8.3 + 8.3b; 8.3c pending) | 56/56 + 57 + 36 functional | Pending | Coded, 8.3c in progress |
-| 8.4 | 1 Contributions, 10 Petty cash | Old code | – | – | Not started |
+| 8.2 | 8 Bank opening balance + bank create/delete | **Migrated** 2026-10-21 (8.2 + 8.2b) | 56/56 pass | Passed 2026-10-21 | **Done** |
+| 8.3 | 9 Bank postings, 13 Bank transactions (deposits form removed) | **Migrated** 2026-10-21 (8.3 + 8.3b + 8.3c) | 71/71 + 57 + 48 functional | Passed 2026-10-21 | **Done** |
+| 8.4 | 1 Contributions, 10 Petty cash | **Migrated** 2026-10-21 (8.4b; 8.4c pending) | 71/71 + 146 functional | Pending | Coded, follow-up 8.4c in progress |
 | 8.5 | 2 Expenses | Old code | – | – | Not started |
 | 8.6 | 3/4 Pledges | Old code | – | – | Not started |
 | 8.7 | 6, 7, 15 Suppliers | Old code | – | – | Not started |
@@ -47,8 +47,8 @@ The old code picked these accounts in the backend instead of letting the user ch
 | 8.3 | 9 Bank posting, method 1 (create only) | 'cash at hand' (update used the chosen contra) | User's contra account (dropdown) |
 | 8.3 | 13 Bank transaction deposit / withdrawal | 'cash at hand' (34) | **"Crediting/Debiting account" dropdown** (PAY_CASH = accounts under 22, decision 19), stored in `CashAccountId` (8.3b/8.3c) |
 | 8.3 | 13 Transfer | target by name (`getAccountName`) | Transfer dropdown by ID |
-| 8.4 | 1 Contributions, 10 Petty cash receipts | 'cash at bank' / payment-method accounts | **Ask** (question D: payment methods) |
-| 8.4 | 13 Transfer → petty cash receipt (`Banktransaction::savePettyCash()`) | receipt in `tblpettycash` only when the target is **98** (not 194 'petty cash development') | **Ask** (with petty cash receipts) |
+| 8.4 | 1 Contributions, 10 Petty cash receipts | 'cash at hand' (34) for cash; generic 'cash at bank'; 'petty cash' (98) | Cash: PAY_CASH dropdown, 34 preselected; mpesa/cheque/bank: chosen bank; petty cash: dropdown 98/194 + bank (decisions 22, 24) |
+| 8.4 | 13 Transfer → petty cash receipt (`Banktransaction::savePettyCash()`) | receipt in `tblpettycash` only when the target is **98** (not 194 'petty cash development') | Any petty cash account (98 or 194) creates the receipt (decision 24) |
 | 8.5 | 2 Expenses | 'petty cash', 'development petty cash' (no such row; real one is 'petty cash development'), 'cash at hand', 'cash holding account'; `Expenses.php:61` default 'petty cash' | **Ask** |
 | 8.6 | 3/4 Pledges | 'cast at bank' (typo) | **Ask** (bank / cash dropdown?) |
 | 8.7 | 6 Supplier invoices, 7 payments, 15 opening balance | 'accounts payable' (no chart row), parent 'payables and accruals' | **Ask** (question C) |
@@ -76,9 +76,13 @@ The old code picked these accounts in the backend instead of letting the user ch
 **8.3 bank postings / bank transactions — what changed (supersedes §1b/§1c/§3/§5/§9 entries for types 9 and 13):**
 
 - `app/models/Bankposting.php` (type 9): the `tblbankpostings` row is the source record (no `syncBankPostings`); `create/update/delete` in one transaction with `Ledger::post()` / `void()` (hard `DELETE FROM tblledger` removed); bank by ID (PAY_BANK), contra = non-bank posting account (old: generic 'cash at bank', and create credited 'cash at hand' while update credited the contra); edit un-clears the row only when bank, side or amount change; contra dropdown congregation-filtered, posting accounts only; edit/update/delete refuse any row that isn't an active type-9 row of the congregation (old: any row by ID, any congregation).
-- `app/models/Banktransaction.php` (type 13): `Save/Update/Delete` use `Ledger::post()` + `syncBankPostings()` / `void()` + `voidBankPostings()`; dropdowns from `Ledger::listPaymentAccounts()`; bank-to-bank transfers write two bank rows (old: one); ownership check on update/delete; sub-account transfers (type 6) post nothing. **8.3b:** 'cash at hand' (34) replaced by a user-chosen "Crediting/Debiting account" (new column `CashAccountId`, backfilled 34 — what the old code posted); bank row methods per type (1 deposit, 2 withdrawal, 1 transfer); `tblbanktransactions.Amount` int → decimal(18,2) and no `(int)` cast; sub-account `:reference` bound in `Save()` and `Update()`'s sub-account loop now writes the same columns as `Save()`. Script `scripts/sql/bank_txn_cash_account.sql` (production at cutover). **8.3c (in progress):** PAY_CASH limited to accounts under 22.
+- `app/models/Banktransaction.php` (type 13): `Save/Update/Delete` use `Ledger::post()` + `syncBankPostings()` / `void()` + `voidBankPostings()`; dropdowns from `Ledger::listPaymentAccounts()`; bank-to-bank transfers write two bank rows (old: one); ownership check on update/delete; sub-account transfers (type 6) post nothing. **8.3b:** 'cash at hand' (34) replaced by a user-chosen "Crediting/Debiting account" (new column `CashAccountId`, backfilled 34 — what the old code posted); bank row methods per type (1 deposit, 2 withdrawal, 1 transfer); `tblbanktransactions.Amount` int → decimal(18,2) and no `(int)` cast; sub-account `:reference` bound in `Save()` and `Update()`'s sub-account loop now writes the same columns as `Save()`. Script `scripts/sql/bank_txn_cash_account.sql` (production at cutover). **8.3c:** PAY_CASH limited to non-bank posting accounts under 22 (dev: 34, 121, 167, 98, 194); `Banktransaction::checkSubaccounts()` validates sub-account transfers and deposit splits server-side (congregation, bank, duplicates, amounts, total); `Banktransactions::edit()` redirects for a missing transaction; `saveLog` on bank transaction save/update/delete; shared `Ledger::amountError()`.
+- **Deposits:** `app/controllers/Deposits.php` and `app/views/deposits/` deleted (still routable before, on the legacy path); `app/models/Deposit.php` reduced to `GetBanks()` (used by `Payments.php:14,31`).
+- `decryptId()` returns 0 for non-numeric input.
 - `Deposit.php` / `tbldesposits`: form removed from the app; out of scope (type 13 = bank transactions only).
 - `Clearbanking::delete()`, `Clearbankings::delete()` and the unused delete modal removed. `views/banks/add.php`: opening balance `step="0.01" min="0"`.
+
+**8.4 inventory (2026-10-21):** payment methods are `tblpaymentmethods` (1 cash, 2 mpesa, 3 cheque, 4 bank; only rule `paymethod == 1` → cash). Type 10 never used on dev. Collection rows take their income account from `tblbanksubaccounts.AccountId`. 23 existing-code issues (receipt number check/sequence, unvalidated edit id → `transactionId = 0`, ownership and closed-year gaps, petty cash screen editing transfer receipts, petty cash reports ignoring `Deleted`, stale sub-account rows) — all to be fixed in 8.4b.
 
 ## Summary
 

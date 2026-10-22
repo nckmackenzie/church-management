@@ -16,6 +16,10 @@
  *       edited already uses it)
  *   - journal numbers come from journal_number_seq and are never reused,
  *     including numbers of deleted journals
+ *   - financial years are locked (task 8.4d): post() refuses an entry whose date has no financial
+ *     year, or is in a closed or deleted year (an edit checks the old date as well); void() refuses
+ *     an entry dated in a closed or deleted year. This is the single implementation of the rule;
+ *     the helpers getYearForDate() / fiscalYearDateProblem() in url_helper.php call it.
  *   - every call must run inside the caller's DB transaction, together with
  *     the write of the source record
  *
@@ -84,6 +88,16 @@ class Ledger
     const CASH_ROOT = 22;
 
     /**
+     * Petty cash accounts (confirmed by the user, task 8.4): 98 'petty cash' and 194 'petty cash development'.
+     * Nothing in the chart marks them, so the list is fixed here. Each is also a PAY_CASH account.
+     */
+    const PETTY_CASH_ACCOUNTS = [98, 194];
+
+    /** Number sequences (receipt_number_seq): receipts per congregation + fiscal year, petty cash per congregation. */
+    const SEQ_RECEIPT   = 'receipt';
+    const SEQ_PETTYCASH = 'pettycash';
+
+    /**
      * @var array<int, array{pdo: PDO, set: array<int, true>}> descendants of CASH_ROOT per connection, cached per
      * request. The entry keeps the PDO object, so its spl_object_id cannot be reused by another connection.
      */
@@ -135,12 +149,20 @@ class Ledger
         if ($errors) { throw new LedgerException($errors); }
 
         // Existing active entry = edit. Lock it for the rest of the transaction.
-        $st = $db->prepare('SELECT ID FROM journal_entries
+        $st = $db->prepare('SELECT ID, entryDate FROM journal_entries
                             WHERE congregationId = ? AND transactionTypeId = ? AND transactionId = ? AND deleted = 0
                             FOR UPDATE');
         $st->execute([$cong, $type, $txn]);
-        $existingId = $st->fetchColumn();
-        $existingId = $existingId === false ? null : (int) $existingId;
+        $existing   = $st->fetch(PDO::FETCH_ASSOC);
+        $existingId = $existing ? (int) $existing['ID'] : null;
+
+        // financial year lock: the new date must be in an open year; an edit also needs the old date's year open
+        $oldProblem = $existing ? self::closedProblem($db, (string) $existing['entryDate']) : null;
+        $newProblem = self::dateProblem($db, $date);
+        $yearErrors = [];
+        if ($oldProblem !== null) { $yearErrors[] = $oldProblem === $newProblem ? $oldProblem : $oldProblem . ' (the entry is dated ' . $existing['entryDate'] . ')'; }
+        if ($newProblem !== null && $newProblem !== $oldProblem) { $yearErrors[] = $newProblem; }
+        if ($yearErrors) { throw new LedgerException($yearErrors); }
 
         $alreadyUsed = [];
         if ($existingId !== null) {
@@ -216,6 +238,14 @@ class Ledger
     {
         self::requireTransaction($db);
 
+        $st = $db->prepare('SELECT entryDate FROM journal_entries
+                            WHERE congregationId = ? AND transactionTypeId = ? AND transactionId = ? AND deleted = 0 FOR UPDATE');
+        $st->execute([$cong, $type, $txn]);
+        $entryDate = $st->fetchColumn();
+        if ($entryDate !== false && ($p = self::closedProblem($db, (string) $entryDate)) !== null) {
+            throw new LedgerException([$p . ' (the entry is dated ' . $entryDate . ')']);
+        }
+
         $st = $db->prepare('UPDATE journal_entries SET deleted = 1
                             WHERE congregationId = ? AND transactionTypeId = ? AND transactionId = ? AND deleted = 0');
         $st->execute([$cong, $type, $txn]);
@@ -265,6 +295,127 @@ class Ledger
                                 COALESCE((SELECT MAX(journalNo) FROM journal_entries WHERE congregationId = ?), 0))');
         $st->execute([$cong, $cong]);
         return (int) $st->fetchColumn() + 1;
+    }
+
+    // -----------------------------------------------------------------
+    // Financial year lock (task 8.4d)
+    // -----------------------------------------------------------------
+
+    /**
+     * The financial year covering a date, deleted years included (a non-deleted one wins when a deleted one
+     * overlaps it): ['ID','yearName','closed','deleted'] or null when no year covers the date.
+     */
+    public static function yearForDate(PDO $db, string $date): ?array
+    {
+        $st = $db->prepare('SELECT ID, yearName, closed, deleted FROM tblfiscalyears
+                            WHERE ? BETWEEN startDate AND endDate ORDER BY deleted ASC, ID DESC LIMIT 1');
+        $st->execute([$date]);
+        $y = $st->fetch(PDO::FETCH_ASSOC);
+        return $y === false ? null : $y;
+    }
+
+    /**
+     * Why an entry may not be DATED $date, or null when its year is open:
+     *   no year covers the date        -> "No financial year is defined for <date>"
+     *   closed year (deleted or not)   -> "The financial year <NAME> is closed"
+     *   deleted year, never closed     -> "The financial year <NAME> has been deleted"
+     */
+    public static function dateProblem(PDO $db, string $date): ?string
+    {
+        $y = self::yearForDate($db, $date);
+        if ($y === null) { return 'No financial year is defined for ' . $date; }
+        return self::yearProblem($y);
+    }
+
+    /**
+     * Like dateProblem() for the date an entry ALREADY has (edit / void): a date outside every year is not a
+     * reason to refuse (only closed or deleted years are).
+     */
+    public static function closedProblem(PDO $db, string $date): ?string
+    {
+        $y = self::yearForDate($db, $date);
+        return $y === null ? null : self::yearProblem($y);
+    }
+
+    private static function yearProblem(array $y): ?string
+    {
+        if ((int) $y['closed'] === 1)  { return 'The financial year ' . strtoupper($y['yearName']) . ' is closed'; }
+        if ((int) $y['deleted'] === 1) { return 'The financial year ' . strtoupper($y['yearName']) . ' has been deleted'; }
+        return null;
+    }
+
+    // -----------------------------------------------------------------
+    // Receipt / petty cash receipt numbers (receipt_number_seq)
+    // -----------------------------------------------------------------
+
+    /**
+     * Allocate the next number of a sequence. Locks the sequence row until the caller's transaction ends, so two
+     * saves never get the same number, and a number is never handed out twice (deleted receipts included).
+     * A missing sequence row is seeded from the highest number already in the source table.
+     *
+     * @param string $kind SEQ_RECEIPT (needs $yearId) or SEQ_PETTYCASH ($yearId ignored)
+     */
+    public static function nextNumber(PDO $db, int $cong, string $kind, int $yearId = 0): int
+    {
+        self::requireTransaction($db);
+        $yearId = self::seqYear($kind, $yearId);
+
+        $st = $db->prepare('SELECT lastNo FROM receipt_number_seq WHERE congregationId = ? AND kind = ? AND fiscalYearId = ? FOR UPDATE');
+        $st->execute([$cong, $kind, $yearId]);
+        $last = $st->fetchColumn();
+
+        if ($last === false) {
+            $next = self::highestNumber($db, $cong, $kind, $yearId) + 1;
+            try {
+                $db->prepare('INSERT INTO receipt_number_seq (congregationId, kind, fiscalYearId, lastNo) VALUES (?, ?, ?, ?)')
+                   ->execute([$cong, $kind, $yearId, $next]);
+                return $next;
+            } catch (PDOException $e) {
+                if (((string) $e->getCode()) !== '23000') { throw $e; }
+                // someone created the row first: lock and use it
+                $st->execute([$cong, $kind, $yearId]);
+                $last = $st->fetchColumn();
+            }
+        }
+
+        $next = (int) $last + 1;
+        $db->prepare('UPDATE receipt_number_seq SET lastNo = ? WHERE congregationId = ? AND kind = ? AND fiscalYearId = ?')
+           ->execute([$next, $cong, $kind, $yearId]);
+        return $next;
+    }
+
+    /** Next number for DISPLAY on a new-receipt form only (not reserved). */
+    public static function peekNextNumber(PDO $db, int $cong, string $kind, int $yearId = 0): int
+    {
+        $yearId = self::seqYear($kind, $yearId);
+        $st = $db->prepare('SELECT lastNo FROM receipt_number_seq WHERE congregationId = ? AND kind = ? AND fiscalYearId = ?');
+        $st->execute([$cong, $kind, $yearId]);
+        $last = $st->fetchColumn();
+        $high = self::highestNumber($db, $cong, $kind, $yearId);
+        return max($last === false ? 0 : (int) $last, $high) + 1;
+    }
+
+    private static function seqYear(string $kind, int $yearId): int
+    {
+        if ($kind === self::SEQ_PETTYCASH) { return 0; }
+        if ($kind !== self::SEQ_RECEIPT)   { throw new LogicException("unknown number sequence '$kind'"); }
+        if ($yearId <= 0)                  { throw new LedgerException(['no fiscal year is defined for this date']); }
+        return $yearId;
+    }
+
+    /** Highest number in the source table, deleted rows included (seed for a missing sequence row). */
+    private static function highestNumber(PDO $db, int $cong, string $kind, int $yearId): int
+    {
+        if ($kind === self::SEQ_PETTYCASH) {
+            $st = $db->prepare('SELECT COALESCE(MAX(ReceiptNo), 0) FROM tblpettycash WHERE CongregationId = ?');
+            $st->execute([$cong]);
+        } else {
+            $st = $db->prepare("SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(receiptNo, '/', -1) AS UNSIGNED)), 0)
+                                FROM tblcontributions_header
+                                WHERE congregationId = ? AND fiscalYearId = ? AND receiptNo REGEXP '^([^/]*/)?[0-9]+\$'");
+            $st->execute([$cong, $yearId]);
+        }
+        return (int) $st->fetchColumn();
     }
 
     // -----------------------------------------------------------------
@@ -455,11 +606,55 @@ class Ledger
         return $out;
     }
 
+    /** True if the account is one of the fixed petty cash accounts (PETTY_CASH_ACCOUNTS). */
+    public static function isPettyCashAccount($accountId): bool
+    {
+        return in_array((int) $accountId, self::PETTY_CASH_ACCOUNTS, true);
+    }
+
+    /**
+     * Petty cash accounts to offer in a dropdown: PETTY_CASH_ACCOUNTS that are valid PAY_CASH accounts for the
+     * congregation (so 194, which belongs to congregation 11 only, is not offered to others).
+     * Returns [ ['ID'=>, 'accountType'=>, 'parentName'=>], ... ].
+     */
+    public static function listPettyCashAccounts(PDO $db, int $cong): array
+    {
+        return array_values(array_filter(self::listPaymentAccounts($db, $cong, self::PAY_CASH), function ($a) {
+            return self::isPettyCashAccount($a['ID']);
+        }));
+    }
+
+    /** Validate the petty cash account chosen on a form and return it (a petty cash account that is also a PAY_CASH posting account). */
+    public static function assertPettyCashAccount(PDO $db, int $cong, int $accountId): int
+    {
+        if (!self::isPettyCashAccount($accountId)) {
+            throw new LedgerException(["account $accountId is not a petty cash account"]);
+        }
+        return self::assertPaymentAccount($db, $cong, $accountId, self::PAY_CASH);
+    }
+
     /** True if the account can be posted to (handover section 6). */
-    public static function isPostingAccount(PDO $db, int $accountId, int $cong): bool
+    public static function isPostingAccount(PDO $db, int $accountId, int $cong, bool $allowInactive = false): bool
     {
         $info = self::accountInfo($db, [$accountId])[$accountId] ?? null;
-        return self::whyNotPostable($info, $cong, false) === null;
+        return self::whyNotPostable($info, $cong, $allowInactive) === null;
+    }
+
+    /** Why the account can't be posted to (a message for forms), or null if it can. */
+    public static function postingProblem(PDO $db, int $accountId, int $cong, bool $allowInactive = false): ?string
+    {
+        $info = self::accountInfo($db, [$accountId])[$accountId] ?? null;
+        return self::whyNotPostable($info, $cong, $allowInactive);
+    }
+
+    /** The IDs among $ids that can be posted to (one query), for building dropdowns. */
+    public static function filterPostingAccounts(PDO $db, int $cong, array $ids): array
+    {
+        $out = [];
+        foreach (self::accountInfo($db, $ids) as $id => $a) {
+            if (self::whyNotPostable($a, $cong, false) === null) { $out[] = $id; }
+        }
+        return $out;
     }
 
     // -----------------------------------------------------------------

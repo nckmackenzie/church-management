@@ -1427,7 +1427,7 @@ class Reports extends Controller {
     }
     public function pettycash()
     {
-        $data = [];
+        $data = ['accounts' => $this->reportModel->pettycashaccounts()];
         $this->view('reports/pettycash',$data);
     }
 
@@ -1438,7 +1438,14 @@ class Reports extends Controller {
             $data = [
                 'start' => date('Y-m-d',strtotime($_GET['start'])),
                 'end' => date('Y-m-d',strtotime($_GET['end'])),
+                'account' => (int)($_GET['account'] ?? 0),
             ];
+
+            // only the congregation's petty cash accounts (98 'petty cash' unless another is chosen)
+            $allowed = array_map(function($a){ return (int)$a->ID; },$this->reportModel->pettycashaccounts());
+            if(!in_array($data['account'],$allowed,true)){
+                $data['account'] = in_array(98,$allowed,true) ? 98 : (int)($allowed[0] ?? 0);
+            }
 
             $pettycashutils = $this->reportModel->pettycashutil($data);
             $debitstotal = floatval($this->reportModel->debitcredittotal($data)[0]);

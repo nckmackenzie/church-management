@@ -85,6 +85,7 @@ if (!$bank || !$cash || !$expense || !$income || !$reporting) {
 }
 
 $TEST_TXN = 2000000000; // fake source id, far above real ids
+$OPEN = '2026-01-15';   // inside the open financial year 2025-2026 (a date outside every year is refused since 8.4d)
 
 // 1. Must run inside a transaction
 expectError('refuses to write outside a transaction', function () use ($db, $cong) {
@@ -108,7 +109,7 @@ try {
     check('journal numbers increase by 1', $j2 === $j1 + 1, "$j1 then $j2");
 
     // 3. Create a journal
-    $h = ['congregationId' => $cong, 'entryDate' => date('Y-m-d'), 'transactionTypeId' => 5,
+    $h = ['congregationId' => $cong, 'entryDate' => $OPEN, 'transactionTypeId' => 5,
           'transactionId' => $j1, 'reference' => 'TEST', 'description' => 'ledger test journal'];
     $id = Ledger::post($db, $h, [Ledger::debit($expense, '1000.00', 'test dr'), Ledger::credit($bank, 1000, 'test cr')]);
     $e  = Ledger::getEntry($db, $cong, 5, $j1);
@@ -219,7 +220,7 @@ try {
     }, LedgerException::class, 'already been used');
 
     // 8. Non-journal: void then re-post creates a new entry (e.g. re-approval)
-    $g = ['congregationId' => $cong, 'entryDate' => date('Y-m-d'), 'transactionTypeId' => 2,
+    $g = ['congregationId' => $cong, 'entryDate' => $OPEN, 'transactionTypeId' => 2,
           'transactionId' => $TEST_TXN, 'reference' => null, 'description' => null];
     $a = Ledger::post($db, $g, [Ledger::debit($expense, 250, 'first memo'), Ledger::credit($cash, 250)]);
     $e = Ledger::getEntry($db, $cong, 2, $TEST_TXN);
@@ -258,7 +259,7 @@ try {
     $journalMethod = (int) $db->query("SELECT ID FROM tbltransactionmethods WHERE LOWER(methodName) = 'journal'")->fetchColumn();
     check('Journal method exists in tbltransactionmethods', $journalMethod > 0, 'ID ' . $journalMethod);
     $B1  = $TEST_TXN + 1;
-    $hb  = ['congregationId' => $cong, 'entryDate' => date('Y-m-d'), 'transactionTypeId' => 2,
+    $hb  = ['congregationId' => $cong, 'entryDate' => $OPEN, 'transactionTypeId' => 2,
             'transactionId' => $B1, 'reference' => 'REF1', 'description' => 'bank test'];
 
     // bank debit line -> one uncleared row
@@ -343,9 +344,123 @@ try {
     check('no active entry: sync returns 0', Ledger::syncBankPostings($db, $cong, 2, $B4, 'journal') === 0
           && count($rows(2, $B4)) === 0);
     $db->prepare('INSERT INTO tblbankpostings (bankId, transactionDate, debit, credit, transactionMethod, transactionType, transactionId, congregationId)
-                  VALUES (?, ?, 5, 0, 1, 2, ?, ?)')->execute([$bank, date('Y-m-d'), $B4, $cong]);
+                  VALUES (?, ?, 5, 0, 1, 2, ?, ?)')->execute([$bank, $OPEN, $B4, $cong]);
     check('no active entry: sync soft-deletes leftover rows', Ledger::syncBankPostings($db, $cong, 2, $B4, 'journal') === 0
           && count($rows(2, $B4)) === 0 && count($rows(2, $B4, true)) === 1);
+
+
+    // =================== petty cash accounts (task 8.4b)
+    echo PHP_EOL . 'Petty cash accounts' . PHP_EOL;
+    check('PETTY_CASH_ACCOUNTS is 98 and 194', Ledger::PETTY_CASH_ACCOUNTS === [98, 194]);
+    check('isPettyCashAccount: 98, 194, "194" yes', Ledger::isPettyCashAccount(98) && Ledger::isPettyCashAccount(194) && Ledger::isPettyCashAccount('194'));
+    check('isPettyCashAccount: 34, a bank, 0, text no', !Ledger::isPettyCashAccount(34) && !Ledger::isPettyCashAccount($bank) && !Ledger::isPettyCashAccount(0) && !Ledger::isPettyCashAccount('abc'));
+    $lp = array_map('intval', array_column(Ledger::listPettyCashAccounts($db, $cong), 'ID')); sort($lp);
+    check('listPettyCashAccounts (congregation 11): exactly 98 and 194', $lp === [98, 194], json_encode($lp));
+    $otherCong = (int) $db->query('SELECT ID FROM tblcongregation WHERE ID <> ' . $cong . ' ORDER BY ID LIMIT 1')->fetchColumn();
+    $lpo = array_map('intval', array_column(Ledger::listPettyCashAccounts($db, $otherCong), 'ID'));
+    check('listPettyCashAccounts (another congregation): 98 but not 194 (194 belongs to congregation 11)', in_array(98, $lpo, true) && !in_array(194, $lpo, true), json_encode($lpo));
+    check('assertPettyCashAccount accepts 98 and 194', Ledger::assertPettyCashAccount($db, $cong, 98) === 98 && Ledger::assertPettyCashAccount($db, $cong, 194) === 194);
+    expectError('assertPettyCashAccount refuses 34 (cash at hand)', function () use ($db, $cong) { Ledger::assertPettyCashAccount($db, $cong, 34); }, LedgerException::class, 'not a petty cash account');
+    expectError('assertPettyCashAccount refuses a bank', function () use ($db, $cong, $bank) { Ledger::assertPettyCashAccount($db, $cong, $bank); }, LedgerException::class, 'not a petty cash account');
+    expectError('assertPettyCashAccount refuses 194 for another congregation', function () use ($db, $otherCong) { Ledger::assertPettyCashAccount($db, $otherCong, 194); }, LedgerException::class, 'another congregation');
+
+    // =================== number sequences (task 8.4b)
+    echo PHP_EOL . 'Number sequences' . PHP_EOL;
+    $peek = Ledger::peekNextNumber($db, $cong, Ledger::SEQ_PETTYCASH);
+    $n1 = Ledger::nextNumber($db, $cong, Ledger::SEQ_PETTYCASH);
+    $n2 = Ledger::nextNumber($db, $cong, Ledger::SEQ_PETTYCASH);
+    check('petty cash: preview = next number', $peek === $n1, "preview $peek, got $n1");
+    check('petty cash: numbers increase by 1', $n2 === $n1 + 1);
+    check('petty cash: preview moves on after a number is taken', Ledger::peekNextNumber($db, $cong, Ledger::SEQ_PETTYCASH) === $n2 + 1);
+    check('petty cash ignores the year', Ledger::nextNumber($db, $cong, Ledger::SEQ_PETTYCASH, 12) === $n2 + 1 && Ledger::nextNumber($db, $cong, Ledger::SEQ_PETTYCASH, 99) === $n2 + 2);
+    expectError('receipt sequence needs a fiscal year', function () use ($db, $cong) { Ledger::nextNumber($db, $cong, Ledger::SEQ_RECEIPT, 0); }, LedgerException::class, 'fiscal year');
+    expectError('receipt preview needs a fiscal year', function () use ($db, $cong) { Ledger::peekNextNumber($db, $cong, Ledger::SEQ_RECEIPT, 0); }, LedgerException::class, 'fiscal year');
+    expectError('unknown sequence refused', function () use ($db, $cong) { Ledger::nextNumber($db, $cong, 'nope', 1); }, LogicException::class, 'unknown');
+    $r12 = Ledger::peekNextNumber($db, $cong, Ledger::SEQ_RECEIPT, 12);
+    $a = Ledger::nextNumber($db, $cong, Ledger::SEQ_RECEIPT, 12);
+    $b = Ledger::nextNumber($db, $cong, Ledger::SEQ_RECEIPT, 12);
+    check('receipt: preview = next, numbers increase', $a === $r12 && $b === $a + 1, "$r12 / $a / $b");
+    $r11 = Ledger::peekNextNumber($db, $cong, Ledger::SEQ_RECEIPT, 11);
+    check('receipt: each fiscal year has its own sequence', Ledger::nextNumber($db, $cong, Ledger::SEQ_RECEIPT, 11) === $r11 && $r11 !== $b + 1);
+    // a missing sequence row is seeded from the highest number in the source table (deleted rows included)
+    $db->prepare('DELETE FROM receipt_number_seq WHERE congregationId = ? AND kind = ?')->execute([$cong, 'receipt']);
+    $mx = $db->prepare("SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(receiptNo, '/', -1) AS UNSIGNED)), 0) FROM tblcontributions_header WHERE congregationId = ? AND fiscalYearId = 12");
+    $mx->execute([$cong]);
+    $max12 = (int) $mx->fetchColumn();
+    check('receipt: preview with no sequence row = max + 1', Ledger::peekNextNumber($db, $cong, Ledger::SEQ_RECEIPT, 12) === $max12 + 1);
+    check('receipt: missing sequence row is seeded from max + 1', Ledger::nextNumber($db, $cong, Ledger::SEQ_RECEIPT, 12) === $max12 + 1
+          && Ledger::nextNumber($db, $cong, Ledger::SEQ_RECEIPT, 12) === $max12 + 2);
+    $db->prepare('DELETE FROM receipt_number_seq WHERE congregationId = ? AND kind = ?')->execute([$cong, 'pettycash']);
+    $mp = $db->prepare('SELECT COALESCE(MAX(ReceiptNo), 0) FROM tblpettycash WHERE CongregationId = ?');
+    $mp->execute([$cong]);
+    $maxp = (int) $mp->fetchColumn();
+    check('petty cash: missing sequence row is seeded from max + 1 (deleted rows included)', Ledger::nextNumber($db, $cong, Ledger::SEQ_PETTYCASH) === $maxp + 1);
+
+    // =================== financial year lock (task 8.4d)
+    echo PHP_EOL . 'Financial year lock' . PHP_EOL;
+    $OPEN10 = '2023-11-15';    // year 10 (2023-2024, open on dev)
+    $OPEN11 = '2025-01-15';    // year 11 (2024-2025, open on dev)
+    $NOYEAR = '2013-06-01';    // covered by no year
+    $DELCLOSED = '2022-09-01'; // year 8 (2021/2022): closed and deleted on dev
+    $setYear = function (int $id, int $closed, int $deleted) use ($db) {
+        $db->prepare('UPDATE tblfiscalyears SET closed = ?, deleted = ? WHERE ID = ?')->execute([$closed, $deleted, $id]);
+    };
+    $mkh = function (int $n, string $date) use ($cong, $TEST_TXN) {
+        return ['congregationId' => $cong, 'entryDate' => $date, 'transactionTypeId' => 2, 'transactionId' => $TEST_TXN + $n, 'reference' => 'YR', 'description' => 'year lock test'];
+    };
+    $two = function () use ($expense, $income) { return [Ledger::debit($expense, 100), Ledger::credit($income, 100)]; };
+    $postErr = function (string $name, array $h, string $msg) use ($db, $two) {
+        expectError($name, function () use ($db, $h, $two) { Ledger::post($db, $h, $two()); }, LedgerException::class, $msg);
+    };
+    check('yearForDate: the year covering a date; deleted years are found too', Ledger::yearForDate($db, $OPEN)['ID'] == 12 && Ledger::yearForDate($db, $DELCLOSED)['ID'] == 8 && Ledger::yearForDate($db, $NOYEAR) === null);
+    check('dateProblem: open year -> null, no year -> message', Ledger::dateProblem($db, $OPEN) === null && Ledger::dateProblem($db, $NOYEAR) === 'No financial year is defined for 2013-06-01');
+    check('closedProblem: a date outside every year is not a problem', Ledger::closedProblem($db, $NOYEAR) === null);
+
+    // new entries
+    $postErr('post: no financial year for the date refused', $mkh(60, $NOYEAR), 'No financial year is defined for 2013-06-01');
+    $postErr('post: closed AND deleted year refused (reported as closed)', $mkh(61, $DELCLOSED), 'The financial year 2021/2022 is closed');
+    $setYear(10, 1, 0);
+    $postErr('post: closed year refused', $mkh(62, $OPEN10), 'The financial year 2023-2024 is closed');
+    $setYear(10, 0, 1);
+    $postErr('post: deleted (never closed) year refused', $mkh(63, $OPEN10), 'The financial year 2023-2024 has been deleted');
+    $setYear(10, 0, 0);
+    check('failed year-lock posts wrote nothing', Ledger::getEntry($db, $cong, 2, $TEST_TXN + 60) === null && Ledger::getEntry($db, $cong, 2, $TEST_TXN + 62) === null
+          && Ledger::getEntry($db, $cong, 2, $TEST_TXN + 63) === null);
+    check('post: an open year is accepted', Ledger::post($db, $mkh(64, $OPEN10), $two()) > 0 && Ledger::post($db, $mkh(65, $OPEN11), $two()) > 0);
+
+    // edit of an entry whose year is closed afterwards
+    $setYear(10, 1, 0);
+    $postErr('edit: entry dated in a closed year refused (same date)', $mkh(64, $OPEN10), 'is closed');
+    expectError('edit: moving it out names the entry date', function () use ($db, $mkh, $two, $OPEN) { Ledger::post($db, $mkh(64, $OPEN), $two()); }, LedgerException::class, 'the entry is dated 2023-11-15');
+    $postErr('edit: moving a closed-year entry to an open date refused', $mkh(64, $OPEN), 'The financial year 2023-2024 is closed');
+    check('edit refused: the entry is unchanged', Ledger::getEntry($db, $cong, 2, $TEST_TXN + 64)['entryDate'] === $OPEN10);
+    $setYear(10, 0, 0);
+    // edit moving INTO a closed year
+    $setYear(11, 1, 0);
+    $postErr('edit: an entry already in a closed year cannot be re-posted', $mkh(65, $OPEN11), 'The financial year 2024-2025 is closed');
+    $setYear(11, 0, 0);
+    $hMove = $mkh(66, $OPEN);
+    Ledger::post($db, $hMove, $two());
+    $setYear(11, 1, 0);
+    $postErr('edit: moving an entry into a closed year refused', array_merge($hMove, ['entryDate' => $OPEN11]), 'The financial year 2024-2025 is closed');
+    $setYear(11, 0, 0);
+    check('edit: moving between two open years works', Ledger::post($db, array_merge($hMove, ['entryDate' => $OPEN11]), $two()) > 0
+          && Ledger::getEntry($db, $cong, 2, $TEST_TXN + 66)['entryDate'] === $OPEN11);
+
+    // void
+    $setYear(10, 1, 0);
+    expectError('void: entry dated in a closed year refused', function () use ($db, $cong, $TEST_TXN) { Ledger::void($db, $cong, 2, $TEST_TXN + 64); }, LedgerException::class, 'The financial year 2023-2024 is closed');
+    check('void refused: the entry is still active', Ledger::getEntry($db, $cong, 2, $TEST_TXN + 64) !== null);
+    $setYear(10, 0, 1);
+    expectError('void: entry dated in a deleted (never closed) year refused', function () use ($db, $cong, $TEST_TXN) { Ledger::void($db, $cong, 2, $TEST_TXN + 64); }, LedgerException::class, 'has been deleted');
+    $setYear(10, 0, 0);
+    check('void: works again once the year is open (returns true)', Ledger::void($db, $cong, 2, $TEST_TXN + 64) === true && Ledger::getEntry($db, $cong, 2, $TEST_TXN + 64) === null);
+    check('void: nothing to void still returns false', Ledger::void($db, $cong, 2, $TEST_TXN + 99) === false);
+    // an entry dated outside every year (legacy) can be voided but not re-posted
+    $db->prepare('INSERT INTO journal_entries (congregationId, entryDate, transactionTypeId, transactionId, deleted) VALUES (?, ?, 2, ?, 0)')
+       ->execute([$cong, $NOYEAR, $TEST_TXN + 70]);
+    $postErr('edit: an entry dated outside every year cannot be re-posted on that date', $mkh(70, $NOYEAR), 'No financial year is defined');
+    check('void: an entry dated outside every year can be voided', Ledger::void($db, $cong, 2, $TEST_TXN + 70) === true);
 
 } catch (Throwable $e) {
     check('unexpected error', false, $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')');

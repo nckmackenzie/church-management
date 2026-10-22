@@ -79,6 +79,13 @@
                 <div class="card bg-light">
                     <div class="card-header"><?php echo $data['isedit'] ? 'Edit Contribution' : 'Add Contribution';?></div>
                     <div class="card-body">
+                        <?php if(!empty($data['errors'])) : ?>
+                            <div class="alert custom-danger alert-dismissible fade show" role="alert">
+                                <?php foreach($data['errors'] as $error) : ?>
+                                    <div><?php echo htmlspecialchars($error);?></div>
+                                <?php endforeach;?>
+                            </div>
+                        <?php endif;?>
                         <form action="<?php echo URLROOT;?>/contributions/create" method="post" name="form">
                             <div class="row">
                                 <div class="col-md-2">
@@ -113,19 +120,33 @@
                                     </div>
                                 </div>
                                 <div class="col-md-4">
-                                    <div class="form-group">
+                                    <?php $iscash = ((int)$data['paymethod'] === 1); ?>
+                                    <div class="form-group" id="bank-group" <?php echo $iscash ? 'style="display:none"' : '';?>>
                                         <label for="bank">Bank</label>
                                         <select name="bank" id="bank"
-                                                class="form-control form-control-sm" 
-                                                <?php echo ($data['paymethod'] < 2 || empty($data['paymethod'])) ? 'disabled' : ''?>>
+                                                class="form-control form-control-sm"
+                                                <?php echo $iscash ? 'disabled' : ''?>>
                                             <?php foreach($data['banks'] as $bank) : ?>
                                                 <option value="<?php echo $bank->ID;?>"
                                                 <?php selectdCheck($data['bank'],$bank->ID)?>>
                                                     <?php echo strtoupper($bank->Bank);?>
                                                 </option>
-                                            <?php endforeach;?>     
+                                            <?php endforeach;?>
                                         </select>
                                         <span class="invalid-feedback"><?php echo $data['bank_err'];?></span>
+                                    </div>
+                                    <div class="form-group" id="cash-group" <?php echo $iscash ? '' : 'style="display:none"';?>>
+                                        <label for="cashaccount">Cash Account</label>
+                                        <select name="cashaccount" id="cashaccount"
+                                                class="form-control form-control-sm"
+                                                <?php echo $iscash ? '' : 'disabled'?>>
+                                            <?php foreach($data['cashaccounts'] as $cashaccount) : ?>
+                                                <option value="<?php echo $cashaccount->ID;?>"
+                                                <?php selectdCheck($data['cashaccount'],$cashaccount->ID)?>>
+                                                    <?php echo htmlspecialchars($cashaccount->Account);?>
+                                                </option>
+                                            <?php endforeach;?>
+                                        </select>
                                     </div>
                                 </div>
                             </div><!--End Of Row -->
@@ -288,14 +309,21 @@
             // $('#bank').val('');
         });
         $('#paymethod').change(function(){
-            var paym = $(this).val();
+            // cash: the cash account dropdown (34 preselected); mpesa, cheque, bank: the bank dropdown
+            var paym = Number($(this).val());
             if (paym > 1) {
+                $('#bank-group').show();
+                $('#cash-group').hide();
                 $('#bank').attr('disabled',false);
-                $('#bank').prop("selectedIndex", 0);
+                $('#cashaccount').attr('disabled',true);
+                if (!$('#bank').val()) $('#bank').prop("selectedIndex", 0);
             }
             else{
+                $('#bank-group').hide();
+                $('#cash-group').show();
                 $('#bank').attr('disabled',true);
-                $('#bank').val('');
+                $('#cashaccount').attr('disabled',false);
+                if (!$('#cashaccount').val()) $('#cashaccount').val('34');
             }
         });
         function checkForGroups(){

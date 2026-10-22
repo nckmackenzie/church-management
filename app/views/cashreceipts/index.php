@@ -50,8 +50,10 @@
                     <thead class="bg-navy">
                         <tr>
                             <th>ID</th>
+                            <th>Receipt No</th>
                             <th>Date</th>
                             <th>Bank</th>
+                            <th>Petty Cash Account</th>
                             <th>Amount</th>
                             <th>Rerefence</th>
                             <th>Action</th>
@@ -61,8 +63,10 @@
                         <?php foreach($data['receipts'] as $receipt) :?>
                             <tr>
                                 <td><?php echo $receipt->ID;?></td>
+                                <td><?php echo $receipt->ReceiptNo;?></td>
                                 <td><?php echo $receipt->TransactionDate;?></td>
                                 <td><?php echo $receipt->Bank;?></td>
+                                <td><?php echo htmlspecialchars($receipt->PettyCashAccount);?></td>
                                 <td><?php echo $receipt->Debit;?></td>
                                 <td><?php echo $receipt->Reference;?></td>
                                 <td>
@@ -88,7 +92,7 @@
       $('#receiptsTable').DataTable({
         'columnDefs' : [
             {"visible" : false, "targets": 0},
-            {"width" : "15%" , "targets": 3},
+            {"width" : "15%" , "targets": 5},
         ]
       });
 

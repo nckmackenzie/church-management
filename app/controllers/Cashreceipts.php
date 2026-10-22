@@ -20,12 +20,25 @@ class Cashreceipts extends Controller
         ];
         $this->view('cashreceipts/index',$data);
     }
-    
+
+    /** The petty cash account dropdown value: the wanted one if listed, else 98 if listed, else none. */
+    private function pickPettyAccount($accounts,$wanted)
+    {
+        $ids = array_map(function($a){ return (int)$a->ID; },$accounts);
+        if (!empty($wanted) && in_array((int)$wanted,$ids,true)) {
+            return (int)$wanted;
+        }
+        return in_array(Cashreceipt::DEFAULT_PETTY_ACCOUNT,$ids,true) ? Cashreceipt::DEFAULT_PETTY_ACCOUNT : '';
+    }
+
     public function add()
     {
         $banks = $this->receiptmodel->GetBanks();
+        $pettyaccounts = $this->receiptmodel->GetPettyCashAccounts();
         $data = [
             'banks' => $banks,
+            'pettyaccounts' => $pettyaccounts,
+            'pettyaccount' => $this->pickPettyAccount($pettyaccounts,null),
             'isedit' => false,
             'receiptno' => $this->receiptmodel->GetReceiptNo(),
             'id' => '',
@@ -34,6 +47,7 @@ class Cashreceipts extends Controller
             'amount' => '',
             'reference' => '',
             'description' => '',
+            'errors' => [],
             'date_err' => '',
             'bank_err' => '',
             'amount_err' => '',
@@ -47,16 +61,21 @@ class Cashreceipts extends Controller
         if($_SERVER['REQUEST_METHOD'] === 'POST'){
             $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $banks = $this->receiptmodel->GetBanks();
+            $pettyaccounts = $this->receiptmodel->GetPettyCashAccounts();
             $data = [
                 'banks' => $banks,
-                'isedit' => converttobool($_POST['isedit']),
-                'id' => trim($_POST['id']),
-                'receiptno' => trim($_POST['receiptno']),
-                'date' => date("Y-m-d", strtotime($_POST['date'])),
+                'pettyaccounts' => $pettyaccounts,
+                'pettyaccount' => !empty($_POST['pettycashaccount']) ? trim($_POST['pettycashaccount']) : '',
+                'pettycashaccount' => !empty($_POST['pettycashaccount']) ? trim($_POST['pettycashaccount']) : '',
+                'isedit' => converttobool($_POST['isedit'] ?? ''),
+                'id' => trim($_POST['id'] ?? ''),
+                'receiptno' => trim($_POST['receiptno'] ?? ''),
+                'date' => !empty($_POST['date']) ? date("Y-m-d", strtotime($_POST['date'])) : '',
                 'bank' => !empty($_POST['bank']) ? trim($_POST['bank']) : '',
-                'amount' => trim($_POST['amount']),
-                'reference' => trim($_POST['reference']),
-                'description' => trim($_POST['description']),
+                'amount' => trim($_POST['amount'] ?? ''),
+                'reference' => trim($_POST['reference'] ?? ''),
+                'description' => trim($_POST['description'] ?? ''),
+                'errors' => [],
                 'date_err' => '',
                 'bank_err' => '',
                 'amount_err' => '',
@@ -71,8 +90,8 @@ class Cashreceipts extends Controller
                 }
             }
 
-            if(empty($data['amount'])){
-                $data['amount_err'] = 'Enter amount';
+            if($amounterr = Ledger::amountError($data['amount'])){
+                $data['amount_err'] = $amounterr;
             }
 
             if(empty($data['bank'])){
@@ -83,21 +102,22 @@ class Cashreceipts extends Controller
                 $data['reference_err'] = 'Enter cheque no';
             }
 
-            if(!empty($data['date_err']) || !empty($data['amount_err']) || !empty($data['bank_err']) 
+            if(!empty($data['date_err']) || !empty($data['amount_err']) || !empty($data['bank_err'])
                || !empty($data['reference_err'])){
                 $this->view('cashreceipts/add',$data);
                 exit();
-            }else{
-                if(!$this->receiptmodel->CreateUpdate($data)){
-                    flash('receipt_msg','Something Went Wrong!','alert custom-danger');
-                    redirect('cashreceipts');
-                    exit();
-                }else{
-                    flash('receipt_msg','Saved successfully!');
-                    redirect('cashreceipts');
-                    exit();
-                }
             }
+
+            $result = $this->receiptmodel->CreateUpdate($data);
+            if(!$result['success']){
+                $data['errors'] = $result['errors'] ?: ['Something Went Wrong! The receipt was not saved. Contact admin'];
+                $this->view('cashreceipts/add',$data);
+                exit();
+            }
+
+            flash('receipt_msg','Saved successfully!');
+            redirect('cashreceipts');
+            exit();
 
         }else{
             redirect('users/deniedaccess');
@@ -108,17 +128,26 @@ class Cashreceipts extends Controller
     public function edit($id)
     {
         $receipt = $this->receiptmodel->GetReceipt($id);
+        if(!$receipt){
+            flash('receipt_msg','Petty cash receipt not found or already deleted','alert custom-danger');
+            redirect('cashreceipts');
+            exit();
+        }
         $banks = $this->receiptmodel->GetBanks();
+        $pettyaccounts = $this->receiptmodel->GetPettyCashAccounts();
         $data = [
             'banks' => $banks,
+            'pettyaccounts' => $pettyaccounts,
+            'pettyaccount' => $this->pickPettyAccount($pettyaccounts,$receipt->PettyCashAccountId),
             'isedit' => true,
             'id' => $receipt->ID,
             'receiptno' => $receipt->ReceiptNo,
             'date' => $receipt->TransactionDate,
             'bank' => $receipt->BankId,
             'amount' => $receipt->Debit,
-            'reference' => strtoupper($receipt->Reference),
-            'description' => strtoupper($receipt->Narration),
+            'reference' => strtoupper((string)$receipt->Reference),
+            'description' => strtoupper((string)$receipt->Narration),
+            'errors' => [],
             'date_err' => '',
             'bank_err' => '',
             'amount_err' => '',
@@ -130,15 +159,16 @@ class Cashreceipts extends Controller
     public function delete()
     {
         if($_SERVER['REQUEST_METHOD'] === 'POST'){
-            $id = $_POST['id'];
-            if(empty($id)){
+            $id = (int)($_POST['id'] ?? 0);
+            if($id <= 0){
                 flash('receipt_msg','Unable to get selected entry!','alert custom-danger');
                 redirect('cashreceipts');
                 exit();
             }
 
-            if(!$this->receiptmodel->Delete($id)){
-                flash('receipt_msg','Something went wrong.Contact admin!','alert custom-danger');
+            $result = $this->receiptmodel->Delete($id);
+            if(!$result['success']){
+                flash('receipt_msg',$result['errors'] ? implode('<br>',array_map('htmlspecialchars',$result['errors'])) : 'Something went wrong.Contact admin!','alert custom-danger');
                 redirect('cashreceipts');
                 exit();
             }

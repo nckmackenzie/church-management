@@ -170,25 +170,38 @@ class Banktransaction
         Ledger::syncBankPostings($pdo,$cong,13,(int)$tid,self::BANK_METHODS[$type],$data['reference']);
     }
 
-    /** Receipt in petty cash when the transfer goes to petty cash (98); not a ledger table. */
+    /**
+     * The tblpettycash receipt of a transfer to a petty cash account (98 or 194, Ledger::PETTY_CASH_ACCOUNTS); not a ledger table.
+     * Kept in step with the transaction: created on save, updated in place on edit (it keeps its receipt number),
+     * soft-deleted when the transfer is edited into something else. Numbers come from the same locked sequence as
+     * the petty cash receipts screen and are never reused.
+     */
     private function savePettyCash($data,$tid)
     {
-        if($data['transfer'] == '98'){
-            $narr = !empty($data['description']) ? strtolower($data['description']) : 'bank transaction reference ' .$data['reference'];
-            $this->db->query('INSERT INTO tblpettycash (ReceiptNo,TransactionDate,Debit,IsReceipt,BankId,Reference,Narration,TransactionType,TransactionId,CongregationId)
-                              VALUES(:rno,:tdate,:debit,:isreceipt,:bankid,:reference,:narr,:ttype,:tid,:cid)');
-            $this->db->bind(':rno',$this->GetReceiptNo());
-            $this->db->bind(':tdate',$data['date']);
-            $this->db->bind(':debit',$data['amount']);
-            $this->db->bind(':isreceipt',true);
-            $this->db->bind(':bankid',$data['bank']);
-            $this->db->bind(':reference',strtolower($data['reference']));
-            $this->db->bind(':narr',$narr);
-            $this->db->bind(':ttype',13);
-            $this->db->bind(':tid',$tid);
-            $this->db->bind(':cid',$_SESSION['congId']);
-            $this->db->execute();
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
+        $existing = loadresultset($pdo,'SELECT ID FROM tblpettycash WHERE TransactionType = 13 AND TransactionId = ? AND CongregationId = ? AND Deleted = 0 FOR UPDATE',
+                                  [(int)$tid,$cong]);
+
+        // a sub-account transfer's "transfer to" is a sub-account ID, never a petty cash account
+        $wanted = !$data['issubtxn'] && (int)$data['type'] === 5 && Ledger::isPettyCashAccount($data['transfer']);
+        if(!$wanted){
+            if($existing){
+                $pdo->prepare('UPDATE tblpettycash SET Deleted = 1 WHERE ID = ?')->execute([$existing[0]->ID]);
+            }
+            return;
         }
+
+        $narr = mb_substr(!empty($data['description']) ? strtolower($data['description']) : 'bank transaction reference ' .$data['reference'],0,150);
+        if($existing){
+            $pdo->prepare('UPDATE tblpettycash SET TransactionDate=?,Debit=?,BankId=?,PettyCashAccountId=?,Reference=?,Narration=? WHERE ID=?')
+                ->execute([$data['date'],$data['amount'],$data['bank'],(int)$data['transfer'],strtolower($data['reference']),$narr,$existing[0]->ID]);
+            return;
+        }
+        $pdo->prepare('INSERT INTO tblpettycash (ReceiptNo,TransactionDate,Debit,IsReceipt,BankId,PettyCashAccountId,Reference,Narration,TransactionType,TransactionId,CongregationId)
+                       VALUES(?,?,?,1,?,?,?,?,13,?,?)')
+            ->execute([Ledger::nextNumber($pdo,$cong,Ledger::SEQ_PETTYCASH),$data['date'],$data['amount'],$data['bank'],(int)$data['transfer'],
+                       strtolower($data['reference']),$narr,(int)$tid,$cong]);
     }
 
     private function fail($pdo,$e)
@@ -201,11 +214,6 @@ class Banktransaction
         }
         error_log($e->getMessage(),0);
         return ['success' => false,'errors' => []];
-    }
-
-    public function GetReceiptNo()
-    {
-        return getuniqueid($this->db->dbh,'ReceiptNo','tblpettycash',(int)$_SESSION['congId']);
     }
 
     public function GetSubaccounts($bankid)
@@ -361,10 +369,6 @@ class Banktransaction
             $this->db->bind(':reference',$data['reference']);
             $this->db->bind(':narr',$data['description']);
             $this->db->bind(':id',$data['id']);
-            $this->db->execute();
-
-            $this->db->query('DELETE FROM tblpettycash WHERE (TransactionType = 13) AND (TransactionId=:tid)');
-            $this->db->bind(':tid',$data['id']);
             $this->db->execute();
 
             $this->db->query('DELETE FROM tblbanktransactions_subaccounts WHERE (TransactionId = :tid)');
