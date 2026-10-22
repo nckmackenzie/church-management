@@ -121,16 +121,12 @@
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        <label for="bank">Bank</label>
-                                        <select name="bank" id="bank"
-                                                class="form-control form-control-sm mandatory">
-                                            <option value="" selected disabled>Select bank...</option>
-                                            <?php foreach($data['banks'] as $bank) :?> 
-                                                <option value="<?php echo $bank->ID;?>"
-                                                <?php selectdCheck($data['bank'],$bank->ID)?>>
-                                                    <?php echo strtoupper($bank->Bank);?>
-                                                </option>
-                                            <?php endforeach; ?>     
+                                        <label for="paidfrom">Paid From</label>
+                                        <select name="paidfrom" id="paidfrom"
+                                                class="form-control form-control-sm mandatory"
+                                                data-selected="<?php echo (int)$data["paidfrom"];?>"
+                                                data-cash="<?php echo htmlspecialchars(json_encode(array_map(function ($a) { return ["id" => $a->ID,"label" => $a->Account]; },$data["cashaccounts"])),ENT_QUOTES);?>"
+                                                data-bank="<?php echo htmlspecialchars(json_encode(array_map(function ($a) { return ["id" => $a->ID,"label" => $a->Account]; },$data["bankaccounts"])),ENT_QUOTES);?>">
                                         </select>
                                         <span class="invalid-feedback"></span>
                                     </div>
@@ -163,6 +159,6 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/approve-v3.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/approve-v4.js"></script>
 </body>
 </html>  

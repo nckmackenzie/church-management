@@ -1,6 +1,27 @@
 <?php
+/**
+ * Group / district / church fund requisitions and their approval (transaction type 12) on the Ledger library (task 8.9).
+ *
+ * Approval posts, whatever DontDeduct says:
+ *   Dr 121 'cash holding account' (Ledger::CASH_HOLDING, a confirmed system account)  /  Cr the "paid from" account the
+ *   user chose (a PAY_CASH account when the pay method is cash, 98 preselected; a PAY_BANK account otherwise, which also
+ *   writes a bank row, method 'Withdrawal'). Nothing else is inferred.
+ * DontDeduct (read from the stored requisition) only decides whether a tblmmf Credit row lowers the group's /
+ * district's held balance. Church-category requisitions never write one (they have no group or district).
+ *
+ * Every action loads the requisition by ID + session congregation FOR UPDATE inside its transaction. Unapprove and
+ * Reject are refused while a non-deleted expense references the requisition and use Ledger::void (closed years refuse).
+ * Approve / Unapprove / Reject / Reverse return true (or the requester's contact) on success, or
+ * ['error' => message, 'final' => bool] ('final' = the requisition itself is not in a state that allows it).
+ */
 class Groupfund
 {
+    const TYPE = 12;
+    const BANK_METHOD = 'Withdrawal';
+    const CASH_METHOD = 1;          // tblpaymentmethods: 1 cash; 2 mpesa, 3 cheque, 4 bank are paid from a bank account
+    const DEFAULT_PAID_FROM = 98;   // 'petty cash', preselected for cash (confirmed by the user, task 8.9)
+    const REFERENCE_LEN = 25;       // tblmmf.Reference
+
     private $db;
     public function __construct()
     {
@@ -51,13 +72,24 @@ class Groupfund
         return $this->db->resultSet();
     }
 
+    /** Held balance of a group / district up to $date; $group is the GROUP or DISTRICT ID that matches $type. Church: 0. */
     public function GetBalance($group,$date,$type)
     {
         if($type === 'group'){
             return getdbvalue($this->db->dbh,'SELECT getmmfopeningbalbydate(?,?)',[$group,$date]);
-        }else{
+        }elseif($type === 'district'){
             return getdbvalue($this->db->dbh,'SELECT getmmfopeningbalbydate_district(?,?)',[$group,$date]);
         }
+        return 0;
+    }
+
+    /** The group / district ID that goes with the requisition's type, for GetBalance(). */
+    public function OwnerId($request)
+    {
+        if($request->RequestType === 'group'){
+            return $request->GroupId;
+        }
+        return $request->RequestType === 'district' ? $request->DistrictId : null;
     }
 
     public function CreateUpdate($data)
@@ -67,8 +99,9 @@ class Groupfund
                               VALUES(:reqno,:rdate,:rtype,:did,:gid,:catid,:purpose,:amount,:reqby,:deduct,:cid)');
             $this->db->bind(':reqno',$this->GetReqNo());
         }else{
-            $this->db->query('UPDATE tblfundrequisition SET RequisitionDate=:rdate,RequestType=:rtype,DistrictId=:did,GroupId=:gid,ChurchCategoryId=:catid,Purpose=:purpose,AmountRequested=:amount,RequestedBy=:reqby,DontDeduct=:deduct 
-                              WHERE (ID = :id)');
+            // only a pending requisition of this congregation can be edited
+            $this->db->query('UPDATE tblfundrequisition SET RequisitionDate=:rdate,RequestType=:rtype,DistrictId=:did,GroupId=:gid,ChurchCategoryId=:catid,Purpose=:purpose,AmountRequested=:amount,RequestedBy=:reqby,DontDeduct=:deduct
+                              WHERE (ID = :id) AND (CongregationId = :cid) AND (`Status` = 0) AND (Deleted = 0)');
         }
         $this->db->bind(':rdate',!empty($data['reqdate']) ? $data['reqdate'] : null);
         $this->db->bind(':rtype',!empty($data['type']) ? $data['type'] : null);
@@ -92,10 +125,9 @@ class Groupfund
         $this->db->bind(':reqby',$_SESSION['userId']);
         $this->db->bind(':deduct',$data['dontdeduct']);
         if($data['isedit']){
-            $this->db->bind(':id',$data['id']);
-        }else{
-            $this->db->bind(':cid',$_SESSION['congId']);
+            $this->db->bind(':id',(int)$data['id']);
         }
+        $this->db->bind(':cid',$_SESSION['congId']);
         if(!$this->db->execute()){
             return false;
         }
@@ -116,8 +148,9 @@ class Groupfund
 
     public function Delete($id)
     {
-        $this->db->query('UPDATE tblfundrequisition SET Deleted = 1 WHERE (ID = :id)');
+        $this->db->query('UPDATE tblfundrequisition SET Deleted = 1 WHERE (ID = :id) AND (CongregationId = :cid) AND (`Status` = 0)');
         $this->db->bind(':id',(int)$id);
+        $this->db->bind(':cid',(int)$_SESSION['congId']);
         if(!$this->db->execute()){
             return false;
         }
@@ -141,170 +174,170 @@ class Groupfund
         return paymentMethods($this->db->dbh);
     }
 
-    public function GetBanks()
+    /** "Paid from" accounts for a CASH pay method (PAY_CASH; 121 itself is not offered). [ (object)['ID','Account'] ] */
+    public function GetCashAccounts()
     {
-        $this->db->query("SELECT ID,
-                                 CONCAT(UCASE(`accountType`),'-',IFNULL(`accountNo`,'')) As Bank
-                          FROM   tblaccounttypes 
-                          WHERE  (isBank=1) AND (Deleted=0) AND (congregationId=:cid)");
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();
+        return $this->accountOptions(Ledger::PAY_CASH);
+    }
+
+    /** "Paid from" accounts for M-Pesa / cheque / bank (PAY_BANK). [ (object)['ID','Account'] ] */
+    public function GetBankAccounts()
+    {
+        return $this->accountOptions(Ledger::PAY_BANK);
+    }
+
+    private function accountOptions($kind)
+    {
+        $out = [];
+        foreach(Ledger::listPaymentAccounts($this->db->pdo(),(int)$_SESSION['congId'],$kind) as $a){
+            if((int)$a['ID'] === Ledger::CASH_HOLDING){
+                continue;
+            }
+            $out[] = (object)['ID' => (int)$a['ID'],'Account' => strtoupper($a['accountType'])];
+        }
+        return $out;
     }
 
     public function GetGroupName($type,$id)
     {
         if($type === 'group'){
             return getdbvalue($this->db->dbh,'SELECT groupName FROM tblgroups WHERE ID = ?',[$id]);
-        }else{
+        }elseif($type === 'district'){
             return getdbvalue($this->db->dbh,'SELECT districtName FROM tbldistricts WHERE ID = ?',[$id]);
         }
+        return getdbvalue($this->db->dbh,'SELECT categoryName FROM tblchurchrequisitioncategories WHERE id = ?',[$id]);
+    }
+
+    /** The requisition of this congregation, locked for the rest of the transaction, or false. */
+    private function lockRequisition($pdo,$id,$cong)
+    {
+        $st = $pdo->prepare('SELECT * FROM tblfundrequisition WHERE ID = ? AND CongregationId = ? FOR UPDATE');
+        $st->execute([$id,$cong]);
+        return $st->fetch(PDO::FETCH_OBJ);
     }
 
     /**
-     * Hotfix: only the requisition's stored row decides group / district, type, DontDeduct, purpose and the
-     * requested amount; the form supplies only id, approved amount, pay date, reference and bank.
-     * Returns true (or the requester's contact) on success, ['error' => message, 'final' => bool] when refused
-     * ('final' = the requisition itself cannot be approved, not a form problem) or false when the commit fails.
+     * Only the requisition's stored row decides group / district, type, DontDeduct, purpose and the requested amount
+     * (hotfix); the form supplies id, approved amount, pay date, reference, pay method and the "paid from" account.
      */
     public function Approve($data)
     {
-        $reference = !empty($data['reference']) ? strtolower($data['reference']) : null;
-        $dbh = $this->db->dbh;
+        $reference = !empty($data['reference']) ? strtolower(trim($data['reference'])) : null;
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
         try {
-            $dbh->beginTransaction();
+            $pdo->beginTransaction();
 
-            $st = $dbh->prepare('SELECT * FROM tblfundrequisition WHERE ID = ? AND CongregationId = ? FOR UPDATE');
-            $st->execute([(int)$data['id'],(int)$_SESSION['congId']]);
-            $req = $st->fetch(PDO::FETCH_OBJ);
+            $req = $this->lockRequisition($pdo,(int)$data['id'],$cong);
             if(!$req || (int)$req->Deleted !== 0){
-                return $this->refuseApproval('Requisition not found',true);
+                return $this->refuseAction($pdo,'Requisition not found',true);
             }
             if((int)$req->Status !== 0){
-                return $this->refuseApproval('This requisition has already been '.((int)$req->Status === 1 ? 'approved' : 'rejected').'. Nothing was posted',true);
+                return $this->refuseAction($pdo,'This requisition has already been '.((int)$req->Status === 1 ? 'approved' : 'rejected').'. Nothing was posted',true);
             }
 
             $approved = $data['approved'];
             if(!is_numeric($approved) || (float)$approved <= 0 || round((float)$approved,2) !== (float)$approved){
-                return $this->refuseApproval('Enter a valid amount to approve (greater than zero, at most 2 decimals)');
+                return $this->refuseAction($pdo,'Enter a valid amount to approve (greater than zero, at most 2 decimals)');
             }
             $approved = (float)$approved;
             if($approved > (float)$req->AmountRequested){
-                return $this->refuseApproval('Payment amount greater than amount requested');
+                return $this->refuseAction($pdo,'Payment amount greater than amount requested');
             }
 
             $paydate = DateTime::createFromFormat('!Y-m-d',(string)$data['paydate']);
             if(!$paydate || $paydate->format('Y-m-d') !== $data['paydate']){
-                return $this->refuseApproval('Select a valid payment date');
+                return $this->refuseAction($pdo,'Select a valid payment date');
             }
             if($data['paydate'] > date('Y-m-d')){
-                return $this->refuseApproval('Payment date cannot be in the future');
+                return $this->refuseAction($pdo,'Payment date cannot be in the future');
             }
 
-            $bank = !empty($data['bank']) ? (int)$data['bank'] : null;
-            if(!is_null($bank)){
-                $st = $dbh->prepare('SELECT COUNT(*) FROM tblaccounttypes WHERE ID = ? AND isBank = 1 AND Deleted = 0 AND congregationId = ?');
-                $st->execute([$bank,(int)$_SESSION['congId']]);
-                if((int)$st->fetchColumn() === 0){
-                    return $this->refuseApproval('Select a valid bank');
-                }
+            if(is_null($reference)){
+                return $this->refuseAction($pdo,'Enter payment reference');
+            }
+            if(mb_strlen($reference) > self::REFERENCE_LEN){
+                return $this->refuseAction($pdo,'Reference cannot be longer than '.self::REFERENCE_LEN.' characters');
+            }
+
+            $method = (int)($data['paymethod'] ?? 0);
+            if((int)getdbvalue($pdo,'SELECT COUNT(*) FROM tblpaymentmethods WHERE ID = ?',[$method]) === 0){
+                return $this->refuseAction($pdo,'Select a valid pay method');
+            }
+            $isBank = $method !== self::CASH_METHOD;
+            $paidfrom = (int)($data['paidfrom'] ?? 0);
+            if($paidfrom === Ledger::CASH_HOLDING){
+                return $this->refuseAction($pdo,'Paid from cannot be the cash holding account it is paid into');
+            }
+            try {
+                Ledger::assertPaymentAccount($pdo,$cong,$paidfrom,$isBank ? Ledger::PAY_BANK : Ledger::PAY_CASH);
+            } catch (LedgerException $e) {
+                return $this->refuseAction($pdo,$isBank ? 'Select the bank account it is paid from' : 'Select the cash account it is paid from');
             }
 
             $type = $req->RequestType;
             $dontdeduct = (int)$req->DontDeduct === 1;
             if($type === 'group'){
                 $groupid = $req->GroupId;
-                $groupname = getdbvalue($dbh,'SELECT groupName FROM tblgroups WHERE ID = ?',[$req->GroupId]);
             }elseif($type === 'district'){
                 $groupid = $req->DistrictId;
-                $groupname = getdbvalue($dbh,'SELECT districtName FROM tbldistricts WHERE ID = ?',[$req->DistrictId]);
             }else{
                 $groupid = null;
-                $groupname = getdbvalue($dbh,'SELECT categoryName FROM tblchurchrequisitioncategories WHERE id = ?',[$req->ChurchCategoryId]);
             }
+            $groupname = $this->GetGroupName($type,$groupid ?? $req->ChurchCategoryId);
             $desc = strtolower((string)$groupname) .' funds request approval';
             $narration = mb_substr(strtoupper((string)$req->Purpose),0,150);
 
-            $st = $dbh->prepare('UPDATE tblfundrequisition
+            $st = $pdo->prepare('UPDATE tblfundrequisition
                                     SET AmountApproved = ?,ApprovalDate = ?,ApprovedBy = ?,`Status` = 1
                                   WHERE (ID = ?) AND (CongregationId = ?) AND (`Status` = 0)');
-            $st->execute([$approved,date('Y-m-d'),(int)$_SESSION['userId'],(int)$req->ID,(int)$_SESSION['congId']]);
+            $st->execute([$approved,date('Y-m-d'),(int)$_SESSION['userId'],(int)$req->ID,$cong]);
             if($st->rowCount() !== 1){
-                return $this->refuseApproval('This requisition has already been approved. Nothing was posted',true);
+                return $this->refuseAction($pdo,'This requisition has already been approved. Nothing was posted',true);
             }
 
-            $data['id'] = (int)$req->ID;
-            $data['approved'] = $approved;
-            $data['paydate'] = $paydate->format('Y-m-d');
+            $id = (int)$req->ID;
+            $amount = number_format($approved,2,'.','');
 
-            if(!$dontdeduct){
-                $this->db->query('INSERT INTO tblmmf (TransactionDate,Type,DistrictId,GroupId,Credit,BankId,Reference,Narration,TransactionType,TransactionId,
-                CongregationId) VALUES(:tdate,:type,:did,:gid,:credit,:bid,:reference,:narr,:ttype,:tid,:cid)');
-                $this->db->bind(':tdate',$data['paydate']);
-                $this->db->bind(':type',$type);
-                $this->db->bind(':did', $type === 'district' ? $groupid : null);
-                $this->db->bind(':gid', $type === 'group' ? $groupid : null);
-                $this->db->bind(':credit',$approved);
-                $this->db->bind(':bid',$bank);
-                $this->db->bind(':reference',$reference);
-                $this->db->bind(':narr',$narration);
-                $this->db->bind(':ttype',12);
-                $this->db->bind(':tid',$data['id']);
-                $this->db->bind(':cid',$_SESSION['congId']);
-                $this->db->execute();
+            // DontDeduct (stored) only decides this row; a church requisition has no group / district to deduct from
+            if(!$dontdeduct && $groupid !== null){
+                $pdo->prepare('INSERT INTO tblmmf (TransactionDate,Type,DistrictId,GroupId,Credit,BankId,Reference,Narration,TransactionType,TransactionId,
+                               CongregationId) VALUES(?,?,?,?,?,?,?,?,12,?,?)')
+                    ->execute([$data['paydate'],$type,$type === 'district' ? $groupid : null,$type === 'group' ? $groupid : null,
+                               $amount,$isBank ? $paidfrom : null,$reference,$narration,$id,$cong]);
             }
 
-            $cashparent = getparentgl($this->db->dbh,'cash at hand');
-            saveToLedger($this->db->dbh,$data['paydate'],'cash holding account',$cashparent,$data['approved'],0,$desc,
-                                                3,12,$data['id'],$_SESSION['congId'],$reference);
-
-            // if($data['type'] === 'group'){
-            //     $gbhparent = getparentgl($this->db->dbh,'groups balances held');
-            //     if(!$data['dontdeduct']){
-            //         saveToLedger($this->db->dbh,$data['paydate'],'groups balances held',$gbhparent,$data['approved'],0,$desc,
-            //                                     4,12,$data['id'],$_SESSION['congId'],$reference);
-            //     }else{
-            //         saveToLedger($this->db->dbh,$data['paydate'],"groups' expenses","groups' expenses",$data['approved'],0,$desc,
-            //                                     2,12,$data['id'],$_SESSION['congId'],$reference);
-            //     }
-            // }else{
-            //     if(!$data['dontdeduct']){
-            //         saveToLedger($this->db->dbh,$data['paydate'],'district funds held','district funds held',$data['approved'],0,$desc,
-            //                                     4,12,$data['id'],$_SESSION['congId'],$reference);
-            //     }else{
-            //         saveToLedger($this->db->dbh,$data['paydate'],"groups' expenses","groups' expenses",$data['approved'],0,$desc,
-            //                                     2,12,$data['id'],$_SESSION['congId'],$reference);
-            //     }
-            // }
-            
-            saveToLedger($this->db->dbh,$data['paydate'],'petty cash',$cashparent,0,$data['approved'],$desc,
-                         3,12,$data['id'],$_SESSION['congId'],$reference);
-
-            // if((int)$data['paymethod'] === 1){
-            //     saveToLedger($this->db->dbh,$data['paydate'],'cash at hand',$cashparent,0,$data['approved'],$desc,
-            //              3,12,$data['id'],$_SESSION['congId'],$reference);
-            // }else{
-            //     saveToLedger($this->db->dbh,$data['paydate'],'cash at bank',$cashparent,0,$data['approved'],$desc,
-            //                  3,12,$data['id'],$_SESSION['congId'],$reference);
-
-            //     saveToBanking($this->db->dbh,$data['bank'],$data['paydate'],0,$data['approved'],2,
-            //                  $data['reference'],12,$data['id'],$_SESSION['congId']); 
-            // }
-
-            if(!$this->db->dbh->commit()){
-                return false;
+            Ledger::post($pdo,[
+                'congregationId' => $cong,'entryDate' => $data['paydate'],'transactionTypeId' => self::TYPE,'transactionId' => $id,
+                'reference' => $reference,'description' => $desc,
+            ],[
+                Ledger::debit(Ledger::CASH_HOLDING,$amount,$desc),
+                Ledger::credit($paidfrom,$amount,$desc),
+            ]);
+            if($isBank){
+                Ledger::syncBankPostings($pdo,$cong,self::TYPE,$id,self::BANK_METHOD,$reference);
             }
 
+            saveLog($pdo,'Approved fund requisition ' . $id . ' (req no ' . $req->ReqNo . ') for ' . $amount . ' dated ' . $data['paydate']);
+            $pdo->commit();
+        } catch (LedgerException $e) {
+            return $this->refuseAction($pdo,implode('. ',$e->getErrors()));
         } catch (Exception $e) {
-            if($this->db->dbh->inTransaction()){
-                $this->db->dbh->rollback();
+            if($pdo->inTransaction()){
+                $pdo->rollback();
             }
             error_log($e->getMessage(),0);
             return ['error' => 'Unable to save this approval, nothing was posted. Contact admin for help','final' => false];
         }
 
-        // committed: a failure below must never be reported as a failed approval (a retry would be refused anyway)
+        return $this->contactOf((int)$req->ID);
+    }
+
+    /** The requester's contact, else true. After a commit: a failure here must never read as a failed action. */
+    private function contactOf($id)
+    {
         try {
-            $requestedby = getdbvalue($this->db->dbh,'SELECT RequestedBy FROM tblfundrequisition WHERE ID=?',[(int)$data['id']]);
+            $requestedby = getdbvalue($this->db->dbh,'SELECT RequestedBy FROM tblfundrequisition WHERE ID=?',[(int)$id]);
             if(is_null($requestedby)) return true;
 
             $contact = getdbvalue($this->db->dbh,'SELECT contact FROM tblusers WHERE ID=?',[(int)$requestedby]);
@@ -315,116 +348,104 @@ class Groupfund
         }
     }
 
-    private function refuseApproval($message,$final = false)
+    private function refuseAction($pdo,$message,$final = false)
     {
-        if($this->db->dbh->inTransaction()){
-            $this->db->dbh->rollback();
+        if($pdo->inTransaction()){
+            $pdo->rollback();
         }
         return ['error' => $message,'final' => $final];
     }
 
-    public function Reverse($id)
+    /** Message listing the non-deleted expenses (draft or approved) that reference the requisition, or null. */
+    private function expenseBlock($pdo,$cong,$id,$action)
     {
+        $st = $pdo->prepare('SELECT voucherNo,expenseDate,`status` FROM tblexpenses
+                             WHERE requisitionId = ? AND congregationId = ? AND deleted = 0 ORDER BY ID');
+        $st->execute([$id,$cong]);
+        $rows = $st->fetchAll(PDO::FETCH_OBJ);
+        if(!$rows){
+            return null;
+        }
+        $list = array_map(function ($r) {
+            return 'voucher no ' . $r->voucherNo . ' (' . $r->expenseDate . ', ' . ((int)$r->status === 1 ? 'approved' : 'draft') . ')';
+        },array_slice($rows,0,10));
+        return 'Cannot ' . $action . ': ' . count($rows) . ' expense(s) reference this requisition: ' . implode(', ',$list)
+             . (count($rows) > 10 ? ' and ' . (count($rows) - 10) . ' more' : '')
+             . '. Delete them or remove the requisition from them first';
+    }
+
+    /**
+     * Shared body of Unapprove / Reject / Reverse. Unapprove (approved -> pending) and Reject (pending or approved ->
+     * rejected) are refused while an expense references the requisition, then void the entry and its bank rows
+     * (a closed financial year refuses) and delete the requisition's tblmmf row (this congregation only).
+     * Reverse (rejected -> pending) has nothing to void.
+     */
+    private function changeState($id,$action,$reason = null)
+    {
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
         try {
-            $this->db->dbh->beginTransaction();
-            
-            $this->db->query('UPDATE tblfundrequisition 
-                                SET AmountApproved = null, ApprovalDate = null,ApprovedBy = null,`Status` = 0
-                              WHERE (ID = :id)');
-            $this->db->bind(':id',$id);
-            $this->db->execute();
+            $pdo->beginTransaction();
 
-            $this->db->query('DELETE FROM tblmmf WHERE (TransactionType = 12) AND (TransactionId = :id)');
-            $this->db->bind(':id',$id);
-            $this->db->execute();
-
-            deleteLedgerBanking($this->db->dbh,12,$id);
-
-            if(!$this->db->dbh->commit()){
-                return false;
-            }else{
-                return true;
+            $req = $this->lockRequisition($pdo,(int)$id,$cong);
+            if(!$req || (int)$req->Deleted !== 0){
+                return $this->refuseAction($pdo,'Requisition not found',true);
+            }
+            $status = (int)$req->Status;
+            if($action === 'unapprove' && $status !== 1){
+                return $this->refuseAction($pdo,'Only an approved requisition can be unapproved',true);
+            }
+            if($action === 'reject' && $status === 2){
+                return $this->refuseAction($pdo,'This requisition has already been rejected',true);
+            }
+            if($action === 'reverse' && $status !== 2){
+                return $this->refuseAction($pdo,'Only a rejected requisition can be reversed',true);
             }
 
+            if($action === 'reverse'){
+                $pdo->prepare('UPDATE tblfundrequisition SET `Status` = 0, ReasonForRejection = NULL
+                               WHERE ID = ? AND CongregationId = ? AND `Status` = 2')->execute([(int)$req->ID,$cong]);
+            }else{
+                if($block = $this->expenseBlock($pdo,$cong,(int)$req->ID,$action)){
+                    return $this->refuseAction($pdo,$block,true);
+                }
+                Ledger::void($pdo,$cong,self::TYPE,(int)$req->ID);
+                Ledger::voidBankPostings($pdo,$cong,self::TYPE,(int)$req->ID);
+                $pdo->prepare('DELETE FROM tblmmf WHERE TransactionType = 12 AND TransactionId = ? AND CongregationId = ?')
+                    ->execute([(int)$req->ID,$cong]);
+                $pdo->prepare('UPDATE tblfundrequisition
+                                  SET AmountApproved = NULL, ApprovalDate = NULL, ApprovedBy = NULL, `Status` = ?, ReasonForRejection = ?
+                                WHERE ID = ? AND CongregationId = ? AND `Status` = ?')
+                    ->execute([$action === 'reject' ? 2 : 0,$action === 'reject' ? $reason : null,(int)$req->ID,$cong,$status]);
+            }
+
+            saveLog($pdo,ucfirst($action) . ' fund requisition ' . (int)$req->ID . ' (req no ' . $req->ReqNo . ')');
+            $pdo->commit();
+        } catch (LedgerException $e) {
+            return $this->refuseAction($pdo,implode('. ',$e->getErrors()),true);
         } catch (Exception $e) {
-            if($this->db->dbh->inTransaction()){
-                $this->db->dbh->rollback();
+            if($pdo->inTransaction()){
+                $pdo->rollback();
             }
             error_log($e->getMessage(),0);
+            return ['error' => 'Unable to complete this action, nothing was changed. Contact admin for help','final' => false];
         }
+
+        return $this->contactOf((int)$id);
+    }
+
+    public function Reverse($id)
+    {
+        return $this->changeState($id,'reverse');
     }
 
     public function Reject($id,$reason)
     {
-        try {
-            $this->db->dbh->beginTransaction();
-            
-            $this->db->query('UPDATE tblfundrequisition 
-                                SET `Status` = 2,ReasonForRejection=:reason
-                              WHERE (ID = :id)');
-
-            $this->db->bind(':reason',$reason);
-            $this->db->bind(':id',$id);
-            $this->db->execute();
-
-            $this->db->query('DELETE FROM tblmmf WHERE (TransactionType = 12) AND (TransactionId = :id)');
-            $this->db->bind(':id',$id);
-            $this->db->execute();
-
-            deleteLedgerBanking($this->db->dbh,12,$id);
-
-            if(!$this->db->dbh->commit()){
-                return false;
-            }else{
-                $requestedby = getdbvalue($this->db->dbh,'SELECT RequestedBy FROM tblfundrequisition WHERE ID=?',[(int)$id]);
-                if(is_null($requestedby)) return true;
-
-                $contact = getdbvalue($this->db->dbh,'SELECT contact FROM tblusers WHERE ID=?',[(int)$requestedby]);
-                return $contact;
-            }
-
-        } catch (Exception $e) {
-            if($this->db->dbh->inTransaction()){
-                $this->db->dbh->rollback();
-            }
-            error_log($e->getMessage(),0);
-        }
+        return $this->changeState($id,'reject',$reason);
     }
 
     public function Unapprove($id)
     {
-        try {
-            $this->db->dbh->beginTransaction();
-            
-           
-            $this->db->query('UPDATE tblfundrequisition 
-                                SET AmountApproved = :app,ApprovalDate=:appdate,ApprovedBy = :appby,`Status` = 0
-                              WHERE (ID = :id)');
-            $this->db->bind(':app',null);
-            $this->db->bind(':appdate',null);
-            $this->db->bind(':appby',null);
-            $this->db->bind(':id',$id);
-            $this->db->execute();
-
-            $this->db->query('DELETE from tblmmf 
-                                   WHERE (TransactionType = 12) AND (TransactionId = :id)');
-            $this->db->bind(':id',$id);
-            $this->db->execute();
-            
-
-            deleteLedgerBanking($this->db->dbh,12,$id);           
-            if(!$this->db->dbh->commit()){
-                return false;
-            }else{                
-                return true;
-            }
-
-        } catch (Exception $e) {
-            if($this->db->dbh->inTransaction()){
-                $this->db->dbh->rollback();
-            }
-            error_log($e->getMessage(),0);
-            return false;
-        }
+        return $this->changeState($id,'unapprove');
     }
 }

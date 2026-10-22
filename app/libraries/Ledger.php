@@ -94,6 +94,13 @@ class Ledger
     const PETTY_CASH_ACCOUNTS = [98, 194];
 
     /**
+     * ID of the fixed system account 'cash holding account' (confirmed by the user, task 8.9, like opening balance equity 20):
+     * the debit of every group / district fund approval (type 12). Expense::requisitionStyle() classes a requisition as
+     * 'new' by a debit line on it. It is a PAY_CASH account (a posting account under CASH_ROOT).
+     */
+    const CASH_HOLDING = 121;
+
+    /**
      * Number sequences (receipt_number_seq): receipts and expense vouchers per congregation + fiscal year, petty cash
      * per congregation.
      */

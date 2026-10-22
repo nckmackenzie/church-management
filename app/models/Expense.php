@@ -18,7 +18,7 @@ class Expense
     /** 'petty cash', preselected on a new cash expense (confirmed by the user, decision 8.5d-1). */
     const DEFAULT_PAID_FROM = 98;
     /** 'cash holding account': the only account a new-style requisition may be paid from (and only requisitions may use it). */
-    const CASH_HOLDING = 121;
+    const CASH_HOLDING = Ledger::CASH_HOLDING;
     const TYPE_EXPENSE = 2;
     const TYPE_GROUP_APPROVAL = 12;
     const CASH_METHOD = 1;

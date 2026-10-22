@@ -9,7 +9,8 @@ const reqDateInput = document.getElementById('date');
 const deductInput = document.getElementById('dontdeduct');
 const paymentDateInput = document.getElementById('paydate');
 const paymethodSelect = document.getElementById('paymethod');
-const bankSelect = document.getElementById('bank');
+const paidFromSelect = document.getElementById('paidfrom');
+const CASH_METHOD = 1; // tblpaymentmethods: 1 = cash (paid from a cash account); 2, 3, 4 = paid from a bank account
 const form = document.querySelector('form');
 const submitButton = form.querySelector('button[type="submit"]');
 let submitting = false;
@@ -27,15 +28,27 @@ function getBalance() {
   balanceInput.value = balance;
 }
 
-paymethodSelect.addEventListener('change', function (e) {
-  if (+e.target.value < 3) {
-    bankSelect.classList.remove('mandatory');
-    bankSelect.disabled = true;
-  } else {
-    bankSelect.classList.add('mandatory');
-    bankSelect.disabled = false;
-  }
+// the paid-from list follows the pay method: cash accounts for cash, bank accounts otherwise (the server checks it again)
+function fillPaidFrom(keepSelected) {
+  const accounts = JSON.parse(
+    paidFromSelect.dataset[+paymethodSelect.value === CASH_METHOD ? 'cash' : 'bank']
+  );
+  const selected = keepSelected ? paidFromSelect.value || paidFromSelect.dataset.selected : '';
+  paidFromSelect.innerHTML = '<option value="" disabled>Select account...</option>';
+  accounts.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a.id;
+    opt.textContent = a.label;
+    if (String(a.id) === String(selected)) opt.selected = true;
+    paidFromSelect.appendChild(opt);
+  });
+  if (!paidFromSelect.value) paidFromSelect.selectedIndex = 0;
+}
+
+paymethodSelect.addEventListener('change', function () {
+  fillPaidFrom(false);
 });
+fillPaidFrom(true);
 
 //get balance
 amountApprovedInput.addEventListener('change', getBalance);
