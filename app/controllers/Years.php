@@ -61,7 +61,7 @@ class Years extends Controller{
                     $data['start_err'] = 'Start Date Cannot Be Greater Than End Date';
                 }
                 else{
-                    if (!$this->yearModel->checkYearConflict($data['startdate'])) {
+                    if (!$this->yearModel->checkYearConflict($data['startdate'],$data['enddate'])) {
                         $data['start_err'] = 'Defined Period Overlaps With Another Period';
                     }
                 }
@@ -195,12 +195,13 @@ class Years extends Controller{
             ];
             //validation
             if (!empty($data['id'])) {
-                if ($this->yearModel->delete($data)) {
+                $result = $this->yearModel->delete($data);
+                if ($result['success']) {
                     flash('year_msg','Financial Year Deleted Successfully');
                     redirect('years');
                 }
                 else{
-                    flash('year_msg','Something Went Wrong','alert custom-danger');
+                    flash('year_msg',$result['errors'] ? implode('<br>',array_map('htmlspecialchars',$result['errors'])) : 'Something Went Wrong','alert custom-danger');
                     redirect('years');
                 }
             }

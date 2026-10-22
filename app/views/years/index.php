@@ -103,7 +103,12 @@
                                     <td>
                                         <div class="btn-group">
                                             <a href="<?php echo URLROOT;?>/years/edit/<?php echo encryptId($year->ID);?>" class="btn bg-olive custom-font btn-sm">Edit</a>
-                                            <button class="btn btn-danger custom-font btn-sm btndel">Delete</button>
+                                            <?php if(empty($year->deleteBlockers)) : ?>
+                                                <button class="btn btn-danger custom-font btn-sm btndel">Delete</button>
+                                            <?php else : ?>
+                                                <button class="btn btn-secondary custom-font btn-sm" type="button" disabled
+                                                        title="<?php echo htmlspecialchars(implode('; ',$year->deleteBlockers));?>">Delete</button>
+                                            <?php endif; ?>
                                             <?php if($year->closed == 0) : ?>
                                                 <button class="btn btn-sm bg-gray-dark custom-font resend">Close</button>
                                             <?php endif; ?>

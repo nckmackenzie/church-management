@@ -171,17 +171,6 @@ class Clearbankings extends Controller
         }
     }
     
-    public function delete()
-    {
-        if($_SERVER['REQUEST_METHOD'] === 'POST'){
-            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-            $id = trim($_POST['id']);
-            $this->clearmodel->delete($id);
-        }else{
-            redirect('users/deniedaccess');
-            exit();
-        }
-    }
     public function modify()
     {
         checkrights($this->authmodel,'edit cleared bankings');

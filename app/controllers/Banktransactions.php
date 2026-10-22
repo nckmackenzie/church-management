@@ -29,6 +29,8 @@ class Banktransactions extends Controller
         $data= [
             'banks' => $this->bankmodel->GetBanks(),
             'accounts' => $this->bankmodel->GetOtherBanks(),
+            'cashaccounts' => $this->bankmodel->GetCashAccounts(),
+            'cashaccount' => '',
             'subaccounts' => $this->bankmodel->GetAllSubaccounts(),
             'title' => 'Add transaction',
             'id' => '',
@@ -76,7 +78,8 @@ class Banktransactions extends Controller
                 'bank' => isset($fields->bank) && !empty(trim($fields->bank)) ? trim($fields->bank) : null,
                 'type' => isset($fields->type) && !empty(trim($fields->type)) ? (int)trim($fields->type) : null,
                 'transfer' => isset($fields->transferto) && !empty(trim($fields->transferto)) ? trim($fields->transferto) : null,
-                'amount' => isset($fields->amount) && !empty(trim($fields->amount)) ? (int)trim($fields->amount) : null,
+                'cashaccount' => isset($fields->cashaccount) && !empty(trim($fields->cashaccount)) ? (int)trim($fields->cashaccount) : null,
+                'amount' => isset($fields->amount) && !empty(trim($fields->amount)) ? trim($fields->amount) : null,
                 'reference' => isset($fields->reference) && !empty(trim($fields->reference)) ? trim($fields->reference) : null,
                 'description' => isset($fields->description) && !empty(trim($fields->description)) ? trim($fields->description) : null,
                 'deposittosubs' => isset($fields->deposittosubs) && trim($fields->deposittosubs) === 'on' ? true : false,
@@ -86,11 +89,26 @@ class Banktransactions extends Controller
                 'issubtxn' => false
             ];
 
-            if(is_null($data['date']) || is_null($data['bank']) || is_null($data['type']) 
+            if(is_null($data['date']) || is_null($data['bank']) || is_null($data['type'])
                || is_null($data['amount']) || is_null($data['reference'])){
 
                http_response_code(400);
                echo json_encode(['success' => false,'message' => 'Fill all required fields']);
+               exit;
+            }
+
+            if($amounterr = Ledger::amountError($data['amount'])){
+               http_response_code(400);
+               echo json_encode(['success' => false,'message' => $amounterr]);
+               exit;
+            }
+
+            // the crediting account only applies to deposits and withdrawals
+            if(!in_array($data['type'],[1,2],true)){
+                $data['cashaccount'] = null;
+            }elseif(is_null($data['cashaccount'])){
+               http_response_code(400);
+               echo json_encode(['success' => false,'message' => 'Select the crediting account']);
                exit;
             }
 
@@ -141,9 +159,15 @@ class Banktransactions extends Controller
 
             // echo json_encode($data);
 
-            if(!$this->bankmodel->CreateUpdate($data)){
-                http_response_code(500);
-                echo json_encode(['success' => false,'message' => 'Unable to save this transaction. Contact admin']);
+            $result = $this->bankmodel->CreateUpdate($data);
+            if(!$result['success']){
+                if($result['errors']){
+                    http_response_code(422);
+                    echo json_encode(['success' => false,'message' => implode('<br>',array_map('htmlspecialchars',$result['errors']))]);
+                }else{
+                    http_response_code(500);
+                    echo json_encode(['success' => false,'message' => 'Unable to save this transaction. Contact admin']);
+                }
                 exit;
             }
 
@@ -161,11 +185,18 @@ class Banktransactions extends Controller
     public function edit($id)
     {
         $transaction = $this->bankmodel->GetTransaction($id);
+        if(!$transaction){
+            flash('banktransaction_msg','Transaction not found or already deleted','alert custom-danger');
+            redirect('banktransactions');
+            exit;
+        }
         checkcenter($transaction->CongregationId);
         $data= [
             'banks' => $this->bankmodel->GetBanks(),
             // 'accounts' => $this->reusemodel->GetAccountsAll(),
             'accounts' => $this->bankmodel->GetOtherBanks(),
+            'cashaccounts' => $this->bankmodel->GetCashAccounts(),
+            'cashaccount' => $transaction->CashAccountId,
             'title' => 'Edit transaction',
             'id' => $transaction->ID,
             'touched' => false,
@@ -190,8 +221,10 @@ class Banktransactions extends Controller
         {
             $id = isset($_POST['id']) && !empty(trim($_POST['id'])) ? (int)trim($_POST['id']) : null;
 
-            if(!$this->bankmodel->Delete($id)){
-                flash('banktransaction_msg',"Unable to delete transaction!",'alert custom-danger');
+            $result = $this->bankmodel->Delete($id);
+            if(!$result['success']){
+                $msg = $result['errors'] ? implode('<br>',array_map('htmlspecialchars',$result['errors'])) : 'Unable to delete transaction!';
+                flash('banktransaction_msg',$msg,'alert custom-danger');
                 redirect('banktransactions');
                 exit;
             }
@@ -199,7 +232,7 @@ class Banktransactions extends Controller
             flash('banktransaction_msg',"Deleted successfully!");
             redirect('banktransactions');
             exit;
-            
+
         }
         else
         {

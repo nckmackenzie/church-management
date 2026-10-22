@@ -180,6 +180,9 @@ function encryptId($id)
 }
 function decryptId($encryptedId)
 {
+    if (!is_numeric($encryptedId)) {
+        return 0; // not an ID we issued: callers treat 0 as 'not found'
+    }
     $id = $encryptedId / (2020 * 7);
     return (int)$id;
 }
@@ -385,6 +388,30 @@ function numberFormat($number){
 function yearprotection($con,$id){
     $state = getdbvalue($con,'SELECT closed FROM tblfiscalyears WHERE ID = ?',[$id]);
     return converttobool($state);
+}
+
+//the fiscal year covering a date, deleted years included (getYearId() skips them); a non-deleted year wins when
+//a deleted one overlaps it. Returns an object (ID, yearName, closed, deleted) or false. The rule lives in Ledger.
+function getYearForDate($con,$date){
+    $year = Ledger::yearForDate($con,$date);
+    return $year === null ? false : (object)$year;
+}
+
+//why a transaction dated $date cannot be posted, or null when its fiscal year is open (see Ledger::dateProblem):
+//  no year at all -> "No financial year is defined for <date>"
+//  closed year (deleted or not) -> "The financial year <NAME> is closed"
+//  deleted year that was never closed -> "The financial year <NAME> has been deleted"
+function fiscalYearDateProblem($con,$date){
+    return Ledger::dateProblem($con,$date);
+}
+
+//closed-year message for a stored fiscalYearId, or null when that year is not closed
+function fiscalYearIdClosedProblem($con,$id){
+    $year = loadsingleset($con,'SELECT yearName,closed FROM tblfiscalyears WHERE ID = ?',[(int)$id]);
+    if($year && converttobool($year->closed)){
+        return 'The financial year '.strtoupper($year->yearName).' is closed';
+    }
+    return null;
 }
 
 //function to get the parent G/L Account

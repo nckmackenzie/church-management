@@ -505,32 +505,48 @@ class Report {
     }
     public function pettycashutil($data)
     {
-        $this->db->query('CALL sp_pettycashutilization(:sdate,:edate,:congid)');
+        $this->db->query('CALL sp_pettycashutilization(:sdate,:edate,:congid,:accid)');
         $this->db->bind(':sdate',$data['start']);
         $this->db->bind(':edate',$data['end']);
         $this->db->bind(':congid',$_SESSION['congId']);
+        $this->db->bind(':accid',$data['account']);
         return $this->db->resultSet();
+    }
+
+    /** Petty cash accounts the congregation may report on (Ledger::PETTY_CASH_ACCOUNTS). */
+    public function pettycashaccounts()
+    {
+        $list = [];
+        foreach (Ledger::listPettyCashAccounts($this->db->pdo(),(int)$_SESSION['congId']) as $a) {
+            $list[] = (object)['ID' => $a['ID'],'Account' => strtoupper($a['accountType'])];
+        }
+        return $list;
     }
     public function debitcredittotal($data)
     {
         $debitcredit = array();
-        $this->db->query('SELECT IFNULL(SUM(debit),0) As DebitsTotal 
-                          FROM tblpettycash WHERE (TransactionDate BETWEEN :startd AND :endd) AND (CongregationId = :congid)');
+        $this->db->query('SELECT IFNULL(SUM(debit),0) As DebitsTotal
+                          FROM tblpettycash WHERE (TransactionDate BETWEEN :startd AND :endd) AND (CongregationId = :congid)
+                                AND (PettyCashAccountId = :accid) AND (Deleted = 0)');
         $this->db->bind(':startd',$data['start']);
         $this->db->bind(':endd',$data['end']);
         $this->db->bind(':congid',$_SESSION['congId']);
+        $this->db->bind(':accid',$data['account']);
         array_push($debitcredit,$this->db->getValue());
 
-        $this->db->query('SELECT IFNULL(SUM(credit),0) As DebitsTotal 
-                          FROM tblpettycash WHERE (TransactionDate BETWEEN :startd AND :endd) AND (CongregationId = :congid)');
+        $this->db->query('SELECT IFNULL(SUM(credit),0) As DebitsTotal
+                          FROM tblpettycash WHERE (TransactionDate BETWEEN :startd AND :endd) AND (CongregationId = :congid)
+                                AND (PettyCashAccountId = :accid) AND (Deleted = 0)');
         $this->db->bind(':startd',$data['start']);
         $this->db->bind(':endd',$data['end']);
         $this->db->bind(':congid',$_SESSION['congId']);
+        $this->db->bind(':accid',$data['account']);
         array_push($debitcredit,$this->db->getValue());
 
-        $this->db->query('SELECT getopeningbal(:sdate,:congid) As OpeningBal');
+        $this->db->query('SELECT getopeningbal(:sdate,:congid,:accid) As OpeningBal');
         $this->db->bind(':sdate',$data['start']);
         $this->db->bind(':congid',$_SESSION['congId']);
+        $this->db->bind(':accid',$data['account']);
         array_push($debitcredit,$this->db->getValue());
 
         return $debitcredit;

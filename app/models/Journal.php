@@ -13,34 +13,24 @@ class Journal {
             return false;
         }
     }
+    /**
+     * Accounts offered in the journal dropdown: exactly the posting accounts for
+     * this congregation (shared accounts and banks included, reporting accounts
+     * excluded). The SQL is a pre-filter; Ledger decides.
+     */
     public function getAccounts()
     {
-        $this->db->query('SELECT ID,UCASE(accountType) as accountType 
-                          FROM tblaccounttypes 
+        $cong = (int)$_SESSION['congId'];
+        $this->db->query('SELECT ID,UCASE(accountType) as accountType
+                          FROM tblaccounttypes
                           WHERE (deleted=0) AND (parentId <> 0) AND (active = 1) AND (isSubCategory = 1)
-                                AND (congregationId=:cid OR congregationId=0)
+                                AND (congregationId IN (0,:cid))
                           ORDER BY accountType');
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();
-    }
-    public function journalNo()
-    {
-       $this->db->query('SELECT COUNT(ID) 
-                         FROM tblledger 
-                         WHERE (isJournal=1) AND (congregationId=:cid) AND (deleted = 0)');
-       $this->db->bind(':cid',$_SESSION['congId']);
-       $result = $this->db->getValue();
-       if ($result == 0) {
-           return 1;
-       }
-       else{
-            $this->db->query('SELECT journalNo 
-                              FROM tblledger 
-                              WHERE (isJournal = 1) AND (congregationId=:cid) AND (deleted = 0)
-                              ORDER BY journalNo DESC LIMIT 1');
-            $this->db->bind(':cid',$_SESSION['congId']);
-            return $this->db->getValue() + 1;
-       }
+        $this->db->bind(':cid',$cong);
+        $pdo = $this->db->pdo();
+        return array_values(array_filter($this->db->resultSet(),function ($account) use ($pdo,$cong) {
+            return Ledger::isPostingAccount($pdo,(int)$account->ID,$cong);
+        }));
     }
     public function getAccountId($account)
     {
@@ -48,109 +38,114 @@ class Journal {
         $this->db->bind(':id',$account);
         return $this->db->getValue();
     }
-    public function getjournalno($type = 'current')
+    /** Next journal number, for DISPLAY on the form only (not reserved). */
+    public function peekNumber()
     {
-        $sql = 'SELECT COUNT(*) FROM tblledger WHERE (isJournal = 1) AND (deleted = 0) AND (congregationId = ?)';
-        $entriescount = getdbvalue($this->db->dbh,$sql,[(int)$_SESSION['congId']]); //get entries count
-        if((int)$entriescount === 0) return 1; //if there are no entries
-        //if there are entries
-        $sorttype = $type === 'current' ? 'DESC' : 'ASC';
-        $journalsql = 'SELECT journalNo FROM tblledger 
-                       WHERE (isJournal = 1) AND (deleted = 0) AND (congregationId = ?)
-                       ORDER BY journalNo '.$sorttype.' LIMIT 1';
-        $journalno = getdbvalue($this->db->dbh,$journalsql,[(int)$_SESSION['congId']]);
-        if($type === 'current') return (int)$journalno + 1;
-        return (int)$journalno;
+        return Ledger::peekNextJournalNo($this->db->pdo(),(int)$_SESSION['congId']);
     }
-   
+
+    /**
+     * Create (new) or edit a journal. Returns
+     * ['success' => bool, 'journalno' => ?int, 'errors' => string[]].
+     * An empty errors list on failure means an unexpected error (logged).
+     */
     public function createupdate($data)
     {
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
         try {
-            $this->db->dbh->beginTransaction();
+            $pdo->beginTransaction();
 
             if($data['isedit']){
-                $this->db->query('DELETE FROM tblledger 
-                                  WHERE (isJournal = 1) AND (deleted = 0) AND (journalNo=:jno) AND (congregationId = :cid)');
-                $this->db->bind(':jno',$data['journalno']);
-                $this->db->bind(':cid',$_SESSION['congId']);
-                $this->db->execute();
-            }
-
-            for ($i=0; $i < count($data['entries']); $i++) { 
-                $account = strtolower(trim($data['entries'][$i]->accountname));
-                $accountid = (int)trim($data['entries'][$i]->accountid);
-                $accounttypeid = getdbvalue($this->db->dbh,'SELECT accountTypeId FROM tblaccounttypes WHERE ID = ?',[$accountid]);
-                $parentgl = getparentgl($this->db->dbh,$account);
-                $debit = !empty($data['entries'][$i]->debit) ? floatval($data['entries'][$i]->debit) : 0;
-                $credit = !empty($data['entries'][$i]->credit) ? floatval($data['entries'][$i]->credit) : 0;
-                $narr = !empty($data['entries'][$i]->desc) ? strtolower(trim($data['entries'][$i]->desc)) : 'journal entries #' .$data['journalno'];
-
-                $this->db->query('INSERT INTO tblledger (transactionDate,account,parentaccount,debit,credit,narration,accountId,
-                                                         transactionType,transactionId,isJournal,journalNo,congregationId)
-                                  VALUES(:tdate,:account,:parent,:debit,:credit,:narration,:aid,:ttype,:tid,:isjournal,:jno,:cid)');
-                $this->db->bind(':tdate',$data['date']);
-                $this->db->bind(':account',$account);
-                $this->db->bind(':parent',$parentgl);
-                $this->db->bind(':debit',$debit);
-                $this->db->bind(':credit',$credit);
-                $this->db->bind(':narration',$narr);
-                $this->db->bind(':aid',$accounttypeid);
-                $this->db->bind(':ttype',5);
-                $this->db->bind(':tid',$data['journalno']);
-                $this->db->bind(':isjournal',true);
-                $this->db->bind(':jno',$data['journalno']);
-                $this->db->bind(':cid',(int)$_SESSION['congId']);
-                $this->db->execute();
-            }
-
-            $narr = $data['isedit'] ? 'Made changes to journal no '.$data['journalno'] : 'Made entries for journal no '.$data['journalno'];
-            saveLog($this->db->dbh,$narr);
-
-            if(!$this->db->dbh->commit()){
-                return false;
+                $no = (int)$data['journalno'];
+                if(is_null(Ledger::getEntry($pdo,$cong,5,$no))){
+                    $pdo->rollBack();
+                    return ['success' => false,'journalno' => $no,
+                            'errors' => ['Journal no '.$no.' was not found for this congregation or has been deleted']];
+                }
             }else{
-                return true;
+                $no = Ledger::nextJournalNo($pdo,$cong);
             }
-            
-        } catch (PDOException $e) {
-            if($this->db->dbh->inTransaction()){
-                $this->db->dbh->rollBack();
+
+            $lines = [];
+            $errors = [];
+            foreach ($data['entries'] as $i => $entry) {
+                $debit = !empty($entry->debit) ? trim($entry->debit) : '';
+                $credit = !empty($entry->credit) ? trim($entry->credit) : '';
+                $memo = !empty($entry->desc) ? trim($entry->desc) : 'Journal entries #'.$no;
+                $accountid = (int)trim($entry->accountid);
+                if(($debit !== '') === ($credit !== '')){
+                    $errors[] = 'line '.($i + 1).': enter either a debit or a credit amount';
+                    continue;
+                }
+                $lines[] = $debit !== '' ? Ledger::debit($accountid,$debit,$memo) : Ledger::credit($accountid,$credit,$memo);
+            }
+            if($errors){
+                throw new LedgerException($errors);
+            }
+
+            Ledger::post($pdo,[
+                'congregationId' => $cong,
+                'entryDate' => $data['date'],
+                'transactionTypeId' => 5,
+                'transactionId' => $no,
+                'reference' => null,
+                'description' => null
+            ],$lines);
+            Ledger::syncBankPostings($pdo,$cong,5,$no,'journal');
+
+            $narr = $data['isedit'] ? 'Made changes to journal no '.$no : 'Made entries for journal no '.$no;
+            saveLog($pdo,$narr);
+
+            $pdo->commit();
+            return ['success' => true,'journalno' => $no,'errors' => []];
+        } catch (LedgerException $e) {
+            if($pdo->inTransaction()){
+                $pdo->rollBack();
+            }
+            return ['success' => false,'journalno' => null,'errors' => $e->getErrors()];
+        } catch (Throwable $e) {
+            if($pdo->inTransaction()){
+                $pdo->rollBack();
             }
             error_log($e->getMessage(),0);
-            return false;
+            return ['success' => false,'journalno' => null,'errors' => []];
         }
     }
-    public function checkexists($journalno)
-    {
-        $sql = 'SELECT COUNT(*) FROM tblledger 
-                WHERE (isJournal = 1) AND (journalNo=?) AND (deleted = 0) AND (congregationId = ?)';
-        $count = getdbvalue($this->db->dbh,$sql,[(int)$journalno,(int)$_SESSION['congId']]);
-        if((int)$count === 0){
-            return false;
-        }
-        return true;
-    }
+
+    /** The active journal with its lines (account IDs), or null. */
     public function getjournal($journalno)
     {
-        $sql = 'SELECT 
-                    a.ID,
-                    l.transactionDate,
-                    l.account,
-                    l.debit,
-                    l.credit,
-                    l.narration
-                FROM `tblledger` l join tblaccounttypes a on l.account = a.accountType 
-                WHERE (isJournal = 1) AND (journalNo = ?) AND (l.deleted = 0) AND (l.congregationId=?)';
-        return loadresultset($this->db->dbh,$sql,[(int)$journalno,(int)$_SESSION['congId']]);
+        return Ledger::getEntry($this->db->pdo(),(int)$_SESSION['congId'],5,(int)$journalno);
     }
+
+    /** Delete (void) a journal and its bank postings. Returns ['success' => bool, 'errors' => string[]]. */
     public function delete($id)
     {
-        $this->db->query('UPDATE tblledger SET deleted = 1
-                          WHERE (isJournal = 1) AND (deleted = 0) AND (journalNo=:jno) AND (congregationId = :cid)');
-        $this->db->bind(':jno',$id);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        if(!$this->db->execute()) return false;
-        return true;
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
+        try {
+            $pdo->beginTransaction();
+            if(!Ledger::void($pdo,$cong,5,(int)$id)){
+                $pdo->rollBack();
+                return ['success' => false,'errors' => ['Journal no '.(int)$id.' was not found or is already deleted']];
+            }
+            Ledger::voidBankPostings($pdo,$cong,5,(int)$id);
+            saveLog($pdo,'Deleted journal no '.(int)$id);
+            $pdo->commit();
+            return ['success' => true,'errors' => []];
+        } catch (LedgerException $e) {
+            if($pdo->inTransaction()){
+                $pdo->rollBack();
+            }
+            return ['success' => false,'errors' => $e->getErrors()];
+        } catch (Throwable $e) {
+            if($pdo->inTransaction()){
+                $pdo->rollBack();
+            }
+            error_log($e->getMessage(),0);
+            return ['success' => false,'errors' => []];
+        }
     }
 
     public function getaccount($account)

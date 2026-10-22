@@ -1,5 +1,5 @@
 <?php
-class Bankpostings extends Controller 
+class Bankpostings extends Controller
 {
     public function __construct()
     {
@@ -46,7 +46,8 @@ class Bankpostings extends Controller
             'type_err' => '',
             'amount_err' => '',
             'account_err' => '',
-            'reference_err' => ''
+            'reference_err' => '',
+            'form_err' => ''
         ];
         $this->view('bankpostings/add',$data);
     }
@@ -73,7 +74,8 @@ class Bankpostings extends Controller
                 'type_err' => '',
                 'amount_err' => '',
                 'account_err' => '',
-                'reference_err' => ''
+                'reference_err' => '',
+                'form_err' => ''
             ];
             //validation
             if(empty($data['date'])){
@@ -95,13 +97,17 @@ class Bankpostings extends Controller
                 $data['reference_err'] = 'Enter reference';
             }
 
-            if(empty($data['date_err']) && empty($data['bank_err']) && empty($data['type_err']) 
+            if(empty($data['date_err']) && empty($data['bank_err']) && empty($data['type_err'])
               && empty($data['amount_err']) && empty($data['account_err']) && empty($data['reference_err'])){
 
-                if($this->postingsModel->create($data)){
+                $result = $this->postingsModel->create($data);
+                if($result['success']){
                     flash('postings_msg','Posting Created Successfully!');
                     redirect('bankpostings');
-                }   
+                }else{
+                    $data['form_err'] = $result['errors'] ? implode('<br>',array_map('htmlspecialchars',$result['errors'])) : 'Unable to save the posting. Try again or contact admin';
+                    $this->view('bankpostings/add',$data);
+                }
 
             }else{
                 $this->view('bankpostings/add',$data);
@@ -115,6 +121,11 @@ class Bankpostings extends Controller
     public function edit($id)
     {
         $posting = $this->postingsModel->edit($id);
+        if(!$posting){
+            flash('postings_msg',Bankposting::NOT_MINE,'alert custom-danger');
+            redirect('bankpostings');
+            exit();
+        }
         $banks = $this->postingsModel->getBanks();
         $methods = $this->postingsModel->getMethods();
         $accounts = $this->postingsModel->getAccounts();
@@ -135,7 +146,8 @@ class Bankpostings extends Controller
             'type_err' => '',
             'amount_err' => '',
             'account_err' => '',
-            'reference_err' => ''
+            'reference_err' => '',
+            'form_err' => ''
         ];
         $this->view('bankpostings/edit',$data);
     }
@@ -163,7 +175,8 @@ class Bankpostings extends Controller
                 'type_err' => '',
                 'amount_err' => '',
                 'account_err' => '',
-                'reference_err' => ''
+                'reference_err' => '',
+                'form_err' => ''
             ];
             //validation
             if(empty($data['date'])){
@@ -185,13 +198,17 @@ class Bankpostings extends Controller
                 $data['reference_err'] = 'Enter reference';
             }
 
-            if(empty($data['date_err']) && empty($data['bank_err']) && empty($data['type_err']) 
+            if(empty($data['date_err']) && empty($data['bank_err']) && empty($data['type_err'])
               && empty($data['amount_err']) && empty($data['account_err']) && empty($data['reference_err'])){
 
-                if($this->postingsModel->update($data)){
+                $result = $this->postingsModel->update($data);
+                if($result['success']){
                     flash('postings_msg','Posting Updated Successfully!');
                     redirect('bankpostings');
-                }   
+                }else{
+                    $data['form_err'] = $result['errors'] ? implode('<br>',array_map('htmlspecialchars',$result['errors'])) : 'Unable to save the posting. Try again or contact admin';
+                    $this->view('bankpostings/edit',$data);
+                }
 
             }else{
                 $this->view('bankpostings/edit',$data);
@@ -208,10 +225,14 @@ class Bankpostings extends Controller
             $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
             $id = trim($_POST['id']);
 
-            if($this->postingsModel->delete($id)){
+            $result = $this->postingsModel->delete($id);
+            if($result['success']){
                 flash('postings_msg','Posting Deleted Successfully!');
-                redirect('bankpostings');
-            }   
+            }else{
+                $msg = $result['errors'] ? implode('<br>',array_map('htmlspecialchars',$result['errors'])) : 'Unable to delete the posting. Try again or contact admin';
+                flash('postings_msg',$msg,'alert custom-danger');
+            }
+            redirect('bankpostings');
 
         }else{
             redirect('users/deniedaccess');

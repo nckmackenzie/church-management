@@ -23,7 +23,7 @@
             <div class="col-md-9 mx-auto">
                 <div class="card bg-light">
                     <div class="card-header"><?php echo $data['title'];?></div>
-                    <div class="card-body">    
+                    <div class="card-body">
                         <form action="<?php echo URLROOT;?>/banktransactions/createupdate" method="post" id="txnform">
                             <div class="row">
                                 <div class="col-md-6">
@@ -32,7 +32,7 @@
                                         <input type="date" name="date" id="date"
                                             class="form-control form-control-sm mandatory"
                                             value="<?php echo $data['date'];?>">
-                                        <span class="invalid-feedback"></span>   
+                                        <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -48,11 +48,11 @@
                                                             <?php if($subaccount->BankId == $bank->ID): ?>
                                                                 <option value="<?php echo $subaccount->ID;?>-sub" <?php selectdCheck($data['bank'],$subaccount->ID); ?>><?php echo $subaccount->SubAccount;?></option>
                                                             <?php endif; ?>
-                                                        <?php endforeach; ?>   
-                                                    <?php endif; ?>                                                    
+                                                        <?php endforeach; ?>
+                                                    <?php endif; ?>
                                                 </optgroup>
                                             <?php endforeach; ?>
-                                            
+
                                         </select>
                                         <span class="invalid-feedback"></span>
                                     </div>
@@ -72,7 +72,7 @@
                                 <div class="col-md-6">
                                     <div class="form-group">
                                         <label for="transferto">Transfer To</label>
-                                        <select name="transferto" id="transferto" class="form-control form-control-sm" 
+                                        <select name="transferto" id="transferto" class="form-control form-control-sm"
                                                 <?php echo !empty($data['transfer']) && !is_null($data['transfer']) ? '' : 'disabled' ;?>>
                                             <option value="" selected disabled>Select transfer account</option>
                                             <optgroup label="Main accounts">
@@ -86,8 +86,8 @@
                                                 <?php if(!is_null($data['subaccounts']) && count($data['subaccounts']) > 0) : ?>
                                                     <?php foreach($data['subaccounts'] as $subaccount) : ?>
                                                         <option value="<?php echo $subaccount->ID;?>-sub"><?php echo $subaccount->SubAccount;?></option>
-                                                    <?php endforeach; ?> 
-                                                <?php endif; ?>   
+                                                    <?php endforeach; ?>
+                                                <?php endif; ?>
                                             </optgroup>
                                         </select>
                                         <span class="invalid-feedback"></span>
@@ -95,11 +95,24 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-group">
+                                        <label for="cashaccount" id="cashaccountLabel">Cash account</label>
+                                        <select name="cashaccount" id="cashaccount" class="form-control form-control-sm"
+                                                <?php echo in_array((int)$data['type'],[1,2],true) ? '' : 'disabled';?>>
+                                            <option value="" selected disabled>Select account</option>
+                                            <?php foreach($data['cashaccounts'] as $cashaccount)  : ?>
+                                                <option value="<?php echo $cashaccount->ID;?>" <?php selectdCheck($data['cashaccount'],$cashaccount->ID);?>><?php echo $cashaccount->Account;?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <span class="invalid-feedback"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
                                         <label for="amount">Amount</label>
-                                        <input type="number" name="amount" id="amount"
+                                        <input type="number" name="amount" id="amount" step="0.01" min="0"
                                             class="form-control form-control-sm mandatory"
                                             value="<?php echo $data['amount'];?>" placeholder="eg 45,000" autocomplete="off">
-                                        <span class="invalid-feedback"></span>   
+                                        <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -107,9 +120,9 @@
                                         <label for="reference">Reference No</label>
                                         <input type="text" name="reference" id="reference"
                                         class="form-control form-control-sm mandatory"
-                                        value="<?php echo $data['reference'];?>" 
+                                        value="<?php echo $data['reference'];?>"
                                         placeholder="enter reference no"
-                                        autocomplete="off">   
+                                        autocomplete="off">
                                         <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
@@ -118,9 +131,9 @@
                                         <label for="description">Description</label>
                                         <input type="text" name="description" id="description"
                                         class="form-control form-control-sm"
-                                        value="<?php echo $data['description'];?>" 
+                                        value="<?php echo $data['description'];?>"
                                         placeholder="description of deposit eg source of cash etc.."
-                                        autocomplete="off">   
+                                        autocomplete="off">
                                     </div>
                                 </div>
                                 <div class="col-md-12">
@@ -132,9 +145,9 @@
                                     </div>
                                 </div>
                                 <div class="col-md-6">
-                                    <div class="table-responsive" id="subaccountsContainer"></div>                
+                                    <div class="table-responsive" id="subaccountsContainer"></div>
                                 </div>
-                            </div>    
+                            </div>
                             <div class="row">
                                 <div class="col-md-2 mt-2">
                                     <input type="hidden" name="touched" value="<?php echo $data['touched'];?>">
@@ -142,7 +155,7 @@
                                     <input type="hidden" name="isedit" value="<?php echo $data['isedit'];?>">
                                     <button type="submit" class="btn btn-block btn-sm bg-navy custom-font save">Save</button>
                                 </div>
-                            </div>   
+                            </div>
                         </form>
                     </div>
                 </div>
@@ -154,5 +167,5 @@
 <script type="module" src="<?php echo URLROOT;?>/dist/js/pages/banktransactions/index-v1.js"></script>
 </body>
 </html>
-  
+
 

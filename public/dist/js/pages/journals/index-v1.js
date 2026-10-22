@@ -21,7 +21,6 @@ async function reset() {
   if (data && data.success) {
     journalNoInput.value = data.journalno;
     currJouralInput.value = data.journalno;
-    firstJouralInput.value = data.firstno;
   }
   resetBtn.classList.add('d-none');
   if (userTypeInput.value && +userTypeInput.value < 3) {
@@ -45,7 +44,7 @@ form.addEventListener('submit', async function (e) {
   const res = await saveEntries(formData());
   resetLoadingState(saveBtn, 'Save');
   if (res && res.success) {
-    displayAlert(alertBox, 'Saved successfully!', 'success');
+    displayAlert(alertBox, res.message || 'Saved successfully!', 'success');
     reset();
   }
 });

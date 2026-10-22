@@ -14,6 +14,8 @@ const txnDate = document.querySelector('#date');
 const bank = document.querySelector('#bank');
 const type = document.querySelector('#type');
 const transfer = document.querySelector('#transferto');
+const cashAccount = document.querySelector('#cashaccount');
+const cashAccountLabel = document.querySelector('#cashaccountLabel');
 const amount = document.querySelector('#amount');
 const reference = document.querySelector('#reference');
 const subaccounts = document.querySelector('#deposittosubs');
@@ -21,7 +23,30 @@ const form = document.querySelector('#txnform');
 const subaccountsContainer = document.querySelector('#subaccountsContainer');
 const btn = document.querySelector('.save');
 
+// the cash account is chosen for deposits (credited) and withdrawals (debited) only
+function toggleCashAccount() {
+  const t = +type.value;
+  if (t === 1 || t === 2) {
+    cashAccount.disabled = false;
+    cashAccountLabel.textContent =
+      t === 1 ? 'Crediting account' : 'Debiting account';
+  } else {
+    cashAccount.value = '';
+    cashAccount.disabled = true;
+    cashAccount.classList.remove('is-invalid');
+    cashAccount.nextSibling.nextSibling.textContent = '';
+    cashAccountLabel.textContent = 'Cash account';
+  }
+}
+toggleCashAccount();
+
+cashAccount.addEventListener('change', function () {
+  this.classList.remove('is-invalid');
+  this.nextSibling.nextSibling.textContent = '';
+});
+
 type.addEventListener('change', e => {
+  toggleCashAccount();
   subaccountsContainer.innerHTML = '';
   if (+e.target.value === 5) {
     transfer.disabled = false;
@@ -77,7 +102,7 @@ function renderTable(data) {
         <td><input type="number" class="table-input border w-100 payment" /></td>
       </tr>`;
   });
-  html += `  
+  html += `
       </tbody>
     </table>`;
   subaccountsContainer.innerHTML = html;
@@ -103,9 +128,15 @@ form.addEventListener('submit', async e => {
     return;
   }
 
-  if (+amount.value < 0) {
+  if (+amount.value <= 0) {
     amount.classList.add('is-invalid');
     amount.nextSibling.nextSibling.textContent = 'Invalid amount';
+    return;
+  }
+
+  if ((+type.value === 1 || +type.value === 2) && cashAccount.value === '') {
+    cashAccount.classList.add('is-invalid');
+    cashAccount.nextSibling.nextSibling.textContent = 'Select account';
     return;
   }
 
@@ -130,6 +161,7 @@ form.addEventListener('submit', async e => {
   resetLoadingState(btn, 'Save');
   if (data.success) {
     clearValues();
+    toggleCashAccount();
     subaccountsContainer.innerHTML = '';
     displayAlert(alertBox, 'Saved successfully', 'success');
   }

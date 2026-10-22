@@ -50,11 +50,13 @@ class Banks extends Controller{
                 'name_err' => '',
                 'asof_err' => '',
                 'account_err' => '',
+                'openingbal_err' => '',
             ];
             //validate
             if (empty($data['bankname'])) {
                 $data['name_err'] = 'Enter Bank Name';
             }
+            $data['openingbal_err'] = Bank::openingBalanceError($data['openingbal']) ?? '';
             if (!empty($data['openingbal']) && empty($data['asof'])) {
                 $data['asof_err'] = 'Select Opening Balance Date';
             }
@@ -63,13 +65,16 @@ class Banks extends Controller{
                     $data['account_err'] = 'Account Already Exists';
                 }  
             }
-            if (empty($data['name_err']) && empty($data['asof_err']) && empty($data['account_err'])) {
-                if ($this->bankModel->create($data)) {
+            if (empty($data['name_err']) && empty($data['asof_err']) && empty($data['account_err']) && empty($data['openingbal_err'])) {
+                $result = $this->bankModel->create($data);
+                if ($result['success']) {
                     flash('bank_msg','Bank Created Successfully!');
                     redirect('banks');
                 }
                 else{
-                    flash('bank_msg','Something Went Wrong!','alert custom-danger');
+                    $message = $result['errors'] ? implode('<br>',array_map('htmlspecialchars',$result['errors']))
+                                : 'Something Went Wrong!';
+                    flash('bank_msg',$message,'alert custom-danger');
                     redirect('banks');
                 }
             }
@@ -170,19 +175,16 @@ class Banks extends Controller{
                 exit;
             }
                     
-            if(!$this->bankModel->checkreferenced($data['id'])){
-                flash('bank_msg','Cannot delete as bank referenced elsewhere',alerterrorclass());
-                redirect('banks');
-                exit;
-            }
-
-            if ($this->bankModel->delete($data)) {
+            $result = $this->bankModel->delete($data);
+            if ($result['success']) {
                 flash('bank_msg','Bank Deleted Successfully!');
                 redirect('banks');
                 exit;
             }
             else{
-                flash('bank_msg','Something Went Wrong!',alerterrorclass());
+                $message = $result['errors'] ? implode('<br>',array_map('htmlspecialchars',$result['errors']))
+                            : 'Something Went Wrong!';
+                flash('bank_msg',$message,alerterrorclass());
                 redirect('banks');
                 exit;
             }

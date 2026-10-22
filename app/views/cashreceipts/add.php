@@ -22,6 +22,13 @@
                 <div class="card">
                     <div class="card-header"><?php echo $data['isedit'] ? 'Edit ' : 'Add '; ?> Petty Cash</div>
                     <div class="card-body">
+                        <?php if(!empty($data['errors'])) : ?>
+                            <div class="alert custom-danger alert-dismissible fade show" role="alert">
+                                <?php foreach($data['errors'] as $error) : ?>
+                                    <div><?php echo htmlspecialchars($error);?></div>
+                                <?php endforeach;?>
+                            </div>
+                        <?php endif;?>
                         <form action="<?php echo URLROOT;?>/cashreceipts/createupdate" method="post" autocomplete="off">
                             <div class="row">
                                 <div class="col-md-3">
@@ -66,6 +73,16 @@
                                             <?php endforeach;?>
                                         </select>
                                         <span class="invalid-feedback"><?php echo $data['bank_err'];?></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="pettycashaccount">Petty Cash Account</label>
+                                        <select name="pettycashaccount" id="pettycashaccount" class="form-control form-control-sm mandatory">
+                                            <?php foreach($data['pettyaccounts'] as $account) : ?>
+                                                <option value="<?php echo $account->ID;?>" <?php selectdCheck($data['pettyaccount'],$account->ID);?>><?php echo htmlspecialchars($account->Account);?></option>
+                                            <?php endforeach;?>
+                                        </select>
                                     </div>
                                 </div>
                                 <div class="col-md-6">

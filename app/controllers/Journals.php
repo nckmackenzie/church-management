@@ -21,11 +21,10 @@ class Journals extends Controller{
     {
         if($_SERVER['REQUEST_METHOD'] === 'GET')
         {
-            $journalno = $this->journalModel->journalNo();
+            $journalno = $this->journalModel->peekNumber();
             echo json_encode(
                 ['success' => true,
-                'journalno' => (int)$journalno,
-                'firstno' =>  $this->journalModel->getjournalno('first')]
+                'journalno' => (int)$journalno]
             );
         }
         else
@@ -40,15 +39,16 @@ class Journals extends Controller{
         {
             $fields = json_decode(file_get_contents('php://input')); //extract fields;
             $data = [
+                // new journals get their number from Ledger inside the save transaction
                 'journalno' => converttobool($fields->isEdit) ? 
                                (isset($fields->editId) && !empty(trim($fields->editId)) ? (int)$fields->editId : null) 
-                               : $this->journalModel->journalNo(),
+                               : 0,
                 'isedit' => converttobool($fields->isEdit),
                 'date' => isset($fields->date) && !empty(trim($fields->date)) ? date('Y-m-d',strtotime($fields->date)) : null,
                 'entries' => $fields->entries
             ];
             //validation
-            if(is_null($data['date']) || is_null($data['journalno'])){
+            if(is_null($data['date']) || ($data['isedit'] && is_null($data['journalno']))){
                 http_response_code(400);
                 echo json_encode(['message' => 'Provide all required fields']);
                 exit;
@@ -64,13 +64,20 @@ class Journals extends Controller{
                 exit;
             }
             //if error on create/update
-            if(!$this->journalModel->createupdate($data)){
+            $result = $this->journalModel->createupdate($data);
+            if(!$result['success']){
+                if($result['errors']){
+                    http_response_code(422);
+                    echo json_encode(['message' => implode('<br>',array_map('htmlspecialchars',$result['errors'])),'success' => false]);
+                    exit;
+                }
                 http_response_code(500);
                 echo json_encode(['message' => 'Unable to save entries. Retry or contact admin','success' => false]);
                 exit;
             }
 
-            echo json_encode(['message' => 'Saved successfully','success' => true]);
+            echo json_encode(['message' => 'Journal no '.$result['journalno'].' saved successfully','success' => true,
+                              'journalno' => $result['journalno']]);
             exit;
         }
         else
@@ -95,27 +102,28 @@ class Journals extends Controller{
                 echo json_encode(['message' => 'Journal Number has to be numeric',"success" => false]);
                 exit;
             }
-            //check if journal exists
-            if(!$this->journalModel->checkexists($journalno)){
+            $journal = $this->journalModel->getjournal($journalno);
+            if(is_null($journal)){
                 http_response_code(404);
                 echo json_encode(['message' => 'Journal Number not found for this congregation',"success" => false]);
                 exit;
             }
 
-            $entries = $this->journalModel->getjournal($journalno);
-            $date = date('Y-m-d',strtotime($entries[0]->transactionDate));
+            $date = date('Y-m-d',strtotime($journal['entryDate']));
             $data = [];
             $totaldebits = 0;
             $totalcredits = 0;
-            foreach($entries as $entry){
-                $totalcredits += floatval($entry->credit);
-                $totaldebits += floatval($entry->debit);
+            foreach($journal['lines'] as $line){
+                $isdebit = $line['dc'] === Ledger::DEBIT;
+                $amount = floatval($line['amount']);
+                $totaldebits += $isdebit ? $amount : 0;
+                $totalcredits += $isdebit ? 0 : $amount;
                 array_push($data,[
-                    'accountid' => (int)$entry->ID,
-                    'accountname' => ucwords(trim($entry->account)),
-                    'debit' => floatval($entry->debit)  === 0 ? '' : floatval($entry->debit),
-                    'credit' => floatval($entry->credit)  === 0 ? '' : floatval($entry->credit),
-                    'narration' => ucwords($entry->narration)
+                    'accountid' => (int)$line['accountId'],
+                    'accountname' => ucwords(trim($line['accountName'])),
+                    'debit' => $isdebit ? $amount : '',
+                    'credit' => $isdebit ? '' : $amount,
+                    'narration' => ucwords((string)$line['memo'])
                 ]);
             }
             echo json_encode(['success' => true,'journalDate' => $date,'entries' => $data,"totals" => [$totaldebits,$totalcredits]]);
@@ -137,8 +145,11 @@ class Journals extends Controller{
                 redirect('journals');
                 exit;
             }
-            if(!$this->journalModel->delete($id)){
-                flash('journal_msg','Unable to delete selected journal. Please try again or contact admin!',alerterrorclass());
+            $result = $this->journalModel->delete($id);
+            if(!$result['success']){
+                $message = $result['errors'] ? implode('<br>',array_map('htmlspecialchars',$result['errors']))
+                            : 'Unable to delete selected journal. Please try again or contact admin!';
+                flash('journal_msg',$message,alerterrorclass());
                 redirect('journals');
                 exit;
             }

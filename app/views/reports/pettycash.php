@@ -22,6 +22,16 @@
                             </div>
                         </div>
                         <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label for="account">Petty Cash Account</label>
+                                <select name="account" id="account" class="form-control form-control-sm">
+                                    <?php foreach($data['accounts'] as $account) : ?>
+                                        <option value="<?php echo $account->ID;?>"><?php echo htmlspecialchars($account->Account);?></option>
+                                    <?php endforeach;?>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
                             <div class="col-2">
                                 <button class="btn btn-sm btn-primary custom-font" id="preview">Preview</button>
                             </div>
@@ -90,7 +100,7 @@
             $.ajax({
                 url : '<?php echo URLROOT;?>/reports/pettycashrpt',
                 method : 'GET',
-                data : {start : start,end : end},
+                data : {start : start,end : end,account : $('#account').val()},
                 success : function(data){
                     $('#results').html(data);
                     table.destroy();
