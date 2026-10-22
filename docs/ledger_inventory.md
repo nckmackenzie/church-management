@@ -29,7 +29,7 @@ A type is **Done** only after the browser test on dev (create, edit, delete in t
 | 8.2 | 8 Bank opening balance + bank create/delete | **Migrated** 2026-10-21 (8.2 + 8.2b) | 56/56 pass | Passed 2026-10-21 | **Done** |
 | 8.3 | 9 Bank postings, 13 Bank transactions (deposits form removed) | **Migrated** 2026-10-21 (8.3 + 8.3b + 8.3c) | 71/71 + 57 + 48 functional | Passed 2026-10-21 | **Done** |
 | 8.4 | 1 Contributions, 10 Petty cash | **Migrated** 2026-10-21 (8.4b–8.4d) | 115 + 163 + 28 + 23 | Passed 2026-10-22 | **Done** |
-| 8.5 | 2 Expenses | **Migrated** 2026-10-22 (8.5c + 8.5d) | 123 ledger + 255 expenses (+ 163 + 28 receipts / year lock) | **Pending** (checklist in the 8.5d report) | Migrated, browser test pending |
+| 8.5 | 2 Expenses | **Migrated** 2026-10-22 (8.5c + 8.5d) | 123 ledger + 255 expenses (+ 163 + 28 receipts / year lock) | Passed 2026-10-22 | **Done** (8.5f number-sequence fix pending) |
 | 8.6 | 3/4 Pledges | Old code | – | – | Not started |
 | 8.7 | 6, 7, 15 Suppliers | Old code | – | – | Not started |
 | 8.8 | 14, 16 Customer invoices / payments | Old code | – | – | Not started |
