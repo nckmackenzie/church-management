@@ -744,7 +744,7 @@ class Report {
                                  narration
                           FROM   tblledger
                           WHERE  (transactionDate BETWEEN :tstart AND :tend) AND (congregationId = :cid) 
-                                 AND (isJournal=1)
+                                 AND (isJournal=1) AND (deleted = 0)
                           ORDER BY transactionDate');
         $this->db->bind(':tstart',$data['from']);
         $this->db->bind(':tend',$data['to']);
