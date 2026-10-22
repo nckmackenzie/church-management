@@ -137,6 +137,16 @@ try {
     $r = $mm->CreateUpdate(array_merge($base, ['tdate' => '2025-01-15', 'reference' => 'T89MMFC']));
     chk('mmf create in a closed year refused', $r['success'] === false && has($r, 'closed'), errs($r));
 
+    // a cleared (reconciled) bank row: no void, no change of bank / amount; date and reference may change
+    q('UPDATE tblbankpostings SET cleared=1, clearedDare=? WHERE transactionType=11 AND transactionId=? AND deleted=0', [$today, $m1]);
+    $r = $mm->Delete($m1);
+    chk('mmf delete refused: bank row cleared', $r['success'] === false && has($r, 'cleared') && (int)mmf($m1)['Deleted'] === 0 && activeEntries(11, $m1) === 1, errs($r));
+    $r = $mm->CreateUpdate(array_merge($base, ['isedit' => true, 'id' => $m1, 'amount' => '251', 'reference' => 'T89MMF1B']));
+    chk('mmf edit of the amount refused: bank row cleared', $r['success'] === false && has($r, 'cleared') && (float)entry(11, $m1)[0]['amount'] === 250.0, errs($r));
+    $r = $mm->CreateUpdate(array_merge($base, ['isedit' => true, 'id' => $m1, 'amount' => '250', 'reference' => 'T89MMF1C']));
+    chk('mmf edit of the reference only ok (cleared row kept)', $r['success'] === true && count(brows(11, $m1)) === 1 && (int)brows(11, $m1)[0]['cleared'] === 1, errs($r));
+    q('UPDATE tblbankpostings SET cleared=0, clearedDare=NULL WHERE transactionType=11 AND transactionId=?', [$m1]);
+
     // void
     $r = $mm->Delete($m1);
     chk('mmf delete (void) ok', $r['success'] === true, errs($r));
@@ -227,8 +237,22 @@ try {
     chk('collection create in a closed year refused', $r['success'] === false && has($r, 'closed'), errs($r));
     $closedC = (int)q("SELECT m.ID FROM tblmmf m JOIN journal_entries e ON e.transactionTypeId=17 AND e.transactionId=m.ID AND e.deleted=0 WHERE m.TransactionType=17 AND m.Deleted=0 LIMIT 1")[0]['ID'];
     $r = $gc->Delete($closedC);
-    chk('collection delete of a closed-year collection refused', $r['success'] === false && has($r, 'closed') && (int)mmf($closedC)['Deleted'] === 0, errs($r));
+    chk('collection delete of a closed-year collection refused (its bank row is cleared, too)', $r['success'] === false && (has($r, 'closed') || has($r, 'cleared')) && (int)mmf($closedC)['Deleted'] === 0, errs($r));
     chk('collection closed-year delete left entry + bank row active', activeEntries(17, $closedC) === 1 && count(brows(17, $closedC)) === 1);
+
+    // future date, cleared bank row
+    $r = $gc->CreateUpdate(array_merge($cb, ['tdate' => date('Y-m-d', strtotime('+1 day'))]));
+    chk('collection create with a future date refused', $r['success'] === false && has($r, 'future'), errs($r));
+    $r = $gc->CreateUpdate(array_merge($cb, ['isedit' => true, 'id' => $c1, 'tdate' => date('Y-m-d', strtotime('+1 day')), 'amount' => '350']));
+    chk('collection edit to a future date refused', $r['success'] === false && has($r, 'future') && (float)mmf($c1)['Debit'] === 350.0, errs($r));
+    q('UPDATE tblbankpostings SET cleared=1, clearedDare=? WHERE transactionType=17 AND transactionId=? AND deleted=0', [$today, $c1]);
+    $r = $gc->Delete($c1);
+    chk('collection delete refused: bank row cleared', $r['success'] === false && has($r, 'cleared') && (int)mmf($c1)['Deleted'] === 0 && activeEntries(17, $c1) === 1, errs($r));
+    $r = $gc->CreateUpdate(array_merge($cb, ['isedit' => true, 'id' => $c1, 'amount' => '351', 'narration' => 'edited']));
+    chk('collection edit of the amount refused: bank row cleared', $r['success'] === false && has($r, 'cleared') && (float)mmf($c1)['Debit'] === 350.0, errs($r));
+    $r = $gc->CreateUpdate(array_merge($cb, ['isedit' => true, 'id' => $c1, 'amount' => '350', 'narration' => 'edited again']));
+    chk('collection edit of the description only ok (cleared row kept)', $r['success'] === true && (int)brows(17, $c1)[0]['cleared'] === 1, errs($r));
+    q('UPDATE tblbankpostings SET cleared=0, clearedDare=NULL WHERE transactionType=17 AND transactionId=?', [$c1]);
 
     // void
     $r = $gc->Delete($c1);
@@ -315,7 +339,11 @@ try {
     chk('blocked unapprove: still approved, entry active, tblmmf row kept', (int)req($f1)['Status'] === 1 && count(entry(12, $f1)) === 2 && count(mmf12($f1)) === 1);
     q('UPDATE tblexpenses SET status=1 WHERE ID=?', [$x1]);
     $u = $gf->Reject($f1, 'test');
-    chk('reject blocked by an APPROVED expense too', refused($u) && strpos($u['error'], '909001') !== false && strpos($u['error'], 'approved') !== false && (int)req($f1)['Status'] === 1, json_encode($u));
+    chk('reject of an APPROVED requisition refused (pending only)', refused($u) && stripos($u['error'], 'pending') !== false && (int)req($f1)['Status'] === 1 && count(entry(12, $f1)) === 2, json_encode($u));
+    $f10 = newReq('group', $G, 0, 100);
+    q('INSERT INTO tblexpenses (fiscalYearId,voucherNo,expenseType,expenseDate,accountId,groupId,paymethodId,PaidFromAccountId,amount,narration,status,requisitionId,postedBy,postedDate,deleted,congregationId) VALUES (12,909002,2,?,100,?,1,121,50,?,0,?,?,?,0,11)', [$today, $G, 'test 8.9 draft on pending', $f10, $_SESSION['userId'], $today]);
+    $u = $gf->Reject($f10, 'x');
+    chk('reject of a pending requisition blocked by a draft expense, voucher listed', refused($u) && strpos($u['error'], '909002') !== false && (int)req($f10)['Status'] === 0, json_encode($u));
     q('UPDATE tblexpenses SET deleted=1 WHERE ID=?', [$x1]);
 
     // unapprove in a closed year (close the open year that covers today for a moment)
@@ -344,10 +372,18 @@ try {
     $u = $gf->Unapprove($f3);
     chk('unapprove of a pending requisition refused', refused($u) && $u['final'] === true);
     $u = $gf->Reject($f2, 'test reason');
-    chk('reject of an approved requisition (no expenses) ok: rejected, entry voided, tblmmf removed', ok($u) && (int)req($f2)['Status'] === 2 && req($f2)['ReasonForRejection'] === 'test reason'
-        && activeEntries(12, $f2) === 0 && count(mmf12($f2)) === 0 && count(brows(12, $f2)) === 0);
+    chk('reject of an approved requisition refused', refused($u) && (int)req($f2)['Status'] === 1 && activeEntries(12, $f2) === 1);
+    // a cleared (reconciled) bank row blocks the unapprove with a clear message
+    q('UPDATE tblbankpostings SET cleared=1, clearedDare=? WHERE transactionType=12 AND transactionId=? AND deleted=0', [$today, $f2]);
+    $u = $gf->Unapprove($f2);
+    chk('unapprove refused: bank row already cleared', refused($u) && stripos($u['error'], 'cleared') !== false && (int)req($f2)['Status'] === 1 && activeEntries(12, $f2) === 1 && count(brows(12, $f2)) === 1 && count(mmf12($f2)) === 1, json_encode($u));
+    q('UPDATE tblbankpostings SET cleared=0, clearedDare=NULL WHERE transactionType=12 AND transactionId=?', [$f2]);
+    $u = $gf->Unapprove($f2);
+    chk('unapprove ok once the bank row is not cleared', ok($u) && (int)req($f2)['Status'] === 0);
+    $u = $gf->Reject($f2, 'test reason');
+    chk('reject of a pending requisition ok', ok($u) && (int)req($f2)['Status'] === 2 && req($f2)['ReasonForRejection'] === 'test reason');
     $u = $gf->Reject($f2, 'again');
-    chk('reject of a rejected requisition refused', refused($u));
+    chk('reject of a rejected requisition refused', refused($u) && (int)req($f2)['Status'] === 2);
     $u = $gf->Reverse($f2);
     chk('reverse (rejected -> pending) ok', ok($u) && (int)req($f2)['Status'] === 0 && req($f2)['ReasonForRejection'] === null);
     $u = $gf->Reverse($f2);

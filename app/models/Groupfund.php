@@ -375,8 +375,7 @@ class Groupfund
     }
 
     /**
-     * Shared body of Unapprove / Reject / Reverse. Unapprove (approved -> pending) and Reject (pending or approved ->
-     * rejected) are refused while an expense references the requisition, then void the entry and its bank rows
+     * Shared body of Unapprove / Reject / Reverse. Unapprove (approved -> pending) and Reject (pending -> rejected) are refused while an expense references the requisition, then void the entry and its bank rows
      * (a closed financial year refuses) and delete the requisition's tblmmf row (this congregation only).
      * Reverse (rejected -> pending) has nothing to void.
      */
@@ -395,8 +394,8 @@ class Groupfund
             if($action === 'unapprove' && $status !== 1){
                 return $this->refuseAction($pdo,'Only an approved requisition can be unapproved',true);
             }
-            if($action === 'reject' && $status === 2){
-                return $this->refuseAction($pdo,'This requisition has already been rejected',true);
+            if($action === 'reject' && $status !== 0){
+                return $this->refuseAction($pdo,'Only a pending requisition can be rejected (unapprove an approved one first)',true);
             }
             if($action === 'reverse' && $status !== 2){
                 return $this->refuseAction($pdo,'Only a rejected requisition can be reversed',true);
@@ -408,6 +407,9 @@ class Groupfund
             }else{
                 if($block = $this->expenseBlock($pdo,$cong,(int)$req->ID,$action)){
                     return $this->refuseAction($pdo,$block,true);
+                }
+                if($m = Ledger::clearedBankProblem($pdo,$cong,self::TYPE,(int)$req->ID)){
+                    return $this->refuseAction($pdo,$m,true);
                 }
                 Ledger::void($pdo,$cong,self::TYPE,(int)$req->ID);
                 Ledger::voidBankPostings($pdo,$cong,self::TYPE,(int)$req->ID);

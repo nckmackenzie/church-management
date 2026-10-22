@@ -201,6 +201,9 @@ class Mmfreceipt
                 $errors[] = 'Select a valid bank';
             }
 
+            if ($current && !$errors && ($m = Ledger::clearedBankProblem($pdo,$cong,self::TYPE,$id,['bankId' => $bank,'amount' => $data['amount']]))) {
+                $errors[] = $m;
+            }
             if (!$errors && $date && $group) {
                 $balance = $this->GetBalance($group,$data['tdate'],$id);
                 if (round((float)$data['amount'] * 100) > round($balance * 100)) {
@@ -255,6 +258,9 @@ class Mmfreceipt
                 return $this->refuse($pdo,'MMF receipt not found');
             }
 
+            if ($m = Ledger::clearedBankProblem($pdo,$cong,self::TYPE,(int)$row->ID)) {
+                return $this->refuse($pdo,$m);
+            }
             Ledger::void($pdo,$cong,self::TYPE,(int)$row->ID);
             Ledger::voidBankPostings($pdo,$cong,self::TYPE,(int)$row->ID);
             $pdo->prepare('UPDATE tblmmf SET Deleted = 1 WHERE ID = ? AND TransactionType = 11 AND CongregationId = ?')

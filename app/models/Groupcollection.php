@@ -132,6 +132,8 @@ class Groupcollection
             $date = DateTime::createFromFormat('!Y-m-d',(string)$data['tdate']);
             if(!$date || $date->format('Y-m-d') !== $data['tdate']){
                 $errors[] = 'Select a valid date';
+            }elseif($data['tdate'] > date('Y-m-d')){
+                $errors[] = 'Invalid date selected (it cannot be in the future)';
             }
             if($m = Ledger::amountError($data['amount'])){
                 $errors[] = $m;
@@ -182,6 +184,9 @@ class Groupcollection
                               . ($income > 0 ? ' (' . $m . ')' : '');
                 }
             }
+            if($current && !$errors && ($m = Ledger::clearedBankProblem($pdo,$cong,self::TYPE,(int)$current->ID,['bankId' => $bank,'amount' => $data['amount']]))){
+                $errors[] = $m;
+            }
             if($errors){
                 return $this->refuse($pdo,$errors);
             }
@@ -231,6 +236,9 @@ class Groupcollection
                 return $this->refuse($pdo,'Group collection not found');
             }
 
+            if($m = Ledger::clearedBankProblem($pdo,$cong,self::TYPE,(int)$row->ID)){
+                return $this->refuse($pdo,$m);
+            }
             Ledger::void($pdo,$cong,self::TYPE,(int)$row->ID);
             Ledger::voidBankPostings($pdo,$cong,self::TYPE,(int)$row->ID);
             $pdo->prepare('UPDATE tblmmf SET Deleted = 1 WHERE ID = ? AND TransactionType = 17 AND CongregationId = ?')
