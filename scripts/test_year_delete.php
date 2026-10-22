@@ -28,11 +28,20 @@ try {
         return $id;
     };
     $msg = function ($r) { return implode(' | ', $r['errors']); };
+    // a free period is derived from the data: the first October-September after the latest year (deleted years included)
+    $lastEnd = new DateTime($pdo->query('SELECT MAX(endDate) FROM tblfiscalyears')->fetchColumn());
+    $lastStart = new DateTime($pdo->query('SELECT startDate FROM tblfiscalyears ORDER BY endDate DESC, ID DESC LIMIT 1')->fetchColumn());
+    $free = clone $lastEnd; $free->modify('+1 day');
+    $freeStart = $free->format('Y-m-d');
+    $freeEnd = (clone $free)->modify('+1 year -1 day')->format('Y-m-d');
+    $oneOver = (clone $lastEnd)->format('Y-m-d');                                      // starts on the last day of the latest year
+    $startsInside = (clone $lastStart)->modify('+5 months')->format('Y-m-d');          // starts inside the latest year
+    $startsInsideEnd = (clone $lastStart)->modify('+17 months')->format('Y-m-d');
 
     // ---- overlap check (deleted years included)
-    chk('overlap: a period after the last year is free', $ym->checkYearConflict('2026-10-01', '2027-09-30') === true);
-    chk('overlap: one day over the last year is refused', $ym->checkYearConflict('2026-09-30', '2027-09-29') === false);
-    chk('overlap: starting inside an existing year is refused', $ym->checkYearConflict('2026-03-01', '2027-02-28') === false);
+    chk('overlap: a period after the last year is free', $ym->checkYearConflict($freeStart, $freeEnd) === true);
+    chk('overlap: one day over the last year is refused', $ym->checkYearConflict($oneOver, $freeEnd) === false);
+    chk('overlap: starting inside an existing year is refused', $ym->checkYearConflict($startsInside, $startsInsideEnd) === false);
     chk('overlap: ending inside an existing year is refused', $ym->checkYearConflict('2025-01-01', '2025-03-31') === false);
     chk('overlap: enclosing existing years is refused (the old check missed this)', $ym->checkYearConflict('2000-01-01', '2100-01-01') === false);
     chk('overlap: a DELETED year still blocks (2021/2022 is deleted)', $ym->checkYearConflict('2022-01-01', '2022-03-31') === false);

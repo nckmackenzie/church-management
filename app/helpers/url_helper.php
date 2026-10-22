@@ -155,24 +155,6 @@ function getYearId($connection,$date){
     $result = $stmt->fetchColumn();
     return $result;
 }
-function getLastId($connection,$table){
-    $id = '';
-    $sql = "SELECT COUNT(ID) FROM $table";
-    $stmt=$connection->prepare($sql);
-    $stmt->execute();
-    $result = $stmt->fetchColumn();
-    if ($result == 0) {
-        $id = 1;
-    }
-    else {
-        $sql = "SELECT ID FROM $table ORDER BY ID DESC LIMIT 1";
-        $stmt=$connection->prepare($sql);
-        $stmt->execute();
-        $result = $stmt->fetchColumn();
-        $id = $result + 1;
-    }
-    return $id;
-}
 function encryptId($id)
 {
     $encryptedId = $id * (2020 * 7);

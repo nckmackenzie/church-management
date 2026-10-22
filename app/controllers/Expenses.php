@@ -18,60 +18,83 @@ class Expenses extends Controller{
     public function index()
     {
         $expenses = $this->expenseModel->getExpenses();
-        $data = ['expenses' => $expenses,'years' => $this->reusemodel->GetOpenedFiscalYears()];
+        $data = ['expenses' => $expenses];
         $this->view('expenses/index',$data);
     }
 
-    public function getvoucherno($date)
+    /** Positive integer from a request value, else 0. */
+    private function intId($value)
     {
-        $yearId = $this->reusemodel->GetFiscalYear($date);
-        $yearName = $this->reusemodel->GetYearName($yearId);
-        if(!$this->reusemodel->CheckPrefixable($yearId)){
-            return $this->expenseModel->GetVoucherNo($yearId);
-        }else{
-            return $yearName . '/' . $this->expenseModel->GetVoucherNo($yearId);
-        }
+        $value = trim((string)$value);
+        return ctype_digit($value) && (int)$value > 0 ? (int)$value : 0;
+    }
+
+    /** Flash text of a failed model result: its messages (escaped), else a generic one. */
+    private function failText($result,$fallback)
+    {
+        return !empty($result['errors']) ? implode('<br>',array_map('htmlspecialchars',$result['errors'])) : $fallback;
+    }
+
+    /** The form values posted by the add / edit form. */
+    private function posted()
+    {
+        $p = $_POST;
+        $get = function ($key) use ($p) {
+            return trim((string)($p[$key] ?? ''));
+        };
+        return [
+            'date' => $get('date'),
+            'expensetype' => $get('expensetype'),
+            'account' => $get('account'),
+            'costcentre' => $get('costcentre'),
+            'paymethod' => $get('paymethod'),
+            'paidfrom' => $get('paidfrom'),
+            'reqid' => $get('reqid'),
+            'amount' => $get('amount'),
+            'reference' => $get('reference'),
+            'description' => $get('description'),
+        ];
+    }
+
+    /** Fills the dropdown lists of the add / edit form for the values in $data. */
+    private function withLists($data,$expenseId = 0)
+    {
+        $type = (int)$data['expensetype'];
+        $type = in_array($type,[1,2,3],true) ? $type : 1;
+        $data['accounts'] = $this->expenseModel->GetExpenseAccounts($type,$expenseId);
+        $data['costcentres'] = $this->expenseModel->GetCostCentres($type);
+        $data['paymethods'] = $this->reusemodel->PaymentMethods();
+        $data['paidfroms'] = $this->expenseModel->GetPaidFromAccounts((int)$data['paymethod'] ?: Expense::CASH_METHOD);
+        $data['requisitions'] = $this->expenseModel->GetRequisitionOptions($type,$data['costcentre'],$expenseId);
+        return $data;
     }
 
     public function voucherno()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
             $date = isset($_GET['txndate']) && !empty(trim($_GET['txndate'])) ? date('Y-m-d',strtotime($_GET['txndate'])) : date('Y-m-d', strtotime($_SESSION['processdate']));
-            echo json_encode($this->getvoucherno($date));
+            echo json_encode($this->expenseModel->peekVoucherNo($date));
         }
     }
 
     public function add()
     {
-        $accounts = $this->reusemodel->GetAccountsAllSubcategory();
-        // $accounts = $this->expenseModel->GetAccounts(1);
         $date = date('Y-m-d',strtotime($_SESSION['processdate']));
-        $paymethods = $this->reusemodel->PaymentMethods();
-        $banks = $this->reusemodel->GetBanks();
-        // $voucherno = $this->expenseModel->VoucherNo();
-        $voucherno = $this->getvoucherno($date);
-        $data = [
-            'voucherno' => $voucherno,
+        $data = $this->withLists([
+            'voucherno' => $this->expenseModel->peekVoucherNo($date),
             'date' => $date,
-            'accounts' => $accounts,
-            'expensetype' => '',
+            'expensetype' => 1,
             'account' => '',
-            'paymethods' => $paymethods,
-            'paymethod' => '',
-            'deductfrom' => 'petty cash',
-            'banks' => $banks,
-            'bank' => '',
+            'costcentre' => '',
+            'paymethod' => Expense::CASH_METHOD,
+            'paidfrom' => '',
+            'reqid' => '',
             'amount' => '',
             'reference' => '',
             'description' => '',
-            'filename' => '',
-            'date_err' => '',
-            'amount_err' => '',
-            'ref_err' => '',
-            'desc_err' => '',
-            'bank_err' => '',
-            'filename_err' => ''
-        ];
+            'errors' => []
+        ]);
+        $data['paidfrom'] = $this->expenseModel->DefaultPaidFrom($data['paidfroms']);
         $this->view('expenses/add',$data);
         exit;
     }
@@ -98,6 +121,7 @@ class Expenses extends Controller{
             exit;
         }
     }
+
     public function getcostcentre()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -108,7 +132,6 @@ class Expenses extends Controller{
            }
            else{
                 $options = '<option value="" selected disabled>Select</option>';
-                // $groups = $this->expenseModel->getGroup();
                 $groups = $this->expenseModel->GetGroupOrDistrict($category);
                 foreach ($groups as $group ) {
                     $options .='<option value="'.$group->ID.'">'.$group->cost_center.'</option>';
@@ -118,125 +141,63 @@ class Expenses extends Controller{
         }
     }
 
+    /** Uploaded receipt: validates it and returns [stored name, tmp name, destination, error]. */
+    private function receipt()
+    {
+        $out = ['name' => '','tmp' => '','dest' => '','error' => ''];
+        if (!isset($_FILES['file']) || (int)$_FILES['file']['size'] <= 0) {
+            return $out;
+        }
+        $ext = strtolower(pathinfo($_FILES['file']['name'],PATHINFO_EXTENSION));
+        if (!in_array($ext,['jpg','jpeg','png','pdf'],true)) {
+            $out['error'] = 'Invalid file type';
+        } elseif ($_FILES['file']['error'] !== 0) {
+            $out['error'] = 'An error occurred during file upload';
+        } elseif ($_FILES['file']['size'] >= 1000000) {
+            $out['error'] = 'File size is too big';
+        } else {
+            $out['name'] = uniqid('',true) . '.' . $ext;
+            $out['tmp'] = $_FILES['file']['tmp_name'];
+            $out['dest'] = getcwd() . '/img/' . $out['name'];
+        }
+        return $out;
+    }
+
     public function create()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-            $expenseType = $_POST['expensetype'];
-            $accounts = $this->expenseModel->GetAccounts($_POST['expensetype']);
-            $paymethods = $this->reusemodel->PaymentMethods();
-            $banks = $this->reusemodel->GetBanks();
-            $voucherno = $this->expenseModel->VoucherNo();
-            $data = [
-            'voucherno' => $voucherno,
-            'voucher' => trim($_POST['voucher']),
-            'date' => trim($_POST['date']),
-            'expensetype' => trim($_POST['expensetype']),
-            'accounts' => $accounts,
-            'account' => !empty($_POST['account']) ? trim($_POST['account']) : '',
-            'costcentre' => !empty($_POST['costcentre']) ? trim($_POST['costcentre']) : '',
-            'paymethods' => $paymethods,
-            'paymethod' => !empty($_POST['paymethod']) ? trim($_POST['paymethod']) : '',
-            'deductfrom' => !empty($_POST['cashtype']) ? trim($_POST['cashtype']) : '',
-            'banks' => $banks,
-            'bank' => !empty($_POST['bank']) ? trim($_POST['bank']) : NULL,
-            'amount' => trim($_POST['amount']),
-            'reference' => trim($_POST['reference']),
-            'description' => trim($_POST['description']),
-            'reqid' => $_POST['cashtype'] === 'cash holding' ? (!empty($_POST['reqid']) ? $_POST['reqid'] : NULL) : NULL,
-            'file' => isset($_FILE) ? $_FILES['file'] : false,
-            'filename' => '',
-            'hasattachment' => 0,
-            'date_err' => '',
-            'amount_err' => '',
-            'ref_err' => '',
-            'desc_err' => '',
-            'bank_err' => '',
-            'filename_err' => ''
-            ];
-            
-            $fileTmpName = '';
-            $fileDesination = '';
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW) ?: [];
+            $in = $this->posted();
+            $date = !empty($in['date']) ? $in['date'] : date('Y-m-d',strtotime($_SESSION['processdate']));
+            $data = $in + ['voucherno' => $this->expenseModel->peekVoucherNo($date),'errors' => []];
 
-            // var_dump($_FILES);
-            
-            if ($_FILES['file']['size'] > 0) {
-                $fileName = $_FILES['file']['name'];
-                $fileTmpName = $_FILES['file']['tmp_name'];
-                $fileSize = $_FILES['file']['size'];
-                $fileError = $_FILES['file']['error'];
-
-                $fileExt = explode('.', $fileName);
-                $fileActualExt = strtolower(end($fileExt));
-                $allowed = array('jpg','jpeg','png','pdf');
-
-                if (in_array($fileActualExt,$allowed)) {
-                    if ($fileError === 0) {
-                      if ($fileSize < 1000000) {
-                        $fileNameNew = uniqid('',true).'.'.$fileActualExt;
-                        $data['filename'] = $fileNameNew;
-                        $des = getcwd();
-                        $fileDesination = $des.'/img/'.$fileNameNew;
-                        $data['hasattachment'] = 1;
-                      }else {
-                          $data['filename_err'] = "File size is too big";
-                      }
-                    }else {
-                        $data['filename_err']= 'An error occurred during file upload';
-                    }
-                  }else{
-                    $data['filename_err'] = 'Invalid File Type';
-                  }
-            }
-            
-            if (empty($data['date'])) {
-                $data['date_err'] = 'Select Date';
-            }
-            if (empty($data['amount'])) {
-                $data['amount_err'] = 'Enter Amount';
-            }
-            if (empty($data['reference'])) {
-                $data['ref_err'] = 'Enter Payment Reference';
-            }
-            if (empty($data['description'])) {
-                $data['desc_err'] = 'Enter Brief Description On Expense';
-            }
-            if ($data['paymethod'] > 2 && (empty($data['bank']) || $data['bank'] == NULL)) {
-                $data['bank'] = 'Select Bank';
-            }
-            if (empty($data['date_err']) && empty($data['amount_err']) && empty($data['ref_err']) 
-                && empty ($data['desc_err']) && empty($data['bank_err']) && empty($data['filename_err'])) {
-                
-                if($data['hasattachment'] === 0){
-                    if ($this->expenseModel->create($data)) {
-                        flash('expense_msg',"Expense Added Successfully!");
-                        redirect('expenses');
-                    }
-                    else{
-                        flash('expense_msg',"Expense wasnt added!",'alert custom-danger');
-                        redirect('expenses');
+            $file = $this->receipt();
+            if ($file['error'] !== '') {
+                $data['errors'][] = $file['error'];
+            } else {
+                $in['hasattachment'] = $file['name'] !== '' ? 1 : 0;
+                $in['filename'] = $file['name'];
+                $moved = false;
+                if ($file['name'] !== '') {
+                    $moved = move_uploaded_file($file['tmp'],$file['dest']);
+                    if (!$moved) {
+                        $data['errors'][] = 'Something went wrong with the file upload';
                     }
                 }
-                elseif ($data['hasattachment'] === 1) {
-                    if (move_uploaded_file($fileTmpName,$fileDesination)) {
-                        if ($this->expenseModel->create($data)) {
-                            flash('expense_msg',"Expense Added Successfully!");
-                            redirect('expenses');
-                        }
-                        else{
-                            flash('expense_msg',"Expense wasnt added!",'alert custom-danger');
-                            redirect('expenses');
-                    }
-                    }else {
-                        flash('expense_msg','Something went wrong with file upload','alert custom-danger');
+                if (!$data['errors']) {
+                    $result = $this->expenseModel->create($in);
+                    if ($result['success']) {
+                        flash('expense_msg','Expense Added Successfully!');
                         redirect('expenses');
+                        exit;
                     }
-                }    
-                
+                    if ($moved) {
+                        @unlink($file['dest']);
+                    }
+                    $data['errors'] = $result['errors'] ?: ['Something went wrong! The expense was not saved. Contact admin'];
+                }
             }
-            else{
-                $this->view('expenses/add',$data);
-            }
+            $this->view('expenses/add',$this->withLists($data));
         }
         else{
             redirect('users/deniedaccess');
@@ -244,6 +205,32 @@ class Expenses extends Controller{
         }
     }
 
+    /** Requisitions the form can offer (JSON: id, label, style = new / old). */
+    public function requisitionoptions()
+    {
+        $type = $this->intId($_GET['type'] ?? '');
+        $centre = $this->intId($_GET['centre'] ?? '');
+        $expense = $this->intId($_GET['expense'] ?? '');
+        $data = [];
+        foreach ($this->expenseModel->GetRequisitionOptions($type,$centre,$expense) as $r) {
+            $data[] = ['id' => $r->ID,'label' => $r->Label,'style' => $r->Style];
+        }
+        echo json_encode($data);
+    }
+
+    /** Paid-from accounts for a payment method (JSON: accounts, default). */
+    public function paidfrom()
+    {
+        $method = $this->intId($_GET['method'] ?? '');
+        $list = $this->expenseModel->GetPaidFromAccounts($method ?: Expense::CASH_METHOD);
+        $data = [];
+        foreach ($list as $a) {
+            $data[] = ['id' => $a->ID,'label' => $a->Account];
+        }
+        echo json_encode(['accounts' => $data,'default' => $method === Expense::CASH_METHOD ? $this->expenseModel->DefaultPaidFrom($list) : '']);
+    }
+
+    /** Old requisition dropdown used by the reports (approved amount - spent, drafts included, > 0). */
     public function getrequisitions(){
         $groupid = isset($_GET['group']) && !empty(trim($_GET['group'])) ? (int)trim($_GET['group']) : null;
         $type = isset($_GET['type']) && !empty(trim($_GET['type'])) ? (int)trim($_GET['type']) : 2;
@@ -262,63 +249,76 @@ class Expenses extends Controller{
     public function approve()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-            $data = [
-                'id' => trim($_POST['id']),
-                'date' => trim($_POST['date']),
-                'voucher' => trim($_POST['voucherno'])
-            ];
-            if (!empty($data['id'])) {
-                if ($this->expenseModel->approve($data)) {
-                    flash('expense_msg',"Expense Approved Successfully!");
-                    redirect('expenses');# code...
-                }else{
-                    flash('expense_msg','Cannot approve expense due to an internal error.','alert custom-danger');
-                    redirect('expenses');
-                }
+            $id = $this->intId($_POST['id'] ?? '');
+            if ($id === 0) {
+                flash('expense_msg','Unable to get the selected expense','alert custom-danger');
+                redirect('expenses');
+                exit;
             }
+            $result = $this->expenseModel->approve($id);
+            if ($result['success']) {
+                flash('expense_msg','Expense Approved Successfully!' . (!empty($result['renumbered']) ? ' ' . htmlspecialchars($result['renumbered']) : ''));
+            } else {
+                flash('expense_msg',$this->failText($result,'Cannot approve expense due to an internal error.'),'alert custom-danger');
+            }
+            redirect('expenses');
+            exit;
         }
+        redirect('users/deniedaccess');
+        exit;
     }
 
-    public function edit($id)
+    public function unapprove()
     {
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            $id = $this->intId($_POST['id'] ?? '');
+            if ($id === 0) {
+                flash('expense_msg','Unable to get the selected expense','alert custom-danger');
+                redirect('expenses');
+                exit;
+            }
+            $result = $this->expenseModel->unapprove($id);
+            if ($result['success']) {
+                flash('expense_msg','Expense unapproved: it is a draft again and its ledger entry has been reversed.');
+            } else {
+                flash('expense_msg',$this->failText($result,'Cannot unapprove expense due to an internal error.'),'alert custom-danger');
+            }
+            redirect('expenses');
+            exit;
+        }
+        redirect('users/deniedaccess');
+        exit;
+    }
+
+    public function edit($id = '')
+    {
+        $id = $this->intId($id);
         $expense = $this->expenseModel->getExpense($id);
-        $accounts = $this->expenseModel->GetAccounts(1);
-        $paymethods = $this->reusemodel->PaymentMethods();
-        $banks = $this->reusemodel->GetBanks();
-        $groups = $this->expenseModel->getGroup();
-        $expenseType = (int)$expense->expenseType;
-        checkcenter($expense->congregationId);
-        $requisitions = $this->expenseModel->GetRequisitions($expenseType == 2 ? $expense->groupId : $expense->districtId,$expenseType);
-        if($this->reusemodel->CheckYearClosed($expense->fiscalYearId)) :
-         flash('expense_msg','Cannot edit transactions for closed year','alert custom-danger alert-dismissible fade show');
-         redirect('expenses');
-         exit;
-       endif; 
-        $data = [
+        if (!$expense || (int)$expense->deleted === 1) {
+            flash('expense_msg','Expense not found or already deleted','alert custom-danger');
+            redirect('expenses');
+            exit;
+        }
+        if ($problem = Expense::roleProblem('edit',(int)$expense->status)) {
+            flash('expense_msg',htmlspecialchars($problem),'alert custom-danger');
+            redirect('expenses');
+            exit;
+        }
+        $type = (int)$expense->expenseType;
+        $data = $this->withLists([
             'expense' => $expense,
-            'voucher' => '',
-            'date' => '',
-            'expensetype' => $expenseType,
-            'accounts' => $accounts,
-            'account' => '',
-            'groups' => $groups,
-            'costcentre' => '',
-            'paymethods' => $paymethods,
-            'paymethod' => '',
-            'deductfrom' =>  (int)$expense->paymethodId <= 2 ? $expense->deductfrom : '',
-            'requisitions' => $requisitions ?? [],
-            'banks' => $banks,
-            'bank' => '',
-            'amount' => '',
-            'reference' => '',
-            'description' => '',
-            'date_err' => '',
-            'amount_err' => '',
-            'ref_err' => '',
-            'desc_err' => '',
-            'bank_err' => ''
-        ];
+            'date' => $expense->expenseDate,
+            'expensetype' => $type,
+            'account' => $expense->accountId,
+            'costcentre' => $type === 2 ? $expense->groupId : ($type === 3 ? $expense->districtId : 0),
+            'paymethod' => $expense->paymethodId,
+            'paidfrom' => $expense->PaidFromAccountId,
+            'reqid' => $expense->requisitionId,
+            'amount' => $expense->amount,
+            'reference' => strtoupper((string)$expense->paymentReference),
+            'description' => strtoupper((string)$expense->narration),
+            'errors' => []
+        ],$id);
         $this->view('expenses/edit',$data);
         exit;
     }
@@ -326,210 +326,82 @@ class Expenses extends Controller{
     public function update()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-            $expenseType = $_POST['expensetype'];
-            $accounts = $this->expenseModel->GetAccounts($_POST['expensetype']);
-            $paymethods = $this->reusemodel->PaymentMethods();
-            $banks = $this->reusemodel->GetBanks();
-            $expense = $this->expenseModel->getExpense((int)trim($_POST['id']));
-            $data = [
-                'id' => trim($_POST['id']),
-                'voucher' => trim($_POST['voucher']),
-                'date' => trim($_POST['date']),
-                'expensetype' => trim($_POST['expensetype']),
-                'accounts' => $accounts,
-                'account' => !empty($_POST['account']) ? trim($_POST['account']) : '',
-                'costcentre' => !empty($_POST['costcentre']) ? trim($_POST['costcentre']) : '',
-                'paymethods' => $paymethods,
-                'paymethod' => !empty($_POST['paymethod']) ? trim($_POST['paymethod']) : '',
-                'deductfrom' => !empty($_POST['cashtype']) ? trim($_POST['cashtype']) : '',
-                'banks' => $banks,
-                'bank' => !empty($_POST['bank']) ? trim($_POST['bank']) : NULL,
-                'amount' => trim($_POST['amount']),
-                'reference' => trim($_POST['reference']),
-                'description' => trim($_POST['description']),
-                'reqid' => $_POST['cashtype'] === 'cash holding' ? $expense->requisitionId : NULL,
-                'expense' => $expense,
-                'date_err' => '',
-                'amount_err' => '',
-                'ref_err' => '',
-                'desc_err' => '',
-                'bank_err' => '',
-            ];
-            
-                        
-            if (empty($data['date'])) {
-                $data['date_err'] = 'Select Date';
-            }
-            if (empty($data['amount'])) {
-                $data['amount_err'] = 'Enter Amount';
-            }
-            if (empty($data['reference'])) {
-                $data['ref_err'] = 'Enter Payment Reference';
-            }
-            if (empty($data['description'])) {
-                $data['desc_err'] = 'Enter Brief Description On Expense';
-            }
-            if ($data['paymethod'] > 2 && (empty($data['bank']) || $data['bank'] == NULL)) {
-                $data['bank'] = 'Select Bank';
-            }
-            if((int)$data['paymethod'] > 2){
-                $data['deductfrom'] = null;
-                $data['reqid'] = null;
+            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW) ?: [];
+            $id = $this->intId($_POST['id'] ?? '');
+            $in = $this->posted();
+
+            $result = $this->expenseModel->update($id,$in);
+            if ($result['success']) {
+                flash('expense_msg','Expense Updated Successfully!' . (!empty($result['renumbered']) ? ' ' . htmlspecialchars($result['renumbered']) : ''));
+                redirect('expenses');
+                exit;
             }
 
-            if (empty($data['date_err']) && empty($data['amount_err']) && empty($data['ref_err']) 
-                && empty ($data['desc_err']) && empty($data['bank_err']) && empty($data['filename_err'])) {
-                
-                if ($this->expenseModel->update($data)) {
-                    flash('expense_msg',"Expense Updated Successfully!");
-                    redirect('expenses');
-                }
-                else{
-                    flash('expense_msg',"Expense wasnt updated!",'alert custom-danger');
-                    redirect('expenses');
-                }
-                
+            $expense = $this->expenseModel->getExpense($id);
+            if (!$expense || (int)$expense->deleted === 1) {
+                flash('expense_msg',$this->failText($result,'Expense not found or already deleted'),'alert custom-danger');
+                redirect('expenses');
+                exit;
             }
-            else{
-                $this->view('expenses/expense',$data);
-            }
+            $data = $in + ['expense' => $expense,'errors' => $result['errors'] ?: ['Something went wrong! The expense was not updated. Contact admin']];
+            $this->view('expenses/edit',$this->withLists($data,$id));
         }
         else{
             redirect('users/deniedaccess');
             exit;
         }
-        // if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-        //     $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-        //     $data = [
-        //         'id' => trim($_POST['id']),
-        //         'voucher' => trim($_POST['voucher']),
-        //         'date' => trim($_POST['date']),
-        //         'expensetype' => trim($_POST['expensetype']),
-        //         'account' => trim($_POST['account']),
-        //         'costcentre' => trim($_POST['costcentre']),
-        //         'deductfrom' => !empty($_POST['cashtype']) ? trim($_POST['cashtype']) : '',
-        //         'paymethod' => trim($_POST['paymethod']),
-        //         'bank' => !empty($_POST['bank']) ? trim($_POST['bank']) : NULL,
-        //         'amount' => trim($_POST['amount']),
-        //         'reference' => trim($_POST['reference']),
-        //         'description' => trim($_POST['description']),
-        //         'date_err' => '',
-        //         'amount_err' => '',
-        //         'ref_err' => '',
-        //         'desc_err' => '',
-        //         'bank_err' => ''
-        //     ];
-        //     if (empty($data['date'])) {
-        //         $data['date_err'] = 'Select Date';
-        //     }
-        //     if (empty($data['amount'])) {
-        //         $data['amount_err'] = 'Enter Amount';
-        //     }
-        //     if (empty($data['reference'])) {
-        //         $data['ref_err'] = 'Enter Payment Reference';
-        //     }
-        //     if (empty($data['description'])) {
-        //         $data['desc_err'] = 'Enter Brief Description On Expense';
-        //     }
-        //     if ($data['paymethod'] > 2 && (empty($data['bank']) || $data['bank'] == NULL)) {
-        //         $data['bank'] = 'Select Bank';
-        //     }
-        //     if (empty($data['date_err']) && empty($data['amount_err']) && empty($data['ref_err']) 
-        //         && empty ($data['desc_err']) && empty($data['bank_err'])) {
-        //         if ($this->expenseModel->update($data)) {
-        //             flash('expense_msg',"Expense Updated Successfully!");
-        //             redirect('expenses');
-        //         }
-        //         else{
-        //             flash('expense_msg',"Something Went Wrong!",'alert custom-danger');
-        //             redirect('expenses');
-        //         }
-        //     }
-        //     else{
-        //         $this->view('expenses/edit',$data);
-        //     }
-        // }
-        // else{
-        //     redirect('expenses');
-        // }
     }
 
     public function delete()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-            $data = [
-                'id' => trim($_POST['id']),
-                'date' => trim($_POST['date']),
-                'voucher' => trim($_POST['voucherno'])
-            ];
-
-            if($this->expenseModel->YearIsClosed($data['id'])){
-                flash('expense_msg','Cannot delete transactions for closed year','alert custom-danger alert-dismissible fade show');
+            $id = $this->intId($_POST['id'] ?? '');
+            if ($id === 0) {
+                flash('expense_msg','Unable to get the selected expense','alert custom-danger');
                 redirect('expenses');
                 exit;
             }
-
-            if (!empty($data['id'])) {
-                if ($this->expenseModel->delete($data)) {
-                    flash('expense_msg',"Expense Deleted Successfully!");
-                    redirect('expenses');
-                }
+            $result = $this->expenseModel->delete($id);
+            if ($result['success']) {
+                flash('expense_msg','Expense Deleted Successfully!');
+            } else {
+                flash('expense_msg',$this->failText($result,'Cannot delete expense due to an internal error.'),'alert custom-danger');
             }
+            redirect('expenses');
+            exit;
         }
         else{
             redirect('expenses');
         }
     }
 
-    public function print($id)
+    public function print($id = '')
     {
+        $id = $this->intId($id);
         $expense = $this->expenseModel->getExpenseFull($id);
-        $journalDetails = $this->expenseModel->getJournalDetails($id);
-        $data = ['expense' => $expense, 'journalDetails' => $journalDetails];
+        $journalDetails = $expense ? $this->expenseModel->getJournalDetails($id) : false;
+        if (!$expense || $journalDetails === false) {
+            flash('expense_msg','Expense not found or already deleted','alert custom-danger');
+            redirect('expenses');
+            exit;
+        }
+        $data = ['expense' => $expense,'journalDetails' => $journalDetails,
+                 'posted' => !$journalDetails || empty($journalDetails[0]->notPosted)];
         $this->view('expenses/print',$data);
     }
 
     public function getaccounts()
     {
-        $type = isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : NULL;
-        $accounts = $type == 2 ? $this->expenseModel->GetAccounts($type) : $this->reusemodel->GetAccountsAllSubcategory();
+        $type = $this->intId($_GET['type'] ?? '') ?: 1;
+        $expense = $this->intId($_GET['expense'] ?? '');
         $data = array();
 
-        foreach($accounts as $account){
+        foreach($this->expenseModel->GetExpenseAccounts($type,$expense) as $account){
             array_push($data,[
                 'id' => $account->ID,
                 'label' => $account->accountType
             ]);
         }
         echo json_encode($data);
-    }
-
-    public function resetApprovals()
-    {
-        if($_SERVER['REQUEST_METHOD'] !== 'POST'){
-            redirect('users/deniedaccess');
-            exit;
-        }
-
-        $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-        $data = [
-            'year' => isset($_POST['year']) && !empty(trim($_POST['year'])) ? (int)trim($_POST['year']) : NULL,
-        ];
-
-        if($data['year'] === NULL){
-            http_response_code(400);
-            echo json_encode(['error' => 'Year not set']);
-            exit;
-        }
-
-        if(!$this->expenseModel->resetApprovals($data)){
-            http_response_code(500);
-            echo json_encode(['error' => 'There was a problem perfoming this task']);
-            exit;
-        }
-
-        echo json_encode(['success' => 'Approvals reset successfully']);
     }
 }

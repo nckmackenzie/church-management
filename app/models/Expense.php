@@ -1,81 +1,200 @@
 <?php
-class Expense {
+/**
+ * Expenses (transaction type 2) on the Ledger library (task 8.5d).
+ *
+ * Every account on a posting comes from the expense row, which the user chose on the form:
+ *   Dr tblexpenses.accountId  /  Cr tblexpenses.PaidFromAccountId, both for the expense amount.
+ * The backend never infers an account. tblexpenses.deductfrom and bankId are legacy: nothing reads them, create
+ * leaves them NULL and update leaves them as they are.
+ *
+ * Lifecycle: draft (status 0) -> approve (posts) -> unapprove (voids, back to draft) ; delete from either state.
+ * Every public action loads the expense by ID + session congregation (FOR UPDATE) inside its transaction and
+ * returns ['success' => bool, 'errors' => string[]] (no errors on failure = unexpected error, logged).
+ */
+class Expense
+{
+    /** Method name of the bank row (tbltransactionmethods 2): money leaves the bank, whatever the payment method. */
+    const BANK_METHOD = 'Withdrawal';
+    /** 'petty cash', preselected on a new cash expense (confirmed by the user, decision 8.5d-1). */
+    const DEFAULT_PAID_FROM = 98;
+    /** 'cash holding account': the only account a new-style requisition may be paid from (and only requisitions may use it). */
+    const CASH_HOLDING = 121;
+    const TYPE_EXPENSE = 2;
+    const TYPE_GROUP_APPROVAL = 12;
+    const CASH_METHOD = 1;
+    /** tblexpenses.narration / paymentReference lengths (the petty cash book column is 50 as well) */
+    const NARRATION_LEN = 50;
+    const REFERENCE_LEN = 50;
+
     private $db;
+
     public function __construct()
     {
         $this->db = new Database;
     }
+
+    // -----------------------------------------------------------------
+    // Lists for the screens
+    // -----------------------------------------------------------------
+
     public function getExpenses()
     {
-        // $this->db->query('SELECT * FROM vw_getexpenses WHERE (congregationId=:cid)
-        //                   AND (deleted=0)');
         $this->db->query('SELECT * FROM vw_getexpenses_2 WHERE (congregationId=:cid)');
         $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();                  
+        return $this->db->resultSet();
     }
 
-    public function GetVoucherNo($yearId)
+    /** Own expense (deleted ones included, callers decide), or false. */
+    public function getExpense($id)
     {
-        $to_prefix = converttobool(getdbvalue($this->db->dbh,'SELECT prefixReferences from tblfiscalyears WHERE ID=?',[$yearId]));
-        if ($to_prefix){
-            $sql = "SELECT IFNULL(MAX(RIGHT(voucherNo,3)),'000') AS voucherNo 
-                    FROM tblexpenses WHERE congregationId=? AND fiscalYearId=?";
-            return format_string(intval(getdbvalue($this->db->dbh,$sql,[$_SESSION['congId'],$yearId])) + 1);
-        }else{
-            $sql = 'SELECT IFNULL(voucherNo,1) AS voucherNo 
-                    FROM tblexpenses 
-                    WHERE congregationId=? AND fiscalYearId=?
-                    ORDER BY ID DESC
-                    LIMIT 1';
-            return intval(getdbvalue($this->db->dbh,$sql,[$_SESSION['congId'],$yearId])) + 1;
+        $id = (int)$id;
+        if ($id <= 0) {
+            return false;
         }
+        $this->db->query('SELECT * FROM tblexpenses WHERE ID = :id AND congregationId = :cid');
+        $this->db->bind(':id',$id);
+        $this->db->bind(':cid',(int)$_SESSION['congId']);
+        return $this->db->single();
     }
 
-    public function GetAccounts($type)
+    /** Voucher print data of an own expense, or false. */
+    public function getExpenseFull($id)
     {
-        if($type == 1){
-            $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
-                              WHERE ((accountTypeId = :expense) OR (accountTypeId = :asset) OR (accountTypeId = :liability)) 
-                             AND (deleted=0) AND (isBank = 0) AND (parentId <> 0) AND (active = 1)
-                             AND (isSubCategory=1) AND (congregationId = 0 OR congregationId = :cong) ORDER BY accountType');
-        }else{
-            $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
-                                   WHERE ((accountTypeId = :expense) OR (accountTypeId = :asset) OR (accountTypeId = :liability)) 
-                                   AND (deleted=0) AND (isBank = 0) AND (parentId <> 0) AND (forGroup = 1) 
-                                   AND (active = 1) AND (isSubCategory=1) AND (congregationId = 0 OR congregationId = :cong) ORDER BY accountType');
+        if (!$this->getExpense($id)) {
+            return false;
         }
-        $this->db->bind(':expense',2);
-        $this->db->bind(':asset',3);
-        $this->db->bind(':liability',4);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        return $this->db->resultSet();                  
+        $this->db->query('SELECT * FROM vw_expensevoucher_2 WHERE (ID=:id)');
+        $this->db->bind(':id',(int)$id);
+        return $this->db->single();
     }
-    
-    public function VoucherNo()
+
+    /** Fiscal year (not deleted) covering the date, or 0. */
+    private function yearIdFor($pdo,$date)
     {
-       $this->db->query('SELECT voucherNo FROM tblexpenses
-                        WHERE (congregationId=:cid) ORDER BY voucherNo DESC LIMIT 1'); 
-      $this->db->bind(':cid',$_SESSION['congId']);
-      return ($this->db->getValue()) + 1;
-    }
-   
-    public function getGroup()
-    {
-        if ($_SESSION['isParish'] == 1) {
-            $this->db->query("SELECT g.ID,
-                                     CONCAT(ucase(g.groupName),'-',ucase(c.CongregationName)) as groupName
-                             FROM tblgroups g inner join tblcongregation c on g.congregationId=c.ID       
-                             WHERE g.active = 1 AND g.deleted=0
-                             ORDER BY groupName");
-            return $this->db->resultSet();                 
-        }else{
-            $this->db->query('SELECT ID,ucase(groupName) as groupName
-                          FROM tblgroups WHERE (active=1) AND (deleted=0)
-                               AND (congregationId=:cid)
-                          ORDER BY groupName');
-            $this->db->bind(':cid',$_SESSION['congId']);
-            return $this->db->resultSet(); 
+        if (!date_is_valid((string)$date)) {
+            return 0;
         }
+        $y = Ledger::yearForDate($pdo,$date);
+        return $y && (int)$y['deleted'] === 0 ? (int)$y['ID'] : 0;
+    }
+
+    /** Voucher number to SHOW on the form (the real number is allocated when the expense is saved); '' when the date has no fiscal year. */
+    public function peekVoucherNo($date)
+    {
+        $pdo = $this->db->pdo();
+        $yearId = $this->yearIdFor($pdo,$date);
+        return $yearId > 0 ? Ledger::peekNextNumber($pdo,(int)$_SESSION['congId'],Ledger::SEQ_VOUCHER,$yearId) : '';
+    }
+
+    /**
+     * Accounts to offer as the expense (debit) account: posting accounts of types 2, 3, 4 (expense, asset, liability),
+     * no banks, valid for the congregation, active; group expenses (type 2) only forGroup = 1. $keepFor = an own
+     * expense ID: its current account is also offered, even when inactive (legacy), as long as it still satisfies the
+     * type rules. This one function feeds the add form, the edit form and the AJAX getaccounts; accountProblem() is
+     * the server-side check with the same rules.
+     */
+    public function GetExpenseAccounts($type,$keepFor = 0)
+    {
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
+        $type = (int)$type;
+        $sql = 'SELECT ID FROM tblaccounttypes
+                WHERE deleted = 0 AND isBank = 0 AND accountTypeId IN (2,3,4) AND congregationId IN (0,?)';
+        if ($type === 2) {
+            $sql .= ' AND forGroup = 1';
+        }
+        $st = $pdo->prepare($sql);
+        $st->execute([$cong]);
+        $ids = Ledger::filterPostingAccounts($pdo,$cong,array_map('intval',$st->fetchAll(PDO::FETCH_COLUMN)));
+
+        $keepFor = (int)$keepFor;
+        if ($keepFor > 0) {
+            $row = $this->getExpense($keepFor);
+            if ($row && (int)$row->expenseType === $type && !in_array((int)$row->accountId,$ids,true)
+                && $this->accountProblem($pdo,$cong,(int)$row->accountId,$type,true) === null) {
+                $ids[] = (int)$row->accountId;
+            }
+        }
+        if (!$ids) {
+            return [];
+        }
+        $st = $pdo->prepare('SELECT ID, UCASE(accountType) AS accountType FROM tblaccounttypes WHERE ID IN ('
+                            . implode(',',array_fill(0,count($ids),'?')) . ') ORDER BY accountType');
+        $st->execute($ids);
+        return $st->fetchAll(PDO::FETCH_OBJ);
+    }
+
+    /** Why $accountId cannot be the expense account of a $type expense, or null. */
+    private function accountProblem($pdo,$cong,$accountId,$type,$allowInactive)
+    {
+        if ($accountId <= 0) {
+            return 'Select the expense account';
+        }
+        if ($why = Ledger::postingProblem($pdo,$accountId,$cong,$allowInactive)) {
+            return "Expense account: $why";
+        }
+        $st = $pdo->prepare('SELECT accountType, accountTypeId, isBank, forGroup FROM tblaccounttypes WHERE ID = ?');
+        $st->execute([$accountId]);
+        $a = $st->fetch(PDO::FETCH_OBJ);
+        if (!in_array((int)$a->accountTypeId,[2,3,4],true)) {
+            return "Expense account: '{$a->accountType}' is not an expense, asset or liability account";
+        }
+        if ((int)$a->isBank === 1) {
+            return "Expense account: '{$a->accountType}' is a bank account";
+        }
+        if ($type === 2 && (int)$a->forGroup !== 1) {
+            return "Expense account: '{$a->accountType}' is not available for group expenses";
+        }
+        return null;
+    }
+
+    /** Ledger::PAY_CASH for payment method 1 (cash), Ledger::PAY_BANK for the rest (M-Pesa, cheque, bank). */
+    private function payKind($method)
+    {
+        return (int)$method === self::CASH_METHOD ? Ledger::PAY_CASH : Ledger::PAY_BANK;
+    }
+
+    /** "Paid from" accounts for a payment method (the Ledger lists): [ (object)['ID','Account'], ... ]. */
+    public function GetPaidFromAccounts($method)
+    {
+        $pdo = $this->db->pdo();
+        $kind = $this->payKind($method);
+        $list = Ledger::listPaymentAccounts($pdo,(int)$_SESSION['congId'],$kind);
+        $accountNo = [];
+        if ($kind === Ledger::PAY_BANK && $list) {
+            $ids = array_column($list,'ID');
+            $st = $pdo->prepare('SELECT ID, accountNo FROM tblaccounttypes WHERE ID IN (' . implode(',',array_fill(0,count($ids),'?')) . ')');
+            $st->execute($ids);
+            foreach ($st->fetchAll(PDO::FETCH_OBJ) as $r) {
+                $accountNo[(int)$r->ID] = $r->accountNo;
+            }
+        }
+        $out = [];
+        foreach ($list as $a) {
+            $label = strtoupper($a['accountType']);
+            if ($kind === Ledger::PAY_BANK && trim((string)($accountNo[(int)$a['ID']] ?? '')) !== '') {
+                $label .= '-' . $accountNo[(int)$a['ID']];
+            }
+            $out[] = (object)['ID' => (int)$a['ID'],'Account' => $label];
+        }
+        return $out;
+    }
+
+    /** The paid-from account preselected on a new expense: DEFAULT_PAID_FROM when the list has it, else none. */
+    public function DefaultPaidFrom($list)
+    {
+        foreach ($list as $a) {
+            if ((int)$a->ID === self::DEFAULT_PAID_FROM) {
+                return self::DEFAULT_PAID_FROM;
+            }
+        }
+        return '';
+    }
+
+    /** Groups (type 2) or districts (type 3) of this congregation; none for a church expense. */
+    public function GetCostCentres($type)
+    {
+        return (int)$type === 1 ? [] : $this->GetGroupOrDistrict((int)$type);
     }
 
     public function GetGroupOrDistrict($category)
@@ -86,17 +205,102 @@ class Expense {
                                    AND (congregationId=:cid)
                               ORDER BY cost_center');
             $this->db->bind(':cid',$_SESSION['congId']);
-            return $this->db->resultSet();                 
+            return $this->db->resultSet();
         }else{
             $this->db->query('SELECT ID,ucase(districtName) as cost_center
                               FROM tbldistricts WHERE (deleted=0)
                                AND (congregationId=:cid)
                           ORDER BY cost_center');
             $this->db->bind(':cid',$_SESSION['congId']);
-            return $this->db->resultSet(); 
+            return $this->db->resultSet();
         }
     }
 
+    // -----------------------------------------------------------------
+    // Requisitions
+    // -----------------------------------------------------------------
+
+    /**
+     * 'new' when the requisition's single active group-fund approval entry (type 12) has a debit line on the cash
+     * holding account (the money was moved there), 'old' when it has one such entry without that line, null when
+     * there is no entry or more than one (the expense cannot be classified, so it is refused).
+     */
+    public function requisitionStyle($pdo,$cong,$reqId)
+    {
+        $st = $pdo->prepare('SELECT e.ID, SUM(l.accountId = ? AND l.dc = ?) AS toCashHolding
+                             FROM journal_entries e
+                             LEFT JOIN journal_lines l ON l.journalEntryId = e.ID
+                             WHERE e.congregationId = ? AND e.transactionTypeId = ? AND e.transactionId = ? AND e.deleted = 0
+                             GROUP BY e.ID');
+        $st->execute([self::CASH_HOLDING,Ledger::DEBIT,$cong,self::TYPE_GROUP_APPROVAL,(int)$reqId]);
+        $rows = $st->fetchAll(PDO::FETCH_OBJ);
+        if (count($rows) !== 1) {
+            return null;
+        }
+        return (int)$rows[0]->toCashHolding > 0 ? 'new' : 'old';
+    }
+
+    /**
+     * Requisitions an expense of $type / cost centre can account for: approved, own congregation, matching centre,
+     * balance left (approved amount - approved non-deleted expenses, excluding $expenseId) > 0. The expense's own
+     * requisition is always listed. [ (object)['ID','Label','Style'], ... ]
+     */
+    public function GetRequisitionOptions($type,$centre,$expenseId = 0)
+    {
+        $type = (int)$type;
+        $centre = (int)$centre;
+        if (($type !== 2 && $type !== 3) || $centre <= 0) {
+            return [];
+        }
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
+        $own = 0;
+        if ($expenseId > 0 && ($e = $this->getExpense($expenseId))) {
+            $own = (int)$e->requisitionId;
+        }
+        $st = $pdo->prepare('SELECT r.ID, r.ReqNo, r.AmountApproved,
+                                    r.AmountApproved - COALESCE((SELECT SUM(x.amount) FROM tblexpenses x
+                                          WHERE x.requisitionId = r.ID AND x.deleted = 0 AND x.status = 1 AND x.ID <> ?),0) AS Remaining
+                             FROM tblfundrequisition r
+                             WHERE r.CongregationId = ? AND r.Deleted = 0 AND r.Status = 1 AND '
+                            . ($type === 2 ? 'r.GroupId' : 'r.DistrictId') . ' = ?
+                             ORDER BY r.ID');
+        $st->execute([(int)$expenseId,$cong,$centre]);
+        $out = [];
+        foreach ($st->fetchAll(PDO::FETCH_OBJ) as $r) {
+            if ((float)$r->Remaining <= 0 && (int)$r->ID !== $own) {
+                continue;
+            }
+            $out[] = (object)[
+                'ID' => (int)$r->ID,
+                'Label' => 'Req No ' . $r->ReqNo . ' - ' . number_format((float)$r->AmountApproved,2) . ' (balance ' . number_format((float)$r->Remaining,2) . ')',
+                'Style' => $this->requisitionStyle($pdo,$cong,$r->ID),
+            ];
+        }
+        return $out;
+    }
+
+    /** Old requisition dropdown of the reports (approved amount - spent incl. drafts > 0); unchanged. */
+    function GetGroupBalance($group,$type)
+    {
+        if($type === 2){
+            $sql = 'SELECT r.ID,CONCAT("Req No ",r.ReqNo," - ",FORMAT(r.AmountApproved,2)) AS Formated 
+                FROM `tblfundrequisition` r 
+                WHERE r.GroupId = ? AND r.Status = 1 AND r.Deleted = 0
+                HAVING getrequisitionbalance(r.ID) > 0;';
+        }else{
+            $sql = 'SELECT r.ID,CONCAT("Req No ",r.ReqNo," - ",FORMAT(r.AmountApproved,2)) AS Formated 
+                FROM `tblfundrequisition` r 
+                WHERE r.DistrictId = ? AND r.Status = 1 AND r.Deleted = 0
+                HAVING getrequisitionbalance(r.ID) > 0;';
+        }
+        
+        return loadresultset($this->db->dbh,$sql,[$group]);
+    }
+
+    // -----------------------------------------------------------------
+    // Budget warning (screen only)
+    // -----------------------------------------------------------------
 
     public function CheckOverSpent($data)
     {
@@ -125,7 +329,7 @@ class Expense {
             $budgetedamount = getdbvalue($this->db->dbh,$sql,[$data['aid'],$yearid,$data['gid']]);
 
             $sql2 = 'SELECT getgroupexpensedamount(?,?,?,?) AS amount';
-            $expensedamount = getdbvalue($this->db->dbh,$sql2,[$data['aid'],$data['edate'],$data['gid'],$_SESSION['congid']]);
+            $expensedamount = getdbvalue($this->db->dbh,$sql2,[$data['aid'],$data['edate'],$data['gid'],$_SESSION['congId']]);
         endif;
 
         if(floatval($expensedamount) > floatval($budgetedamount)) return false;
@@ -133,534 +337,584 @@ class Expense {
         return true;
         
     }
-    
-    /**
-     * Computes what the total ledger debit and credit would be for an expense,
-     * mirroring the exact branch logic used by approve_expense() and update() when
-     * they post to the ledger. Returns [$debit, $credit]. saveToBanking() rows are
-     * excluded because they post to tblbankpostings, not tblledger.
-     */
-    private function computeLedgerTotals($p)
-    {
-        $amount = (float)$p['amount'];
-        $debit  = 0;
-        $credit = 0;
 
-        if (!is_null($p['requisitionId'])) {
-            $debit  += $amount; // expense account
-            $credit += $amount; // cash holding account
+    // -----------------------------------------------------------------
+    // Rules shared by every action
+    // -----------------------------------------------------------------
+
+    /**
+     * Server-side role rule, mirroring the buttons of expenses/index.php exactly:
+     *   draft (status 0):    approve / edit / delete  -> userType < 3 or > 4
+     *   approved (status 1): edit / delete / unapprove -> userType < 3
+     * (checkrights('expenses') runs in the controller constructor.) Returns a message or null.
+     */
+    public static function roleProblem($action,$status)
+    {
+        if (!isset($_SESSION['userType'])) {
+            return 'You do not have permission to ' . $action . ' this expense';
+        }
+        $t = (int)$_SESSION['userType'];
+        if ((int)$status === 0) {
+            $ok = in_array($action,['approve','edit','delete'],true) && ($t < 3 || $t > 4);
         } else {
-            if ($p['deductfrom'] == 'petty cash' || $p['deductfrom'] == 'development petty cash' || $p['deductfrom'] == 'cash at hand' || is_null($p['deductfrom']) || is_null($p['requisitionId'])) {
-                $debit += $amount; // expense account
-            }
-            if ($p['paymethod'] == 1 && $p['deductfrom'] === 'petty cash') {
-                $credit += $amount;
-            } elseif ($p['paymethod'] == 1 && $p['deductfrom'] === 'cash at hand') {
-                $credit += $amount;
-            } elseif ($p['paymethod'] == 1 && $p['deductfrom'] === 'cash holding account') {
-                $credit += $amount;
-            } elseif ($p['paymethod'] == 1 && $p['deductfrom'] === 'development petty cash') {
-                $credit += $amount;
-            } elseif ($p['paymethod'] == 2) {
-                $credit += $amount;
-            } elseif ((int)$p['paymethod'] > 2) {
-                $credit += $amount; // cash at bank
-            }
+            $ok = in_array($action,['edit','delete','unapprove'],true) && $t < 3;
         }
-
-        return [$debit, $credit];
+        return $ok ? null : 'You do not have permission to ' . $action . ' ' . ((int)$status === 0 ? 'an unapproved' : 'an approved') . ' expense';
     }
 
     /**
-     * Guards against posting an unbalanced ledger entry. Throws before any mutation
-     * so the caller's catch block rolls back (or, when called pre-transaction, simply
-     * aborts with nothing written).
+     * Checks the values of an expense (from the form, or from the stored row when approving) and returns the clean
+     * values; throws LedgerException with every problem. Run inside the caller's transaction (the requisition row is
+     * locked so two saves cannot overspend it).
+     *
+     * @param object|null $current the stored expense when editing / approving (own ID excluded from the requisition balance)
+     * @param int         $keepAccount an inactive/legacy expense account that may stay (the account the row already uses)
      */
-    private function assertLedgerBalanced($debit, $credit)
+    private function check($pdo,$cong,$in,$current = null,$keepAccount = 0)
     {
-        if (round($debit, 2) !== round($credit, 2)) {
-            throw new \Exception('Unbalanced ledger entry: total debit ('.$debit.') does not equal total credit ('.$credit.')');
+        $errors = [];
+
+        $date = (string)($in['date'] ?? '');
+        $fid = 0;
+        if (!date_is_valid($date)) {
+            $errors[] = 'Enter a valid date';
+        } else {
+            if ($p = Ledger::dateProblem($pdo,$date)) {
+                $errors[] = $p;
+            }
+            if ($current && ($p = Ledger::closedProblem($pdo,(string)$current->expenseDate))) {
+                $errors[] = $p === Ledger::dateProblem($pdo,$date) ? $p : $p . ' (the expense is dated ' . $current->expenseDate . ')';
+            }
+            $fid = $this->yearIdFor($pdo,$date);
+        }
+
+        $amount = trim((string)($in['amount'] ?? ''));
+        if ($err = Ledger::amountError($amount)) {
+            $errors[] = $err;
+        }
+
+        $reference = trim((string)($in['reference'] ?? ''));
+        if ($reference === '') {
+            $errors[] = 'Enter payment reference';
+        } elseif (mb_strlen($reference) > self::REFERENCE_LEN) {
+            $errors[] = 'Payment reference cannot be longer than ' . self::REFERENCE_LEN . ' characters';
+        }
+        $description = trim((string)($in['description'] ?? ''));
+        if ($description === '') {
+            $errors[] = 'Enter brief description on expense';
+        } elseif (mb_strlen($description) > self::NARRATION_LEN) {
+            $errors[] = 'Description cannot be longer than ' . self::NARRATION_LEN . ' characters';
+        }
+
+        $type = (int)($in['expensetype'] ?? 0);
+        $group = null;
+        $district = null;
+        $centre = (int)($in['costcentre'] ?? 0);
+        if (!in_array($type,[1,2,3],true)) {
+            $errors[] = 'Select a valid expense type';
+        } elseif ($type === 2 || $type === 3) {
+            $table = $type === 2 ? 'tblgroups' : 'tbldistricts';
+            $st = $pdo->prepare("SELECT COUNT(*) FROM $table WHERE ID = ? AND congregationId = ? AND deleted = 0");
+            $st->execute([$centre,$cong]);
+            if ($centre <= 0 || (int)$st->fetchColumn() === 0) {
+                $errors[] = 'Select the ' . ($type === 2 ? 'group' : 'district') . ' (cost centre)';
+            } elseif ($type === 2) {
+                $group = $centre;
+            } else {
+                $district = $centre;
+            }
+        }
+
+        $account = (int)($in['account'] ?? 0);
+        if (in_array($type,[1,2,3],true)
+            && ($why = $this->accountProblem($pdo,$cong,$account,$type,$keepAccount > 0 && $account === (int)$keepAccount))) {
+            $errors[] = $why;
+        }
+
+        $method = (int)($in['paymethod'] ?? 0);
+        $st = $pdo->prepare('SELECT COUNT(*) FROM tblpaymentmethods WHERE ID = ?');
+        $st->execute([$method]);
+        $methodOk = $method > 0 && (int)$st->fetchColumn() > 0;
+        if (!$methodOk) {
+            $errors[] = 'Select a valid payment method';
+        }
+
+        $paidFrom = (int)($in['paidfrom'] ?? 0);
+        if ($paidFrom <= 0) {
+            $errors[] = 'Select the account the expense is paid from';
+        } elseif ($methodOk) {
+            try {
+                Ledger::assertPaymentAccount($pdo,$cong,$paidFrom,$this->payKind($method));
+            } catch (LedgerException $e) {
+                $errors = array_merge($errors,$e->getErrors());
+            }
+        }
+        if ($paidFrom > 0 && $paidFrom === $account) {
+            $errors[] = 'The expense account and the paid-from account cannot be the same';
+        }
+
+        $reqId = (int)($in['reqid'] ?? 0);
+        if ($reqId > 0) {
+            $errors = array_merge($errors,$this->requisitionProblems($pdo,$cong,$reqId,$type,$centre,$method,$paidFrom,$amount,$current));
+        } elseif ($paidFrom === self::CASH_HOLDING) {
+            $errors[] = 'The cash holding account can only pay an expense that accounts for an approved requisition: select the requisition';
+        }
+
+        if ($errors) {
+            throw new LedgerException(array_values(array_unique($errors)));
+        }
+
+        return [
+            'date' => $date,
+            'fid' => $fid,
+            'type' => $type,
+            'group' => $group,
+            'district' => $district,
+            'account' => $account,
+            'paymethod' => $method,
+            'paidfrom' => $paidFrom,
+            'reqid' => $reqId > 0 ? $reqId : null,
+            'amount' => number_format((float)$amount,2,'.',''),
+            'reference' => strtolower($reference),
+            'description' => strtolower($description),
+        ];
+    }
+
+    /** Problems of the requisition an expense accounts for (decision 8.5d-4). */
+    private function requisitionProblems($pdo,$cong,$reqId,$type,$centre,$method,$paidFrom,$amount,$current)
+    {
+        $st = $pdo->prepare('SELECT * FROM tblfundrequisition WHERE ID = ? FOR UPDATE');
+        $st->execute([$reqId]);
+        $r = $st->fetch(PDO::FETCH_OBJ);
+        if (!$r || (int)$r->CongregationId !== $cong || (int)$r->Deleted === 1) {
+            return ['Requisition not found for this congregation'];
+        }
+        $no = 'Requisition No ' . $r->ReqNo;
+        if ((int)$r->Status !== 1) {
+            return ["$no is not approved"];
+        }
+        if ($type !== 2 && $type !== 3) {
+            return ['Only group and district expenses can account for a requisition'];
+        }
+        $errors = [];
+        if ($type === 2 ? ((int)$r->GroupId !== $centre) : ((int)$r->DistrictId !== $centre)) {
+            $errors[] = "$no belongs to another " . ($type === 2 ? 'group' : 'district');
+        }
+        if ($method !== self::CASH_METHOD) {
+            $errors[] = 'An expense that accounts for a requisition is paid in cash (from the cash holding account or a cash account)';
+        }
+        $st = $pdo->prepare('SELECT COALESCE(SUM(amount),0) FROM tblexpenses
+                             WHERE requisitionId = ? AND deleted = 0 AND status = 1 AND ID <> ?');
+        $st->execute([$reqId,$current ? (int)$current->ID : 0]);
+        $left = round((float)$r->AmountApproved - (float)$st->fetchColumn(),2);
+        if (is_numeric($amount) && round((float)$amount * 100) > round($left * 100)) {
+            $errors[] = "The amount exceeds the balance of $no (" . number_format($left,2) . ')';
+        }
+        $style = $this->requisitionStyle($pdo,$cong,$reqId);
+        if ($style === null) {
+            $errors[] = "$no has no single approval entry in the ledger, so it cannot be classified";
+        } elseif ($style === 'new' && $paidFrom !== self::CASH_HOLDING) {
+            $errors[] = "$no was funded into the cash holding account: pay it from the cash holding account";
+        }
+        return $errors;
+    }
+
+    /** The stored row as form values, so approve() runs the same checks as a save. */
+    private function valuesOf($e)
+    {
+        return [
+            'date' => $e->expenseDate,
+            'expensetype' => $e->expenseType,
+            'costcentre' => (int)$e->expenseType === 2 ? $e->groupId : ((int)$e->expenseType === 3 ? $e->districtId : 0),
+            'account' => $e->accountId,
+            'paymethod' => $e->paymethodId,
+            'paidfrom' => $e->PaidFromAccountId,
+            'reqid' => $e->requisitionId,
+            'amount' => $e->amount,
+            'reference' => $e->paymentReference,
+            'description' => $e->narration,
+        ];
+    }
+
+    private function fail($pdo,$e)
+    {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        if ($e instanceof LedgerException) {
+            return ['success' => false,'errors' => $e->getErrors()];
+        }
+        error_log($e->getMessage(),0);
+        return ['success' => false,'errors' => []];
+    }
+
+    private function refuse($pdo,$message)
+    {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        return ['success' => false,'errors' => [$message]];
+    }
+
+    /** Own expense, row locked, or null (the caller turns that into a message). */
+    private function lockExpense($pdo,$cong,$id)
+    {
+        if ((int)$id <= 0) {
+            return null;
+        }
+        $st = $pdo->prepare('SELECT * FROM tblexpenses WHERE ID = ? AND congregationId = ? FOR UPDATE');
+        $st->execute([(int)$id,$cong]);
+        $e = $st->fetch(PDO::FETCH_OBJ);
+        return $e ?: null;
+    }
+
+    // -----------------------------------------------------------------
+    // Posting (one place builds the lines)
+    // -----------------------------------------------------------------
+
+    /**
+     * Dr expense account / Cr paid-from account, then the bank rows (a credit of method Withdrawal, kept cleared when
+     * unchanged; none when the paid-from account is not a bank) and the petty cash book row.
+     */
+    private function post($pdo,$cong,$id,$v)
+    {
+        Ledger::post($pdo,[
+            'congregationId' => $cong,
+            'entryDate' => $v['date'],
+            'transactionTypeId' => self::TYPE_EXPENSE,
+            'transactionId' => (int)$id,
+            'reference' => $v['reference'],
+            'description' => $v['description']
+        ],[
+            Ledger::debit($v['account'],$v['amount'],$v['description']),
+            Ledger::credit($v['paidfrom'],$v['amount'],$v['description']),
+        ]);
+        Ledger::syncBankPostings($pdo,$cong,self::TYPE_EXPENSE,(int)$id,self::BANK_METHOD,$v['reference']);
+        $this->syncPettyCash($pdo,$cong,$id,$v);
+    }
+
+    /**
+     * Keeps the petty cash book row of an approved expense in step: one active row (same columns as the 8.5c
+     * backfill) while it is paid from a petty cash account, updated in place; soft-deleted when it no longer is.
+     * Rows are never hard-deleted.
+     */
+    private function syncPettyCash($pdo,$cong,$id,$v)
+    {
+        $st = $pdo->prepare('SELECT ID FROM tblpettycash WHERE ExpenseId = ? AND CongregationId = ? AND Deleted = 0 ORDER BY ID FOR UPDATE');
+        $st->execute([(int)$id,$cong]);
+        $active = array_map('intval',$st->fetchAll(PDO::FETCH_COLUMN));
+
+        if (!Ledger::isPettyCashAccount($v['paidfrom'])) {
+            foreach ($active as $rid) {
+                $pdo->prepare('UPDATE tblpettycash SET Deleted = 1 WHERE ID = ?')->execute([$rid]);
+            }
+            return;
+        }
+
+        $keep = array_shift($active);
+        foreach ($active as $rid) {
+            $pdo->prepare('UPDATE tblpettycash SET Deleted = 1 WHERE ID = ?')->execute([$rid]);
+        }
+        $vals = [
+            ':tdate' => $v['date'],
+            ':credit' => $v['amount'],
+            ':ref' => mb_substr($v['reference'],0,self::REFERENCE_LEN),
+            ':narr' => mb_substr($v['description'],0,150),
+            ':petty' => (int)$v['paidfrom'],
+        ];
+        if ($keep !== null) {
+            $pdo->prepare('UPDATE tblpettycash SET TransactionDate=:tdate, Credit=:credit, Reference=:ref, Narration=:narr, PettyCashAccountId=:petty
+                           WHERE ID = :id')->execute($vals + [':id' => $keep]);
+        } else {
+            $pdo->prepare('INSERT INTO tblpettycash (TransactionDate,Credit,IsReceipt,Reference,Narration,ExpenseId,CongregationId,PettyCashAccountId)
+                           VALUES (:tdate,:credit,0,:ref,:narr,:eid,:cid,:petty)')->execute($vals + [':eid' => (int)$id,':cid' => $cong]);
         }
     }
 
-    public function create($data)
+    // -----------------------------------------------------------------
+    // Actions
+    // -----------------------------------------------------------------
+
+    /**
+     * New draft. $in: date, expensetype, account, costcentre, paymethod, paidfrom, reqid, amount, reference,
+     * description, hasattachment, filename. deductfrom and bankId are legacy: left NULL (both columns are nullable).
+     * Returns ['success','errors','id','voucher'].
+     */
+    public function create($in)
     {
-        //get names
-        $this->db->query('SELECT accountType FROM tblaccounttypes WHERE (ID=:id)');
-        $this->db->bind(':id',$data['account']);
-        $accountname = $this->db->getValue();
-        //
-        $this->db->query('SELECT accountTypeId FROM tblaccounttypes WHERE (ID=:id)');
-        $this->db->bind(':id',$data['account']);
-        $accountid = $this->db->getValue();
-        //
-        $id = getLastId($this->db->dbh,'tblexpenses');
-        $fid = getYearId($this->db->dbh,$data['date']);
-        $today = date('Y-m-d');
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
         try {
-            //begin transaction
-            $this->db->dbh->beginTransaction();
-            $this->db->query('INSERT INTO tblexpenses (ID,fiscalYearId,voucherNo,expenseType,expenseDate,
-                                          accountId,groupId,districtId,paymethodId,deductfrom,bankId,amount,narration,
-                                          paymentReference,`status`,hasAttachment,`fileName`,requisitionId,postedBy,postedDate,congregationId)
-                              VALUES(:id,:fid,:vno,:etype,:edate,:aid,:gid,:did,:pid,:dfrom,:bid,:amount,:narr,:ref,
-                                    :stat,:hasattach,:fname,:reqid,:post,:pdate,:cid)');
-            $this->db->bind(':id',$id);
-            $this->db->bind(':fid',$fid);                        
-            $this->db->bind(':vno',$data['voucher']);                        
-            $this->db->bind(':etype',$data['expensetype']);                        
-            $this->db->bind(':edate',$data['date']);                        
-            $this->db->bind(':aid',$data['account']);                        
-            $this->db->bind(':gid',$data['expensetype'] == 2 ? $data['costcentre'] : NULL); 
-            $this->db->bind(':did',$data['expensetype'] == 3 ? $data['costcentre'] : NULL); 
-            $this->db->bind(':pid',$data['paymethod']);
-            $this->db->bind(':dfrom',!empty($data['deductfrom']) ? $data['deductfrom'] : NULL);
-            $this->db->bind(':bid',$data['bank']);                        
-            $this->db->bind(':amount',$data['amount']);                        
-            $this->db->bind(':narr',strtolower($data['description']));                        
-            $this->db->bind(':ref',strtolower($data['reference']));                        
-            $this->db->bind(':stat',0);
-            $this->db->bind(':hasattach',$data['hasattachment']);   //to add                     
-            $this->db->bind(':fname',$data['hasattachment'] === 1 ? $data['filename'] : NULL);   //to add 
-            $this->db->bind(':reqid', $data['reqid']);    
-            $this->db->bind(':post',$_SESSION['userId']);                        
-            $this->db->bind(':pdate',$today);  
-            $this->db->bind(':cid',$_SESSION['congId']);  
+            $pdo->beginTransaction();
+            $v = $this->check($pdo,$cong,$in);
+            $voucher = Ledger::nextNumber($pdo,$cong,Ledger::SEQ_VOUCHER,$v['fid']);
+
+            $this->db->query('INSERT INTO tblexpenses (fiscalYearId,voucherNo,expenseType,expenseDate,accountId,groupId,districtId,
+                                          paymethodId,PaidFromAccountId,amount,narration,paymentReference,`status`,hasAttachment,`fileName`,
+                                          requisitionId,postedBy,postedDate,congregationId)
+                              VALUES(:fid,:vno,:etype,:edate,:aid,:gid,:did,:pid,:paidfrom,:amount,:narr,:ref,0,:hasattach,:fname,
+                                     :reqid,:post,:pdate,:cid)');
+            $this->db->bind(':fid',$v['fid']);
+            $this->db->bind(':vno',$voucher);
+            $this->db->bind(':etype',$v['type']);
+            $this->db->bind(':edate',$v['date']);
+            $this->db->bind(':aid',$v['account']);
+            $this->db->bind(':gid',$v['group']);
+            $this->db->bind(':did',$v['district']);
+            $this->db->bind(':pid',$v['paymethod']);
+            $this->db->bind(':paidfrom',$v['paidfrom']);
+            $this->db->bind(':amount',$v['amount']);
+            $this->db->bind(':narr',$v['description']);
+            $this->db->bind(':ref',$v['reference']);
+            $this->db->bind(':hasattach',!empty($in['hasattachment']) ? 1 : 0);
+            $this->db->bind(':fname',!empty($in['hasattachment']) ? ($in['filename'] ?? null) : null);
+            $this->db->bind(':reqid',$v['reqid']);
+            $this->db->bind(':post',(int)$_SESSION['userId']);
+            $this->db->bind(':pdate',date('Y-m-d'));
+            $this->db->bind(':cid',$cong);
             $this->db->execute();
+            $id = (int)$pdo->lastInsertId();
 
-
-            $act = 'Created Expense For '.$data['date'];
-            saveLog($this->db->dbh,$act);
-            if ($this->db->dbh->commit()) {
-                return true;
-            }
-            else{
-                return false;
-            }             
+            saveLog($pdo,'Created expense ' . $id . ' for ' . $v['date'] . ' voucher no ' . $voucher);
+            $pdo->commit();
+            return ['success' => true,'errors' => [],'id' => $id,'voucher' => $voucher];
         } catch (\Exception $e) {
-            if ($this->db->dbh->inTransaction()) {
-                $this->db->dbh->rollback();
-            }
-            error_log($e->getMessage(),0);
+            return $this->fail($pdo,$e);
         }
     }
 
-    function approve_expense($data)
+    /**
+     * The voucher number after a save: kept while the expense stays in its fiscal year; when the date moves it into
+     * another year it gets the next number of the NEW year's sequence and the old number is retired (never reused).
+     * Returns [voucherNo, message or null].
+     */
+    private function voucherAfterSave($pdo,$cong,$e,$newYearId)
     {
-
-       try {
-
-            $expense = loadsingleset($this->db->dbh,'SELECT * FROM tblexpenses WHERE ID=?',[(int)$data['id']]);
-
-            list($ledgerDebit, $ledgerCredit) = $this->computeLedgerTotals([
-                'amount'        => $expense->amount,
-                'requisitionId' => $expense->requisitionId,
-                'deductfrom'    => $expense->deductfrom,
-                'paymethod'     => $expense->paymethodId,
-            ]);
-            $this->assertLedgerBalanced($ledgerDebit, $ledgerCredit);
-
-            $this->db->dbh->beginTransaction();
-
-            $this->db->query('UPDATE tblexpenses SET `status` = 1 WHERE (ID=:id)');
-            $this->db->bind(':id',$data['id']);
-            $this->db->execute();
-
-            $this->db->query('SELECT accountType FROM tblaccounttypes WHERE (ID=:id)');
-            $this->db->bind(':id',$expense->accountId);
-            $accountname = $this->db->getValue();
-            //
-            $this->db->query('SELECT accountTypeId FROM tblaccounttypes WHERE (ID=:id)');
-            $this->db->bind(':id',$expense->accountId);
-            $accountid = $this->db->getValue();
-
-            $this->db->query('DELETE FROM tblpettycash WHERE (ExpenseId=:id)');
-            $this->db->bind(':id',$data['id']);
-            $this->db->execute();
-
-            if((int)$expense->paymethodId === 1 && $expense->deductfrom === 'petty cash'){
-                $this->db->query('INSERT INTO tblpettycash (TransactionDate,Credit,IsReceipt,Reference,Narration,ExpenseId,CongregationId)
-                                  VALUES(:tdate,:credit,:isreceipt,:ref,:narr,:eid,:cid)');
-                $this->db->bind(':tdate',date('Y-m-d',strtotime($expense->expenseDate)));
-                $this->db->bind(':credit',$expense->amount);
-                $this->db->bind(':isreceipt',false);
-                $this->db->bind(':ref', !is_null($expense->paymentReference) ? strtolower($expense->paymentReference) : null);
-                $this->db->bind(':narr',!is_null($expense->narration) ? strtolower($expense->narration) : null);
-                $this->db->bind(':eid',$data['id']);
-                $this->db->bind(':cid',$_SESSION['congId']);
-                $this->db->execute();
-            }
-
-            deleteLedgerBanking($this->db->dbh,2,$data['id']);
-
-            $cashparent = getparentgl($this->db->dbh,'cash at bank');
-            $accparent = getparentgl($this->db->dbh,$accountname);
-
-            if(!is_null($expense->requisitionId)){
-                saveToLedger($this->db->dbh,$expense->expenseDate,$accountname,$accparent,$expense->amount,0,$expense->narration,
-                              $accountid,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
-                saveToLedger($this->db->dbh,$expense->expenseDate,'cash holding account',$cashparent,0,$expense->amount,$expense->narration,
-                              3,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
-            }else{
-                if($expense->deductfrom == 'petty cash' || $expense->deductfrom == 'development petty cash' || $expense->deductfrom == 'cash at hand' || is_null($expense->deductfrom) || is_null($expense->requisitionId) ){
-                    saveToLedger($this->db->dbh,$expense->expenseDate,$accountname,$accparent,$expense->amount,0,$expense->narration,
-                                $accountid,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
-                }
-                if($expense->paymethodId == 1 && $expense->deductfrom === 'petty cash'){
-                    saveToLedger($this->db->dbh,$expense->expenseDate,'petty cash',$cashparent,0,$expense->amount,$expense->narration,
-                                    3,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
-                }elseif ($expense->paymethodId == 1 && $expense->deductfrom === 'cash at hand') {
-                    saveToLedger($this->db->dbh,$expense->expenseDate,'cash at hand',$cashparent,0,$expense->amount,$expense->narration,
-                                    3,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
-                }elseif ($expense->paymethodId == 1 && $expense->deductfrom === 'development petty cash') {                    
-                    saveToLedger($this->db->dbh,$expense->expenseDate,'petty cash development',$cashparent,0,$expense->amount,$expense->narration,
-                                    3,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
-                }elseif ($expense->paymethodId == 1 && $expense->deductfrom === 'cash holding account') {
-                    saveToLedger($this->db->dbh,$expense->expenseDate,'cash holding account',$cashparent,0,$expense->amount,$expense->narration,
-                                    3,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
-                }elseif($expense->paymethodId == 2){
-                    saveToLedger($this->db->dbh,$expense->expenseDate,'cash at bank',$cashparent,0,$expense->amount,$expense->narration,
-                                    3,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
-                }elseif ((int)$expense->paymethodId > 2) {
-                    saveToLedger($this->db->dbh,$expense->expenseDate,'cash at bank',$cashparent,0,$expense->amount,$expense->narration,
-                                    3,2,$data['id'],$_SESSION['congId'],$expense->paymentReference);
-                    saveToBanking($this->db->dbh,$expense->bankId,$expense->expenseDate,0,$expense->amount,2,
-                                $expense->paymentReference,2,$data['id'],$_SESSION['congId']);             
-                }
-            }
-
-            $act = 'Approved Expense For '.$data['date'] . ' Voucher No ' .$data['voucher'];
-            saveLog($this->db->dbh,$act);
-
-            if ($this->db->dbh->commit()) {
-                return true;
-            }
-            else{
-                return false;
-            }     
-
-
-        } catch (\Exception $e) {
-            if ($this->db->dbh->inTransaction()) {
-                $this->db->dbh->rollback();
-            }
-            error_log($e->getMessage(),0);
-            return false;
+        if ((int)$e->fiscalYearId === (int)$newYearId) {
+            return [(int)$e->voucherNo,null];
         }
+        $no = Ledger::nextNumber($pdo,$cong,Ledger::SEQ_VOUCHER,(int)$newYearId);
+        $year = getdbvalue($pdo,'SELECT yearName FROM tblfiscalyears WHERE ID=?',[(int)$newYearId]);
+        return [$no,'Voucher renumbered from ' . $e->voucherNo . ' to ' . $no . ' because the date moved to ' . $year];
     }
 
-    public function approve($data)
+    /** Draft -> approved: checks the stored row like a save, posts the entry, bank rows and petty cash row. */
+    public function approve($id)
     {
-        return $this->approve_expense($data);
-    }
-    public function getExpense($id)
-    {
-        $this->db->query('SELECT * FROM tblexpenses WHERE (ID=:id)');
-        $this->db->bind(':id',$id);
-        return $this->db->single();
-    }
-    public function getExpenseFull($id)
-    {
-        $this->db->query('SELECT * FROM vw_expensevoucher_2 WHERE (ID=:id)');
-        $this->db->bind(':id',$id);
-        return $this->db->single();
-    }
- 
-    public function update($data)
-    {
-
-        $fid = getYearId($this->db->dbh,$data['date']);
-        // $expense = loadsingleset($this->db->dbh,'SELECT * FROM tblexpenses WHERE ID=?',[(int)$data['id']]);
-
-        // throw new \Exception('test message');
-        
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
         try {
-
-            if ($data['expense']->status == 1) {
-                list($ledgerDebit, $ledgerCredit) = $this->computeLedgerTotals([
-                    'amount'        => $data['amount'],
-                    'requisitionId' => $data['reqid'],
-                    'deductfrom'    => $data['deductfrom'],
-                    'paymethod'     => $data['paymethod'],
-                ]);
-                $this->assertLedgerBalanced($ledgerDebit, $ledgerCredit);
+            $pdo->beginTransaction();
+            $e = $this->lockExpense($pdo,$cong,$id);
+            if ($e === null) {
+                return $this->refuse($pdo,'Expense not found for this congregation');
             }
-
-            //begin transaction
-            $this->db->dbh->beginTransaction();
-            $this->db->query('UPDATE tblexpenses SET fiscalYearId=:fid,expenseType=:etype,expenseDate
-                                     =:edate,accountId=:aid,groupId=:gid,districtId=:did,paymethodId=:pid,deductfrom=:dfrom,bankId=:bid
-                                     ,amount=:amount,narration=:narr,paymentReference=:ref,requisitionId=:reqid
-                              WHERE (ID=:id)');
-            $this->db->bind(':fid',$fid);                        
-            $this->db->bind(':etype',$data['expensetype']);                        
-            $this->db->bind(':edate',$data['date']);                        
-            $this->db->bind(':aid',$data['account']);                        
-            $this->db->bind(':gid',$data['expensetype'] == 2 ? $data['costcentre'] : NULL); 
-            $this->db->bind(':did',$data['expensetype'] == 3 ? $data['costcentre'] : NULL); 
-            $this->db->bind(':pid',$data['paymethod']);
-            $this->db->bind(':dfrom',!empty($data['deductfrom']) ? $data['deductfrom'] : NULL);
-            $this->db->bind(':bid',$data['bank']);                        
-            $this->db->bind(':amount',$data['amount']);                        
-            $this->db->bind(':narr',strtolower($data['description']));                        
-            $this->db->bind(':ref',strtolower($data['reference']));
-            $this->db->bind(':reqid', $data['reqid']);                          
-            $this->db->bind(':id',$data['id']); 
-            $this->db->execute();
-
-            if($data['expense']->status == 1){
-                $this->db->query('SELECT accountType FROM tblaccounttypes WHERE (ID=:id)');
-                $this->db->bind(':id',$data['account']);
-                $accountname = $this->db->getValue();
-                //
-                $this->db->query('SELECT accountTypeId FROM tblaccounttypes WHERE (ID=:id)');
-                $this->db->bind(':id',$data['account']);
-                $accountid = $this->db->getValue();
-
-                $this->db->query('DELETE FROM tblpettycash WHERE (ExpenseId=:id)');
-                $this->db->bind(':id',$data['id']);
-                $this->db->execute();
-
-                if((int)$data['paymethod'] === 1 && $data['deductfrom'] === 'petty cash'){
-                    $this->db->query('INSERT INTO tblpettycash (TransactionDate,Credit,IsReceipt,Reference,Narration,ExpenseId,CongregationId)
-                                    VALUES(:tdate,:credit,:isreceipt,:ref,:narr,:eid,:cid)');
-                    $this->db->bind(':tdate',date('Y-m-d',strtotime($data['date'])));
-                    $this->db->bind(':credit',$data['amount']);
-                    $this->db->bind(':isreceipt',false);
-                    $this->db->bind(':ref', !is_null($data['reference']) ? strtolower($data['reference']) : null);
-                    $this->db->bind(':narr',!is_null($data['description']) ? strtolower($data['description']) : null);
-                    $this->db->bind(':eid',$data['id']);
-                    $this->db->bind(':cid',$_SESSION['congId']);
-                    $this->db->execute();
-                }
-
-                deleteLedgerBanking($this->db->dbh,2,$data['id']);
-
-                $cashparent = getparentgl($this->db->dbh,'cash at bank');
-                $accparent = getparentgl($this->db->dbh,$accountname);
-
-                if(!is_null($data['reqid'])){
-                    saveToLedger($this->db->dbh,$data['date'],$accountname,$accparent,$data['amount'],0,$data['description'],
-                                $accountid,2,$data['id'],$_SESSION['congId'],$data['reference']);
-                    saveToLedger($this->db->dbh,$data['date'],'cash holding account',$cashparent,0,$data['amount'],$data['description'],
-                                3,2,$data['id'],$_SESSION['congId'],$data['reference']);
-                }else{
-                    if($data['deductfrom'] == 'petty cash' || $data['deductfrom'] == 'development petty cash' || $data['deductfrom'] == 'cash at hand' || is_null($data['deductfrom']) || is_null($data['reqid']) ){
-                        saveToLedger($this->db->dbh,$data['date'],$accountname,$accparent,$data['amount'],0,$data['description'],
-                                    $accountid,2,$data['id'],$_SESSION['congId'],$data['reference']);
-                    }
-                    if($data['paymethod'] == 1 && $data['deductfrom'] === 'petty cash'){
-                        saveToLedger($this->db->dbh,$data['date'],'petty cash',$cashparent,0,$data['amount'],$data['description'],
-                                        3,2,$data['id'],$_SESSION['congId'],$data['reference']);
-                    }elseif ($data['paymethod'] == 1 && $data['deductfrom'] === 'cash at hand') {
-                        saveToLedger($this->db->dbh,$data['date'],'cash at hand',$cashparent,0,$data['amount'],$data['description'],
-                                        3,2,$data['id'],$_SESSION['congId'],$data['reference']);
-                    }elseif ($data['paymethod'] == 1 && $data['deductfrom'] === 'development petty cash') {
-                        saveToLedger($this->db->dbh,$data['date'],'petty cash development',$cashparent,0,$data['amount'],$data['description'],
-                                        3,2,$data['id'],$_SESSION['congId'],$data['reference']);
-                    }elseif ($data['paymethod'] == 1 && $data['deductfrom'] === 'cash holding account') {
-                        saveToLedger($this->db->dbh,$data['date'],'cash holding account',$cashparent,0,$data['amount'],$data['description'],
-                                        3,2,$data['id'],$_SESSION['congId'],$data['reference']);
-                    }elseif($data['paymethod'] == 2){
-                        saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,0,$data['amount'],$data['description'],
-                                        3,2,$data['id'],$_SESSION['congId'],$data['reference']);
-                    }elseif ((int)$data['paymethod'] > 2) {
-                        saveToLedger($this->db->dbh,$data['date'],'cash at bank',$cashparent,0,$data['amount'],$data['description'],
-                                        3,2,$data['id'],$_SESSION['congId'],$data['reference']);
-                        saveToBanking($this->db->dbh,$data['bank'],$data['date'],0,$data['amount'],2,
-                                    $data['reference'],2,$data['id'],$_SESSION['congId']);             
-                    }
-                }
+            if ((int)$e->deleted === 1) {
+                return $this->refuse($pdo,'This expense has been deleted');
             }
-            
-            
-
-            
-
-            $act = 'Updated Expense For '.$data['date'] . ' Voucher No '.$data['voucher'];
-            saveLog($this->db->dbh,$act);
-            if ($this->db->dbh->commit()) {
-                return true;
+            if ((int)$e->status === 1) {
+                return $this->refuse($pdo,'This expense is already approved');
             }
-            else{
-                return false;
-            }    
-
-        } catch (\Exception $e) {
-            if ($this->db->dbh->inTransaction()) {
-                $this->db->dbh->rollback();
+            if ($p = self::roleProblem('approve',0)) {
+                return $this->refuse($pdo,$p);
             }
-            error_log($e->getMessage());
+            $v = $this->check($pdo,$cong,$this->valuesOf($e),$e);
+
+            [$voucher,$note] = $this->voucherAfterSave($pdo,$cong,$e,$v['fid']);
+            $pdo->prepare('UPDATE tblexpenses SET `status` = 1, fiscalYearId = ?, voucherNo = ? WHERE ID = ?')->execute([$v['fid'],$voucher,(int)$e->ID]);
+            $this->post($pdo,$cong,(int)$e->ID,$v);
+
+            saveLog($pdo,'Approved expense ' . (int)$e->ID . ' for ' . $v['date'] . ' voucher no ' . $voucher . ($note ? ' (was ' . $e->voucherNo . ')' : ''));
+            $pdo->commit();
+            return ['success' => true,'errors' => [],'renumbered' => $note];
+        } catch (\Exception $ex) {
+            return $this->fail($pdo,$ex);
         }
     }
-    public function delete($data)
+
+    /**
+     * Edit. Draft: header only. Approved: the entry is replaced in place (bank rows and the petty cash row kept in step).
+     * The voucher number is kept unless the date moves the expense into another fiscal year (then: next number of the new year);
+     * deductfrom and bankId are left untouched.
+     */
+    public function update($id,$in)
     {
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
         try {
-            //begin transaction
-            $this->db->dbh->beginTransaction();
-            $this->db->query('UPDATE tblexpenses SET deleted = 1 WHERE (ID=:id)');
-            $this->db->bind(':id',$data['id']); 
-            $this->db->execute();
-            
-            $this->db->query('UPDATE tblpettycash SET Deleted = 1 WHERE (ExpenseId=:eid)');
-            $this->db->bind(':eid',$data['id']);
-            $this->db->execute();
-                   
-            softdeleteLedgerBanking($this->db->dbh,2,$data['id']);
-
-            $act = 'Deleted Expense For '.$data['date'] . ' Voucher No '.$data['voucher'];
-            saveLog($this->db->dbh,$act);
-            if ($this->db->dbh->commit()) {
-                return true;
+            $pdo->beginTransaction();
+            $e = $this->lockExpense($pdo,$cong,$id);
+            if ($e === null) {
+                return $this->refuse($pdo,'Expense not found for this congregation');
             }
-            else{
-                return false;
-            }             
-        } catch (\Exception $e) {
-            if ($this->db->dbh->inTransaction()) {
-                $this->db->dbh->rollback();
+            if ((int)$e->deleted === 1) {
+                return $this->refuse($pdo,'A deleted expense cannot be edited');
             }
-            error_log($e->getMessage(),0);
+            if ($p = self::roleProblem('edit',(int)$e->status)) {
+                return $this->refuse($pdo,$p);
+            }
+            $v = $this->check($pdo,$cong,$in,$e,(int)$e->accountId);
+
+            [$voucher,$note] = $this->voucherAfterSave($pdo,$cong,$e,$v['fid']);
+            $this->db->query('UPDATE tblexpenses SET fiscalYearId=:fid,voucherNo=:vno,expenseType=:etype,expenseDate=:edate,accountId=:aid,groupId=:gid,
+                                     districtId=:did,paymethodId=:pid,PaidFromAccountId=:paidfrom,amount=:amount,narration=:narr,
+                                     paymentReference=:ref,requisitionId=:reqid
+                              WHERE ID=:id AND congregationId=:cid');
+            $this->db->bind(':fid',$v['fid']);
+            $this->db->bind(':vno',$voucher);
+            $this->db->bind(':etype',$v['type']);
+            $this->db->bind(':edate',$v['date']);
+            $this->db->bind(':aid',$v['account']);
+            $this->db->bind(':gid',$v['group']);
+            $this->db->bind(':did',$v['district']);
+            $this->db->bind(':pid',$v['paymethod']);
+            $this->db->bind(':paidfrom',$v['paidfrom']);
+            $this->db->bind(':amount',$v['amount']);
+            $this->db->bind(':narr',$v['description']);
+            $this->db->bind(':ref',$v['reference']);
+            $this->db->bind(':reqid',$v['reqid']);
+            $this->db->bind(':id',(int)$e->ID);
+            $this->db->bind(':cid',$cong);
+            $this->db->execute();
+
+            if ((int)$e->status === 1) {
+                $this->post($pdo,$cong,(int)$e->ID,$v);
+            }
+
+            saveLog($pdo,'Updated expense ' . (int)$e->ID . ' for ' . $v['date'] . ' voucher no ' . $voucher . ($note ? ' (was ' . $e->voucherNo . ')' : ''));
+            $pdo->commit();
+            return ['success' => true,'errors' => [],'renumbered' => $note];
+        } catch (\Exception $ex) {
+            return $this->fail($pdo,$ex);
         }
     }
 
-    public function YearIsClosed($id) 
+    /** Approved -> draft: voids the entry and bank rows, soft-deletes the petty cash row, in one transaction. */
+    public function unapprove($id)
     {
-        $yearid = getdbvalue($this->db->dbh,'SELECT fiscalYearId FROM tblexpenses WHERE ID = ?',[$id]);
-        return yearprotection($this->db->dbh,$yearid);
-    }
-
-    public function GetRequisitions($group,$type)
-    {
-        if($type === 2){
-            $sql = 'SELECT r.ID,CONCAT("Req No ",r.ReqNo," - ",FORMAT(r.AmountApproved,2)) AS Formated 
-                    FROM `tblfundrequisition` r 
-                    WHERE r.GroupId = ?';
-        }else{
-            $sql = 'SELECT r.ID,CONCAT("Req No ",r.ReqNo," - ",FORMAT(r.AmountApproved,2)) AS Formated 
-                    FROM `tblfundrequisition` r 
-                    WHERE r.DistrictId = ?';
-        }
-        
-        return loadresultset($this->db->dbh,$sql,[$group]);
-    }
-
-    function GetGroupBalance($group,$type)
-    {
-        if($type === 2){
-            $sql = 'SELECT r.ID,CONCAT("Req No ",r.ReqNo," - ",FORMAT(r.AmountApproved,2)) AS Formated 
-                FROM `tblfundrequisition` r 
-                WHERE r.GroupId = ?
-                HAVING getrequisitionbalance(r.ID) > 0;';
-        }else{
-            $sql = 'SELECT r.ID,CONCAT("Req No ",r.ReqNo," - ",FORMAT(r.AmountApproved,2)) AS Formated 
-                FROM `tblfundrequisition` r 
-                WHERE r.DistrictId = ?
-                HAVING getrequisitionbalance(r.ID) > 0;';
-        }
-        
-        return loadresultset($this->db->dbh,$sql,[$group]);
-    }
-
-    public function resetApprovals($data)
-    {
-        
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
         try {
-
-            $this->db->dbh->beginTransaction();
-
-            $year = getdbvalue($this->db->dbh,'SELECT ID FROM tblfiscalyears WHERE ID = ?',[$data['year']]);
-            if(!$year){
-                throw new \Exception('Year not found');
+            $pdo->beginTransaction();
+            $e = $this->lockExpense($pdo,$cong,$id);
+            if ($e === null) {
+                return $this->refuse($pdo,'Expense not found for this congregation');
             }
-
-            $expenseIds = loadresultset($this->db->dbh,'SELECT ID FROM tblexpenses WHERE (fiscalYearId = ?)',[$year]);
-
-            foreach($expenseIds as $exp){
-                $this->db->query('UPDATE tblpettycash SET Deleted = 1 WHERE (ExpenseId=:eid)');
-                $this->db->bind(':eid',$exp->ID);
-                $this->db->execute();
-
-                $this->db->query('UPDATE tblledger SET deleted = 1 WHERE (transactionType=2) AND (transactionId=:eid)');
-                $this->db->bind(':eid',$exp->ID);
-                $this->db->execute();
-
-                $this->db->query('UPDATE tblbankpostings SET deleted = 1 WHERE (transactionType=2) AND (transactionId=:eid)');
-                $this->db->bind(':eid',$exp->ID);
-                $this->db->execute();
-                       
+            if ((int)$e->deleted === 1) {
+                return $this->refuse($pdo,'This expense has been deleted');
             }
-
-            $this->db->query('UPDATE tblexpenses SET `status` = 0 WHERE (fiscalYearId=:id)');
-            $this->db->bind(':id',$year); 
-            $this->db->execute();
-            
-            if ($this->db->dbh->commit()) {
-                return true;
+            if ((int)$e->status !== 1) {
+                return $this->refuse($pdo,'This expense is not approved');
             }
-            else{
-                return false;
-            }     
-
-        } catch (\Exception $e) {
-            if ($this->db->dbh->inTransaction()) {
-                $this->db->dbh->rollback();
+            if ($p = self::roleProblem('unapprove',1)) {
+                return $this->refuse($pdo,$p);
             }
-            error_log($e->getMessage(),0);
+            $this->voidPosting($pdo,$cong,$e);
+            $pdo->prepare('UPDATE tblexpenses SET `status` = 0 WHERE ID = ?')->execute([(int)$e->ID]);
+
+            saveLog($pdo,'Unapproved expense ' . (int)$e->ID . ' for ' . $e->expenseDate . ' voucher no ' . $e->voucherNo);
+            $pdo->commit();
+            return ['success' => true,'errors' => []];
+        } catch (\Exception $ex) {
+            return $this->fail($pdo,$ex);
         }
     }
 
+    /** Draft: deleted = 1. Approved: also voids the entry and bank rows and soft-deletes the petty cash row. */
+    public function delete($id)
+    {
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
+        try {
+            $pdo->beginTransaction();
+            $e = $this->lockExpense($pdo,$cong,$id);
+            if ($e === null) {
+                return $this->refuse($pdo,'Expense not found for this congregation');
+            }
+            if ((int)$e->deleted === 1) {
+                return $this->refuse($pdo,'This expense has already been deleted');
+            }
+            if ($p = self::roleProblem('delete',(int)$e->status)) {
+                return $this->refuse($pdo,$p);
+            }
+            if ((int)$e->status === 1) {
+                $this->voidPosting($pdo,$cong,$e);
+            } elseif ($p = Ledger::closedProblem($pdo,(string)$e->expenseDate)) {
+                throw new LedgerException([$p . ' (the expense is dated ' . $e->expenseDate . ')']);
+            }
+            $pdo->prepare('UPDATE tblexpenses SET deleted = 1 WHERE ID = ?')->execute([(int)$e->ID]);
+
+            saveLog($pdo,'Deleted expense ' . (int)$e->ID . ' for ' . $e->expenseDate . ' voucher no ' . $e->voucherNo);
+            $pdo->commit();
+            return ['success' => true,'errors' => []];
+        } catch (\Exception $ex) {
+            return $this->fail($pdo,$ex);
+        }
+    }
+
+    /** Void the entry (refused in a closed year, even when there is no entry), the bank rows and the petty cash rows (soft). */
+    private function voidPosting($pdo,$cong,$e)
+    {
+        if ($p = Ledger::closedProblem($pdo,(string)$e->expenseDate)) {
+            throw new LedgerException([$p . ' (the expense is dated ' . $e->expenseDate . ')']);
+        }
+        Ledger::void($pdo,$cong,self::TYPE_EXPENSE,(int)$e->ID);
+        Ledger::voidBankPostings($pdo,$cong,self::TYPE_EXPENSE,(int)$e->ID);
+        $pdo->prepare('UPDATE tblpettycash SET Deleted = 1 WHERE ExpenseId = ? AND CongregationId = ? AND Deleted = 0')->execute([(int)$e->ID,$cong]);
+    }
+
+    // -----------------------------------------------------------------
+    // View posting (voucher print and the eye icon)
+    // -----------------------------------------------------------------
+
+    /**
+     * The journal of an own, non-deleted expense for display, or false. Approved: the ledger entry
+     * (Ledger::getEntry). Draft: a two-line preview (Dr expense account / Cr paid-from account, names from the IDs)
+     * whose rows carry notPosted = true. Rows: transactionDate, account, debit, credit, narration, notPosted.
+     */
     public function getJournalDetails($id)
     {
-        $expense = loadsingleset($this->db->dbh,'SELECT * FROM tblexpenses WHERE ID=?',[(int)$id]);
-        $status = (int)$expense->status;
-        if($status == 1){
-            $sql = 'SELECT 
-                    l.ID,
-                    l.transactionDate,
-                    l.account,
-                    l.debit,
-                    l.credit,
-                    l.narration
-                FROM `tblledger` l 
-                WHERE (transactionId = ?) AND (transactionType = ?) AND (l.deleted = 0) AND (l.congregationId=?)';
-            return loadresultset($this->db->dbh,$sql,[(int)$expense->ID,2,(int)$_SESSION['congId']]);
+        $e = $this->getExpense($id);
+        if (!$e || (int)$e->deleted === 1) {
+            return false;
         }
-        $this->db->query('SELECT accountType FROM tblaccounttypes WHERE (ID=:id)');
-        $this->db->bind(':id',$expense->accountId);
-        $accountname = $this->db->getValue();
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
 
-        if(!is_null($expense->requisitionId)){
-                $creditAccount = 'cash holding account';
-        }else{
-            if($expense->paymethodId == 1 && $expense->deductfrom === 'petty cash'){
-                $creditAccount = 'petty cash';
-            }elseif ($expense->paymethodId == 1 && $expense->deductfrom === 'cash at hand') {
-                $creditAccount = 'cash at hand';
-            }elseif ($expense->paymethodId == 1 && $expense->deductfrom === 'cash holding account') {
-                $creditAccount = 'cash holding account';
-            }else{
-                $creditAccount = 'cash at bank';
+        if ((int)$e->status === 1) {
+            $entry = Ledger::getEntry($pdo,$cong,self::TYPE_EXPENSE,(int)$e->ID);
+            if ($entry === null) {
+                return [];
             }
+            $rows = [];
+            foreach ($entry['lines'] as $l) {
+                $rows[] = (object)[
+                    'ID' => (int)$l['lineNumber'],
+                    'transactionDate' => $entry['entryDate'],
+                    'account' => $l['accountName'],
+                    'debit' => $l['dc'] === Ledger::DEBIT ? $l['amount'] : 0,
+                    'credit' => $l['dc'] === Ledger::CREDIT ? $l['amount'] : 0,
+                    'narration' => $l['memo'] ?? $entry['description'],
+                    'notPosted' => false,
+                ];
+            }
+            return $rows;
         }
 
-        return array(
-            (object)array(
-                'ID' => 1,
-                'transactionDate' => $expense->expenseDate,
-                'account' => $accountname,
-                'debit' => $expense->amount,
-                'credit' => 0,
-                'narration' => $expense->narration
-            ),
-            (object)array(
-                'ID' => 2,
-                'transactionDate' => $expense->expenseDate,
-                'account' => $creditAccount,
-                'debit' => 0,
-                'credit' => $expense->amount,
-                'narration' => $expense->narration
-            )
-        );
+        $name = function ($accountId) use ($pdo) {
+            if (!$accountId) {
+                return '(paid-from account not chosen)';
+            }
+            $st = $pdo->prepare('SELECT accountType FROM tblaccounttypes WHERE ID = ?');
+            $st->execute([(int)$accountId]);
+            $n = $st->fetchColumn();
+            return $n === false ? '(unknown account)' : $n;
+        };
+        return [
+            (object)['ID' => 1,'transactionDate' => $e->expenseDate,'account' => $name($e->accountId),'debit' => $e->amount,'credit' => 0,
+                     'narration' => $e->narration,'notPosted' => true],
+            (object)['ID' => 2,'transactionDate' => $e->expenseDate,'account' => $name($e->PaidFromAccountId),'debit' => 0,'credit' => $e->amount,
+                     'narration' => $e->narration,'notPosted' => true],
+        ];
     }
 }

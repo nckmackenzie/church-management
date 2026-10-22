@@ -1,7 +1,7 @@
 <?php
 // 8.4d: the financial year lock as each migrated screen (model) shows it - journals, banks, bank postings, bank
 // transactions, receipts, petty cash receipts (cong 11, dev only). Year 2023-2024 (ID 10) is closed / reopened
-// during the run and always restored; every row the run creates is removed.
+// during the run; every year's flags are restored to what they were at the start; every row the run creates is removed.
 chdir('E:/xampp/htdocs/cms/app');
 require 'boostrap.php';
 foreach (['Journal', 'Bank', 'Bankposting', 'Banktransaction', 'Contribution', 'Cashreceipt'] as $m) { require_once "models/$m.php"; }
@@ -17,9 +17,13 @@ $max = [];
 foreach ($tables as $t => $k) { $max[$t] = (int)$pdo->query("SELECT IFNULL(MAX($k),0) FROM $t")->fetchColumn(); }
 $jseq = $pdo->query('SELECT * FROM journal_number_seq WHERE congregationId = 11')->fetch(PDO::FETCH_ASSOC);
 $seqSnapshot = $pdo->query('SELECT * FROM receipt_number_seq')->fetchAll(PDO::FETCH_ASSOC);
+$yearSnapshot = $pdo->query('SELECT ID, closed, deleted FROM tblfiscalyears ORDER BY ID')->fetchAll(PDO::FETCH_ASSOC);
 
 $pass = 0; $fail = 0;
 function chk($name, $ok, $extra = '') { global $pass, $fail; if ($ok) { $pass++; echo "PASS $name\n"; } else { $fail++; echo "FAIL $name $extra\n"; } }
+/** Put every fiscal year's closed / deleted flags back exactly as they were when the run started. */
+function restoreYears() { global $pdo, $yearSnapshot; $u = $pdo->prepare('UPDATE tblfiscalyears SET closed = ?, deleted = ? WHERE ID = ?'); foreach ($yearSnapshot as $y) { $u->execute([$y['closed'], $y['deleted'], $y['ID']]); } }
+function yearsAreRestored() { global $pdo, $yearSnapshot; return $pdo->query('SELECT ID, closed, deleted FROM tblfiscalyears ORDER BY ID')->fetchAll(PDO::FETCH_ASSOC) == $yearSnapshot; }
 function q($sql, $p = []) { global $pdo; $st = $pdo->prepare($sql); $st->execute($p); return $st->fetchAll(PDO::FETCH_ASSOC); }
 function setYear($closed) { global $pdo; $pdo->prepare('UPDATE tblfiscalyears SET closed=?, deleted=0 WHERE ID=10')->execute([$closed]); }
 function entries($type, $id) { return (int)q('SELECT COUNT(*) c FROM journal_entries WHERE congregationId=11 AND transactionTypeId=? AND transactionId=? AND deleted=0', [$type, $id])[0]['c']; }
@@ -158,7 +162,7 @@ try {
     $fail++; echo "EXCEPTION: " . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine() . "\n";
 }
 
-$pdo->exec('UPDATE tblfiscalyears SET closed=0, deleted=0 WHERE ID=10');   // dev year 2023-2024 is open
+restoreYears();   // year 2023-2024 was closed / reopened during the run: put every year back exactly as it was
 $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
 $pdo->prepare('DELETE FROM journal_lines WHERE journalEntryId > ?')->execute([$max['journal_entries']]);
 foreach ($tables as $t => $k) { $pdo->prepare("DELETE FROM $t WHERE $k > ?")->execute([$max[$t]]); }
@@ -170,5 +174,4 @@ $ins = $pdo->prepare('INSERT INTO receipt_number_seq (congregationId,kind,fiscal
 foreach ($seqSnapshot as $s) { $ins->execute([$s['congregationId'], $s['kind'], $s['fiscalYearId'], $s['lastNo']]); }
 $left = 0;
 foreach ($tables as $t => $k) { $left += (int)$pdo->query("SELECT COUNT(*) FROM $t WHERE $k > {$max[$t]}")->fetchColumn(); }
-$y = $pdo->query('SELECT closed, deleted FROM tblfiscalyears WHERE ID = 10')->fetch(PDO::FETCH_ASSOC);
-echo "\nPASSED $pass FAILED $fail ; leftover rows after cleanup: $left ; year 2023-2024 restored: " . ($y['closed'] == 0 && $y['deleted'] == 0 ? 'yes' : 'NO') . "\n";
+echo "\nPASSED $pass FAILED $fail ; leftover rows after cleanup: $left ; fiscal years restored: " . (yearsAreRestored() ? 'yes' : 'NO') . "\n";

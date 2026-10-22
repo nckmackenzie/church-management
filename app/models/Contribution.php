@@ -552,8 +552,11 @@ class Contribution {
             $p = $this->prepare($pdo,$cong,$data,$used);
             [$desc,$narr] = $this->descriptions($data);
 
-            // the number stays; it only changes when the date moves the receipt into another fiscal year
-            $receiptNo = (int)$hdr->fiscalYearId === $p['yearId']
+            // the number stays; when the date moves the receipt into another fiscal year it gets the next number of the
+            // new year's sequence and the old number is retired (never handed out again)
+            $oldNo = $hdr->receiptNo;
+            $moved = (int)$hdr->fiscalYearId !== $p['yearId'];
+            $receiptNo = !$moved
                 ? $hdr->receiptNo
                 : $this->formatReceiptNo($p['yearId'],Ledger::nextNumber($pdo,$cong,Ledger::SEQ_RECEIPT,$p['yearId']));
             $pdo->prepare('UPDATE tblcontributions_header SET fiscalYearId=?,receiptNo=? WHERE ID=?')->execute([$p['yearId'],$receiptNo,$id]);
@@ -565,9 +568,13 @@ class Contribution {
             $this->saveDetails($pdo,$cong,$id,$data,$p,$narr);
             $this->postReceipt($pdo,$cong,$id,$data,$p,$desc);
 
-            saveLog($pdo,'Updated Contribution For '.$data['date']);
+            saveLog($pdo,'Updated Contribution For '.$data['date'].($moved ? ' (receipt renumbered from '.$oldNo.' to '.$receiptNo.')' : ''));
             $pdo->commit();
-            return ['success' => true,'errors' => [],'id' => $id,'receiptno' => $receiptNo];
+            $res = ['success' => true,'errors' => [],'id' => $id,'receiptno' => $receiptNo];
+            if ($moved) {
+                $res['renumbered'] = 'Receipt renumbered from '.$oldNo.' to '.$receiptNo.' because the date moved to '.getdbvalue($pdo,'SELECT yearName FROM tblfiscalyears WHERE ID=?',[$p['yearId']]);
+            }
+            return $res;
         } catch (\Exception $e) {
             return $this->fail($pdo,$e);
         }
