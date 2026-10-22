@@ -16,7 +16,7 @@ $_SESSION['userType'] = 1;
 $_SESSION['userId'] = (int)$pdo->query('SELECT ID FROM tblusers ORDER BY ID LIMIT 1')->fetchColumn();
 
 $tables = ['tblmmf' => 'ID', 'tblfundrequisition' => 'ID', 'tblexpenses' => 'ID', 'journal_entries' => 'ID', 'journal_lines' => 'ID',
-           'tblledger' => 'ID', 'tblbankpostings' => 'ID', 'tbllogs' => 'ID', 'tblbanksubaccounts' => 'ID'];
+           'tblledger' => 'ID', 'tblbankpostings' => 'ID', 'tbllogs' => 'ID', 'tblbanksubaccounts' => 'ID', 'tblchurchrequisitioncategories' => 'id'];
 $max = [];
 foreach ($tables as $t => $k) { $max[$t] = (int)$pdo->query("SELECT IFNULL(MAX($k),0) FROM $t")->fetchColumn(); }
 $yearSnapshot = $pdo->query('SELECT ID,closed,deleted FROM tblfiscalyears')->fetchAll(PDO::FETCH_ASSOC);
@@ -407,6 +407,42 @@ try {
     chk('delete of an approved requisition changes nothing', (int)req($f1)['Deleted'] === 0);
     $gf->Delete($f9);
     chk('delete of a pending requisition of this congregation ok', (int)req($f9)['Deleted'] === 1);
+
+    // requisition ownership: the group / district / category must belong to the congregation and match the type
+    q("INSERT INTO tblchurchrequisitioncategories (categoryName,congregationId,deleted) VALUES ('t89 foreign category',2,0)"); $foreignCat = (int)$pdo->lastInsertId();
+    $ownCat = (int)q('SELECT id FROM tblchurchrequisitioncategories WHERE congregationId=11 AND deleted=0 LIMIT 1')[0]['id'];
+    $foreignGroup = (int)q('SELECT ID FROM tblgroups WHERE congregationId<>11 AND deleted=0 LIMIT 1')[0]['ID'];
+    $foreignDistrict = (int)q('SELECT ID FROM tbldistricts WHERE congregationId NOT IN (0,11) AND deleted=0 LIMIT 1')[0]['ID'];
+    $nreq = function () { return (int)q('SELECT COUNT(*) c FROM tblfundrequisition')[0]['c']; };
+    $rq = function ($o = []) { return $o + ['isedit' => false, 'id' => '', 'reqdate' => date('Y-m-d'), 'type' => 'group', 'group' => 40, 'reason' => 'ownership test', 'amount' => 100.0, 'dontdeduct' => false]; };
+    $n0 = $nreq();
+    chk('requisition: group of another congregation refused', $gf->CreateUpdate($rq(['group' => $foreignGroup])) === false && $nreq() === $n0);
+    chk('requisition: district of another congregation refused', $gf->CreateUpdate($rq(['type' => 'district', 'group' => $foreignDistrict])) === false && $nreq() === $n0);
+    chk('requisition: church category of another congregation refused', $gf->CreateUpdate($rq(['type' => 'church', 'group' => $foreignCat])) === false && $nreq() === $n0);
+    chk('requisition: the district (shared, congregation 0) is refused too', $gf->CreateUpdate($rq(['type' => 'district', 'group' => (int)q('SELECT ID FROM tbldistricts WHERE congregationId=0 LIMIT 1')[0]['ID']])) === false);
+    chk('requisition: type does not match the owner (a group ID that does not exist as a district of ours)', $gf->CreateUpdate($rq(['type' => 'district', 'group' => $foreignGroup])) === false && $nreq() === $n0);
+    chk('requisition: unknown type / non-existent owner refused', $gf->CreateUpdate($rq(['type' => 'bogus'])) === false && $gf->CreateUpdate($rq(['group' => 99999999])) === false && $gf->OwnerProblem('group', 0) !== null);
+    chk('requisition: own group created', $gf->CreateUpdate($rq()) === true && $nreq() === $n0 + 1);
+    $rid = (int)q('SELECT MAX(ID) m FROM tblfundrequisition')[0]['m'];
+    chk('requisition: own district created', $gf->CreateUpdate($rq(['type' => 'district', 'group' => $D])) === true);
+    chk('requisition: own church category created', $gf->CreateUpdate($rq(['type' => 'church', 'group' => $ownCat])) === true);
+    $cr1 = req($rid);
+    chk('requisition: stored owner columns match the type', (int)$cr1['GroupId'] === 40 && $cr1['DistrictId'] === null && $cr1['ChurchCategoryId'] === null);
+    // edit: ownership checked again, RequestedBy stays
+    $by = (int)$cr1['RequestedBy'];
+    $otherUser = (int)q('SELECT ID FROM tblusers WHERE ID<>? ORDER BY ID LIMIT 1', [$by])[0]['ID'];
+    $_SESSION['userId'] = $otherUser;
+    $okEdit = $gf->CreateUpdate($rq(['isedit' => true, 'id' => $rid, 'group' => 41, 'reason' => 'edited by someone else', 'amount' => 250.0]));
+    $_SESSION['userId'] = $by;
+    $cr2 = req($rid);
+    chk('requisition edit by another user: saved, group and amount changed', $okEdit === true && (int)$cr2['GroupId'] === 41 && (float)$cr2['AmountRequested'] === 250.0);
+    chk('requisition edit keeps the original RequestedBy', (int)$cr2['RequestedBy'] === $by && $otherUser !== $by, $cr2['RequestedBy'] . ' vs ' . $by);
+    chk('requisition edit to a foreign group refused, nothing changed', $gf->CreateUpdate($rq(['isedit' => true, 'id' => $rid, 'group' => $foreignGroup])) === false && (int)req($rid)['GroupId'] === 41);
+    chk('requisition edit changing the type to district with a group ID refused', $gf->CreateUpdate($rq(['isedit' => true, 'id' => $rid, 'type' => 'district', 'group' => 41])) === false && req($rid)['DistrictId'] === null);
+    $_SESSION['congId'] = 12;
+    chk('requisition edit from another congregation refused', $gf->CreateUpdate($rq(['isedit' => true, 'id' => $rid, 'group' => 40])) === false);
+    $_SESSION['congId'] = 11;
+    chk('requisition edit of a missing id refused', $gf->CreateUpdate($rq(['isedit' => true, 'id' => 99999999])) === false);
 } catch (Throwable $e) {
     $fail++;
     echo 'FAIL exception ' . get_class($e) . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine() . "\n";

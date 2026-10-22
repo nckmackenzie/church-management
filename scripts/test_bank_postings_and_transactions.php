@@ -99,6 +99,9 @@ try {
     q('UPDATE tblbankpostings SET cleared=1, clearedDare=? WHERE ID=?', ['2026-01-20', $br[0]['ID']]);
     $r = $bt->CreateUpdate($mk(['id' => $d, 'isedit' => true, 'description' => 'Edited narr', 'type' => 1])); chk('t13 edit narration', $r['success']);
     $br2 = brows(13, $d); chk('t13 narration edit keeps same cleared row', count($br2) == 1 && $br2[0]['ID'] == $br[0]['ID'] && $br2[0]['cleared'] == 1);
+    // 8.9 follow-up: a cleared bank row can no longer be changed (bank / amount) or voided; the test refuses it, then un-clears the row and goes on
+    $r = $bt->CreateUpdate($mk(['id' => $d, 'isedit' => true, 'amount' => 700, 'type' => 1])); chk('t13 edit amount on a cleared row refused', !$r['success'] && stripos(json_encode($r), 'cleared') !== false);
+    q('UPDATE tblbankpostings SET cleared=0, clearedDare=NULL WHERE ID=?', [$br[0]['ID']]);
     $r = $bt->CreateUpdate($mk(['id' => $d, 'isedit' => true, 'amount' => 700, 'type' => 1])); chk('t13 edit amount', $r['success']);
     $br3 = brows(13, $d); chk('t13 amount edit: new uncleared row, old voided', count($br3) == 1 && $br3[0]['ID'] != $br[0]['ID'] && $br3[0]['cleared'] == 0 && $br3[0]['debit'] == 700);
 

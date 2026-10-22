@@ -233,9 +233,14 @@ class Bankposting
         $cong = (int)$_SESSION['congId'];
         try {
             $pdo->beginTransaction();
-            if (!$this->findPosting($id)) {
+            $row = $this->findPosting($id);
+            if (!$row) {
                 $pdo->rollBack();
                 return ['success' => false,'errors' => [self::NOT_MINE]];
+            }
+            if ((int)$row->cleared === 1) {
+                $pdo->rollBack();
+                return ['success' => false,'errors' => ['This bank posting has already been cleared in bank reconciliation' . ($row->clearedDare ? ' (on ' . $row->clearedDare . ')' : '') . ', so it cannot be deleted']];
             }
             $this->db->query('UPDATE tblbankpostings SET deleted=1 WHERE (ID=:id)');
             $this->db->bind(':id',(int)$id);

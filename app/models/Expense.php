@@ -778,6 +778,10 @@ class Expense
             $this->db->execute();
 
             if ((int)$e->status === 1) {
+                // a cleared (reconciled) bank row may stay, but not with another bank or amount
+                if ($p = Ledger::clearedBankProblem($pdo,$cong,self::TYPE_EXPENSE,(int)$e->ID,['bankId' => $v['paidfrom'],'amount' => $v['amount']])) {
+                    throw new LedgerException([$p]);
+                }
                 $this->post($pdo,$cong,(int)$e->ID,$v);
             }
 
@@ -857,6 +861,9 @@ class Expense
     {
         if ($p = Ledger::closedProblem($pdo,(string)$e->expenseDate)) {
             throw new LedgerException([$p . ' (the expense is dated ' . $e->expenseDate . ')']);
+        }
+        if ($p = Ledger::clearedBankProblem($pdo,$cong,self::TYPE_EXPENSE,(int)$e->ID)) {
+            throw new LedgerException([$p]);
         }
         Ledger::void($pdo,$cong,self::TYPE_EXPENSE,(int)$e->ID);
         Ledger::voidBankPostings($pdo,$cong,self::TYPE_EXPENSE,(int)$e->ID);

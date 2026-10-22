@@ -94,13 +94,25 @@ class Groupfund
 
     public function CreateUpdate($data)
     {
+        // the owner must belong to this congregation and match the type; an edit must be of a pending requisition of it
+        $existing = null;
+        if($data['isedit']){
+            $existing = $this->GetRequest((int)$data['id']);
+            if(!$existing || (int)$existing->CongregationId !== (int)$_SESSION['congId'] || (int)$existing->Status !== 0 || (int)$existing->Deleted === 1){
+                return false;
+            }
+        }
+        if($this->OwnerProblem($data['type'],$data['group'],$existing) !== null){
+            return false;
+        }
+
         if(!$data['isedit']){
             $this->db->query('INSERT INTO tblfundrequisition (ReqNo,RequisitionDate,RequestType,DistrictId,GroupId,ChurchCategoryId,Purpose,AmountRequested,RequestedBy,DontDeduct,CongregationId) 
                               VALUES(:reqno,:rdate,:rtype,:did,:gid,:catid,:purpose,:amount,:reqby,:deduct,:cid)');
             $this->db->bind(':reqno',$this->GetReqNo());
         }else{
             // only a pending requisition of this congregation can be edited
-            $this->db->query('UPDATE tblfundrequisition SET RequisitionDate=:rdate,RequestType=:rtype,DistrictId=:did,GroupId=:gid,ChurchCategoryId=:catid,Purpose=:purpose,AmountRequested=:amount,RequestedBy=:reqby,DontDeduct=:deduct
+            $this->db->query('UPDATE tblfundrequisition SET RequisitionDate=:rdate,RequestType=:rtype,DistrictId=:did,GroupId=:gid,ChurchCategoryId=:catid,Purpose=:purpose,AmountRequested=:amount,DontDeduct=:deduct
                               WHERE (ID = :id) AND (CongregationId = :cid) AND (`Status` = 0) AND (Deleted = 0)');
         }
         $this->db->bind(':rdate',!empty($data['reqdate']) ? $data['reqdate'] : null);
@@ -122,7 +134,10 @@ class Groupfund
         // $this->db->bind(':gid',$data['type'] === 'group' ? $data['group'] : null);
         $this->db->bind(':purpose',!empty($data['reason']) ? strtolower($data['reason']) : null);
         $this->db->bind(':amount',!empty($data['amount']) ? $data['amount'] : null);
-        $this->db->bind(':reqby',$_SESSION['userId']);
+        if(!$data['isedit']){
+            // the requester stays the original one when someone else edits the requisition
+            $this->db->bind(':reqby',$_SESSION['userId']);
+        }
         $this->db->bind(':deduct',$data['dontdeduct']);
         if($data['isedit']){
             $this->db->bind(':id',(int)$data['id']);
@@ -132,6 +147,31 @@ class Groupfund
             return false;
         }
         return true;
+    }
+
+    /**
+     * Why the group / district / church category cannot be the requisition's owner (it must exist, be undeleted and belong to
+     * the session congregation, and match the request type), or null. $existing = the stored row of an edit: its own group
+     * may be inactive.
+     */
+    public function OwnerProblem($type,$id,$existing = null)
+    {
+        $cong = (int)$_SESSION['congId'];
+        $id = (int)$id;
+        if($type === 'group'){
+            $keep = $existing && $existing->RequestType === 'group' ? (int)$existing->GroupId : 0;
+            $n = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tblgroups WHERE ID = ? AND congregationId = ? AND deleted = 0 AND (active = 1 OR ID = ?)',[$id,$cong,$keep]);
+            return (int)$n > 0 ? null : 'Select a valid group of this congregation';
+        }
+        if($type === 'district'){
+            $n = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tbldistricts WHERE ID = ? AND congregationId = ? AND deleted = 0',[$id,$cong]);
+            return (int)$n > 0 ? null : 'Select a valid district of this congregation';
+        }
+        if($type === 'church'){
+            $n = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tblchurchrequisitioncategories WHERE id = ? AND congregationId = ? AND deleted = 0',[$id,$cong]);
+            return (int)$n > 0 ? null : 'Select a valid church category of this congregation';
+        }
+        return 'Select a valid request type (group, district or church)';
     }
 
     public function GetGroupCongregation($gid)

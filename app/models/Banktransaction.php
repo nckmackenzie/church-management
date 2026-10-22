@@ -142,6 +142,7 @@ class Banktransaction
         $narr = !empty($data['description']) ? strtolower($data['description']) : 'bank transaction reference ' .$data['reference'];
 
         $bank = Ledger::assertPaymentAccount($pdo,$cong,(int)$bank,Ledger::PAY_BANK);
+        $bankLines = [['bankId' => $bank,'amount' => $amount]];   // for the cleared-row check on edit
         if ($type === 1 || $type === 2) {
             $cash = Ledger::assertPaymentAccount($pdo,$cong,(int)$data['cashaccount'],Ledger::PAY_CASH);
             $lines = $type === 1
@@ -154,11 +155,18 @@ class Banktransaction
             }
             $isbank = (int)getdbvalue($pdo,'SELECT isBank FROM tblaccounttypes WHERE ID = ?',[$to]) === 1;
             $to = Ledger::assertPaymentAccount($pdo,$cong,$to,$isbank ? Ledger::PAY_BANK : Ledger::PAY_CASH);
+            if ($isbank) {
+                $bankLines[] = ['bankId' => $to,'amount' => $amount];
+            }
             $lines = [Ledger::debit($to,$amount,$narr),Ledger::credit($bank,$amount,$narr)];
         } else {
             throw new LedgerException(['Unsupported bank transaction type']);
         }
 
+        // a cleared (reconciled) bank row may stay, but not with another bank or amount
+        if ($p = Ledger::clearedBankProblem($pdo,$cong,13,(int)$tid,$bankLines)) {
+            throw new LedgerException([$p]);
+        }
         Ledger::post($pdo,[
             'congregationId' => $cong,
             'entryDate' => $data['date'],
@@ -423,6 +431,9 @@ class Banktransaction
 
             if($data['issubtxn']){
                 // sub-account transfers post nothing to the ledger; drop any earlier entry
+                if ($p = Ledger::clearedBankProblem($pdo,$cong,13,(int)$data['id'])) {
+                    throw new LedgerException([$p]);
+                }
                 Ledger::void($pdo,$cong,13,(int)$data['id']);
                 Ledger::voidBankPostings($pdo,$cong,13,(int)$data['id']);
             }else{
@@ -466,6 +477,11 @@ class Banktransaction
             if($owner === false || $owner === null || (int)$owner !== $cong){
                 $pdo->rollBack();
                 return ['success' => false,'errors' => ['Transaction not found for this congregation']];
+            }
+
+            if ($p = Ledger::clearedBankProblem($pdo,$cong,13,(int)$id)) {
+                $pdo->rollBack();
+                return ['success' => false,'errors' => [$p]];
             }
 
             $this->db->query('UPDATE tblbanktransactions SET Deleted = 1

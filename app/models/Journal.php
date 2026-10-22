@@ -84,6 +84,19 @@ class Journal {
                 throw new LedgerException($errors);
             }
 
+            if($data['isedit']){
+                // a cleared (reconciled) bank row may stay, but not with another bank or amount
+                $keep = [];
+                foreach ($lines as $l) {
+                    if((int)getdbvalue($pdo,'SELECT isBank FROM tblaccounttypes WHERE ID = ?',[$l['accountId']]) === 1){
+                        $keep[] = ['bankId' => $l['accountId'],'amount' => $l['amount']];
+                    }
+                }
+                if($problem = Ledger::clearedBankProblem($pdo,$cong,5,$no,$keep)){
+                    throw new LedgerException([$problem]);
+                }
+            }
+
             Ledger::post($pdo,[
                 'congregationId' => $cong,
                 'entryDate' => $data['date'],
@@ -126,6 +139,9 @@ class Journal {
         $cong = (int)$_SESSION['congId'];
         try {
             $pdo->beginTransaction();
+            if($problem = Ledger::clearedBankProblem($pdo,$cong,5,(int)$id)){
+                throw new LedgerException([$problem]);
+            }
             if(!Ledger::void($pdo,$cong,5,(int)$id)){
                 $pdo->rollBack();
                 return ['success' => false,'errors' => ['Journal no '.(int)$id.' was not found or is already deleted']];

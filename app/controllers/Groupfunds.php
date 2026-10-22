@@ -93,6 +93,7 @@ class Groupfunds extends Controller
             ];
 
             // an edit must be of a pending requisition of this congregation
+            $existing = null;
             if($data['isedit']){
                 $existing = $this->fundmodel->GetRequest((int)$data['id']);
                 if(!$existing){
@@ -110,6 +111,10 @@ class Groupfunds extends Controller
             if(empty($data['reqdate']) || empty($data['group']) || empty($data['amount'])
                || empty($data['reason'])){
                $data['errmsg'] = 'Fill all required fields';
+            }elseif(!is_numeric($data['amount']) || $data['amount'] <= 0){
+               $data['errmsg'] = 'Enter a valid amount';
+            }elseif($problem = $this->fundmodel->OwnerProblem($data['type'],$data['group'],$existing)){
+               $data['errmsg'] = $problem;
             }
 
             // AUDIT-FLAG [LEDGER AUDIT / tblledger]: Over-request validation DISABLED on 2026-10-20 at the user's request.

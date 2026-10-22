@@ -551,17 +551,21 @@ class Ledger
 
     /**
      * Why the bank rows of a source may not be voided or changed: an active row is already cleared (reconciled).
-     * $keep = ['bankId' => ID, 'amount' => number] lets an edit through when the cleared row stays as it is
-     * (same bank, same amount; only its date or reference may change). Returns a message or null.
+     * $keep = ['bankId' => ID, 'amount' => number], or a list of such pairs (a transfer between two banks has two rows),
+     * lets an edit through when each cleared row stays as it is (same bank, same amount; only its date or reference may
+     * change). Returns a message or null.
      */
     public static function clearedBankProblem(PDO $db, int $cong, int $type, int $txn, ?array $keep = null): ?string
     {
         $st = $db->prepare('SELECT bankId, debit, credit, clearedDare FROM tblbankpostings
                             WHERE congregationId = ? AND transactionType = ? AND transactionId = ? AND deleted = 0 AND cleared = 1');
         $st->execute([$cong, $type, $txn]);
+        if ($keep !== null && isset($keep['bankId'])) { $keep = [$keep]; }
         foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
             $amount = max((float) $r['debit'], (float) $r['credit']);
-            if ($keep !== null && (int) $r['bankId'] === (int) $keep['bankId'] && abs($amount - (float) $keep['amount']) < 0.005) { continue; }
+            foreach ((array) $keep as $k) {
+                if ((int) $r['bankId'] === (int) $k['bankId'] && abs($amount - (float) $k['amount']) < 0.005) { continue 2; }
+            }
             return 'The bank posting of this transaction has already been cleared in bank reconciliation'
                  . ($r['clearedDare'] ? ' (on ' . $r['clearedDare'] . ')' : '') . ', so it cannot be ' . ($keep === null ? 'voided' : 'changed (bank or amount)');
         }

@@ -469,6 +469,11 @@ class Contribution {
                 return ['success' => false,'errors' => [$problem]];
             }
 
+            if ($problem = Ledger::clearedBankProblem($pdo,$cong,1,$id)) {
+                $pdo->rollBack();
+                return ['success' => false,'errors' => [$problem]];
+            }
+
             $pdo->prepare('UPDATE tblcontributions_header SET Deleted=1 WHERE ID=?')->execute([$id]);
             Ledger::void($pdo,$cong,1,$id);
             Ledger::voidBankPostings($pdo,$cong,1,$id);
@@ -551,6 +556,11 @@ class Contribution {
             }
             $p = $this->prepare($pdo,$cong,$data,$used);
             [$desc,$narr] = $this->descriptions($data);
+            // a cleared (reconciled) bank row may stay, but not with another bank or total
+            if ($problem = Ledger::clearedBankProblem($pdo,$cong,1,$id,['bankId' => $p['receiving'],'amount' => $p['total']])) {
+                $pdo->rollBack();
+                return ['success' => false,'errors' => [$problem]];
+            }
 
             // the number stays; when the date moves the receipt into another fiscal year it gets the next number of the
             // new year's sequence and the old number is retired (never handed out again)
