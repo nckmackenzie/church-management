@@ -246,7 +246,14 @@ class Groupfunds extends Controller
     public function approvefunds()
     {
         if($_SERVER['REQUEST_METHOD'] === 'POST'){
+            checkrights($this->authmodel,'fund approval');
             $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
+            $request = $this->fundmodel->GetRequest(isset($_POST['id']) ? (int)$_POST['id'] : 0);
+            if(!$request){
+                redirect('users/deniedaccess');
+                exit;
+            }
+            checkcenter($request->CongregationId);
             $data = [
                 'title' => 'Approve requisition',
                 'paymethods' => $this->fundmodel->PayMethods(),
@@ -292,6 +299,16 @@ class Groupfunds extends Controller
             }
 
             $approval = $this->fundmodel->Approve($data);
+            if(is_array($approval)){
+                if($approval['final']){
+                    flash('approval_msg',$approval['error'],'alert custom-danger alert-dismissible fade show');
+                    redirect('groupfunds/approvals');
+                    exit;
+                }
+                $data['errmsg'] = $approval['error'];
+                $this->view('groupfunds/approve',$data);
+                exit;
+            }
             if(!$approval){
                 $data['errmsg'] = 'Unable to save this approval. Contact admin for help';
                 $this->view('groupfunds/approve',$data);

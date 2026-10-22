@@ -160,39 +160,99 @@ class Groupfund
         }
     }
 
+    /**
+     * Hotfix: only the requisition's stored row decides group / district, type, DontDeduct, purpose and the
+     * requested amount; the form supplies only id, approved amount, pay date, reference and bank.
+     * Returns true (or the requester's contact) on success, ['error' => message, 'final' => bool] when refused
+     * ('final' = the requisition itself cannot be approved, not a form problem) or false when the commit fails.
+     */
     public function Approve($data)
     {
         $reference = !empty($data['reference']) ? strtolower($data['reference']) : null;
+        $dbh = $this->db->dbh;
         try {
-            $this->db->dbh->beginTransaction();
-            $desc = strtolower($data['group']) .' funds request approval';
+            $dbh->beginTransaction();
 
-            $this->db->query('UPDATE tblfundrequisition 
-                                SET AmountApproved = :app,ApprovalDate=:appdate,ApprovedBy = :appby,`Status` = 1
-                              WHERE (ID = :id)');
-            $this->db->bind(':app',!empty($data['approved']) ? $data['approved'] : null);
-            $this->db->bind(':appdate',date('Y-m-d'));
-            $this->db->bind(':appby',(int)$_SESSION['userId']);
-            $this->db->bind(':id',$data['id']);
-            $this->db->execute();
+            $st = $dbh->prepare('SELECT * FROM tblfundrequisition WHERE ID = ? AND CongregationId = ? FOR UPDATE');
+            $st->execute([(int)$data['id'],(int)$_SESSION['congId']]);
+            $req = $st->fetch(PDO::FETCH_OBJ);
+            if(!$req || (int)$req->Deleted !== 0){
+                return $this->refuseApproval('Requisition not found',true);
+            }
+            if((int)$req->Status !== 0){
+                return $this->refuseApproval('This requisition has already been '.((int)$req->Status === 1 ? 'approved' : 'rejected').'. Nothing was posted',true);
+            }
 
-            if(!$data['dontdeduct']){
+            $approved = $data['approved'];
+            if(!is_numeric($approved) || (float)$approved <= 0 || round((float)$approved,2) !== (float)$approved){
+                return $this->refuseApproval('Enter a valid amount to approve (greater than zero, at most 2 decimals)');
+            }
+            $approved = (float)$approved;
+            if($approved > (float)$req->AmountRequested){
+                return $this->refuseApproval('Payment amount greater than amount requested');
+            }
+
+            $paydate = DateTime::createFromFormat('!Y-m-d',(string)$data['paydate']);
+            if(!$paydate || $paydate->format('Y-m-d') !== $data['paydate']){
+                return $this->refuseApproval('Select a valid payment date');
+            }
+            if($data['paydate'] > date('Y-m-d')){
+                return $this->refuseApproval('Payment date cannot be in the future');
+            }
+
+            $bank = !empty($data['bank']) ? (int)$data['bank'] : null;
+            if(!is_null($bank)){
+                $st = $dbh->prepare('SELECT COUNT(*) FROM tblaccounttypes WHERE ID = ? AND isBank = 1 AND Deleted = 0 AND congregationId = ?');
+                $st->execute([$bank,(int)$_SESSION['congId']]);
+                if((int)$st->fetchColumn() === 0){
+                    return $this->refuseApproval('Select a valid bank');
+                }
+            }
+
+            $type = $req->RequestType;
+            $dontdeduct = (int)$req->DontDeduct === 1;
+            if($type === 'group'){
+                $groupid = $req->GroupId;
+                $groupname = getdbvalue($dbh,'SELECT groupName FROM tblgroups WHERE ID = ?',[$req->GroupId]);
+            }elseif($type === 'district'){
+                $groupid = $req->DistrictId;
+                $groupname = getdbvalue($dbh,'SELECT districtName FROM tbldistricts WHERE ID = ?',[$req->DistrictId]);
+            }else{
+                $groupid = null;
+                $groupname = getdbvalue($dbh,'SELECT categoryName FROM tblchurchrequisitioncategories WHERE id = ?',[$req->ChurchCategoryId]);
+            }
+            $desc = strtolower((string)$groupname) .' funds request approval';
+            $narration = mb_substr(strtoupper((string)$req->Purpose),0,150);
+
+            $st = $dbh->prepare('UPDATE tblfundrequisition
+                                    SET AmountApproved = ?,ApprovalDate = ?,ApprovedBy = ?,`Status` = 1
+                                  WHERE (ID = ?) AND (CongregationId = ?) AND (`Status` = 0)');
+            $st->execute([$approved,date('Y-m-d'),(int)$_SESSION['userId'],(int)$req->ID,(int)$_SESSION['congId']]);
+            if($st->rowCount() !== 1){
+                return $this->refuseApproval('This requisition has already been approved. Nothing was posted',true);
+            }
+
+            $data['id'] = (int)$req->ID;
+            $data['approved'] = $approved;
+            $data['paydate'] = $paydate->format('Y-m-d');
+
+            if(!$dontdeduct){
                 $this->db->query('INSERT INTO tblmmf (TransactionDate,Type,DistrictId,GroupId,Credit,BankId,Reference,Narration,TransactionType,TransactionId,
                 CongregationId) VALUES(:tdate,:type,:did,:gid,:credit,:bid,:reference,:narr,:ttype,:tid,:cid)');
-                $this->db->bind(':tdate',!empty($data['paydate']) ? $data['paydate'] : null);
-                $this->db->bind(':type',$data['type']);
-                $this->db->bind(':did', $data['type'] === 'district' ? $data['groupid'] : null);
-                $this->db->bind(':gid', $data['type'] === 'group' ? $data['groupid'] : null);
-                $this->db->bind(':credit',!empty($data['approved']) ? floatval($data['approved']) : null);
-                $this->db->bind(':bid',!empty($data['bank']) ? $data['bank'] : null);
+                $this->db->bind(':tdate',$data['paydate']);
+                $this->db->bind(':type',$type);
+                $this->db->bind(':did', $type === 'district' ? $groupid : null);
+                $this->db->bind(':gid', $type === 'group' ? $groupid : null);
+                $this->db->bind(':credit',$approved);
+                $this->db->bind(':bid',$bank);
                 $this->db->bind(':reference',$reference);
-                $this->db->bind(':narr',$data['reason']);
+                $this->db->bind(':narr',$narration);
                 $this->db->bind(':ttype',12);
                 $this->db->bind(':tid',$data['id']);
                 $this->db->bind(':cid',$_SESSION['congId']);
                 $this->db->execute();
             }
-           
+
             $cashparent = getparentgl($this->db->dbh,'cash at hand');
             saveToLedger($this->db->dbh,$data['paydate'],'cash holding account',$cashparent,$data['approved'],0,$desc,
                                                 3,12,$data['id'],$_SESSION['congId'],$reference);
@@ -232,23 +292,37 @@ class Groupfund
 
             if(!$this->db->dbh->commit()){
                 return false;
-            }else{
-                // return true;
-                $requestedby = getdbvalue($this->db->dbh,'SELECT RequestedBy FROM tblfundrequisition WHERE ID=?',[(int)$data['id']]);
-                if(is_null($requestedby)) return true;
-
-                $contact = getdbvalue($this->db->dbh,'SELECT contact FROM tblusers WHERE ID=?',[(int)$requestedby]);
-                return $contact;
             }
 
         } catch (Exception $e) {
             if($this->db->dbh->inTransaction()){
                 $this->db->dbh->rollback();
             }
-           error_log($e->getMessage(),0);
+            error_log($e->getMessage(),0);
+            return ['error' => 'Unable to save this approval, nothing was posted. Contact admin for help','final' => false];
+        }
+
+        // committed: a failure below must never be reported as a failed approval (a retry would be refused anyway)
+        try {
+            $requestedby = getdbvalue($this->db->dbh,'SELECT RequestedBy FROM tblfundrequisition WHERE ID=?',[(int)$data['id']]);
+            if(is_null($requestedby)) return true;
+
+            $contact = getdbvalue($this->db->dbh,'SELECT contact FROM tblusers WHERE ID=?',[(int)$requestedby]);
+            return $contact ? $contact : true;
+        } catch (Exception $e) {
+            error_log($e->getMessage(),0);
+            return true;
         }
     }
-    
+
+    private function refuseApproval($message,$final = false)
+    {
+        if($this->db->dbh->inTransaction()){
+            $this->db->dbh->rollback();
+        }
+        return ['error' => $message,'final' => $final];
+    }
+
     public function Reverse($id)
     {
         try {

@@ -11,6 +11,8 @@ const paymentDateInput = document.getElementById('paydate');
 const paymethodSelect = document.getElementById('paymethod');
 const bankSelect = document.getElementById('bank');
 const form = document.querySelector('form');
+const submitButton = form.querySelector('button[type="submit"]');
+let submitting = false;
 
 function getBalance() {
   if (parseInt(deductInput.value) === 1) {
@@ -54,6 +56,9 @@ form.addEventListener('submit', function (e) {
     return;
   }
 
+  if (submitting) return; //already submitted: a second click must not post again
+  submitting = true;
+  submitButton.disabled = true;
   form.submit(); //submit form
 });
 

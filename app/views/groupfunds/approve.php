@@ -163,6 +163,6 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/approve-v2.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/approve-v3.js"></script>
 </body>
 </html>  
