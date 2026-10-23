@@ -12,9 +12,7 @@ class Pledge
 
     private function labelled(array $rows): array
     {
-        $all=[];
-        foreach($this->db->dbh->query('SELECT ID,parentId,accountType FROM tblaccounttypes')->fetchAll(PDO::FETCH_ASSOC) as $r){$all[(int)$r['ID']]=$r;}
-        foreach($rows as &$r){$id=(int)(is_array($r)?$r['ID']:$r->ID);$parts=[];$seen=[];while(isset($all[$id])&&!isset($seen[$id])&&count($parts)<30){$seen[$id]=1;array_unshift($parts,strtoupper($all[$id]['accountType']));$id=(int)$all[$id]['parentId'];}$label=implode(' > ',$parts);if(is_array($r)){$r=(object)['ID'=>(int)$r['ID'],'accountType'=>$r['accountType'],'label'=>$label];}else{$r->label=$label;}}
+        foreach($rows as &$r){$name=is_array($r)?$r['accountType']:$r->accountType;$label=strtoupper($name);if(is_array($r)){$r=(object)['ID'=>(int)$r['ID'],'accountType'=>$name,'label'=>$label];}else{$r->label=$label;}}
         unset($r); return $rows;
     }
     public function getCashAccounts(): array { return $this->labelled(Ledger::listPaymentAccounts($this->db->dbh,(int)$_SESSION['congId'],Ledger::PAY_CASH)); }
