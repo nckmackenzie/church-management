@@ -19,7 +19,7 @@ class Invoicereport
         $sql = 'SELECT h.invoiceNo
                 FROM tblinvoice_header_suppliers h
                 WHERE (h.congregationId = ?) AND (h.deleted = 0) AND 
-                    h.ID IN (SELECT DISTINCT invoice_Id FROM tblinvoice_payments_suppliers)
+                    h.ID IN (SELECT DISTINCT invoice_Id FROM tblinvoice_payments_suppliers WHERE Deleted = 0)
                 ORDER By invoiceNo';
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
@@ -47,8 +47,8 @@ class Invoicereport
                     UCASE(s.supplierName) As supplierName
                 FROM tblinvoice_header_suppliers h join tblsuppliers s on h.supplierId = s.ID
                 WHERE (h.congregationId = ?) AND (h.deleted = 0) AND 
-                    h.ID IN (SELECT DISTINCT invoice_Id FROM tblinvoice_payments_suppliers)
-                ORDER By invoiceNo';
+                    h.ID IN (SELECT DISTINCT invoice_Id FROM tblinvoice_payments_suppliers WHERE Deleted = 0)
+                ORDER By supplierName';
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
 

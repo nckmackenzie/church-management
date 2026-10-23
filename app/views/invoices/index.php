@@ -1,40 +1,12 @@
 <?php require APPROOT . '/views/inc/header.php';?>
 <?php require APPROOT . '/views/inc/topNav.php';?>
 <?php require APPROOT . '/views/inc/sideNav.php';?>
-<!-- Modal -->
-<div class="modal fade" id="deleteModalCenter" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="exampleModalLongTitle">Delete Invoice</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-          <form action="<?php echo URLROOT;?>/invoices/delete" method="post">
-              <div class="row">
-                <div class="col-md-9">
-                  <label for="">Are You Sure You Want To Delete Selected Invoice?</label>
-                  <input type="hidden" name="id" id="id">
-                </div>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                <button type="submit" class="btn btn-danger">Yes</button>
-              </div>
-          </form>
-      </div>
-     
-    </div>
-  </div>
-</div>
   <!-- Content Wrapper. Contains page content -->
   <div class="content-wrapper">
     <!-- Content Header (Page header) -->
     <section class="content-header">
       <div class="container-fluid">
-        
+        <?php flash('invoice_msg');?>
         <div class="row mb-2">
           <div class="col-sm-6">
             <a href="<?php echo URLROOT;?>/invoices/add" class="btn btn-sm btn-success custom-font">Add New</a>
@@ -56,54 +28,37 @@
                 <th>Actions</th>
             </thead>
             <tbody>
+                <?php $type = (int)$_SESSION['userType']; $fullRights = ($type <= 2 || $type > 4); ?>
                 <?php foreach($data['invoices'] as $invoice) :?>
+                    <?php
+                        $canEdit = $fullRights || ((int)$invoice->postedBy === (int)$_SESSION['userId'] && (int)$invoice->status === 0);
+                        $id = encryptId($invoice->ID);
+                    ?>
                     <tr>
-                        <td><?php echo $invoice->ID;?></td>
-                        <td><?php echo $invoice->invoiceDate;?></td>
-                        <td><?php echo $invoice->invoiceNo;?></td>
-                        <td><?php echo $invoice->customer;?></td>
-                        <td><?php echo $invoice->duedate;?></td>
+                        <td><?php echo (int)$invoice->ID;?></td>
+                        <td><?php echo htmlspecialchars((string)$invoice->invoiceDate,ENT_QUOTES,'UTF-8');?></td>
+                        <td><?php echo htmlspecialchars((string)$invoice->invoiceNo,ENT_QUOTES,'UTF-8');?></td>
+                        <td><?php echo htmlspecialchars((string)$invoice->customer,ENT_QUOTES,'UTF-8');?></td>
+                        <td><?php echo htmlspecialchars((string)$invoice->duedate,ENT_QUOTES,'UTF-8');?></td>
                         <td><?php echo number_format($invoice->balance,2);?></td>
-                       
                         <?php if($invoice->status == 0) : ?>
-                            <td class="text-danger"><?php echo $invoice->state; ?></td>
+                            <td class="text-danger"><?php echo htmlspecialchars((string)$invoice->state,ENT_QUOTES,'UTF-8'); ?></td>
                         <?php elseif($invoice->status == 2) : ?>
-                            <td class="text-success"><?php echo $invoice->state; ?></td>
+                            <td class="text-success"><?php echo htmlspecialchars((string)$invoice->state,ENT_QUOTES,'UTF-8'); ?></td>
                         <?php else : ?>
-                            <td class="text-warning"><?php echo $invoice->state; ?></td>    
+                            <td class="text-warning"><?php echo htmlspecialchars((string)$invoice->state,ENT_QUOTES,'UTF-8'); ?></td>
                         <?php endif; ?>
-                        <?php if($_SESSION['userType'] <=2 || (int)$_SESSION['userType'] > 4) : ?>
-                            <td>
-                                <div class="btn-group">
-                                    <?php if($invoice->status == 0) : ?>
-                                        <a href="<?php echo URLROOT;?>/invoices/edit/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm bg-olive custom-font">Edit</a> 
-                                        <a href="<?php echo URLROOT;?>/invoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>
-                                        <button class="btn btn-danger btn-sm custom-font btndel">Delete</button>
-                                    <?php elseif($invoice->status == 1) : ?>
-                                        <a href="<?php echo URLROOT;?>/invoices/pay/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-dark custom-font">Pay</a> 
-                                        <a href="<?php echo URLROOT;?>/invoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>
-                                    <?php else : ?>
-                                        <a href="<?php echo URLROOT;?>/invoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>    
-                                    <?php endif; ?>
-                                </div>
-                            </td>
-                        <?php elseif($_SESSION['userType'] <=5) : ?>
-                          <td>
+                        <td>
                             <div class="btn-group">
-                                <?php if($invoice->status == 0) : ?>
-                                    <!-- Allow edit if created by logged user -->
-                                    <?php if($invoice->postedBy == $_SESSION['userId']) : ?>
-                                      <a href="<?php echo URLROOT;?>/invoices/edit/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm bg-olive custom-font">Edit</a>
-                                    <?php endif; ?>
-                                    <a href="<?php echo URLROOT;?>/invoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>
-                                <?php elseif($invoice->status == 1) : ?>
-                                    <a href="<?php echo URLROOT;?>/invoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>
-                                <?php else : ?>
-                                    <a href="<?php echo URLROOT;?>/invoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a> 
+                                <?php if($canEdit) : ?>
+                                    <a href="<?php echo URLROOT;?>/invoices/edit/<?php echo $id;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
                                 <?php endif; ?>
+                                <?php if($invoice->status < 2) : ?>
+                                    <a href="<?php echo URLROOT;?>/invoices/pay/<?php echo $id;?>" class="btn btn-sm btn-dark custom-font">Pay</a>
+                                <?php endif; ?>
+                                <a href="<?php echo URLROOT;?>/invoices/print/<?php echo $id;?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>
                             </div>
-                          </td>
-                        <?php endif; ?>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -125,16 +80,6 @@
             {"width" : "10%" , "targets": 6},
             {"width" : "20%" , "targets": 7},
           ]
-      });
-
-      $('#invoicesTable').on('click','.btndel',function(){
-          $('#deleteModalCenter').modal('show');
-          $tr = $(this).closest('tr');
-
-          let data = $tr.children('td').map(function(){
-              return $(this).text();
-          }).get();
-          $('#id').val(data[0]);
       });
     });
 </script>

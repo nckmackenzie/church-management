@@ -74,6 +74,8 @@ class Products extends Controller
             }
             if(empty($data['glaccount']) && !$data['isedit']){
                 $data['glaccount_err'] = 'Select G/L account';
+            }elseif(!$data['isedit'] && ($problem = $this->productmodel->AccountProblem($data['glaccount'])) !== null){
+                $data['glaccount_err'] = $problem;
             }
 
             if(!empty($data['productname_err']) || !empty($data['rate_err']) || !empty($data['glaccount_err'])){

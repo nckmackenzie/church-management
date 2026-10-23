@@ -161,7 +161,7 @@
                                 <div class="col-md-2">
                                     <div class="form-group">
                                         <label for="invoiceno">Invoice #</label>
-                                        <input type="text" class="form-control form-control-sm mandatory" name="invoiceno" id="invoiceno" maxlength="9" inputmode="numeric" value="<?php echo $e($data['invoiceno']);?>">
+                                        <input type="text" class="form-control form-control-sm mandatory" name="invoiceno" id="invoiceno" maxlength="50" value="<?php echo $e($data['invoiceno']);?>">
                                         <span class="invalid-feedback"></span>
                                     </div>
                                 </div>

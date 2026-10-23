@@ -15,13 +15,7 @@
 class Supplierinvoice
 {
     const TYPE_INVOICE = 6;
-    /** the only VAT rate the invoice maths has ever supported (calculateVat() in url_helper.php) */
-    const VAT_RATE = 16;
     const MAX_LINES = 200;
-    /** largest invoice total in cents (DECIMAL(18,2) holds far more; this keeps every product below in integer range) */
-    const MAX_CENTS = 9999999999999;
-    /** root account types a line may be debited to: expense, asset (non-bank) */
-    const LINE_TYPES = [2, 3];
 
     private $db;
 
@@ -95,29 +89,14 @@ class Supplierinvoice
      */
     public function lineAccounts(): array
     {
-        $cong = (int)$_SESSION['congId'];
-        $st = $this->db->dbh->prepare('SELECT ID FROM tblaccounttypes
-                                       WHERE deleted = 0 AND active = 1 AND isBank = 0 AND accountTypeId IN (' . implode(',',self::LINE_TYPES) . ')
-                                         AND congregationId IN (0,?)');
-        $st->execute([$cong]);
-        $ids = Ledger::filterPostingAccounts($this->db->dbh,$cong,array_map('intval',$st->fetchAll(PDO::FETCH_COLUMN)));
-        if (!$ids) { return []; }
-        $st = $this->db->dbh->prepare('SELECT ID, UCASE(accountType) AS accountType FROM tblaccounttypes WHERE ID IN (' . implode(',',array_fill(0,count($ids),'?')) . ') ORDER BY accountType');
-        $st->execute($ids);
-        return $st->fetchAll(PDO::FETCH_ASSOC);
+        return array_map(function($a){ return ['ID' => $a['ID'],'accountType' => strtoupper($a['accountType'])]; },
+            Ledger::listLineAccounts($this->db->dbh,(int)$_SESSION['congId'],Ledger::SUPPLIER_LINE_TYPES));
     }
 
-    /** Why $accountId may not be a line's debit account, or null. */
+    /** Why $accountId may not be a line's debit account, or null (the rule behind lineAccounts()). */
     public function lineAccountProblem(int $accountId, bool $allowInactive = false): ?string
     {
-        $pdo = $this->db->dbh;
-        if (($why = Ledger::postingProblem($pdo,$accountId,(int)$_SESSION['congId'],$allowInactive)) !== null) { return $why; }
-        $st = $pdo->prepare('SELECT accountType, accountTypeId, isBank FROM tblaccounttypes WHERE ID = ?');
-        $st->execute([$accountId]);
-        $a = $st->fetch(PDO::FETCH_ASSOC);
-        if ((int)$a['isBank'] === 1) { return "'{$a['accountType']}' is a bank account"; }
-        if (!in_array((int)$a['accountTypeId'],self::LINE_TYPES,true)) { return "'{$a['accountType']}' is not an expense or asset account"; }
-        return null;
+        return Ledger::lineAccountProblem($this->db->dbh,(int)$_SESSION['congId'],$accountId,Ledger::SUPPLIER_LINE_TYPES,$allowInactive);
     }
 
     // -----------------------------------------------------------------
@@ -177,7 +156,7 @@ class Supplierinvoice
         $desc = trim((string)($data['description'] ?? ''));
         if (strlen($desc) > 255) { $errors[] = 'Description cannot be longer than 255 characters'; }
         if (($e = Ledger::amountError($data['rate'] ?? '','Rate')) !== null) { $errors[] = $e; }
-        elseif (self::cents(trim((string)$data['rate'])) > self::MAX_CENTS) { $errors[] = 'Rate is too large'; }
+        elseif (InvoiceMath::cents(trim((string)$data['rate'])) > InvoiceMath::MAX_CENTS) { $errors[] = 'Rate is too large'; }
         $account = (string)($data['account'] ?? '');
         if (!ctype_digit($account) || (int)$account <= 0) { $errors[] = 'Select the G/L account'; }
         elseif (($why = $this->lineAccountProblem((int)$account)) !== null) { $errors[] = "G/L account: $why"; }
@@ -189,48 +168,12 @@ class Supplierinvoice
         if ($errors) { return ['success' => false,'errors' => $errors]; }
         try {
             $st = $pdo->prepare('INSERT INTO tblproducts (productName,`description`,rate,accountId,congregationId) VALUES(?,?,?,?,?)');
-            $st->execute([$name,$desc !== '' ? strtolower($desc) : null,self::money(self::cents(trim((string)$data['rate']))),(int)$account,(int)$_SESSION['congId']]);
+            $st->execute([$name,$desc !== '' ? strtolower($desc) : null,InvoiceMath::money(InvoiceMath::cents(trim((string)$data['rate']))),(int)$account,(int)$_SESSION['congId']]);
             return ['success' => true,'id' => (int)$pdo->lastInsertId()];
         } catch (Throwable $e) {
             error_log($e->getMessage());
             return ['success' => false,'errors' => ['Unable to save the product. Retry or contact admin']];
         }
-    }
-
-    // -----------------------------------------------------------------
-    // Money helpers (integer cents; no float ever reaches the ledger)
-    // -----------------------------------------------------------------
-
-    /** '12.5' -> 1250. Only for strings already accepted by Ledger::amountError(). */
-    private static function cents(string $s): int
-    {
-        $parts = explode('.',$s,2);
-        return ((int)$parts[0]) * 100 + (int)str_pad(substr($parts[1] ?? '',0,2),2,'0');
-    }
-
-    private static function money(int $cents): string
-    {
-        return number_format($cents / 100,2,'.','');
-    }
-
-    /** A posted value as a trimmed string, or null when it is not a scalar (an array / object posted by hand). */
-    private static function scalar($v): ?string
-    {
-        return is_scalar($v) || $v === null ? trim((string)$v) : null;
-    }
-
-    /** [exclusive, vat, inclusive] cents of one line gross for a VAT type (see the class comment). */
-    private static function lineVat(int $vattype, int $gross): array
-    {
-        if ($vattype === 2) {
-            $vat = intdiv($gross * self::VAT_RATE * 2 + (100 + self::VAT_RATE),2 * (100 + self::VAT_RATE));
-            return [$gross - $vat,$vat,$gross];
-        }
-        if ($vattype === 3) {
-            $vat = intdiv($gross * self::VAT_RATE * 2 + 100,200);
-            return [$gross,$vat,$gross + $vat];
-        }
-        return [$gross,0,$gross];
     }
 
     // -----------------------------------------------------------------
@@ -275,14 +218,15 @@ class Supplierinvoice
             if ($in['vattype'] > 1) {
                 $vatRow = $this->getVatId($in['vat']);
                 if (!$vatRow) { $errors[] = 'Select a valid VAT'; }
-                elseif ((float)$in['vat'] != self::VAT_RATE) { $errors[] = 'Only the ' . self::VAT_RATE . '% VAT rate is supported'; }
+                elseif ((float)$in['vat'] != InvoiceMath::VAT_RATE) { $errors[] = 'Only the ' . InvoiceMath::VAT_RATE . '% VAT rate is supported'; }
                 else { $vatId = (int)$vatRow; }
             }
 
+            // unique per supplier among the non-deleted invoices (case-insensitive: the column collation); a deleted invoice's number is free again
             $st = $pdo->prepare('SELECT COUNT(*) FROM tblinvoice_header_suppliers
-                                 WHERE invoiceNo = ? AND congregationId = ? AND ID <> ? AND deleted = 0');
-            $st->execute([(int)$in['invoiceno'],$cong,$old ? (int)$old['ID'] : 0]);
-            if ((int)$st->fetchColumn() > 0) { $errors[] = 'Invoice no already exists'; }
+                                 WHERE invoiceNo = ? AND supplierId = ? AND congregationId = ? AND ID <> ? AND deleted = 0');
+            $st->execute([$in['invoiceno'],$in['supplier'],$cong,$old ? (int)$old['ID'] : 0]);
+            if ((int)$st->fetchColumn() > 0) { $errors[] = 'Invoice no already exists for this supplier'; }
 
             // crediting account: the stored one may stay even if it was deactivated since
             $keepPayable = $old && (int)$old['PayableAccountId'] === $in['payable'];
@@ -295,7 +239,7 @@ class Supplierinvoice
 
             $exc = $vat = $inc = 0;
             foreach ($lines as $l) { $exc += $l['exc']; $vat += $l['vat']; $inc += $l['inc']; }
-            if ($inc <= 0 || $inc > self::MAX_CENTS) { throw new LedgerException(['The invoice total is out of range']); }
+            if ($inc <= 0 || $inc > InvoiceMath::MAX_CENTS) { throw new LedgerException(['The invoice total is out of range']); }
 
             // decision 82: once any active payment exists only the due date and the invoice number may change
             if ($old) {
@@ -316,16 +260,16 @@ class Supplierinvoice
                                SET invoiceDate = ?, duedate = ?, supplierId = ?, invoiceNo = ?, fiscalYearId = ?, vattype = ?, vatId = ?,
                                    PayableAccountId = ?, exclusiveVat = ?, vat = ?, inclusiveVat = ?, `status` = ?
                                WHERE ID = ? AND congregationId = ?')
-                    ->execute([$in['idate'],$in['ddate'],$in['supplier'],(int)$in['invoiceno'],(int)$year['ID'],$in['vattype'],$vatId,
-                               $in['payable'],self::money($exc),self::money($vat),self::money($inc),$status,(int)$old['ID'],$cong]);
+                    ->execute([$in['idate'],$in['ddate'],$in['supplier'],$in['invoiceno'],(int)$year['ID'],$in['vattype'],$vatId,
+                               $in['payable'],InvoiceMath::money($exc),InvoiceMath::money($vat),InvoiceMath::money($inc),$status,(int)$old['ID'],$cong]);
                 $id = (int)$old['ID'];
                 $pdo->prepare('DELETE FROM tblinvoice_details_suppliers WHERE header_id = ?')->execute([$id]);
             } else {
                 $pdo->prepare('INSERT INTO tblinvoice_header_suppliers (invoiceDate,duedate,supplierId,invoiceNo,fiscalYearId,vattype,vatId,
                                                                         PayableAccountId,exclusiveVat,vat,inclusiveVat,postedBy,congregationId)
                                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)')
-                    ->execute([$in['idate'],$in['ddate'],$in['supplier'],(int)$in['invoiceno'],(int)$year['ID'],$in['vattype'],$vatId,
-                               $in['payable'],self::money($exc),self::money($vat),self::money($inc),(int)$_SESSION['userId'],$cong]);
+                    ->execute([$in['idate'],$in['ddate'],$in['supplier'],$in['invoiceno'],(int)$year['ID'],$in['vattype'],$vatId,
+                               $in['payable'],InvoiceMath::money($exc),InvoiceMath::money($vat),InvoiceMath::money($inc),(int)$_SESSION['userId'],$cong]);
                 $id = (int)$pdo->lastInsertId();
             }
 
@@ -333,8 +277,8 @@ class Supplierinvoice
             $debits = [];
             $narr = 'supplier invoice no ' . $in['invoiceno'];
             foreach ($lines as $l) {
-                $ins->execute([$id,$l['pid'],$l['account'],self::money($l['qty']),self::money($l['rate']),self::money($l['gross'])]);
-                $debits[] = Ledger::debit($l['account'],self::money($l['inc']),$narr);
+                $ins->execute([$id,$l['pid'],$l['account'],InvoiceMath::money($l['qty']),InvoiceMath::money($l['rate']),InvoiceMath::money($l['gross'])]);
+                $debits[] = Ledger::debit($l['account'],InvoiceMath::money($l['inc']),$narr);
             }
             $credit = 'Invoice #' . $in['invoiceno'];
             Ledger::post($pdo,[
@@ -344,7 +288,7 @@ class Supplierinvoice
                 'transactionId' => $id,
                 'reference' => 'supplier invoice-' . $in['invoiceno'],
                 'description' => $credit,
-            ],array_merge($debits,[Ledger::credit($in['payable'],self::money($inc),$credit)]));
+            ],array_merge($debits,[Ledger::credit($in['payable'],InvoiceMath::money($inc),$credit)]));
             // no bank line can exist on this entry (the accounts are expense / asset posting accounts and a payable); defensive
             Ledger::syncBankPostings($pdo,$cong,self::TYPE_INVOICE,$id,'Withdrawal');
 
@@ -366,29 +310,29 @@ class Supplierinvoice
     {
         $errors = [];
         $isedit = !empty($d['isedit']);
-        $id = self::scalar($d['id'] ?? '');
+        $id = InvoiceMath::scalar($d['id'] ?? '');
         if ($isedit && ($id === null || !ctype_digit($id) || (int)$id <= 0)) { $errors[] = 'Invoice not found for this congregation'; }
 
-        $supplier = self::scalar($d['supplier'] ?? '');
+        $supplier = InvoiceMath::scalar($d['supplier'] ?? '');
         if ($supplier === null || !ctype_digit($supplier) || (int)$supplier <= 0) { $errors[] = 'Select supplier'; }
 
-        $idate = self::scalar($d['idate'] ?? '');
+        $idate = InvoiceMath::scalar($d['idate'] ?? '');
         if ($idate === null || !date_is_valid($idate)) { $errors[] = 'Enter a valid invoice date'; $idate = null; }
         elseif ($idate > date('Y-m-d')) { $errors[] = 'Invoice date cannot be a future date'; }
-        $ddate = self::scalar($d['ddate'] ?? '');
+        $ddate = InvoiceMath::scalar($d['ddate'] ?? '');
         if ($ddate === null || !date_is_valid($ddate)) { $errors[] = 'Enter a valid due date'; $ddate = null; }
         elseif ($idate !== null && $idate > $ddate) { $errors[] = 'Invoice date cannot be greater than due date'; }
 
-        $vattype = self::scalar($d['vattype'] ?? '');
+        $vattype = InvoiceMath::scalar($d['vattype'] ?? '');
         if (!in_array($vattype,['1','2','3'],true)) { $errors[] = 'Select the VAT type'; $vattype = '1'; }
-        $vat = self::scalar($d['vat'] ?? '');
+        $vat = InvoiceMath::scalar($d['vat'] ?? '');
         if ((int)$vattype > 1 && ($vat === null || !is_numeric($vat))) { $errors[] = 'Select vat'; }
 
-        $invoiceno = self::scalar($d['invoiceno'] ?? '');
+        $invoiceno = InvoiceMath::scalar($d['invoiceno'] ?? '');
         if ($invoiceno === null || $invoiceno === '') { $errors[] = 'Enter the invoice no'; }
-        elseif (!ctype_digit($invoiceno) || (int)$invoiceno <= 0 || strlen($invoiceno) > 9) { $errors[] = 'Invoice no must be a number (up to 9 digits)'; }
+        elseif (!preg_match('/^[A-Za-z0-9 \\-\\/.]{1,50}$/',$invoiceno)) { $errors[] = 'Invoice no must be 1 to 50 characters: letters, digits, spaces and - / .'; }
 
-        $payable = self::scalar($d['payable'] ?? '');
+        $payable = InvoiceMath::scalar($d['payable'] ?? '');
         if ($payable === null || !ctype_digit($payable) || (int)$payable <= 0) { $errors[] = 'Select the crediting account'; $payable = '0'; }
 
         $table = $d['table'] ?? null;
@@ -398,14 +342,14 @@ class Supplierinvoice
         foreach (array_values($table) as $i => $row) {
             $n = $i + 1;
             $row = (array)$row;
-            $pid = self::scalar($row['pid'] ?? '');
-            $qty = self::scalar($row['qty'] ?? '');
-            $rate = self::scalar($row['rate'] ?? '');
+            $pid = InvoiceMath::scalar($row['pid'] ?? '');
+            $qty = InvoiceMath::scalar($row['qty'] ?? '');
+            $rate = InvoiceMath::scalar($row['rate'] ?? '');
             if ($pid === null || !ctype_digit($pid) || (int)$pid <= 0) { $errors[] = "Line $n: select a product"; }
             if (($e = Ledger::amountError($qty,"Line $n: quantity")) !== null) { $errors[] = $e; }
-            elseif (self::cents($qty) > 100000000) { $errors[] = "Line $n: quantity is too large"; }
+            elseif (InvoiceMath::cents($qty) > 100000000) { $errors[] = "Line $n: quantity is too large"; }
             if (($e = Ledger::amountError($rate,"Line $n: rate")) !== null) { $errors[] = $e; }
-            elseif (self::cents($rate) > self::MAX_CENTS) { $errors[] = "Line $n: rate is too large"; }
+            elseif (InvoiceMath::cents($rate) > InvoiceMath::MAX_CENTS) { $errors[] = "Line $n: rate is too large"; }
             $rows[] = ['pid' => $pid,'qty' => $qty,'rate' => $rate];
         }
         if ($errors) { throw new LedgerException(array_values(array_unique($errors))); }
@@ -432,12 +376,12 @@ class Supplierinvoice
             $st = $pdo->prepare('SELECT ID, productName, accountId FROM tblproducts WHERE ID = ? AND congregationId = ? AND deleted = 0');
             $st->execute([(int)$row['pid'],$cong]);
             $product = $st->fetch(PDO::FETCH_ASSOC);
-            $qty = self::cents($row['qty']);
-            $rate = self::cents($row['rate']);
+            $qty = InvoiceMath::cents($row['qty']);
+            $rate = InvoiceMath::cents($row['rate']);
 
             $account = null;
             foreach ($unused as $k => $o) {
-                if ((int)$o['productId'] === (int)$row['pid'] && self::cents($o['qty']) === $qty && self::cents($o['rate']) === $rate && $o['AccountId'] !== null) {
+                if ((int)$o['productId'] === (int)$row['pid'] && InvoiceMath::cents($o['qty']) === $qty && InvoiceMath::cents($o['rate']) === $rate && $o['AccountId'] !== null) {
                     $account = (int)$o['AccountId'];
                     $keep = true;
                     unset($unused[$k]);
@@ -455,11 +399,11 @@ class Supplierinvoice
                 continue;
             }
 
-            $gross = intdiv($qty * $rate + 50,100);
+            $gross = InvoiceMath::gross($qty,$rate);
             if ($gross <= 0) { $errors[] = "Line $n: the line amount must be at least 0.01"; continue; }
             $total += $gross;
-            if ($total > self::MAX_CENTS) { $errors[] = 'The invoice total is out of range'; break; }
-            [$exc,$vat,$inc] = self::lineVat($in['vattype'],$gross);
+            if ($total > InvoiceMath::MAX_CENTS) { $errors[] = 'The invoice total is out of range'; break; }
+            [$exc,$vat,$inc] = InvoiceMath::lineVat($in['vattype'],$gross);
             $out[] = ['pid' => (int)$row['pid'],'account' => $account,'qty' => $qty,'rate' => $rate,'gross' => $gross,'exc' => $exc,'vat' => $vat,'inc' => $inc];
         }
         return $out;
@@ -472,17 +416,17 @@ class Supplierinvoice
         if ((int)$old['supplierId'] !== $in['supplier']) { return 'supplier'; }
         if ($old['PayableAccountId'] === null || (int)$old['PayableAccountId'] !== $in['payable']) { return 'crediting account'; }
         if ((int)$old['vattype'] !== $in['vattype'] || ($old['vatId'] === null ? null : (int)$old['vatId']) !== $vatId) { return 'VAT'; }
-        $a = array_map(function($l){ return $l['productId'] . '|' . $l['AccountId'] . '|' . self::cents($l['qty']) . '|' . self::cents($l['rate']); },$oldLines);
+        $a = array_map(function($l){ return $l['productId'] . '|' . $l['AccountId'] . '|' . InvoiceMath::cents($l['qty']) . '|' . InvoiceMath::cents($l['rate']); },$oldLines);
         $b = array_map(function($l){ return $l['pid'] . '|' . $l['account'] . '|' . $l['qty'] . '|' . $l['rate']; },$lines);
         sort($a); sort($b);
         if ($a !== $b) {
             // the accounts are compared apart so the message names what changed
-            $pa = array_map(function($l){ return $l['productId'] . '|' . self::cents($l['qty']) . '|' . self::cents($l['rate']); },$oldLines);
+            $pa = array_map(function($l){ return $l['productId'] . '|' . InvoiceMath::cents($l['qty']) . '|' . InvoiceMath::cents($l['rate']); },$oldLines);
             $pb = array_map(function($l){ return $l['pid'] . '|' . $l['qty'] . '|' . $l['rate']; },$lines);
             sort($pa); sort($pb);
             return $pa === $pb ? 'line accounts' : 'lines';
         }
-        if (self::cents((string)$old['inclusiveVat']) !== $inc) { return 'total'; }
+        if (InvoiceMath::cents((string)$old['inclusiveVat']) !== $inc) { return 'total'; }
         return null;
     }
 
@@ -519,7 +463,7 @@ class Supplierinvoice
         $st = $this->db->dbh->prepare('SELECT COUNT(*), COALESCE(SUM(amount),0) FROM tblinvoice_payments_suppliers WHERE invoice_Id = ? AND Deleted = 0');
         $st->execute([$headerId]);
         $r = $st->fetch(PDO::FETCH_NUM);
-        return ['count' => (int)$r[0],'cents' => self::cents(number_format((float)$r[1],2,'.',''))];
+        return ['count' => (int)$r[0],'cents' => InvoiceMath::cents(number_format((float)$r[1],2,'.',''))];
     }
 
     /** Who may do what (the buttons of supplierinvoices/index.php): types 3 and 4 edit only their own unpaid invoices and never delete. */

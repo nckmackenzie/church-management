@@ -197,7 +197,8 @@ try {
         ['date with no financial year', ['idate' => $noYear, 'ddate' => $today], 'financial year'], ['slash date', ['idate' => '01/02/2026'], 'date'], ['due before invoice', ['ddate' => '2000-01-01'], 'due date'], ['bad due date', ['ddate' => 'x'], 'due date'],
         ['vat type 9', ['vattype' => 9], 'vat'], ['vat type missing', ['vattype' => ''], 'vat'], ['vat missing for inclusive', ['vattype' => 2, 'vat' => ''], 'vat'], ['vat rate not in the table', ['vattype' => 3, 'vat' => '17'], 'vat'],
         ['vat 14% (inactive row)', ['vattype' => 3, 'vat' => '14'], 'vat'],
-        ['invoice no text', ['invoiceno' => 'INV-1'], 'invoice no'], ['invoice no empty', ['invoiceno' => ''], 'invoice no'], ['invoice no zero', ['invoiceno' => '0'], 'invoice no'], ['invoice no 10 digits', ['invoiceno' => '1234567890'], 'invoice no'],
+        ['invoice no with markup', ['invoiceno' => '<b>1</b>'], 'invoice no'], ['invoice no empty', ['invoiceno' => ''], 'invoice no'], ['invoice no blank', ['invoiceno' => '   '], 'invoice no'], ['invoice no 51 characters', ['invoiceno' => str_repeat('A', 51)], 'invoice no'],
+        ['invoice no with a quote', ['invoiceno' => "A'1"], 'invoice no'], ['invoice no array', ['invoiceno' => ['1']], 'invoice no'], ['invoice no with #', ['invoiceno' => 'INV#1'], 'invoice no'],
         ['no lines', ['table' => []], 'products'], ['lines not an array', ['table' => 'x'], 'products'],
         ['income product', ['table' => [['pid' => $pInc, 'qty' => '1', 'rate' => '1']]], 'account'], ['reporting-account product', ['table' => [['pid' => $pRep, 'qty' => '1', 'rate' => '1']]], 'account'],
         ['bank-account product', ['table' => [['pid' => $pBank, 'qty' => '1', 'rate' => '1']]], 'account'], ['inactive-account product', ['table' => [['pid' => $pInact, 'qty' => '1', 'rate' => '1']]], 'account'],
@@ -221,7 +222,29 @@ try {
     ok('create refusals wrote nothing at all (rows, entries, bank rows, mirror unchanged)', dbstate() === $before);
     $dupNo = (string)header_row($i1)['invoiceNo'];
     $r = $model->save(base(['invoiceno' => $dupNo]));
-    ok('create refused: invoice no already used in this congregation', has($r, 'already exists'));
+    ok('create refused: invoice no already used by this supplier', has($r, 'already exists'));
+    // 8.8 A1: the number is text now (VARCHAR(50)), unique per supplier
+    ok('invoiceNo is VARCHAR(50) and nullable', one("SELECT COLUMN_TYPE t, IS_NULLABLE n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tblinvoice_header_suppliers' AND COLUMN_NAME='invoiceNo'") == ['t' => 'varchar(50)', 'n' => 'YES']);
+    $r = $model->save(base(['invoiceno' => ' INV-0042 ']));
+    $iL = (int)($r['id'] ?? 0);
+    ok('a number with letters, digits and a dash is accepted, trimmed and stored exactly', $r['success'] && header_row($iL)['invoiceNo'] === 'INV-0042', errs($r));
+    ok('the entry reference carries the text number', one('SELECT reference FROM journal_entries WHERE transactionTypeId=6 AND transactionId=? AND deleted=0', [$iL])['reference'] === 'supplier invoice-INV-0042');
+    $r = $model->save(base(['invoiceno' => 'inv-0042']));
+    ok('the same number (any case) for the same supplier is refused', has($r, 'already exists'), errs($r));
+    $r = $model->save(base(['invoiceno' => 'INV-0042', 'supplier' => $sb]));
+    ok('the same number for a DIFFERENT supplier is allowed', $r['success'], errs($r));
+    foreach (['a/b.c 1', '2026/07/15', 'X 9', '0', str_repeat('Z', 50)] as $okNo) {
+        $r = $model->save(base(['invoiceno' => $okNo, 'supplier' => $sb]));
+        ok("number '$okNo' accepted", $r['success'] && header_row((int)$r['id'])['invoiceNo'] === $okNo, errs($r));
+    }
+    $r = $model->save(base(['id' => $iL, 'isedit' => true, 'invoiceno' => (string)header_row($i2)['invoiceNo']]));
+    ok('an edit cannot take a number the supplier already has', has($r, 'already exists'), errs($r));
+    $r = $model->save(base(['id' => $iL, 'isedit' => true, 'invoiceno' => 'INV-0043']));
+    ok('an edit may take a fresh number', $r['success'] && header_row($iL)['invoiceNo'] === 'INV-0043', errs($r));
+    $r = $model->save(base(['id' => $iL, 'isedit' => true, 'invoiceno' => 'INV-0042']));
+    $r = $model->save(base(['id' => $iL, 'isedit' => true, 'invoiceno' => 'inv-0042']));
+    ok('an edit may keep its own number (case change allowed)', $r['success'], errs($r));
+    ok('opening-balance rows keep a NULL number and do not collide with each other', cnt('SELECT COUNT(*) FROM tblinvoice_header_suppliers WHERE invoiceNo IS NULL AND deleted=0') >= 2);
     $pdo->prepare('UPDATE tblinvoice_header_suppliers SET deleted=1 WHERE ID=?')->execute([$i6]);
     $r = $model->save(base(['invoiceno' => (string)header_row($i6)['invoiceNo']])); $reuse = (int)($r['id'] ?? 0);
     ok('an invoice no of a deleted invoice can be used again', $r['success']);

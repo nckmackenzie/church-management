@@ -176,6 +176,12 @@ try {
         chk("real JSON create refused: $label (422 JSON with a message)", $r[0] === 422 && isset($j['message']) && $j['message'] !== '', "status {$r[0]} " . $r[2]);
     }
     chk('refused creates left no entry behind', cnt('SELECT COUNT(*) FROM journal_entries WHERE ID>?', [$max['journal_entries']]) === $entriesBefore);
+    $r = http87('POST', 'supplierinvoices/createupdate', $uRight, invoicePayload(['header' => ['invoiceNo' => 'INV-0042/A']]), true);
+    chk('real JSON create accepts a text invoice number', $r[0] === 200 && one('SELECT invoiceNo FROM tblinvoice_header_suppliers WHERE ID=?', [(int)jo($r[2])['id']])['invoiceNo'] === 'INV-0042/A', $r[2]);
+    $r = http87('POST', 'supplierinvoices/createupdate', $uRight, invoicePayload(['header' => ['invoiceNo' => 'inv-0042/a']]), true);
+    chk('real JSON create: the same number for the same supplier is a 422', $r[0] === 422 && stripos($r[2], 'already exists') !== false);
+    $r = http87('POST', 'supplierinvoices/createupdate', $uRight, invoicePayload(['header' => ['invoiceNo' => 'bad<number']]), true);
+    chk('real JSON create: an invalid number is a 422 with an escaped message', $r[0] === 422 && strpos($r[2], 'bad<number') === false);
     $r = http87('POST', 'supplierinvoices/createupdate', $uNone, invoicePayload(), true);
     chk('create denied without the right', redir($r, 'deniedaccess'));
     $r = http87('GET', 'supplierinvoices/createupdate', $uRight);

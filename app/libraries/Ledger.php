@@ -115,6 +115,7 @@ class Ledger
     const SEQ_RECEIPT   = 'receipt';
     const SEQ_PETTYCASH = 'pettycash';
     const SEQ_SUPPLIER_PAYMENT = 'suppay'; // supplier payment numbers, per congregation (task 8.7)
+    const SEQ_CUSTOMER_INVOICE = 'custinv'; // customer invoice numbers, per congregation (task 8.8)
     const SEQ_VOUCHER   = 'voucher';
 
     /**
@@ -374,7 +375,7 @@ class Ledger
      * The number is max(counter, highest number in the source table, deleted rows included) + 1; a missing sequence
      * row is created from the same rule.
      *
-     * @param string $kind SEQ_RECEIPT or SEQ_VOUCHER (both need $yearId), or SEQ_PETTYCASH / SEQ_SUPPLIER_PAYMENT ($yearId ignored)
+     * @param string $kind SEQ_RECEIPT or SEQ_VOUCHER (both need $yearId), or SEQ_PETTYCASH / SEQ_SUPPLIER_PAYMENT / SEQ_CUSTOMER_INVOICE ($yearId ignored)
      */
     public static function nextNumber(PDO $db, int $cong, string $kind, int $yearId = 0): int
     {
@@ -420,7 +421,7 @@ class Ledger
 
     private static function seqYear(string $kind, int $yearId): int
     {
-        if ($kind === self::SEQ_PETTYCASH || $kind === self::SEQ_SUPPLIER_PAYMENT) { return 0; }
+        if ($kind === self::SEQ_PETTYCASH || $kind === self::SEQ_SUPPLIER_PAYMENT || $kind === self::SEQ_CUSTOMER_INVOICE) { return 0; }
         if ($kind !== self::SEQ_RECEIPT && $kind !== self::SEQ_VOUCHER) { throw new LogicException("unknown number sequence '$kind'"); }
         if ($yearId <= 0)                  { throw new LedgerException(['no fiscal year is defined for this date']); }
         return $yearId;
@@ -431,6 +432,9 @@ class Ledger
     {
         if ($kind === self::SEQ_PETTYCASH) {
             $st = $db->prepare('SELECT COALESCE(MAX(ReceiptNo), 0) FROM tblpettycash WHERE CongregationId = ?');
+            $st->execute([$cong]);
+        } elseif ($kind === self::SEQ_CUSTOMER_INVOICE) {
+            $st = $db->prepare('SELECT COALESCE(MAX(invoiceNo), 0) FROM tblinvoice_header WHERE congregationId = ?');
             $st->execute([$cong]);
         } elseif ($kind === self::SEQ_SUPPLIER_PAYMENT) {
             // payments carry no congregation: it is the congregation of the invoice they pay (deleted rows included)
@@ -694,6 +698,49 @@ class Ledger
     }
 
     // -----------------------------------------------------------------
+    // Invoice line accounts (products of supplier and customer invoices, tasks 8.7 / 8.8)
+    // -----------------------------------------------------------------
+
+    /** root account types a supplier invoice line may be debited to: expense (2), asset (3, never a bank) */
+    const SUPPLIER_LINE_TYPES = [2, 3];
+    /** root account type a customer invoice line may be credited to: income (1) */
+    const CUSTOMER_LINE_TYPES = [1];
+
+    /**
+     * Active, visible posting accounts of the given root account types, banks excluded: the ONE list the product forms and
+     * the invoice forms offer and the servers validate against. Returns [ ['ID'=>, 'accountType'=>, 'parentName'=>], ... ].
+     */
+    public static function listLineAccounts(PDO $db, int $cong, array $types): array
+    {
+        $types = array_map('intval', $types);
+        if (!$types) { return []; }
+        $st = $db->prepare('SELECT ID FROM tblaccounttypes
+                            WHERE deleted = 0 AND active = 1 AND isBank = 0 AND congregationId IN (0, ?)
+                              AND accountTypeId IN (' . implode(',', $types) . ')');
+        $st->execute([$cong]);
+        $out = [];
+        foreach (self::accountInfo($db, array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN))) as $id => $a) {
+            if (self::whyNotPostable($a, $cong, false) === null) {
+                $out[] = ['ID' => $id, 'accountType' => $a['accountType'], 'parentName' => $a['parentName']];
+            }
+        }
+        usort($out, function ($x, $y) { return strcasecmp($x['accountType'], $y['accountType']); });
+        return $out;
+    }
+
+    /** Why $accountId may not be an invoice line account of these root types, or null (same rule as listLineAccounts()). */
+    public static function lineAccountProblem(PDO $db, int $cong, int $accountId, array $types, bool $allowInactive = false): ?string
+    {
+        $info = self::accountInfo($db, [$accountId])[$accountId] ?? null;
+        if (($why = self::whyNotPostable($info, $cong, $allowInactive)) !== null) { return $why; }
+        if ((int) $info['isBank'] === 1) { return "'{$info['accountType']}' is a bank account"; }
+        if (!in_array((int) $info['accountTypeId'], array_map('intval', $types), true)) {
+            return "'{$info['accountType']}' is not " . ($types == self::CUSTOMER_LINE_TYPES ? 'an income account' : 'an expense or asset account');
+        }
+        return null;
+    }
+
+    // -----------------------------------------------------------------
     // Payable accounts (supplier invoices and supplier opening balances, task 8.7)
     // -----------------------------------------------------------------
 
@@ -754,6 +801,48 @@ class Ledger
         if (count($ids) !== 1) { return null; }
         $id = (int) $ids[0];
         return self::payableProblem($db, 0, $id) === null ? $id : null;
+    }
+
+    // -----------------------------------------------------------------
+    // Receivable accounts (customer invoices, task 8.8)
+    // -----------------------------------------------------------------
+
+    /** 'accounts receivable': the container of the accounts a customer invoice may debit. It is a reporting account today; the accountants build the structure under it. */
+    const RECEIVABLE_ROOT = 9;
+
+    /** IDs a customer invoice may debit: 9's subtree, plus 9 itself (it is offered only if it is ever postable). */
+    private static function receivableCandidates(PDO $db): array
+    {
+        return array_merge([self::RECEIVABLE_ROOT], array_keys(self::descendantIds($db, self::RECEIVABLE_ROOT)));
+    }
+
+    /**
+     * Posting accounts in the subtree of RECEIVABLE_ROOT (9 included if postable) the congregation may debit: active, visible,
+     * not a bank. No default, no resolver, no ID in the code: the list may be empty. ONE list for the form and the server.
+     * Returns [ ['ID'=>, 'accountType'=>, 'parentName'=>], ... ].
+     */
+    public static function listReceivableAccounts(PDO $db, int $cong): array
+    {
+        $out = [];
+        foreach (self::accountInfo($db, self::receivableCandidates($db)) as $id => $a) {
+            if ((int) $a['isBank'] === 0 && self::whyNotPostable($a, $cong, false) === null) {
+                $out[] = ['ID' => $id, 'accountType' => $a['accountType'], 'parentName' => $a['parentName']];
+            }
+        }
+        usort($out, function ($x, $y) { return strcasecmp($x['accountType'], $y['accountType']); });
+        return $out;
+    }
+
+    /** Why $accountId may not be debited as a receivable account, or null. $allowInactive keeps an account the invoice already uses. */
+    public static function receivableProblem(PDO $db, int $cong, int $accountId, bool $allowInactive = false): ?string
+    {
+        $info = self::accountInfo($db, [$accountId])[$accountId] ?? null;
+        $why  = self::whyNotPostable($info, $cong, $allowInactive);
+        if ($why === null && (int) $info['isBank'] === 1) { $why = "'{$info['accountType']}' is a bank account"; }
+        if ($why === null && !in_array($accountId, self::receivableCandidates($db), true)) {
+            $why = "'{$info['accountType']}' is not under 'accounts receivable'";
+        }
+        return $why;
     }
 
     /**

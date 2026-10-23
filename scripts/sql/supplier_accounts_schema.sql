@@ -135,7 +135,7 @@ BEGIN
         IF(h.status=0,'Unpaid',IF(h.status=1,'Partially Paid','Paid')) AS state,h.status AS status,h.postedBy AS postedBy
  FROM tblinvoice_header_suppliers h JOIN tblsuppliers s ON h.supplierId=s.ID
  WHERE h.fiscalYearId=getYearID() AND h.congregationId=congid AND h.deleted=0 AND h.invoiceNo IS NOT NULL
- ORDER BY h.status,h.invoiceNo DESC;
+ ORDER BY h.status,h.ID DESC;
 END$$
 DROP PROCEDURE IF EXISTS sp_getinvoicepaymentdetails$$
 CREATE PROCEDURE sp_getinvoicepaymentdetails(IN payno INT, IN suppid INT)

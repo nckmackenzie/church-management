@@ -26,11 +26,24 @@ class Product
 
     public function GetGlAccounts()
     {
-        $this->db->query('SELECT ID,
-                                 UCASE(accountType) as accountType
-                          FROM tblaccounttypes
-                          WHERE  (deleted=0) AND (isSubCategory = 0) AND (parentId <> 0)');
-        return $this->db->resultSet();
+        // a product serves supplier invoices (expense / non-bank asset accounts) and customer invoices (income accounts):
+        // the posting accounts of those roots, the same lists the invoice forms validate against
+        $all = array_merge(
+            Ledger::listLineAccounts($this->db->dbh,(int)$_SESSION['congId'],Ledger::SUPPLIER_LINE_TYPES),
+            Ledger::listLineAccounts($this->db->dbh,(int)$_SESSION['congId'],Ledger::CUSTOMER_LINE_TYPES)
+        );
+        usort($all,function($x,$y){ return strcasecmp($x['accountType'],$y['accountType']); });
+        return array_map(function($a){ return (object)['ID' => $a['ID'],'accountType' => strtoupper($a['accountType'])]; },$all);
+    }
+
+    /** Why a new product may not use this G/L account, or null. */
+    public function AccountProblem($id)
+    {
+        if (!ctype_digit((string)$id) || (int)$id <= 0) { return 'Select G/L account'; }
+        $cong = (int)$_SESSION['congId'];
+        $a = Ledger::lineAccountProblem($this->db->dbh,$cong,(int)$id,Ledger::SUPPLIER_LINE_TYPES);
+        $b = Ledger::lineAccountProblem($this->db->dbh,$cong,(int)$id,Ledger::CUSTOMER_LINE_TYPES);
+        return ($a === null || $b === null) ? null : 'Select an income, expense or asset posting account';
     }
 
     public function CheckExist($name,$id)

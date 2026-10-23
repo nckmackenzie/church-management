@@ -57,9 +57,9 @@
                         <?php foreach($data['products'] as $product) :?>
                             <tr>
                                 <td class="d-none"><?php echo $product->ID;?></td>
-                                <td><?php echo strtoupper($product->productName);?></td>
+                                <td><?php echo htmlspecialchars(strtoupper((string)$product->productName),ENT_QUOTES,'UTF-8');?></td>
                                 <td><?php echo $product->rate;?></td>
-                                <td><?php echo $product->glAccount;?></td>
+                                <td><?php echo htmlspecialchars((string)$product->glAccount,ENT_QUOTES,'UTF-8');?></td>
                                 <td>
                                     <?php if($_SESSION['userType'] <=2) : ?>
                                         <div class="btn-group">
