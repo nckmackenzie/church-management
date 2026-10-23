@@ -205,7 +205,7 @@ class Expenses extends Controller{
         }
     }
 
-    /** Requisitions the form can offer (JSON: id, label, style = new / old). */
+    /** Requisitions the form can offer (JSON: id, label, style = new / old, account = the account a new-style requisition is paid from). */
     public function requisitionoptions()
     {
         $type = $this->intId($_GET['type'] ?? '');
@@ -213,7 +213,7 @@ class Expenses extends Controller{
         $expense = $this->intId($_GET['expense'] ?? '');
         $data = [];
         foreach ($this->expenseModel->GetRequisitionOptions($type,$centre,$expense) as $r) {
-            $data[] = ['id' => $r->ID,'label' => $r->Label,'style' => $r->Style];
+            $data[] = ['id' => $r->ID,'label' => $r->Label,'style' => $r->Style,'account' => $r->Account];
         }
         echo json_encode($data);
     }

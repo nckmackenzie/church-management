@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 // Functional run of Bankposting + Banktransaction against dev (cong 11); cleans up every row it creates.
 chdir('E:/xampp/htdocs/cms/app');
 require 'boostrap.php';

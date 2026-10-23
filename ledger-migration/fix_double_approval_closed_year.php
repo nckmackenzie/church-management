@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 /**
  * *** DIRECT SQL INTO A CLOSED FINANCIAL YEAR - REQUIRES SIGN-OFF BEFORE --commit ***
  *

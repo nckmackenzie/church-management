@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 // 8.9 HTTP-level run: the real controllers, rights checks, congregation checks, JSON endpoints and rendered forms of
 // MMF receipts, group collections and group fund requisitions / approvals, through Apache with real PHP sessions
 // (the CLI model tests call the models directly: no controller, no rights, no session, no JSON, no JS data).
@@ -26,19 +27,11 @@ function q($sql, $p = []) { global $pdo; $st = $pdo->prepare($sql); $st->execute
 
 $sessions = [];
 $phpErrors = [];
-/** A PHP session for an existing dev user, written the way Users::createUserSession() does. */
-function mkSession($uid, $cong = null) {
-    global $pdo, $sessions;
-    $u = q('SELECT u.ID,u.UserName,u.UsertypeId,u.CongregationId,c.CongregationName,c.IsParish FROM tblusers u LEFT JOIN tblcongregation c ON c.ID=u.CongregationId WHERE u.ID=?', [$uid])[0];
-    $sid = 'dev' . bin2hex(random_bytes(8));
-    $data = ['userId' => $u['ID'], 'userName' => $u['UserName'], 'userType' => $u['UsertypeId'], 'congId' => $cong ?? $u['CongregationId'],
-             'isParish' => $u['IsParish'], 'congName' => $u['CongregationName'], 'one' => 1, 'zero' => 0, 'processdate' => date('d-m-Y')];
-    $enc = '';
-    foreach ($data as $k => $v) { $enc .= $k . '|' . serialize($v); }
-    file_put_contents(session_save_path() . DIRECTORY_SEPARATOR . 'sess_' . $sid, $enc);
-    $sessions[] = $sid;
-    return $sid;
-}
+// mkSession(): creates PHP sessions for dev users. It lives in scripts/dev_session_helper.php, which is git-ignored and never deployed.
+$helperFile = __DIR__ . '/dev_session_helper.php';
+if (!is_file($helperFile)) { exit("scripts/dev_session_helper.php is missing: it is a dev-only file that is not in git (see the runbook gate)\n"); }
+require_once $helperFile;
+
 /** @return array [status, headers(lower-case name => value), body] ; redirects are NOT followed */
 function http($method, $path, $sid, $body = null, $json = false) {
     global $base;
@@ -205,13 +198,17 @@ try {
     chk('approve form: cash list = PAY_CASH accounts, 98 in it, 121 not', in_array(98, $cashIds, true) && !in_array(121, $cashIds, true) && !in_array($BANK, $cashIds, true) && count($cashIds) >= 3, json_encode($cashIds));
     chk('approve form: bank list = PAY_BANK accounts (105 in it, no cash account)', in_array($BANK, $bankIds, true) && !array_intersect($bankIds, [34, 98, 121]), json_encode($bankIds));
     chk('approve form: 98 preselected, pay method cash selected', nodeAttr($r[2], "//select[@id='paidfrom']", 'data-selected') === '98' && (selectOptions($r[2], 'paymethod')['1'] ?? false) === true);
-    chk('approve form loads approve-v5.js (disabled-on-submit + list switching)', strpos($r[2], 'approve-v5.js') !== false);
+    $recOpts = selectOptions($r[2], 'receiving');
+    $recIds = array_map('strval', array_keys($recOpts));
+    chk('approve form: "Receiving Account" lists the PAY_CASH accounts (121, 98, 34), no bank, no parent account', isset($recOpts['121'], $recOpts['98'], $recOpts['34']) && !isset($recOpts[(string)$BANK]) && !isset($recOpts['33']) && !isset($recOpts['22']), json_encode($recIds));
+    chk('approve form: 121 cash holding account is preselected as the receiving account (and only it)', ($recOpts['121'] ?? false) === true && count(array_filter($recOpts)) === 1, json_encode($recOpts));
+    chk('approve form loads approve-v6.js (disabled-on-submit + list switching)', strpos($r[2], 'approve-v6.js') !== false);
     $r = http('GET', "groupfunds/approve/$rq1", $uNone);
     chk('approve form without the right -> denied', !($r[0] === 200 && strpos($r[2], 'paidfrom') !== false));
 
     // ---------------------------------------------------------------- approval: tampering, double submit (parallel), result
     $ap = ['id' => $rq1, 'reqno' => '1', 'groupid' => '41', 'type' => 'district', 'group' => 'TAMPERED', 'date' => $today, 'paydate' => $today, 'availableamount' => '1',
-           'amount' => '1,200.00', 'approved' => '1200', 'balance' => '0', 'paymethod' => '1', 'paidfrom' => '98', 'reference' => 'HTTP1', 'dontdeduct' => '1', 'reason' => 'tampered'];
+           'amount' => '1,200.00', 'approved' => '1200', 'balance' => '0', 'paymethod' => '1', 'paidfrom' => '98', 'receiving' => '121', 'reference' => 'HTTP1', 'dontdeduct' => '1', 'reason' => 'tampered'];
     $mh = curl_multi_init(); $hs = [];
     foreach ([1, 2] as $i) {
         $ch = curl_init($base . '/groupfunds/approvefunds');
@@ -231,10 +228,44 @@ try {
     chk('tampered groupid / type / dontdeduct ignored: one tblmmf credit row for group 40', count($m) === 1 && (int)$m[0]['GroupId'] === $G && $m[0]['DistrictId'] === null && $m[0]['Type'] === 'group', json_encode($m));
     $r = http('POST', 'groupfunds/approvefunds', $uNone, ['id' => $rd = $rqd] + $ap);
     chk('approval without the right: nothing posted', (int)q('SELECT Status s FROM tblfundrequisition WHERE ID=?', [$rqd])[0]['s'] === 0 && !q('SELECT 1 FROM journal_entries WHERE transactionTypeId=12 AND transactionId=?', [$rqd]));
-    $r = http('POST', 'groupfunds/approvefunds', $uFund, ['id' => $rqd, 'type' => 'district', 'groupid' => $D, 'paymethod' => '4', 'paidfrom' => $BANK, 'reference' => 'HTTPB', 'approved' => '500', 'amount' => '1,000.00', 'dontdeduct' => '0'] + $ap);
+    $r = http('POST', 'groupfunds/approvefunds', $uFund, ['id' => $rqd, 'type' => 'district', 'groupid' => $D, 'paymethod' => '4', 'paidfrom' => $BANK, 'receiving' => '98', 'reference' => 'HTTPB', 'approved' => '500', 'amount' => '1,000.00', 'dontdeduct' => '0'] + $ap);
     $b = q('SELECT * FROM tblbankpostings WHERE transactionType=12 AND transactionId=? AND deleted=0', [$rqd]);
     chk('bank approval through the form: bank row (Withdrawal, 500, bank 105), tblmmf row for the district', redirectsTo($r, 'approvals') && count($b) === 1 && (int)$b[0]['transactionMethod'] === 2 && (int)$b[0]['bankId'] === $BANK
         && (int)q('SELECT DistrictId d FROM tblmmf WHERE TransactionType=12 AND TransactionId=?', [$rqd])[0]['d'] === $D, "status {$r[0]} " . json_encode($b));
+    // receiving account through the real form: chosen, refused, tampered
+    $postApprove = function ($rid, $o) use ($uFund, $today, $G) {
+        return http('POST', 'groupfunds/approvefunds', $uFund, $o + ['id' => $rid, 'reqno' => '1', 'groupid' => $G, 'type' => 'group', 'group' => 'x', 'date' => $today, 'paydate' => $today,
+            'availableamount' => '1', 'amount' => '1,000.00', 'approved' => '400', 'balance' => '0', 'paymethod' => '1', 'paidfrom' => '98', 'receiving' => '121', 'reference' => 'HTTPR', 'dontdeduct' => '0', 'reason' => 'x']);
+    };
+    $newRq = function () use ($uFund, $form) { http('POST', 'groupfunds/createupdate', $uFund, $form); return (int)q('SELECT MAX(ID) m FROM tblfundrequisition')[0]['m']; };
+    $rqa = $newRq();
+    $nothing = function ($rid) { return !q('SELECT 1 FROM journal_entries WHERE transactionTypeId=12 AND transactionId=?', [$rid]) && (int)q('SELECT Status s FROM tblfundrequisition WHERE ID=?', [$rid])[0]['s'] === 0; };
+    $r = $postApprove($rqa, ['receiving' => $BANK]);
+    chk('approval with a bank account as the receiving account (tampered) -> form again with the message, nothing posted', $r[0] === 200 && stripos($r[2], 'valid receiving account') !== false && $nothing($rqa), "status {$r[0]}");
+    $r = $postApprove($rqa, ['receiving' => '98']);
+    chk('approval with receiving = paid-from (98 / 98) -> refused with the message, nothing posted', $r[0] === 200 && stripos($r[2], 'cannot be the same') !== false && $nothing($rqa), "status {$r[0]}");
+    $r = $postApprove($rqa, ['receiving' => '']);
+    chk('approval without a receiving account -> "Fill all required field", nothing posted', $r[0] === 200 && stripos($r[2], 'Fill all required') !== false && $nothing($rqa), "status {$r[0]}");
+    $r = $postApprove($rqa, ['receiving' => '121abc']);
+    chk('approval with receiving "121abc" (tampered) -> refused, nothing posted', $r[0] === 200 && stripos($r[2], 'valid receiving account') !== false && $nothing($rqa), "status {$r[0]}");
+    $r = $postApprove($rqa, ['receiving' => '99999999']);
+    chk('approval with a non-existent receiving account -> refused, nothing posted', $r[0] === 200 && stripos($r[2], 'valid receiving account') !== false && $nothing($rqa), "status {$r[0]}");
+    $r = $postApprove($rqa, ['receiving' => '34']);
+    $e = q('SELECT l.accountId,l.dc FROM journal_lines l JOIN journal_entries e ON e.ID=l.journalEntryId WHERE e.transactionTypeId=12 AND e.transactionId=? AND e.deleted=0 ORDER BY lineNumber', [$rqa]);
+    chk('approval with cash at hand (34) as the receiving account -> Dr 34 / Cr 98', redirectsTo($r, 'approvals') && $e == [['accountId' => 34, 'dc' => 'DEBIT'], ['accountId' => 98, 'dc' => 'CREDIT']], json_encode($e));
+    $r = http('POST', 'groupfunds/unapprove', $uFund, ['uid' => $rqa]);
+    $r = $postApprove($rqa, ['receiving' => '98', 'paidfrom' => '34']);
+    $e = q('SELECT l.accountId,l.dc FROM journal_lines l JOIN journal_entries e ON e.ID=l.journalEntryId WHERE e.transactionTypeId=12 AND e.transactionId=? AND e.deleted=0 ORDER BY lineNumber', [$rqa]);
+    chk('unapprove, then approve again with another receiving / paid-from pair (98 / 34) -> Dr 98 / Cr 34', redirectsTo($r, 'approvals') && $e == [['accountId' => 98, 'dc' => 'DEBIT'], ['accountId' => 34, 'dc' => 'CREDIT']], json_encode($e));
+    $r = http('GET', "groupfunds/approvals", $uFund);
+    chk('approvals list still opens after the changes', $r[0] === 200);
+    // the expense form offers the requisition together with the account it is paid from
+    $r = http('GET', 'expenses/requisitionoptions?type=2&centre=' . $G, $uAdmin);
+    $j = jsonOf($r[2]);
+    $item = null; foreach (($j ?? []) as $x) { if ((int)$x['id'] === $rqa) { $item = $x; } }
+    chk('expense form: requisition option carries style new and the receiving account (98)', $r[0] === 200 && $item && $item['style'] === 'new' && (int)$item['account'] === 98, $r[2]);
+    $r = http('GET', 'expenses/add', $uAdmin);
+    chk('expense add page loads add-expense-v9.js and no PHP warning', $r[0] === 200 && strpos($r[2], 'add-expense-v9.js') !== false);
     // reject / unapprove through the approvals page endpoints
     $r = http('POST', 'groupfunds/reject', $uFund, ['id' => $rqd, 'reason' => 'x']);
     chk('reject of an approved requisition through the page is refused (pending only), still approved', (int)q('SELECT Status s FROM tblfundrequisition WHERE ID=?', [$rqd])[0]['s'] === 1);
@@ -306,6 +337,16 @@ try {
     chk('collection create without the right -> 403, nothing saved', $r[0] === 403 && (int)q('SELECT MAX(ID) m FROM tblmmf WHERE TransactionType=17')[0]['m'] === $cid);
     $r = http('POST', 'groupcollections/createupdate', $uAll, ['amount' => '-5'] + $cb, true);
     chk('collection with a bad amount -> 422 with a message', $r[0] === 422 && jsonOf($r[2])['success'] === false && strlen(jsonOf($r[2])['message']) > 0, "status {$r[0]} " . $r[2]);
+    $r = http('GET', 'groupcollections', $uAll);
+    chk('collection list after a NEW collection: no "saved" flash (the form clears itself and stays for the next one)', stripos($r[2], 'Saved successfully!') === false);
+    $r = http('POST', 'groupcollections/createupdate', $uAll, ['isedit' => '1', 'id' => $cid, 'amount' => '350'] + $cb, true);
+    chk('collection EDIT (JSON POST, isedit = 1) -> 201', $r[0] === 201 && jsonOf($r[2])['success'] === true && (float)q('SELECT Debit d FROM tblmmf WHERE ID=?', [$cid])[0]['d'] === 350.0, "status {$r[0]} " . $r[2]);
+    $r = http('GET', 'groupcollections', $uAll);
+    chk('collection list after an EDIT shows "Saved successfully!" (the JS goes back to the list)', stripos($r[2], 'Saved successfully!') !== false);
+    $js = (string)@file_get_contents(URLROOT . '/dist/js/pages/groupcollections/index-v2.js');
+    chk('collection form JS: redirects to the list after an edit', strpos($js, "window.location.href = HOST_URL + '/groupcollections'") !== false && strpos($js, "isedit") !== false);
+    $r = http('GET', "groupcollections/edit/$cid", $uAll);
+    chk('collection edit page loads index-v2.js', strpos($r[2], 'groupcollections/index-v2.js') !== false);
     $r = http('GET', "groupcollections/edit/$cid", $uAll);
     chk('collection edit page: group, sub account and the account / bank fill shown', $r[0] === 200 && (selectOptions($r[2], 'subaccount')['1'] ?? false) === true && (int)nodeAttr($r[2], "//input[@id='bankid']", 'value') === 105 && (int)nodeAttr($r[2], "//input[@id='accountid']", 'value') === 125);
     $r = http('POST', 'groupcollections/delete', $uAll, ['id' => $cid]);

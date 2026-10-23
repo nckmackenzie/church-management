@@ -3,11 +3,15 @@
  * Group / district / church fund requisitions and their approval (transaction type 12) on the Ledger library (task 8.9).
  *
  * Approval posts, whatever DontDeduct says:
- *   Dr 121 'cash holding account' (Ledger::CASH_HOLDING, a confirmed system account)  /  Cr the "paid from" account the
- *   user chose (a PAY_CASH account when the pay method is cash, 98 preselected; a PAY_BANK account otherwise, which also
+ *   Dr the RECEIVING account the user chose (a PAY_CASH account; 121 'cash holding account' = Ledger::CASH_HOLDING, a confirmed
+ *   system account, is preselected)  /  Cr the "paid from" account the user chose (a PAY_CASH account when the pay method is cash, 98 preselected; a PAY_BANK account otherwise, which also
  *   writes a bank row, method 'Withdrawal'). Nothing else is inferred.
  * DontDeduct (read from the stored requisition) only decides whether a tblmmf Credit row lowers the group's /
  * district's held balance. Church-category requisitions never write one (they have no group or district).
+ *
+ * The receiving account is not stored on the requisition: it is the debit line of the requisition's active type-12 entry
+ * (ReceivingAccountOf()), the same source Expense::requisitionStyle() reads. A new approval after an unapprove simply writes a
+ * new entry, so nothing can get out of step.
  *
  * Every action loads the requisition by ID + session congregation FOR UPDATE inside its transaction. Unapprove and
  * Reject are refused while a non-deleted expense references the requisition and use Ledger::void (closed years refuse).
@@ -162,7 +166,8 @@ class Groupfund
             // the requester stays the original one when someone else edits the requisition
             $this->db->bind(':reqby',$_SESSION['userId']);
         }
-        $this->db->bind(':deduct',$data['dontdeduct']);
+        // a church requisition has no group / district balance to deduct from: stored as 1 whatever the (disabled, never posted) box said
+        $this->db->bind(':deduct',($data['type'] === 'church' || !empty($data['dontdeduct'])) ? 1 : 0);
         if($data['isedit']){
             $this->db->bind(':id',(int)$data['id']);
         }
@@ -250,11 +255,29 @@ class Groupfund
         return $this->accountOptions(Ledger::PAY_BANK);
     }
 
-    private function accountOptions($kind)
+    /** "Receiving account" choices: every PAY_CASH account (121 included, preselected on the form). [ (object)['ID','Account'] ] */
+    public function GetReceivingAccounts()
+    {
+        return $this->accountOptions(Ledger::PAY_CASH,true);
+    }
+
+    /** The account the requisition's active approval debited (its receiving account), or null when it has no active entry. */
+    public function ReceivingAccountOf($reqId)
+    {
+        $entry = Ledger::getEntry($this->db->pdo(),(int)$_SESSION['congId'],self::TYPE,(int)$reqId);
+        foreach (($entry['lines'] ?? []) as $l) {
+            if ($l['dc'] === Ledger::DEBIT) {
+                return (int)$l['accountId'];
+            }
+        }
+        return null;
+    }
+
+    private function accountOptions($kind,$includeHolding = false)
     {
         $out = [];
         foreach(Ledger::listPaymentAccounts($this->db->pdo(),(int)$_SESSION['congId'],$kind) as $a){
-            if((int)$a['ID'] === Ledger::CASH_HOLDING){
+            if(!$includeHolding && (int)$a['ID'] === Ledger::CASH_HOLDING){
                 continue;
             }
             $out[] = (object)['ID' => (int)$a['ID'],'Account' => strtoupper($a['accountType'])];
@@ -331,12 +354,37 @@ class Groupfund
             $isBank = $method !== self::CASH_METHOD;
             $paidfrom = (int)($data['paidfrom'] ?? 0);
             if($paidfrom === Ledger::CASH_HOLDING){
-                return $this->refuseAction($pdo,'Paid from cannot be the cash holding account it is paid into');
+                return $this->refuseAction($pdo,'The cash holding account only pays the expenses of a requisition: it cannot be the paid-from account of an approval');
             }
             try {
                 Ledger::assertPaymentAccount($pdo,$cong,$paidfrom,$isBank ? Ledger::PAY_BANK : Ledger::PAY_CASH);
             } catch (LedgerException $e) {
                 return $this->refuseAction($pdo,$isBank ? 'Select the bank account it is paid from' : 'Select the cash account it is paid from');
+            }
+
+            // the receiving (debit) account: chosen on the form, never inferred; a child, active cash account from the offered list
+            $rawReceiving = $data['receiving'] ?? null;
+            if($rawReceiving === null || $rawReceiving === '' || $rawReceiving === 0 || $rawReceiving === '0'){
+                return $this->refuseAction($pdo,'Select the account the funds are received into');
+            }
+            if(!is_int($rawReceiving) && !(is_string($rawReceiving) && ctype_digit($rawReceiving))){
+                return $this->refuseAction($pdo,'Select a valid receiving account (an active cash account)');   // e.g. '121abc' is not 121
+            }
+            $receiving = (int)$rawReceiving;
+            if($receiving <= 0){
+                return $this->refuseAction($pdo,'Select a valid receiving account (an active cash account)');
+            }
+            $offered = array_map(function ($a) { return (int)$a->ID; },$this->GetReceivingAccounts());
+            if(!in_array($receiving,$offered,true)){
+                return $this->refuseAction($pdo,'Select a valid receiving account (an active cash account)');
+            }
+            try {
+                Ledger::assertPaymentAccount($pdo,$cong,$receiving,Ledger::PAY_CASH);
+            } catch (LedgerException $e) {
+                return $this->refuseAction($pdo,'Select a valid receiving account (an active cash account)');
+            }
+            if($receiving === $paidfrom){
+                return $this->refuseAction($pdo,'The receiving account and the paid-from account cannot be the same');
             }
 
             $type = $req->RequestType;
@@ -375,7 +423,7 @@ class Groupfund
                 'congregationId' => $cong,'entryDate' => $data['paydate'],'transactionTypeId' => self::TYPE,'transactionId' => $id,
                 'reference' => $reference,'description' => $desc,
             ],[
-                Ledger::debit(Ledger::CASH_HOLDING,$amount,$desc),
+                Ledger::debit($receiving,$amount,$desc),
                 Ledger::credit($paidfrom,$amount,$desc),
             ]);
             if($isBank){

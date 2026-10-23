@@ -10,6 +10,7 @@ const deductInput = document.getElementById('dontdeduct');
 const paymentDateInput = document.getElementById('paydate');
 const paymethodSelect = document.getElementById('paymethod');
 const paidFromSelect = document.getElementById('paidfrom');
+const receivingSelect = document.getElementById('receiving');
 const CASH_METHOD = 1; // tblpaymentmethods: 1 = cash (paid from a cash account); 2, 3, 4 = paid from a bank account
 const form = document.querySelector('form');
 const submitButton = form.querySelector('button[type="submit"]');
@@ -42,6 +43,8 @@ function fillPaidFrom(keepSelected) {
       : '';
   paidFromSelect.innerHTML = '<option value="" disabled selected>Select account...</option>';
   accounts.forEach(a => {
+    // the receiving and the paid-from account cannot be the same (the server refuses it too)
+    if (receivingSelect && receivingSelect.value && String(a.id) === String(receivingSelect.value)) return;
     const opt = document.createElement('option');
     opt.value = a.id;
     opt.textContent = a.label;
@@ -53,6 +56,9 @@ function fillPaidFrom(keepSelected) {
 
 paymethodSelect.addEventListener('change', function () {
   fillPaidFrom(false);
+});
+receivingSelect?.addEventListener('change', function () {
+  fillPaidFrom(true);
 });
 fillPaidFrom(true);
 

@@ -95,8 +95,10 @@ class Ledger
 
     /**
      * ID of the fixed system account 'cash holding account' (confirmed by the user, task 8.9, like opening balance equity 20):
-     * the debit of every group / district fund approval (type 12). Expense::requisitionStyle() classes a requisition as
-     * 'new' by a debit line on it. It is a PAY_CASH account (a posting account under CASH_ROOT).
+     * the DEFAULT receiving (debit) account of a group / district fund approval (type 12), preselected on the approve form.
+     * Since follow-up 4 the user may choose another PAY_CASH account; Expense::requisitionStyle() classes a requisition as
+     * 'new' when its approval debited a cash account, and an expense of it is paid from THAT account. 121 itself still pays
+     * only requisition expenses. It is a PAY_CASH account (a posting account under CASH_ROOT).
      */
     const CASH_HOLDING = 121;
 
@@ -677,6 +679,12 @@ class Ledger
         }
         usort($out, function ($x, $y) { return strcasecmp($x['accountType'], $y['accountType']); });
         return $out;
+    }
+
+    /** True if the account is a non-deleted descendant of CASH_ROOT (a PAY_CASH candidate; posting rules are checked separately). */
+    public static function isCashAccount(PDO $db, int $accountId): bool
+    {
+        return isset(self::cashTree($db)[$accountId]);
     }
 
     /** True if the account is one of the fixed petty cash accounts (PETTY_CASH_ACCOUNTS). */

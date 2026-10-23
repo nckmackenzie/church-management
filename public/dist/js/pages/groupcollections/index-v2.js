@@ -70,7 +70,12 @@ form.addEventListener('submit', async function (e) {
   setLoadingState(btn, 'Saving...');
   const data = await submitHandler();
   resetLoadingState(btn, 'Save');
-  if (data.success) {
+  if (data?.success) {
+    // an edit goes back to the list (the server set the "saved" message); a new collection clears the form for the next one
+    if (['1', 'true'].includes(String(form.elements['isedit']?.value).toLowerCase())) {
+      window.location.href = HOST_URL + '/groupcollections';
+      return;
+    }
     clearValues();
     displayAlert(alertBox, 'Saved successfully', 'success');
     subaccountSelect.innerHTML = '';

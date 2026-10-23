@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 // 8.5d functional run: expenses (type 2) on the Ledger library, congregation 11, dev only; cleans up after itself.
 //   C:\xampp\php\php.exe scripts\test_expenses.php
 chdir('E:/xampp/htdocs/cms/app');

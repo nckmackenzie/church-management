@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 /**
  * Repair the doubled fund approval of requisition no 199 (dev: requisition ID 201, entry 21788, tblledger 26067-26070).
  * OPEN financial year (2025-2026). Written in task 8.9 STEP 5; NOT run by the task.

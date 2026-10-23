@@ -121,6 +121,18 @@
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-group">
+                                        <label for="receiving">Receiving Account</label>
+                                        <select name="receiving" id="receiving" class="form-control form-control-sm mandatory">
+                                            <option value="" disabled <?php echo empty($data['receiving']) ? 'selected' : '';?>>Select account...</option>
+                                            <?php foreach($data['receivingaccounts'] as $account) : ?>
+                                                <option value="<?php echo $account->ID;?>" <?php selectdCheck($data['receiving'],$account->ID);?>><?php echo $account->Account;?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <span class="invalid-feedback"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
                                         <label for="paidfrom">Paid From</label>
                                         <select name="paidfrom" id="paidfrom"
                                                 class="form-control form-control-sm mandatory"
@@ -159,6 +171,6 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/approve-v5.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/approve-v6.js"></script>
 </body>
 </html>  

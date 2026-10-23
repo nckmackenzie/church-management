@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 // Cleared (reconciled) bank rows: every migrated path that voids, deletes or edits bank postings refuses to void a cleared
 // row and to change its bank or amount (Ledger::clearedBankProblem); date / reference / description edits still work.
 // Types 1 (receipts), 2 (expenses), 5 (journals), 9 (bank postings, delete only), 10 (petty cash receipts), 13 (bank

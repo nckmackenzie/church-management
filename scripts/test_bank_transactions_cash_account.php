@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 // 8.3b functional run: bank transactions with a user-chosen cash account (cong 11); cleans up after itself.
 chdir('E:/xampp/htdocs/cms/app');
 require 'boostrap.php';

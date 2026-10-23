@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 // 8.4b functional run: receipts (type 1), petty cash receipts (type 10), transfers to petty cash, number sequences,
 // petty cash report routines (cong 11, dev only); cleans up after itself.
 chdir('E:/xampp/htdocs/cms/app');

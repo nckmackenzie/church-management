@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 // 8.4d: the financial year lock as each migrated screen (model) shows it - journals, banks, bank postings, bank
 // transactions, receipts, petty cash receipts (cong 11, dev only). Year 2023-2024 (ID 10) is closed / reopened
 // during the run; every year's flags are restored to what they were at the start; every row the run creates is removed.

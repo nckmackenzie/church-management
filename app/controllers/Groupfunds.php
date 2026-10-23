@@ -285,6 +285,8 @@ class Groupfunds extends Controller
             'paymethods' => $this->fundmodel->PayMethods(),
             'cashaccounts' => $this->fundmodel->GetCashAccounts(),
             'bankaccounts' => $this->fundmodel->GetBankAccounts(),
+            'receivingaccounts' => $this->fundmodel->GetReceivingAccounts(),
+            'receiving' => Ledger::CASH_HOLDING,     // preselected, not inferred: the user can choose another cash account
             'type' => $request->RequestType,
             'groupid' =>  $ownerid,
             'group' => '',
@@ -325,6 +327,8 @@ class Groupfunds extends Controller
                 'paymethods' => $this->fundmodel->PayMethods(),
                 'cashaccounts' => $this->fundmodel->GetCashAccounts(),
                 'bankaccounts' => $this->fundmodel->GetBankAccounts(),
+                'receivingaccounts' => $this->fundmodel->GetReceivingAccounts(),
+                'receiving' => isset($_POST['receiving']) && !empty(trim($_POST['receiving'])) ? trim($_POST['receiving']) : null,   // the model checks it is digits only (an (int) cast would turn '121abc' into 121)
                 'reqno' => trim($_POST['reqno']),
                 'groupid' => trim($_POST['groupid']),
                 'type' => isset($_POST['type']) && !empty(trim($_POST['type'])) ? trim($_POST['type']) : 'group',
@@ -346,7 +350,7 @@ class Groupfunds extends Controller
 
 
             if(empty($data['paydate']) || empty($data['approved']) || empty($data['paymethod'])
-               || empty($data['reference']) || empty($data['paidfrom'])){
+               || empty($data['reference']) || empty($data['paidfrom']) || empty($data['receiving'])){
                 $data['errmsg'] = 'Fill all required field';
             }
             if($data['approved'] > $data['amount']){

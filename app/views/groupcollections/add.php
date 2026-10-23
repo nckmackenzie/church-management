@@ -117,6 +117,6 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupcollections/index-v1.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupcollections/index-v2.js"></script>
 </body>
 </html>  

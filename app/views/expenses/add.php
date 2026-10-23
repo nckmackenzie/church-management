@@ -152,7 +152,7 @@
                                                 <?php echo empty($data['requisitions']) && empty($data['reqid']) ? 'disabled' : '';?>>
                                             <option value="">No requisition</option>
                                             <?php foreach($data['requisitions'] as $req) : ?>
-                                                <option value="<?php echo $req->ID;?>" data-style="<?php echo htmlspecialchars((string)$req->Style);?>"
+                                                <option value="<?php echo $req->ID;?>" data-style="<?php echo htmlspecialchars((string)$req->Style);?>" data-account="<?php echo (int)$req->Account;?>"
                                                     <?php echo (int)$data['reqid'] === (int)$req->ID ? 'selected' : '';?>>
                                                     <?php echo htmlspecialchars(strtoupper($req->Label));?>
                                                 </option>
@@ -210,6 +210,6 @@
         $('#account').select2();
     });
 </script>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/expenses/add-expense-v8.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/expenses/add-expense-v9.js"></script>
 </body>
 </html>

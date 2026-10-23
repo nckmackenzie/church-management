@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 // 8.9 functional run: MMF receipts (11), group collections (17), fund approvals (12) on the Ledger library,
 // congregation 11, dev only; cleans up after itself (and restores the fiscal years it touches).
 //   E:\xampp\php\php.exe scripts\test_8_9_group_funds.php
@@ -16,7 +17,7 @@ $_SESSION['userType'] = 1;
 $_SESSION['userId'] = (int)$pdo->query('SELECT ID FROM tblusers ORDER BY ID LIMIT 1')->fetchColumn();
 
 $tables = ['tblmmf' => 'ID', 'tblfundrequisition' => 'ID', 'tblexpenses' => 'ID', 'journal_entries' => 'ID', 'journal_lines' => 'ID',
-           'tblledger' => 'ID', 'tblbankpostings' => 'ID', 'tbllogs' => 'ID', 'tblbanksubaccounts' => 'ID', 'tblchurchrequisitioncategories' => 'id'];
+           'tblledger' => 'ID', 'tblbankpostings' => 'ID', 'tbllogs' => 'ID', 'tblbanksubaccounts' => 'ID', 'tblchurchrequisitioncategories' => 'id', 'tblaccounttypes' => 'ID'];
 $max = [];
 foreach ($tables as $t => $k) { $max[$t] = (int)$pdo->query("SELECT IFNULL(MAX($k),0) FROM $t")->fetchColumn(); }
 $yearSnapshot = $pdo->query('SELECT ID,closed,deleted FROM tblfiscalyears')->fetchAll(PDO::FETCH_ASSOC);
@@ -53,7 +54,7 @@ function newReq($type, $ownerId, $dd = 0, $amount = 1000, $status = 0) {
 }
 $reqNo = 991000;
 function appForm($id, $o = []) {
-    return array_merge(['id' => $id, 'approved' => 1000.0, 'paydate' => date('Y-m-d'), 'reference' => 'T89-' . $id, 'paymethod' => 1, 'paidfrom' => 98,
+    return array_merge(['id' => $id, 'approved' => 1000.0, 'paydate' => date('Y-m-d'), 'reference' => 'T89-' . $id, 'paymethod' => 1, 'paidfrom' => 98, 'receiving' => 121,
                         'type' => 'group', 'groupid' => 0, 'dontdeduct' => false, 'reason' => 'x', 'group' => 'x'], $o);
 }
 
@@ -407,6 +408,127 @@ try {
     chk('delete of an approved requisition changes nothing', (int)req($f1)['Deleted'] === 0);
     $gf->Delete($f9);
     chk('delete of a pending requisition of this congregation ok', (int)req($f9)['Deleted'] === 1);
+
+
+    // =============================================================== follow-up 4: user-chosen RECEIVING (debit) account
+    $E = new Expense;
+    $entryDr = function ($id) { $e = entry(12, $id); return $e ? ['dr' => (int)$e[0]['accountId'], 'cr' => (int)$e[1]['accountId'], 'n' => count($e)] : null; };
+    // default 121 (the preselected account)
+    $q1 = newReq('group', $G, 0, 1000);
+    $a = $gf->Approve(appForm($q1));
+    chk('receiving: default 121 -> Dr 121 / Cr 98', ok($a) && $entryDr($q1) == ['dr' => 121, 'cr' => 98, 'n' => 2], json_encode($a));
+    chk('receiving: requisitionReceiving() = new / 121', $E->requisitionReceiving($pdo, 11, $q1) == ['style' => 'new', 'account' => 121]);
+    chk('receiving: ReceivingAccountOf() reads the entry', $gf->ReceivingAccountOf($q1) === 121);
+    // another account
+    $q2 = newReq('group', $G, 0, 1000);
+    $a = $gf->Approve(appForm($q2, ['receiving' => 34]));
+    chk('receiving: cash at hand (34) chosen -> Dr 34 / Cr 98', ok($a) && $entryDr($q2) == ['dr' => 34, 'cr' => 98, 'n' => 2], json_encode($a));
+    chk('receiving: requisitionReceiving() = new / 34; ReceivingAccountOf = 34', $E->requisitionReceiving($pdo, 11, $q2) == ['style' => 'new', 'account' => 34] && $gf->ReceivingAccountOf($q2) === 34);
+    $q3 = newReq('group', $G, 0, 1000);
+    $a = $gf->Approve(appForm($q3, ['receiving' => 194, 'paidfrom' => 98, 'paymethod' => 1]));
+    chk('receiving: petty cash development (194) chosen', ok($a) && $entryDr($q3)['dr'] === 194);
+    $q4 = newReq('group', $G, 0, 800);
+    $a = $gf->Approve(appForm($q4, ['approved' => 800.0, 'receiving' => 98, 'paymethod' => 4, 'paidfrom' => $BANK]));
+    chk('receiving: petty cash (98) funded from a bank (105): Dr 98 / Cr 105 + bank row', ok($a) && $entryDr($q4) == ['dr' => 98, 'cr' => $BANK, 'n' => 2] && count(brows(12, $q4)) === 1);
+    // refusals (the requisition stays pending, nothing is posted)
+    q("INSERT INTO tblaccounttypes (accountType,accountTypeId,parentId,isSubCategory,isBank,active,congregationId,deleted) VALUES ('zz t89 inactive cash',3,22,1,0,0,0,0)"); $inactiveCash = (int)$pdo->lastInsertId();
+    q("INSERT INTO tblaccounttypes (accountType,accountTypeId,parentId,isSubCategory,isBank,active,congregationId,deleted) VALUES ('zz t89 parent cash',3,22,0,0,1,0,0)"); $parentCash = (int)$pdo->lastInsertId();
+    q("INSERT INTO tblaccounttypes (accountType,accountTypeId,parentId,isSubCategory,isBank,active,congregationId,deleted) VALUES ('zz t89 child of parent',3,?,1,0,1,0,0)", [$parentCash]);
+    $rq = newReq('group', $G, 0, 1000);
+    $bad = [
+        'missing (null)' => ['receiving' => null], 'missing (empty)' => ['receiving' => ''], 'zero' => ['receiving' => 0], 'text' => ['receiving' => 'abc'],
+        'negative' => ['receiving' => '-5'], 'digits with trailing text (121abc)' => ['receiving' => '121abc'], 'array' => ['receiving' => [121]],
+        'non-existent account' => ['receiving' => 99999999], 'inactive cash account' => ['receiving' => $inactiveCash],
+        'parent (reporting) account under 22: cash at bank 33' => ['receiving' => 33], 'a parent account of the test chart' => ['receiving' => $parentCash],
+        'cash and cash equivalents 22 itself' => ['receiving' => 22], 'a root account' => ['receiving' => 3], 'a bank account (outside the cash list)' => ['receiving' => $BANK],
+        'an expense account (outside the list)' => ['receiving' => 51], 'an income account' => ['receiving' => 93],
+        'equal to the paid-from account (98 / 98)' => ['receiving' => 98, 'paidfrom' => 98],
+        'paid from the cash holding account' => ['paidfrom' => 121, 'receiving' => 34],
+    ];
+    foreach ($bad as $label => $o) {
+        $r = $gf->Approve(appForm($rq, $o));
+        chk("receiving refused: $label", refused($r) && $r['final'] === false && !$pdo->inTransaction(), json_encode($r));
+    }
+    chk('receiving refusals: still pending, nothing posted', (int)req($rq)['Status'] === 0 && !q('SELECT 1 FROM journal_entries WHERE transactionTypeId=12 AND transactionId=?', [$rq]) && count(mmf12($rq)) === 0);
+    $r = $gf->Approve(appForm($rq, ['receiving' => 121, 'paidfrom' => 98]));
+    chk('receiving: a valid choice after the refusals is accepted', ok($r));
+    $offered = array_map(function ($a) { return (int)$a->ID; }, $gf->GetReceivingAccounts());
+    chk('receiving list: PAY_CASH accounts incl. 121, 98, 34; no bank, no parent, no inactive', in_array(121, $offered, true) && in_array(98, $offered, true) && in_array(34, $offered, true) && !array_intersect($offered, [$BANK, 33, 22, $inactiveCash, $parentCash]), json_encode($offered));
+
+    // expenses: an expense of a NEW-style requisition is paid from the account its approval debited
+    $acctG = (int)q('SELECT ID FROM tblaccounttypes WHERE ID IN (' . implode(',', array_map(function ($a) { return (int)$a->ID; }, $E->GetExpenseAccounts(2))) . ') AND accountTypeId=2 ORDER BY ID LIMIT 1')[0]['ID'];
+    $ex = function ($req, $paidFrom, $o = []) use ($E, $acctG, $G, $today) {
+        return $E->create($o + ['date' => $today, 'expensetype' => 2, 'account' => $acctG, 'costcentre' => $G, 'paymethod' => 1, 'paidfrom' => $paidFrom, 'reqid' => $req,
+                                'amount' => '100.50', 'reference' => 'T89X', 'description' => 'receiving test', 'hasattachment' => 0, 'filename' => '']);
+    };
+    $r = $ex($q2, 121);
+    chk('expense of a requisition funded into 34, paid from 121: refused, says to pay from that account', !$r['success'] && stripos(implode('|', $r['errors']), 'pay it from that account') !== false && stripos(implode('|', $r['errors']), 'cash at hand') !== false, json_encode($r));
+    $r = $ex($q2, 98);
+    chk('...paid from 98 (the approval credited 98): refused too', !$r['success'] && stripos(implode('|', $r['errors']), 'pay it from that account') !== false, json_encode($r));
+    $r = $ex($q2, 34);
+    chk('...paid from 34 (the account the approval debited): accepted', $r['success'], json_encode($r));
+    $x34 = (int)($r['id'] ?? 0);
+    $r = $E->approve($x34);
+    chk('...and the expense can be approved (Dr expense / Cr 34)', $r['success'] && (int)entry(2, $x34)[1]['accountId'] === 34, json_encode($r));
+    $r = $ex($q1, 34);
+    chk('expense of a requisition funded into 121, paid from 34: refused', !$r['success'] && stripos(implode('|', $r['errors']), 'pay it from that account') !== false, json_encode($r));
+    $r = $ex($q1, 121);
+    chk('...paid from 121 (the default): accepted, as before', $r['success'], json_encode($r));
+    $x121 = (int)($r['id'] ?? 0);
+    $r = $ex($q4, 98);
+    chk('expense of a requisition funded into 98 (from a bank): paid from 98 accepted', $r['success'], json_encode($r));
+    $r = $ex(0, 121);
+    chk('121 still pays only requisition expenses (no requisition: refused)', !$r['success'] && stripos(implode('|', $r['errors']), 'cash holding account can only pay') !== false, json_encode($r));
+    $opts = $E->GetRequisitionOptions(2, $G, 0);
+    $byId = []; foreach ($opts as $o) { $byId[$o->ID] = $o; }
+    chk('requisition options carry style and account (34 for the cash-at-hand one, 121 for the default one)', isset($byId[$q2], $byId[$q1]) && $byId[$q2]->Style === 'new' && $byId[$q2]->Account === 34 && $byId[$q1]->Account === 121);
+
+    // unapprove with an expense is blocked; re-approve with a DIFFERENT receiving account
+    $u = $gf->Unapprove($q2);
+    chk('unapprove blocked while an expense (paid from 34) exists, voucher listed', refused($u) && $u['final'] === true && stripos($u['error'], 'voucher no') !== false, json_encode($u));
+    $E->unapprove($x34); $E->delete($x34);
+    $u = $gf->Unapprove($q2);
+    chk('unapprove ok once the expense is deleted', ok($u) && (int)req($q2)['Status'] === 0 && activeEntries(12, $q2) === 0);
+    chk('requisitionReceiving() of an unapproved requisition: style null (cannot be classified)', $E->requisitionReceiving($pdo, 11, $q2) == ['style' => null, 'account' => null]);
+    $a = $gf->Approve(appForm($q2, ['receiving' => 121]));
+    chk('re-approve with ANOTHER receiving account (121): Dr 121, old entry stays voided', ok($a) && $entryDr($q2)['dr'] === 121 && voided(12, $q2) === 1 && $gf->ReceivingAccountOf($q2) === 121);
+    $r = $ex($q2, 34);
+    chk('...now an expense paid from 34 is refused', !$r['success'] && stripos(implode('|', $r['errors']), 'pay it from that account') !== false);
+    $r = $ex($q2, 121);
+    chk('...and from 121 accepted', $r['success'], json_encode($r));
+
+    // OLD-style requisitions keep their rule: an approval that debited a funds-held account (no cash debit)
+    $old = newReq('group', $G, 0, 1000, 1);
+    q('UPDATE tblfundrequisition SET AmountApproved=1000, ApprovalDate=? WHERE ID=?', [$today, $old]);
+    $pdo->beginTransaction();
+    Ledger::post($pdo, ['congregationId' => 11, 'entryDate' => $today, 'transactionTypeId' => 12, 'transactionId' => $old, 'reference' => 'old', 'description' => 'old style'], [Ledger::debit(115, '1000.00'), Ledger::credit(34, '1000.00')]);
+    $pdo->commit();
+    chk('old-style requisition (Dr funds held 115): style old, no account', $E->requisitionReceiving($pdo, 11, $old) == ['style' => 'old', 'account' => null]);
+    foreach ([98, 34, 121] as $pf) {
+        $r = $ex($old, $pf, ['reference' => "T89O$pf"]);
+        chk("old-style requisition: an expense paid from $pf is accepted (rule unchanged)", $r['success'], json_encode($r));
+    }
+    // every real approval is classified exactly as before (new = debit on 121 in the existing data; old = no cash debit)
+    $before = q("SELECT e.transactionId AS rid, MAX(l.accountId = 121 AND l.dc = 'DEBIT') AS to121 FROM journal_entries e JOIN journal_lines l ON l.journalEntryId = e.ID
+                 WHERE e.transactionTypeId = 12 AND e.deleted = 0 AND e.transactionId <= ? GROUP BY e.transactionId", [$max['tblfundrequisition']]);
+    $diff = 0; $accDiff = 0;
+    foreach ($before as $b) {
+        $rec = $E->requisitionReceiving($pdo, 11, (int)$b['rid']);
+        if ($rec['style'] !== ((int)$b['to121'] ? 'new' : 'old')) { $diff++; }
+        if ((int)$b['to121'] && $rec['account'] !== 121) { $accDiff++; }
+    }
+    chk('existing approvals (' . count($before) . '): style identical to the old "debit on 121" rule, and every new one reports account 121', $diff === 0 && $accDiff === 0 && count($before) > 150, "diff $diff acc $accDiff n " . count($before));
+
+    // church requisitions are stored with DontDeduct = 1 whatever is posted
+    $catId2 = (int)q('SELECT id FROM tblchurchrequisitioncategories WHERE congregationId=11 AND deleted=0 LIMIT 1')[0]['id'];
+    $ok = $gf->CreateUpdate(['isedit' => false, 'id' => '', 'reqdate' => $today, 'type' => 'church', 'group' => $catId2, 'reason' => 'church dd', 'amount' => 50.0, 'dontdeduct' => false]);
+    $cid2 = (int)q('SELECT MAX(ID) m FROM tblfundrequisition')[0]['m'];
+    chk('church requisition: DontDeduct stored as 1 although false was posted', $ok === true && (int)req($cid2)['DontDeduct'] === 1 && req($cid2)['RequestType'] === 'church');
+    $ok = $gf->CreateUpdate(['isedit' => true, 'id' => $cid2, 'reqdate' => $today, 'type' => 'church', 'group' => $catId2, 'reason' => 'church dd edited', 'amount' => 60.0, 'dontdeduct' => false]);
+    chk('...and still 1 after an edit', $ok === true && (int)req($cid2)['DontDeduct'] === 1);
+    $ok = $gf->CreateUpdate(['isedit' => false, 'id' => '', 'reqdate' => $today, 'type' => 'group', 'group' => $G, 'reason' => 'group dd', 'amount' => 50.0, 'dontdeduct' => false]);
+    $gid2 = (int)q('SELECT MAX(ID) m FROM tblfundrequisition')[0]['m'];
+    chk('group requisition keeps what was posted (DontDeduct 0)', $ok === true && (int)req($gid2)['DontDeduct'] === 0);
 
     // requisition ownership: the group / district / category must belong to the congregation and match the type
     q("INSERT INTO tblchurchrequisitioncategories (categoryName,congregationId,deleted) VALUES ('t89 foreign category',2,0)"); $foreignCat = (int)$pdo->lastInsertId();

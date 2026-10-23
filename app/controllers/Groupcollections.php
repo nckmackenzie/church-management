@@ -156,6 +156,9 @@ class Groupcollections extends Controller
                 exit;
             }
 
+            if($data['isedit']){
+                flash('collection_msg','Saved successfully!');     // shown by the list the browser is sent back to after an edit
+            }
             http_response_code(201);
             echo json_encode(['success' => true,'message' => 'Saved successfully']);
             exit;
