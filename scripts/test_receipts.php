@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 // 8.4b functional run: receipts (type 1), petty cash receipts (type 10), transfers to petty cash, number sequences,
 // petty cash report routines (cong 11, dev only); cleans up after itself.
 chdir('E:/xampp/htdocs/cms/app');
@@ -163,6 +164,10 @@ try {
     $after = brows(1, $m1);
     chk('edit narration only: same bank row kept, still cleared', count($after) == 1 && $after[0]['ID'] == $row['ID'] && $after[0]['cleared'] == 1 && $after[0]['clearedDare'] == '2026-01-20', json_encode($after));
     chk('receipt number kept on edit, sequence not touched', hdr($m1)['receiptNo'] === $no1 && seq('receipt', 12) === $seqBefore);
+    // 8.9 follow-up: a cleared bank row can no longer be changed (bank / amount) or voided; the test refuses it, then un-clears the row and goes on
+    $r = $ct->create($mk(['id' => $m1, 'isedit' => true, 'reference' => 'MP123X', 'amounts' => ['222.25']]));
+    chk('edit amount on a cleared row: refused (Ledger::clearedBankProblem)', !$r['success'] && stripos(json_encode($r), 'cleared') !== false && brows(1, $m1)[0]['ID'] == $row['ID'], json_encode($r));
+    q('UPDATE tblbankpostings SET cleared=0, clearedDare=NULL WHERE ID=?', [$row['ID']]);
     $r = $ct->create($mk(['id' => $m1, 'isedit' => true, 'reference' => 'MP123X', 'amounts' => ['222.25']]));
     chk('edit amount on cleared row: saved', $r['success'], json_encode($r));
     $after = brows(1, $m1);
@@ -308,6 +313,10 @@ try {
     chk('petty edit narration: same cleared bank row, number kept', $r['success'] && count($after) == 1 && $after[0]['ID'] == $brow['ID'] && $after[0]['cleared'] == 1 && q('SELECT ReceiptNo FROM tblpettycash WHERE ID=?', [$p98])[0]['ReceiptNo'] == $rno && seq('pettycash') === $sp, json_encode([$r, $after]));
     chk('petty edit: narration stored in tblpettycash and ledger (same text)', q('SELECT Narration FROM tblpettycash WHERE ID=?', [$p98])[0]['Narration'] === 'edited narration'
         && q('SELECT description d FROM journal_entries WHERE transactionTypeId=10 AND transactionId=? AND congregationId=11 AND deleted=0', [$p98])[0]['d'] === 'edited narration');
+    // 8.9 follow-up: a cleared bank row can no longer be changed (bank / amount) or voided; the test refuses it, then un-clears the row and goes on
+    $r = $cr->CreateUpdate($pm(['id' => $p98, 'isedit' => true, 'amount' => '999']));
+    chk('petty edit amount on a cleared row: refused (Ledger::clearedBankProblem)', !$r['success'] && stripos(json_encode($r), 'cleared') !== false && brows(10, $p98)[0]['ID'] == $brow['ID'], json_encode($r));
+    q('UPDATE tblbankpostings SET cleared=0, clearedDare=NULL WHERE ID=?', [$brow['ID']]);
     $r = $cr->CreateUpdate($pm(['id' => $p98, 'isedit' => true, 'amount' => '999']));
     $after = brows(10, $p98);
     chk('petty edit amount on cleared row: new uncleared row 999', $r['success'] && count($after) == 1 && $after[0]['ID'] != $brow['ID'] && $after[0]['cleared'] == 0 && abs($after[0]['credit'] - 999) < 0.001);

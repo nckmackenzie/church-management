@@ -13,8 +13,7 @@ const expenseRoute = `${HOST_URL}/expenses`;
 const isEdit = form.dataset.mode === 'edit';
 const expenseId = form.dataset.expenseId || '';
 const CASH_METHOD = '1';
-// the account a new-style requisition is paid from (set by the server)
-const CASH_HOLDING = form.dataset.cashHolding || '';
+// a new-style requisition is paid from the account its approval debited: the server sends it with every option (data-account)
 
 function esc(text) {
   const d = document.createElement('div');
@@ -29,6 +28,7 @@ function fillSelect(select, items, placeholder, selected) {
   items.forEach(item => {
     const opt = new Option(item.label, item.id);
     if (item.style) opt.dataset.style = item.style;
+    if (item.account) opt.dataset.account = item.account;
     select.add(opt, undefined);
   });
   if (selected !== undefined && selected !== null && selected !== '') {
@@ -123,16 +123,17 @@ $('#costcentre').on('change', function () {
   loadRequisitions();
 });
 
-// picking a requisition: it is paid in cash; a new-style one is paid from the cash holding account
+// picking a requisition: it is paid in cash; a new-style one is paid from the account its approval debited
 requisitionSelect.addEventListener('change', async function () {
   if (!requisitionSelect.value) return;
   const style = requisitionSelect.selectedOptions[0]?.dataset.style;
+  const account = requisitionSelect.selectedOptions[0]?.dataset.account;
   if (paymethodSelect.value !== CASH_METHOD) {
     paymethodSelect.value = CASH_METHOD;
     await loadPaidFrom();
   }
-  if (style === 'new' && CASH_HOLDING) {
-    paidFromSelect.value = CASH_HOLDING;
+  if (style === 'new' && account) {
+    paidFromSelect.value = account;
   }
 });
 

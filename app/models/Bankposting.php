@@ -186,15 +186,18 @@ class Bankposting
             list($bank,$account) = $this->assertAccounts($pdo,$cong,$data);
             $amount = round((float)$data['amount'],2);
 
-            // bank, side or amount changed -> no longer the cleared row
+            // a cleared (reconciled) row keeps its bank, side and amount; date, reference and narration may change
             $oldSide = (float)$old->debit > 0 ? 'D' : 'C';
             $newSide = $transtype === 1 ? 'D' : 'C';
             $oldAmount = (float)$old->debit > 0 ? (float)$old->debit : (float)$old->credit;
             $changed = (int)$old->bankId !== $bank || $oldSide !== $newSide || abs($oldAmount - $amount) >= 0.005;
+            if ($changed && (int)$old->cleared === 1) {
+                $pdo->rollBack();
+                return ['success' => false,'errors' => ['This bank posting has already been cleared in bank reconciliation' . ($old->clearedDare ? ' (on ' . $old->clearedDare . ')' : '') . ', so its bank, type or amount cannot be changed']];
+            }
 
             $this->db->query('UPDATE tblbankpostings SET bankId=:bid,transactionDate=:tdate,debit=:debit,credit=:credit,
-                                               transactionMethod=:method,reference=:ref,accountId=:aid,narration=:narr'
-                             .($changed ? ',cleared=0,clearedDare=NULL' : '').'
+                                               transactionMethod=:method,reference=:ref,accountId=:aid,narration=:narr
                               WHERE (ID=:id)');
             $this->db->bind(':bid',$bank);
             $this->db->bind(':tdate',$data['date']);
@@ -233,9 +236,14 @@ class Bankposting
         $cong = (int)$_SESSION['congId'];
         try {
             $pdo->beginTransaction();
-            if (!$this->findPosting($id)) {
+            $row = $this->findPosting($id);
+            if (!$row) {
                 $pdo->rollBack();
                 return ['success' => false,'errors' => [self::NOT_MINE]];
+            }
+            if ((int)$row->cleared === 1) {
+                $pdo->rollBack();
+                return ['success' => false,'errors' => ['This bank posting has already been cleared in bank reconciliation' . ($row->clearedDare ? ' (on ' . $row->clearedDare . ')' : '') . ', so it cannot be deleted']];
             }
             $this->db->query('UPDATE tblbankpostings SET deleted=1 WHERE (ID=:id)');
             $this->db->bind(':id',(int)$id);

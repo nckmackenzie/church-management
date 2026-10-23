@@ -94,6 +94,15 @@ class Ledger
     const PETTY_CASH_ACCOUNTS = [98, 194];
 
     /**
+     * ID of the fixed system account 'cash holding account' (confirmed by the user, task 8.9, like opening balance equity 20):
+     * the DEFAULT receiving (debit) account of a group / district fund approval (type 12), preselected on the approve form.
+     * Since follow-up 4 the user may choose another PAY_CASH account; Expense::requisitionStyle() classes a requisition as
+     * 'new' when its approval debited a cash account, and an expense of it is paid from THAT account. 121 itself still pays
+     * only requisition expenses. It is a PAY_CASH account (a posting account under CASH_ROOT).
+     */
+    const CASH_HOLDING = 121;
+
+    /**
      * Number sequences (receipt_number_seq): receipts and expense vouchers per congregation + fiscal year, petty cash
      * per congregation.
      */
@@ -442,6 +451,10 @@ class Ledger
      * cleared / clearedDare; an unmatched row is soft-deleted; an unmatched
      * line gets a new uncleared row. accountId is left NULL, as saveToBanking()
      * does. Rows are never hard-deleted.
+     *
+     * Guard (8.9 follow-up): a CLEARED (reconciled) row that no wanted line matches would be
+     * soft-deleted, which silently re-opens a reconciliation: that throws a LedgerException instead
+     * (same message as clearedBankProblem()). Callers still check first for an early, friendlier error.
      */
     public static function syncBankPostings(PDO $db, int $cong, int $type, int $txn, string $method, ?string $reference = null): int
     {
@@ -470,7 +483,7 @@ class Ledger
         $ref  = $reference !== null ? self::blankToNull($reference) : null;
         if ($ref === null) { $ref = $entry['reference']; }
 
-        $st = $db->prepare('SELECT ID, bankId, debit, credit FROM tblbankpostings
+        $st = $db->prepare('SELECT ID, bankId, debit, credit, cleared, clearedDare FROM tblbankpostings
                             WHERE congregationId = ? AND transactionType = ? AND transactionId = ? AND deleted = 0
                             ORDER BY ID FOR UPDATE');
         $st->execute([$cong, $type, $txn]);
@@ -485,21 +498,25 @@ class Ledger
                              VALUES (?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?, ?, 0)');
         $del = $db->prepare('UPDATE tblbankpostings SET deleted = 1 WHERE ID = ?');
 
+        // guard: which existing rows will stay? A cleared one that does not stay may not be dropped.
+        $taken = [];
+        foreach ($wanted as $w) {
+            $h = self::matchBankRow($existing, $w, $taken);
+            if ($h !== null) { $taken[$h] = true; }
+        }
+        foreach ($existing as $i => $r) {
+            if (!isset($taken[$i]) && (int) $r['cleared'] === 1) {
+                throw new LedgerException([self::clearedMessage($r['clearedDare'], 'changed (bank or amount)')]);
+            }
+        }
+
         $methodIds = [];
         $used      = [];
         $active    = 0;
 
         foreach ($wanted as $w) {
             $methodId = self::bankMethodId($db, $method, $methodIds);
-            $hit = null;
-            foreach ($existing as $i => $r) {
-                if (isset($used[$i]) || (int) $r['bankId'] !== $w['bankId']) { continue; }
-                if (abs(round((float) $r['debit'], 2) - (float) $w['debit']) < 0.005
-                    && abs(round((float) $r['credit'], 2) - (float) $w['credit']) < 0.005) {
-                    $hit = $i;
-                    break;
-                }
-            }
+            $hit = self::matchBankRow($existing, $w, $used);
             if ($hit !== null) {
                 $used[$hit] = true;
                 $upd->execute([$date, $ref, $w['narration'], $methodId, $existing[$hit]['ID']]);
@@ -515,6 +532,25 @@ class Ledger
         }
 
         return $active;
+    }
+
+    /** Index of the existing bank row (not yet used) with the wanted line's bank, side and amount, or null. */
+    private static function matchBankRow(array $existing, array $w, array $used): ?int
+    {
+        foreach ($existing as $i => $r) {
+            if (isset($used[$i]) || (int) $r['bankId'] !== $w['bankId']) { continue; }
+            if (abs(round((float) $r['debit'], 2) - (float) $w['debit']) < 0.005
+                && abs(round((float) $r['credit'], 2) - (float) $w['credit']) < 0.005) {
+                return $i;
+            }
+        }
+        return null;
+    }
+
+    private static function clearedMessage(?string $clearedDate, string $what): string
+    {
+        return 'The bank posting of this transaction has already been cleared in bank reconciliation'
+             . ($clearedDate ? ' (on ' . $clearedDate . ')' : '') . ', so it cannot be ' . $what;
     }
 
     /**
@@ -542,10 +578,39 @@ class Ledger
         return $cache[$key];
     }
 
-    /** Soft-delete every non-deleted bank row of a source; returns how many. */
+    /**
+     * Why the bank rows of a source may not be voided or changed: an active row is already cleared (reconciled).
+     * $keep = ['bankId' => ID, 'amount' => number], or a list of such pairs (a transfer between two banks has two rows),
+     * lets an edit through when each cleared row stays as it is (same bank, same amount; only its date or reference may
+     * change). Returns a message or null.
+     */
+    public static function clearedBankProblem(PDO $db, int $cong, int $type, int $txn, ?array $keep = null): ?string
+    {
+        $st = $db->prepare('SELECT bankId, debit, credit, clearedDare FROM tblbankpostings
+                            WHERE congregationId = ? AND transactionType = ? AND transactionId = ? AND deleted = 0 AND cleared = 1');
+        $st->execute([$cong, $type, $txn]);
+        if ($keep !== null && isset($keep['bankId'])) { $keep = [$keep]; }
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $amount = max((float) $r['debit'], (float) $r['credit']);
+            foreach ((array) $keep as $k) {
+                if ((int) $r['bankId'] === (int) $k['bankId'] && abs($amount - (float) $k['amount']) < 0.005) { continue 2; }
+            }
+            return self::clearedMessage($r['clearedDare'], $keep === null ? 'voided' : 'changed (bank or amount)');
+        }
+        return null;
+    }
+
+    /**
+     * Soft-delete every non-deleted bank row of a source; returns how many. Throws a LedgerException when one of them is
+     * already cleared (reconciled): a void must never silently re-open a reconciliation.
+     */
     public static function voidBankPostings(PDO $db, int $cong, int $type, int $txn): int
     {
         self::requireTransaction($db);
+
+        if (($problem = self::clearedBankProblem($db, $cong, $type, $txn)) !== null) {
+            throw new LedgerException([$problem]);
+        }
 
         $st = $db->prepare('UPDATE tblbankpostings SET deleted = 1
                             WHERE congregationId = ? AND transactionType = ? AND transactionId = ? AND deleted = 0');
@@ -614,6 +679,12 @@ class Ledger
         }
         usort($out, function ($x, $y) { return strcasecmp($x['accountType'], $y['accountType']); });
         return $out;
+    }
+
+    /** True if the account is a non-deleted descendant of CASH_ROOT (a PAY_CASH candidate; posting rules are checked separately). */
+    public static function isCashAccount(PDO $db, int $accountId): bool
+    {
+        return isset(self::cashTree($db)[$accountId]);
     }
 
     /** True if the account is one of the fixed petty cash accounts (PETTY_CASH_ACCOUNTS). */

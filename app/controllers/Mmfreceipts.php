@@ -1,6 +1,9 @@
 <?php
 class Mmfreceipts extends Controller
 {
+    private $authmodel;
+    private $mmfmodel;
+
     public function __construct()
     {
         if (!isset($_SESSION['userId'])) {
@@ -23,41 +26,47 @@ class Mmfreceipts extends Controller
 
     public function add()
     {
-        $groups = $this->mmfmodel->GetGroups();
-        $banks = $this->mmfmodel->GetBanks();
         $data = [
             'id' => '',
             'touched' => '',
-            'groups' => $groups,
-            'banks' => $banks,
+            'groups' => $this->mmfmodel->GetGroups(),
+            'banks' => $this->mmfmodel->GetBanks(),
+            'fundsaccounts' => $this->mmfmodel->GetFundsHeldAccounts(),
             'isedit' => false,
             'tdate' => date('Y-m-d',strtotime($_SESSION['processdate'])),
             'balance' => '',
             'groupid' => '',
             'amount' => '',
             'bank' => '',
+            'fundsheld' => '',
             'reference' => '',
+            'errmsg' => '',
             'tdate_err' => '',
             'groupid_err' => '',
             'amount_err' => '',
             'reference_err' => '',
-            'bank_err' => ''
+            'bank_err' => '',
+            'fundsheld_err' => ''
         ];
         $this->view('mmfreceipts/add',$data);
     }
-    
+
     public function getbalance()
     {
         if($_SERVER['REQUEST_METHOD'] === 'GET'){
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [
-                'date' => !empty(trim($_GET['date'])) ? date('Y-m-d',strtotime(trim($_GET['date']))) : NULL,
-                'groupid' => !empty(trim($_GET['groupid'])) ? trim($_GET['groupid']) : NULL,
-            ];
+            $date = isset($_GET['date']) && !empty(trim($_GET['date'])) ? date('Y-m-d',strtotime(trim($_GET['date']))) : null;
+            $groupid = isset($_GET['groupid']) && !empty(trim($_GET['groupid'])) ? (int)trim($_GET['groupid']) : null;
+            $id = isset($_GET['id']) && !empty(trim($_GET['id'])) ? (int)trim($_GET['id']) : 0;
 
-            $balance = $this->mmfmodel->GetBalance($data);
-            
-            echo json_encode(['balance' => $balance]);
+            if(is_null($date) || is_null($groupid)){
+                http_response_code(400);
+                echo json_encode(['balance' => 0,'message' => 'Select date and group']);
+                exit;
+            }
+
+            echo json_encode(['balance' => $this->mmfmodel->GetBalance($groupid,$date,$id)]);
+            exit;
 
         }else{
             redirect('users/deniedaccess');
@@ -69,68 +78,63 @@ class Mmfreceipts extends Controller
     {
         if($_SERVER['REQUEST_METHOD'] === 'POST'){
             $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-            $groups = $this->mmfmodel->GetGroups();
-            $banks = $this->mmfmodel->GetBanks();
             $data = [
                 'id' => trim($_POST['id']),
-                'groups' => $groups,
-                'banks' => $banks,
+                'groups' => $this->mmfmodel->GetGroups(),
+                'banks' => $this->mmfmodel->GetBanks(),
+                'fundsaccounts' => $this->mmfmodel->GetFundsHeldAccounts(),
                 'isedit' => converttobool(trim($_POST['isedit'])),
                 'tdate' => !empty(trim($_POST['tdate'])) ? date('Y-m-d',strtotime($_POST['tdate'])) : '',
                 'groupid' => !empty(trim($_POST['groupid'])) ? trim($_POST['groupid']) : '',
                 'amount' => trim($_POST['amount']),
                 'bank' => !empty(trim($_POST['bank'])) ? trim($_POST['bank']) : '',
+                'fundsheld' => !empty(trim($_POST['fundsheld'])) ? trim($_POST['fundsheld']) : '',
                 'reference' => trim($_POST['reference']),
-                'balance' => !empty(trim($_POST['balance'])) ? trim($_POST['balance']) : 0,
+                'balance' => '',
+                'errmsg' => '',
                 'tdate_err' => '',
                 'groupid_err' => '',
                 'amount_err' => '',
                 'reference_err' => '',
-                'bank_err' => ''
+                'bank_err' => '',
+                'fundsheld_err' => ''
             ];
 
+            // quick field checks for the form; the model repeats every rule (and the balance, which is never taken from the form)
             if(empty($data['tdate'])){
                 $data['tdate_err'] = 'Select date';
-            }else{
-                if($data['tdate'] > date('Y-m-d')){
-                    $data['tdate_err'] = 'Invalid date selected';
-                }
+            }elseif($data['tdate'] > date('Y-m-d')){
+                $data['tdate_err'] = 'Invalid date selected';
             }
-
             if(empty($data['groupid'])){
                 $data['groupid_err'] = 'Select group';
             }
-
-            if(empty($data['amount'])){
+            if($data['amount'] === ''){
                 $data['amount_err'] = 'Enter amount';
-            }else{
-                if(floatval($data['amount']) > floatval($data['balance'])){
-                    $data['amount_err'] = 'Cannot withdraw more than available amount';
-                }
+            }elseif($message = Ledger::amountError($data['amount'])){
+                $data['amount_err'] = $message;
             }
-            
             if(empty($data['bank'])){
                 $data['bank_err'] = 'Select bank';
             }
-
-            if(empty($data['reference'])){
-                $data['reference_err'] = 'Enter reference';
-            }else{
-                if(!$this->mmfmodel->CheckRefDuplication($data['reference'],$data['id'])){
-                    $data['reference_err'] = 'Reference already exists';
-                }
+            if(empty($data['fundsheld'])){
+                $data['fundsheld_err'] = 'Select group funds held account';
+            }
+            if($message = $this->mmfmodel->ReferenceProblem($data['reference'],(int)$data['id'])){
+                $data['reference_err'] = $message;
             }
 
             if(!empty($data['tdate_err']) || !empty($data['groupid_err']) || !empty($data['amount_err'])
-                || !empty($data['reference_err']) || !empty($data['bank_err'])){
-                
+                || !empty($data['reference_err']) || !empty($data['bank_err']) || !empty($data['fundsheld_err'])){
+
                 $this->view('mmfreceipts/add',$data);
                 exit();
             }
-           
-            if(!$this->mmfmodel->CreateUpdate($data)){
-                flash('mmf_msg','unable to save transaction. Please try again','alert custom-danger alert-dismissible fade show');
-                redirect('mmfreceipts');
+
+            $result = $this->mmfmodel->CreateUpdate($data);
+            if(!$result['success']){
+                $data['errmsg'] = !empty($result['errors']) ? implode('. ',$result['errors']) : 'Unable to save transaction. Please try again';
+                $this->view('mmfreceipts/add',$data);
                 exit();
             }
 
@@ -146,25 +150,33 @@ class Mmfreceipts extends Controller
 
     public function edit($id)
     {
-        $groups = $this->mmfmodel->GetGroups();
         $mmf = $this->mmfmodel->GetMmf($id);
-        $banks = $this->mmfmodel->GetBanks();
+        if(!$mmf){
+            flash('mmf_msg','MMF receipt not found','alert custom-danger alert-dismissible fade show');
+            redirect('mmfreceipts');
+            exit();
+        }
         $data = [
             'id' => $mmf->ID,
             'touched' => '',
-            'groups' => $groups,
-            'banks' => $banks,
+            'groups' => $this->mmfmodel->GetGroups(),
+            'banks' => $this->mmfmodel->GetBanks(),
+            'fundsaccounts' => $this->mmfmodel->GetFundsHeldAccounts(),
             'isedit' => true,
             'tdate' => $mmf->TransactionDate,
             'groupid' => $mmf->GroupId,
             'amount' => $mmf->Credit,
             'bank' => $mmf->BankId,
+            'fundsheld' => $this->mmfmodel->GetFundsHeldOf($mmf->ID),
             'reference' => strtoupper($mmf->Reference),
+            'balance' => $this->mmfmodel->GetBalance($mmf->GroupId,$mmf->TransactionDate,$mmf->ID),
+            'errmsg' => '',
             'tdate_err' => '',
             'groupid_err' => '',
             'amount_err' => '',
             'reference_err' => '',
-            'bank_err' => ''
+            'bank_err' => '',
+            'fundsheld_err' => ''
         ];
         $this->view('mmfreceipts/add',$data);
     }
@@ -172,7 +184,7 @@ class Mmfreceipts extends Controller
     public function delete()
     {
         if($_SERVER['REQUEST_METHOD'] === 'POST'){
-            $id = trim($_POST['id']);
+            $id = isset($_POST['id']) ? (int)trim($_POST['id']) : 0;
 
             if(empty($id)){
                 flash('mmf_msg','unable to get selected MMF','alert custom-danger alert-dismissible fade show');
@@ -180,8 +192,9 @@ class Mmfreceipts extends Controller
                 exit();
             }
 
-            if(!$this->mmfmodel->Delete($id)){
-                flash('mmf_msg','unable to delete transaction. Please try again','alert custom-danger alert-dismissible fade show');
+            $result = $this->mmfmodel->Delete($id);
+            if(!$result['success']){
+                flash('mmf_msg',!empty($result['errors']) ? implode('. ',$result['errors']) : 'unable to delete transaction. Please try again','alert custom-danger alert-dismissible fade show');
                 redirect('mmfreceipts');
                 exit();
             }

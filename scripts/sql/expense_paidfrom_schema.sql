@@ -114,6 +114,9 @@ BEGIN
     IF fnmd5 IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'step 5 refused: fn_checkreferencedaccount does not exist';
     END IF;
+    IF (SELECT ROUTINE_DEFINITION LIKE '%v2_task_8_10%' FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = DATABASE() AND ROUTINE_NAME = 'fn_checkreferencedaccount') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'step 5 refused: fn_checkreferencedaccount is already the 8.10 v2 definition (scripts/sql/fn_checkreferencedaccount_v2.sql); this script must not be re-run after it';
+    END IF;
     IF n = 0 AND fnmd5 <> '572b9b7be0fc5ef1fb4d6cafb441212b' THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'step 5 refused: fn_checkreferencedaccount differs from the definition this script was written against (dev md5 572b9b7b...); review it before replacing';
     END IF;

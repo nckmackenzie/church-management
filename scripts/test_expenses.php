@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 // 8.5d functional run: expenses (type 2) on the Ledger library, congregation 11, dev only; cleans up after itself.
 //   C:\xampp\php\php.exe scripts\test_expenses.php
 chdir('E:/xampp/htdocs/cms/app');
@@ -164,6 +165,12 @@ try {
         if ($isPetty) {
             $pa = prows($id);
             chk("[$label] edit narration: same petty cash row updated in place", count($pa) === 1 && $pa[0]['ID'] == $pr[0]['ID'] && $pa[0]['Narration'] === 'edited narration', json_encode($pa));
+        }
+        // 8.9 follow-up: a cleared bank row can no longer be changed (bank / amount) or voided; the test refuses it, then un-clears the row and goes on
+        if ($isBank) {
+            $rr = $E->update($id, $mk($o + ['description' => 'Edited narration', 'amount' => '222.25']));
+            chk("[$label] edit amount on a cleared row: refused (Ledger::clearedBankProblem)", !$rr['success'] && stripos(json_encode($rr), 'cleared') !== false && brows($id)[0]['ID'] == $br[0]['ID'], json_encode($rr));
+            q('UPDATE tblbankpostings SET cleared=0, clearedDare=NULL WHERE ID=?', [$br[0]['ID']]);
         }
         // edit amount
         $r = $E->update($id, $mk($o + ['description' => 'Edited narration', 'amount' => '222.25']));

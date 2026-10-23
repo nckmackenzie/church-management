@@ -220,6 +220,10 @@ class Cashreceipt
             $this->db->bind(':id',$id);
             $this->db->execute();
 
+            // a cleared (reconciled) bank row may stay, but not with another bank or amount
+            if ($p = Ledger::clearedBankProblem($pdo,$cong,10,$id,['bankId' => $v['bank'],'amount' => $v['amount']])) {
+                throw new LedgerException([$p]);
+            }
             $this->post($pdo,$cong,$id,$v);
 
             saveLog($pdo,'Updated petty cash receipt '.$id);
@@ -263,6 +267,11 @@ class Cashreceipt
                 return ['success' => false,'errors' => ['Petty cash receipt not found for this congregation']];
             }
             if ($problem = $this->closedYearProblem($pdo,$old->TransactionDate)) {
+                $pdo->rollBack();
+                return ['success' => false,'errors' => [$problem]];
+            }
+
+            if ($problem = Ledger::clearedBankProblem($pdo,$cong,10,$id)) {
                 $pdo->rollBack();
                 return ['success' => false,'errors' => [$problem]];
             }

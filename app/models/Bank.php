@@ -39,9 +39,11 @@ class Bank {
     }
     public function checkExists($name, $id)
     {
-        $this->db->query('SELECT ID FROM tblaccounttypes WHERE (accountNo=:ame) AND (ID <> :id)');
+        $this->db->query('SELECT ID FROM tblaccounttypes
+                          WHERE (accountNo=:ame) AND (ID <> :id) AND (isBank = 1) AND (deleted = 0) AND (congregationId = :cong)');
         $this->db->bind(':ame',$name);
-        $this->db->bind(':id',$id);
+        $this->db->bind(':id',$id === '' ? 0 : (int)$id);
+        $this->db->bind(':cong',(int)$_SESSION['congId']);
         $this->db->execute();
         if ($this->db->rowCount() > 0) {
            return false;
@@ -49,6 +51,12 @@ class Bank {
             return true;
         }
     }
+    /** Why this bank name cannot be used (decision 75: unique case/trim-insensitively among shared + own accounts, deleted rows included), or ''. */
+    public function nameError($name,$excludeId = null)
+    {
+        return AccountChart::nameProblem($this->db->pdo(),(string)$name,(int)$_SESSION['congId'],$excludeId === null ? null : (int)$excludeId) ?? '';
+    }
+
     /**
      * Create a bank (and its opening balance). Returns
      * ['success' => bool, 'errors' => string[]]; an empty errors list on failure
@@ -88,6 +96,11 @@ class Bank {
         try {
             //start transaction
             $pdo->beginTransaction();
+            $why = AccountChart::nameProblem($pdo,(string)$data['bankname'],$cong);
+            if ($why !== null) {
+                $pdo->rollBack();
+                return ['success' => false,'errors' => [$why]];
+            }
             $this->db->query('INSERT INTO tblaccounttypes (accountType,accountTypeId,parentId,
                               isBank,accountNo,congregationId,isSubCategory) VALUES(:bname,:tid,:pid,:isbank,:acc,:cid,:issub)');
             $this->db->bind(':bname',$data['bankname']);
@@ -99,6 +112,7 @@ class Bank {
             $this->db->bind(':issub',1);
             $this->db->execute();
             $tid = (int)$pdo->lastInsertId();
+            AccountChart::recomputeFlags($pdo,[$tid,33]);   // the bank (posting, depth 4) and its parent 'cash at bank'
 
             // zero / blank opening balance posts nothing
             if ((float)$data['openingbal'] > 0) {
@@ -125,6 +139,7 @@ class Bank {
 
             //commit transaction
             $pdo->commit();
+            Ledger::clearCashCache();
             return ['success' => true,'errors' => []];
         } catch (LedgerException $e) {
             if ($pdo->inTransaction()) {
@@ -145,18 +160,44 @@ class Bank {
         $this->db->bind(':id',$id);
         return $this->db->single();
     }
+    /**
+     * Rename a bank / change its account number. Only a non-deleted bank of the session congregation (the old query updated ANY account
+     * by ID). Name per decision 75, account number unique among the congregation's banks. One transaction + log.
+     * Returns ['success' => bool, 'errors' => string[]] (empty errors on failure = unexpected error, logged).
+     */
     public function update($data)
     {
-        $this->db->query('UPDATE tblaccounttypes SET accountType=:typ,accountNo=:acc WHERE (ID=:id)');
-        $this->db->bind(':typ',$data['bankname']);
-        $this->db->bind(':acc',!empty($data['account']) ? $data['account'] : NULL);
-        $this->db->bind(':id',$data['id']);
-        if ($this->db->execute()) {
-            $act = 'Updated Bank '.$data['bankname'];
-            saveLog($this->db->dbh,$act);
-            return true;
-        }else{
-            return false;
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
+        $idRaw = (string)$data['id'];
+        try {
+            $pdo->beginTransaction();
+            $bank = ctype_digit($idRaw) && (int)$idRaw > 0 ? AccountChart::load($pdo,(int)$idRaw,true) : null;
+            if (!$bank || (int)$bank['isBank'] !== 1 || (int)$bank['deleted'] === 1 || (int)$bank['congregationId'] !== $cong) {
+                $pdo->rollBack();
+                return ['success' => false,'errors' => ['Bank not found for this congregation']];
+            }
+            $errors = [];
+            $why = AccountChart::nameProblem($pdo,(string)$data['bankname'],$cong,(int)$bank['ID']);
+            if ($why !== null) { $errors[] = $why; }
+            if (!empty($data['account'])) {
+                $dup = getdbvalue($pdo,'SELECT COUNT(*) FROM tblaccounttypes WHERE accountNo = ? AND ID <> ? AND isBank = 1 AND deleted = 0 AND congregationId = ?',
+                                  [$data['account'],(int)$bank['ID'],$cong]);
+                if ((int)$dup > 0) { $errors[] = 'Account number already exists'; }
+            }
+            if ($errors) {
+                $pdo->rollBack();
+                return ['success' => false,'errors' => $errors];
+            }
+            $pdo->prepare('UPDATE tblaccounttypes SET accountType = ?, accountNo = ? WHERE ID = ? AND isBank = 1 AND congregationId = ?')
+                ->execute([strtolower(trim($data['bankname'])),!empty($data['account']) ? $data['account'] : null,(int)$bank['ID'],$cong]);
+            saveLog($pdo,'Updated Bank '.$data['bankname']);
+            $pdo->commit();
+            return ['success' => true,'errors' => []];
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) { $pdo->rollBack(); }
+            error_log($e->getMessage(),0);
+            return ['success' => false,'errors' => []];
         }
     }
 
@@ -219,6 +260,7 @@ class Bank {
             $this->db->bind(':del',1);
             $this->db->bind(':id',$id);
             $this->db->execute();
+            AccountChart::recomputeFlags($pdo,[33]);   // 'cash at bank' may have lost its last bank
 
             // opening balance (if any) is voided, never hard-deleted
             Ledger::void($pdo,$cong,8,$id);
@@ -230,6 +272,7 @@ class Bank {
 
             //commit transaction
             $pdo->commit();
+            Ledger::clearCashCache();
             return ['success' => true,'errors' => []];
         } catch (LedgerException $e) {
             if ($pdo->inTransaction()) {
@@ -259,14 +302,66 @@ class Bank {
 
     public function CheckSubAccountExists($data)
     {
-        $value = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tblbanksubaccounts 
-                                            WHERE (AccountName=?) AND (Deleted=0) AND (ID <> ?)',[$data['name'],$data['id']]);
+        // unique among the congregation's sub accounts (a sub account belongs to the congregation of its bank)
+        $value = getdbvalue($this->db->dbh,'SELECT COUNT(*) FROM tblbanksubaccounts s JOIN tblaccounttypes b ON b.ID = s.BankId
+                                            WHERE (s.AccountName=?) AND (s.Deleted=0) AND (s.ID <> ?) AND (b.congregationId = ?)',
+                            [$data['name'],(int)$data['id'],(int)$_SESSION['congId']]);
         if($value > 0) return false;
         return true;
     }
 
+    /**
+     * The posting accounts a bank sub account may collect into: non-bank, active, visible to the congregation, and accepted by
+     * Ledger::isPostingAccount() (so no reporting account). Returns [ (object)['ID'=>, 'accountType'=>], ... ].
+     */
+    public function GetGlAccounts()
+    {
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
+        $st = $pdo->prepare('SELECT ID, UCASE(accountType) AS accountType FROM tblaccounttypes
+                              WHERE deleted = 0 AND isBank = 0 AND active = 1 AND parentId <> 0 AND congregationId IN (0, ?)
+                              ORDER BY accountType');
+        $st->execute([$cong]);
+        $rows = $st->fetchAll(PDO::FETCH_OBJ);
+        $ok = array_flip(Ledger::filterPostingAccounts($pdo,$cong,array_map(function ($r) { return (int)$r->ID; },$rows)));
+        return array_values(array_filter($rows,function ($r) use ($ok) { return isset($ok[(int)$r->ID]); }));
+    }
+
+    /**
+     * Why a bank sub account cannot be saved, or null: the bank must be a non-deleted bank of this congregation, the G/L account a
+     * posting, non-bank account (an unchanged account on edit is not re-checked for being inactive), and an edited sub account must
+     * belong to this congregation's bank and not be deleted.
+     */
+    public function subAccountProblem($data)
+    {
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
+        $bank = (string)$data['bank'];
+        $acc = (string)$data['account'];
+        if (!ctype_digit($bank) || (int)$bank <= 0) { return 'Select the parent bank account'; }
+        if (!ctype_digit($acc) || (int)$acc <= 0) { return 'Select the G/L collection account'; }
+        $b = AccountChart::load($pdo,(int)$bank);
+        if (!$b || (int)$b['isBank'] !== 1 || (int)$b['deleted'] === 1 || (int)$b['congregationId'] !== $cong) {
+            return 'The parent bank account is not a bank of this congregation';
+        }
+        $keep = false;
+        if (!empty($data['isedit'])) {
+            $old = loadsingleset($pdo,'SELECT s.ID,s.Deleted,s.AccountId,b.congregationId FROM tblbanksubaccounts s
+                                        JOIN tblaccounttypes b ON b.ID = s.BankId WHERE s.ID = ?',[(int)$data['id']]);
+            if (!$old || (int)$old->Deleted === 1 || (int)$old->congregationId !== $cong) { return 'Sub account not found for this congregation'; }
+            $keep = (int)$old->AccountId === (int)$acc;
+        }
+        $a = AccountChart::load($pdo,(int)$acc);
+        if (!$a || (int)$a['isBank'] === 1) { return 'The G/L collection account must be a posting account that is not a bank'; }
+        $why = Ledger::postingProblem($pdo,(int)$acc,$cong,$keep);
+        return $why === null ? null : 'G/L collection account: '.$why;
+    }
+
     public function CreateUpdateSubAccount($data)
     {
+        if ($this->subAccountProblem($data) !== null) {
+            return false;
+        }
         if(!$data['isedit']){
             $this->db->query('INSERT INTO tblbanksubaccounts(AccountName, BankId, AccountId, GroupDistrict, GroupId, DistrictId) 
                           VALUES(:aname,:bid,:aid,:groupdistrict,:gid,:did)');

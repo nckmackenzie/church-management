@@ -17,8 +17,11 @@ class Expense
     const BANK_METHOD = 'Withdrawal';
     /** 'petty cash', preselected on a new cash expense (confirmed by the user, decision 8.5d-1). */
     const DEFAULT_PAID_FROM = 98;
-    /** 'cash holding account': the only account a new-style requisition may be paid from (and only requisitions may use it). */
-    const CASH_HOLDING = 121;
+    /**
+     * 'cash holding account' (system account): the default account a requisition is funded into; only a requisition expense may be
+     * paid from it. A new-style requisition is paid from the account ITS approval debited (requisitionReceiving()), 121 or another.
+     */
+    const CASH_HOLDING = Ledger::CASH_HOLDING;
     const TYPE_EXPENSE = 2;
     const TYPE_GROUP_APPROVAL = 12;
     const CASH_METHOD = 1;
@@ -221,23 +224,36 @@ class Expense
     // -----------------------------------------------------------------
 
     /**
-     * 'new' when the requisition's single active group-fund approval entry (type 12) has a debit line on the cash
-     * holding account (the money was moved there), 'old' when it has one such entry without that line, null when
-     * there is no entry or more than one (the expense cannot be classified, so it is refused).
+     * How a requisition was funded, from its single active group-fund approval entry (type 12):
+     *   style 'new', account = the CASH account the approval debited (its receiving account: 121 by default, any PAY_CASH
+     *   account the user chose at the approval) - an expense of the requisition must be paid from that account;
+     *   style 'old', account null - the approval debited a funds-held / expense account (before 2025-02): the old rule;
+     *   style null - no entry, or more than one active entry: the expense cannot be classified and is refused.
+     * @return array ['style' => 'new'|'old'|null, 'account' => int|null]
      */
+    public function requisitionReceiving($pdo,$cong,$reqId)
+    {
+        $st = $pdo->prepare('SELECT e.ID FROM journal_entries e
+                             WHERE e.congregationId = ? AND e.transactionTypeId = ? AND e.transactionId = ? AND e.deleted = 0');
+        $st->execute([$cong,self::TYPE_GROUP_APPROVAL,(int)$reqId]);
+        $entries = $st->fetchAll(PDO::FETCH_COLUMN);
+        if (count($entries) !== 1) {
+            return ['style' => null,'account' => null];
+        }
+        $st = $pdo->prepare('SELECT accountId FROM journal_lines WHERE journalEntryId = ? AND dc = ? ORDER BY lineNumber');
+        $st->execute([$entries[0],Ledger::DEBIT]);
+        foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $a) {
+            if (Ledger::isCashAccount($pdo,(int)$a)) {
+                return ['style' => 'new','account' => (int)$a];
+            }
+        }
+        return ['style' => 'old','account' => null];
+    }
+
+    /** 'new' / 'old' / null, see requisitionReceiving(). */
     public function requisitionStyle($pdo,$cong,$reqId)
     {
-        $st = $pdo->prepare('SELECT e.ID, SUM(l.accountId = ? AND l.dc = ?) AS toCashHolding
-                             FROM journal_entries e
-                             LEFT JOIN journal_lines l ON l.journalEntryId = e.ID
-                             WHERE e.congregationId = ? AND e.transactionTypeId = ? AND e.transactionId = ? AND e.deleted = 0
-                             GROUP BY e.ID');
-        $st->execute([self::CASH_HOLDING,Ledger::DEBIT,$cong,self::TYPE_GROUP_APPROVAL,(int)$reqId]);
-        $rows = $st->fetchAll(PDO::FETCH_OBJ);
-        if (count($rows) !== 1) {
-            return null;
-        }
-        return (int)$rows[0]->toCashHolding > 0 ? 'new' : 'old';
+        return $this->requisitionReceiving($pdo,$cong,$reqId)['style'];
     }
 
     /**
@@ -271,10 +287,12 @@ class Expense
             if ((float)$r->Remaining <= 0 && (int)$r->ID !== $own) {
                 continue;
             }
+            $rec = $this->requisitionReceiving($pdo,$cong,$r->ID);
             $out[] = (object)[
                 'ID' => (int)$r->ID,
                 'Label' => 'Req No ' . $r->ReqNo . ' - ' . number_format((float)$r->AmountApproved,2) . ' (balance ' . number_format((float)$r->Remaining,2) . ')',
-                'Style' => $this->requisitionStyle($pdo,$cong,$r->ID),
+                'Style' => $rec['style'],
+                'Account' => $rec['account'],
             ];
         }
         return $out;
@@ -510,11 +528,12 @@ class Expense
         if (is_numeric($amount) && round((float)$amount * 100) > round($left * 100)) {
             $errors[] = "The amount exceeds the balance of $no (" . number_format($left,2) . ')';
         }
-        $style = $this->requisitionStyle($pdo,$cong,$reqId);
-        if ($style === null) {
+        $rec = $this->requisitionReceiving($pdo,$cong,$reqId);
+        if ($rec['style'] === null) {
             $errors[] = "$no has no single approval entry in the ledger, so it cannot be classified";
-        } elseif ($style === 'new' && $paidFrom !== self::CASH_HOLDING) {
-            $errors[] = "$no was funded into the cash holding account: pay it from the cash holding account";
+        } elseif ($rec['style'] === 'new' && $paidFrom !== $rec['account']) {
+            $name = getdbvalue($pdo,'SELECT accountType FROM tblaccounttypes WHERE ID = ?',[$rec['account']]);
+            $errors[] = "$no was funded into the " . strtolower((string)$name) . " account: pay it from that account";
         }
         return $errors;
     }
@@ -778,6 +797,10 @@ class Expense
             $this->db->execute();
 
             if ((int)$e->status === 1) {
+                // a cleared (reconciled) bank row may stay, but not with another bank or amount
+                if ($p = Ledger::clearedBankProblem($pdo,$cong,self::TYPE_EXPENSE,(int)$e->ID,['bankId' => $v['paidfrom'],'amount' => $v['amount']])) {
+                    throw new LedgerException([$p]);
+                }
                 $this->post($pdo,$cong,(int)$e->ID,$v);
             }
 
@@ -857,6 +880,9 @@ class Expense
     {
         if ($p = Ledger::closedProblem($pdo,(string)$e->expenseDate)) {
             throw new LedgerException([$p . ' (the expense is dated ' . $e->expenseDate . ')']);
+        }
+        if ($p = Ledger::clearedBankProblem($pdo,$cong,self::TYPE_EXPENSE,(int)$e->ID)) {
+            throw new LedgerException([$p]);
         }
         Ledger::void($pdo,$cong,self::TYPE_EXPENSE,(int)$e->ID);
         Ledger::voidBankPostings($pdo,$cong,self::TYPE_EXPENSE,(int)$e->ID);

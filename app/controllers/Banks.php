@@ -56,6 +56,9 @@ class Banks extends Controller{
             if (empty($data['bankname'])) {
                 $data['name_err'] = 'Enter Bank Name';
             }
+            else {
+                $data['name_err'] = $this->bankModel->nameError($data['bankname']);
+            }
             $data['openingbal_err'] = Bank::openingBalanceError($data['openingbal']) ?? '';
             if (!empty($data['openingbal']) && empty($data['asof'])) {
                 $data['asof_err'] = 'Select Opening Balance Date';
@@ -103,11 +106,11 @@ class Banks extends Controller{
             'name_err' => '',
             'account_err' => ''
         ];
-        //check if congregation is same
-        if ($data['bank']->congregationId != $_SESSION['congId']) {
+        //a missing bank, a deleted one or one of another congregation goes back to the list
+        if (!$bank || (int)$bank->deleted === 1 || (int)$bank->congregationId !== (int)$_SESSION['congId']) {
             redirect('banks');
         }
-        elseif ($data['bank']->congregationId == $_SESSION['congId'] || $_SESSION['userType'] > 2) {
+        else {
             $this->view('banks/edit',$data);
         }
     }
@@ -116,19 +119,27 @@ class Banks extends Controller{
          //check if post
          if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-            $bank = $this->bankModel->getbank($_POST['id']);
+            $id = isset($_POST['id']) ? trim($_POST['id']) : '';
+            $bank = ctype_digit($id) ? $this->bankModel->getbank($id) : null;
+            if (!$bank || (int)$bank->deleted === 1 || (int)$bank->congregationId !== (int)$_SESSION['congId']) {
+                flash('bank_msg','Bank not found for this congregation',alerterrorclass());
+                redirect('banks');
+                return;
+            }
             $data = [
                 'bank' => $bank,
-                'id' => trim($_POST['id']),
-                'bankname' => trim(strtolower($_POST['bankname'])),
-                'account' => trim(strtolower($_POST['account'])),
+                'id' => $id,
+                'bankname' => trim(strtolower($_POST['bankname'] ?? '')),
+                'account' => trim(strtolower($_POST['account'] ?? '')),
                 'name_err' => '',
                 'account_err' => '',
             ];
-        //    print_r($data['bank']);
             //validate
             if (empty($data['bankname'])) {
                 $data['name_err'] = 'Enter Bank Name';
+            }
+            else {
+                $data['name_err'] = $this->bankModel->nameError($data['bankname'],$id);
             }
             if (!empty($data['account'])) {
                 if (!$this->bankModel->checkExists($data['account'],$data['id'])) {
@@ -136,12 +147,15 @@ class Banks extends Controller{
                 }  
             }
             if (empty($data['name_err']) && empty($data['account_err'])) {
-                if ($this->bankModel->update($data)) {
+                $result = $this->bankModel->update($data);
+                if ($result['success']) {
                     flash('bank_msg','Bank Updated Successfully!');
                     redirect('banks');
                 }
                 else{
-                    flash('bank_msg','Something Went Wrong!','alert custom-danger');
+                    $message = $result['errors'] ? implode('<br>',array_map('htmlspecialchars',$result['errors']))
+                                : 'Something Went Wrong!';
+                    flash('bank_msg',$message,'alert custom-danger');
                     redirect('banks');
                 }
             }
@@ -150,14 +164,7 @@ class Banks extends Controller{
             }
         }
         else{
-            $data = [
-                'id' => '',
-                'bankname' => '',
-                'account' => '',
-                'name_err' => '',
-                'account_err' => '',
-            ];
-            $this->view('banks/edit',$data);
+            redirect('banks');
         }
     }
     public function delete()
@@ -199,7 +206,7 @@ class Banks extends Controller{
     {
         $data = [
             'banks' => $this->reusablemodel->GetBanks(),
-            'accounts' => $this->reusablemodel->GetAccountsAll(),
+            'accounts' => $this->bankModel->GetGlAccounts(),
             'id' => '',
             'isedit' => false,
             'name' => '',
@@ -248,6 +255,13 @@ class Banks extends Controller{
                 exit;  
             }
 
+            $why = $this->bankModel->subAccountProblem($data);
+            if($why !== null){
+                http_response_code(400);
+                echo json_encode(['success' => false,'message' => $why]);
+                exit;
+            }
+
             if(!$this->bankModel->CheckSubAccountExists($data)){
                 http_response_code(400);
                 echo json_encode(['success' => false,'message' => 'Sub-account name exists']);
@@ -276,7 +290,7 @@ class Banks extends Controller{
         $subaccount = $this->bankModel->GetSubAccount($id);
         $data = [
             'banks' => $this->reusablemodel->GetBanks(),
-            'accounts' => $this->reusablemodel->GetAccountsAll(),
+            'accounts' => $this->bankModel->GetGlAccounts(),
             'id' => $subaccount->ID,
             'isedit' => true,
             'name' => strtoupper($subaccount->AccountName),

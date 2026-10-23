@@ -11,6 +11,7 @@ const mandatoryField = document.querySelectorAll('.mandatory');
 const date = document.getElementById('date');
 const amountAvailable = document.getElementById('availableamount');
 const dontDeductChkbox = document.getElementById('dontdeduct');
+const alertBox = document.getElementById('alertBox') ?? undefined;
 
 groupdistrictSelect.addEventListener('change', async function (e) {
   if (!e.target.value || !String(e.target.value).trim().length) return;
@@ -18,7 +19,9 @@ groupdistrictSelect.addEventListener('change', async function (e) {
   groupSelect.innerHTML =
     '<option value="" selected disabled>Select ' + e.target.value + '</option>';
   const data = await getGroupOrDistrict(e.target.value);
-  data.length > 0 &&
+  amountAvailable.value = '';
+  // a failed request (access denied, server error) already showed its message: leave the list empty
+  Array.isArray(data) &&
     data.forEach(grpdst => {
       let html = '';
       html += `
@@ -88,13 +91,17 @@ async function getvalue() {
     return;
   const data = await sendHttpRequest(
     `${HOST_URL}/groupfunds/getamountavailable?group=${groupSelect.value}&date=${date.value}&type=${groupdistrictSelect.value}`,
+    'GET',
+    undefined,
+    {},
+    alertBox,
   );
-  amountAvailable.value = data;
+  amountAvailable.value = data ?? '';
 }
 
 async function getGroupOrDistrict(type) {
   const data = await sendHttpRequest(
-    `${HOST_URL}/groupcollections/getgroupordistrict?type=${type}`,
+    `${HOST_URL}/groupfunds/getgroupordistrict?type=${type}`,
     'GET',
     undefined,
     {},

@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 // 8.3b functional run: bank transactions with a user-chosen cash account (cong 11); cleans up after itself.
 chdir('E:/xampp/htdocs/cms/app');
 require 'boostrap.php';
@@ -62,6 +63,9 @@ try {
     $after = brows($d2);
     chk('same bank row kept, still cleared', count($after) == 1 && $after[0]['ID'] == $row['ID'] && $after[0]['cleared'] == 1 && $after[0]['clearedDare'] == '2026-01-20', json_encode($after));
     chk('entry non-bank line now 34', lines($d2) == [$b1 => 'DEBIT', 34 => 'CREDIT'] && src($d2)['CashAccountId'] == 34);
+    // 8.9 follow-up: a cleared bank row can no longer be changed (bank / amount) or voided; the test refuses it, then un-clears the row and goes on
+    $r = $bt->Delete($d2); chk('delete of a cleared deposit refused', !$r['success'] && stripos(json_encode($r), 'cleared') !== false && count(brows($d2)) == 1, json_encode($r));
+    q('UPDATE tblbankpostings SET cleared=0, clearedDare=NULL WHERE ID=?', [$row['ID']]);
 
     // ---- withdrawal
     $r = $bt->CreateUpdate($mk(['type' => 2, 'cashaccount' => $other])); chk('withdrawal saved', $r['success'], json_encode($r));

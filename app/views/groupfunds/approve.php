@@ -82,7 +82,7 @@
                                         <label for="approved">Amount Approved</label>
                                         <input type="number" name="approved" id="approved" 
                                                class="form-control form-control-sm mandatory"
-                                               value="<?php echo $data['approved'];?>"
+                                               value="<?php echo htmlspecialchars((string)$data['approved'],ENT_QUOTES,'UTF-8');?>"
                                                placeholder="eg 2,000">
                                         <span class="invalid-feedback"></span>
                                     </div>
@@ -100,7 +100,7 @@
                                         <label for="paydate">Payment Date</label>
                                         <input type="date" name="paydate" id="paydate" 
                                                class="form-control form-control-sm mandatory"
-                                               value="<?php echo $data['paydate'];?>">
+                                               value="<?php echo htmlspecialchars((string)$data['paydate'],ENT_QUOTES,'UTF-8');?>">
                                         <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
@@ -121,16 +121,24 @@
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        <label for="bank">Bank</label>
-                                        <select name="bank" id="bank"
-                                                class="form-control form-control-sm mandatory">
-                                            <option value="" selected disabled>Select bank...</option>
-                                            <?php foreach($data['banks'] as $bank) :?> 
-                                                <option value="<?php echo $bank->ID;?>"
-                                                <?php selectdCheck($data['bank'],$bank->ID)?>>
-                                                    <?php echo strtoupper($bank->Bank);?>
-                                                </option>
-                                            <?php endforeach; ?>     
+                                        <label for="receiving">Receiving Account</label>
+                                        <select name="receiving" id="receiving" class="form-control form-control-sm mandatory">
+                                            <option value="" disabled <?php echo empty($data['receiving']) ? 'selected' : '';?>>Select account...</option>
+                                            <?php foreach($data['receivingaccounts'] as $account) : ?>
+                                                <option value="<?php echo $account->ID;?>" <?php selectdCheck($data['receiving'],$account->ID);?>><?php echo $account->Account;?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <span class="invalid-feedback"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="paidfrom">Paid From</label>
+                                        <select name="paidfrom" id="paidfrom"
+                                                class="form-control form-control-sm mandatory"
+                                                data-selected="<?php echo (int)$data["paidfrom"];?>"
+                                                data-cash="<?php echo htmlspecialchars(json_encode(array_map(function ($a) { return ["id" => $a->ID,"label" => $a->Account]; },$data["cashaccounts"])),ENT_QUOTES);?>"
+                                                data-bank="<?php echo htmlspecialchars(json_encode(array_map(function ($a) { return ["id" => $a->ID,"label" => $a->Account]; },$data["bankaccounts"])),ENT_QUOTES);?>">
                                         </select>
                                         <span class="invalid-feedback"></span>
                                     </div>
@@ -140,7 +148,7 @@
                                         <label for="reference">Payment Reference</label>
                                         <input type="text" name="reference" id="reference" 
                                                class="form-control form-control-sm mandatory"
-                                               value="<?php echo $data['reference'];?>"
+                                               value="<?php echo htmlspecialchars((string)$data['reference'],ENT_QUOTES,'UTF-8');?>"
                                                placeholder="chq00909">
                                         <span class="invalid-feedback"></span>
                                     </div>
@@ -163,6 +171,6 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/approve-v2.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/approve-v6.js"></script>
 </body>
-</html>  
+</html>

@@ -285,6 +285,24 @@ try {
     check('narration edit keeps the same cleared row', count($r) === 1 && (int) $r[0]['ID'] === (int) $m['ID']
           && (int) $r[0]['cleared'] === 1 && $r[0]['clearedDare'] === '2026-01-05' && $r[0]['narration'] === 'new memo');
 
+    // 8.9 follow-up: the library refuses to drop a CLEARED row (an amount or bank change on a reconciled posting)
+    Ledger::post($db, $hb, [Ledger::debit($bank, '750.50', 'new memo'), Ledger::credit($income, '750.50')]);
+    expectError('sync refuses to soft-delete a cleared bank row (amount change)', function () use ($db, $cong, $B1) {
+        Ledger::syncBankPostings($db, $cong, 2, $B1, 'journal');
+    }, LedgerException::class, 'already been cleared');
+    $r = $rows(2, $B1);
+    check('...and the cleared row is untouched (still active, cleared, 500)', count($r) === 1 && (int) $r[0]['ID'] === (int) $m['ID'] && (int) $r[0]['cleared'] === 1 && abs($r[0]['debit'] - 500) < 0.005 && count($rows(2, $B1, true)) === 1);
+    Ledger::post($db, $hb, [Ledger::debit($bank2, '500.00', 'new memo'), Ledger::credit($income, '500.00')]);
+    expectError('sync refuses to drop a cleared bank row (bank change)', function () use ($db, $cong, $B1) {
+        Ledger::syncBankPostings($db, $cong, 2, $B1, 'journal');
+    }, LedgerException::class, 'already been cleared');
+    Ledger::post($db, $hb, [Ledger::debit($bank, '500.00', 'new memo'), Ledger::credit($income, '500.00')]);
+    check('a re-sync with the cleared row unchanged is fine', Ledger::syncBankPostings($db, $cong, 2, $B1, 'journal') === 1);
+    expectError('void of the bank rows refuses a cleared row', function () use ($db, $cong, $B1) {
+        Ledger::voidBankPostings($db, $cong, 2, $B1);
+    }, LedgerException::class, 'already been cleared');
+    // un-clear the row (what a reconciliation reversal would do) and carry on with the amount change
+    $db->prepare('UPDATE tblbankpostings SET cleared = 0, clearedDare = NULL WHERE ID = ?')->execute([$m['ID']]);
     // change bank amount -> old soft-deleted, new uncleared
     Ledger::post($db, $hb, [Ledger::debit($bank, '750.50', 'new memo'), Ledger::credit($income, '750.50')]);
     Ledger::syncBankPostings($db, $cong, 2, $B1, 'journal');

@@ -19,6 +19,9 @@
     <section class="content">
         <div class="row">
             <div class="col-md-8 mx-auto">
+                <?php if(!empty($data['errmsg'])) : ?>
+                    <?php echo alert($data['errmsg']); ?>
+                <?php endif;?>
                 <div class="card">
                     <div class="card-header"><?php echo $data['isedit'] ? 'Edit MMF' : 'Add MMF';?></div>
                     <div class="card-body">
@@ -67,6 +70,19 @@
                                 </div>
                                 <div class="col-sm-6">
                                     <div class="form-group">
+                                        <label for="fundsheld">Group Funds Held</label>
+                                        <select name="fundsheld" id="fundsheld" class="form-control form-control-sm mandatory
+                                                <?php echo !empty($data['fundsheld_err']) ? 'is-invalid' : ''; ?>">
+                                            <option value="">Select group funds held account</option>
+                                            <?php foreach($data['fundsaccounts'] as $account): ?>
+                                                <option value="<?php echo $account->ID;?>" <?php selectdCheck($data['fundsheld'],$account->ID);?>><?php echo $account->Account;?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <span class="invalid-feedback"><?php echo $data['fundsheld_err'];?></span>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="form-group">
                                         <label for="bank">Bank</label>
                                         <select name="bank" id="bank" class="form-control form-control-sm mandatory 
                                                 <?php echo !empty($data['bank_err']) ? 'is-invalid' : '';?>">
@@ -111,16 +127,28 @@
     const groupSelect = document.querySelector('#groupid');
     const dateInput = document.querySelector('#date');
  
-    groupSelect.addEventListener('change',async function(e){
+    const recordId = document.querySelector('input[name="id"]').value;
+
+    // display only: the server recomputes the balance when it saves
+    async function showBalance(){
+        if(dateInput.value === '' || groupSelect.value === ''){
+            balanceInput.value = '';
+            return;
+        }
+
+        const res = await fetch(`${url}/mmfreceipts/getbalance?date=${dateInput.value}&groupid=${groupSelect.value}&id=${recordId}`);
+        const {balance} = await res.json();
+        balanceInput.value = balance;
+    }
+
+    groupSelect.addEventListener('change',function(){
         if(dateInput.value === ''){
             alert('Select date');
             return;
         }
-
-        const res = await fetch(`${url}/mmfreceipts/getbalance?date=${dateInput.value}&groupid=${e.target.value}`);
-        const {balance} = await res.json();
-        balanceInput.value = balance;
+        showBalance();
     });
+    dateInput.addEventListener('change',showBalance);
 </script>
 </body>
 </html>  

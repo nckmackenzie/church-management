@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 // Functional run of Bankposting + Banktransaction against dev (cong 11); cleans up every row it creates.
 chdir('E:/xampp/htdocs/cms/app');
 require 'boostrap.php';
@@ -51,17 +52,22 @@ try {
     q('UPDATE tblbankpostings SET cleared=1, clearedDare=? WHERE ID=?', ['2026-01-20', $id9]);
     $r = $bp->update(['id' => $id9, 'narration' => 'Changed narr'] + $base); chk('t9 edit narration', $r['success'], json_encode($r));
     $row = brows(9, $id9)[0]; chk('t9 narration-only keeps cleared + date', $row['cleared'] == 1 && $row['clearedDare'] == '2026-01-20');
+    // 8.9 follow-up: a cleared row keeps its bank, side and amount (it used to be un-cleared by such an edit)
+    $r = $bp->update(['id' => $id9, 'date' => '2026-01-16'] + $base); chk('t9 date-only edit of a cleared row ok, stays cleared', $r['success'] && brows(9, $id9)[0]['cleared'] == 1 && brows(9, $id9)[0]['transactionDate'] == '2026-01-16');
+    $r = $bp->update(['id' => $id9, 'amount' => '120'] + $base); chk('t9 amount change on a cleared row refused', !$r['success'] && stripos(json_encode($r), 'cleared') !== false && abs(brows(9, $id9)[0]['debit'] - 100.5) < 0.001 && brows(9, $id9)[0]['cleared'] == 1);
+    $r = $bp->update(['id' => $id9, 'type' => 2] + $base); chk('t9 side change on a cleared row refused', !$r['success'] && stripos(json_encode($r), 'cleared') !== false && brows(9, $id9)[0]['debit'] > 0);
+    if ($b2) { $r = $bp->update(['id' => $id9, 'bank' => $b2] + $base); chk('t9 bank change on a cleared row refused', !$r['success'] && stripos(json_encode($r), 'cleared') !== false && brows(9, $id9)[0]['bankId'] == $b1); }
+    chk('t9 refused edits left the entry as it was (100.50, one active entry)', lines(9, $id9)[0]['amount'] == 100.5 && count(q('SELECT 1 FROM journal_entries WHERE transactionTypeId=9 AND transactionId=? AND congregationId=11 AND deleted=0', [$id9])) == 1);
+    q('UPDATE tblbankpostings SET cleared=0, clearedDare=NULL WHERE ID=?', [$id9]);
     $r = $bp->update(['id' => $id9, 'amount' => '120', 'date' => '2026-01-16'] + $base); chk('t9 edit amount', $r['success']);
-    $row = brows(9, $id9)[0]; chk('t9 amount change un-clears', $row['cleared'] == 0 && $row['clearedDare'] === null && abs($row['debit'] - 120) < 0.001);
+    $row = brows(9, $id9)[0]; chk('t9 amount change on an uncleared row', $row['cleared'] == 0 && $row['clearedDare'] === null && abs($row['debit'] - 120) < 0.001);
     chk('t9 entry updated in place (amount 120, one active entry)', lines(9, $id9)[0]['amount'] == 120 && count(q('SELECT 1 FROM journal_entries WHERE transactionTypeId=9 AND transactionId=? AND congregationId=11 AND deleted=0', [$id9])) == 1);
-    q('UPDATE tblbankpostings SET cleared=1, clearedDare=? WHERE ID=?', ['2026-01-20', $id9]);
     $r = $bp->update(['id' => $id9, 'amount' => '120', 'type' => 2] + $base); chk('t9 edit side to withdrawal', $r['success']);
     $row = brows(9, $id9)[0]; $l = lines(9, $id9);
-    chk('t9 side change un-clears; Cr bank / Dr contra', $row['cleared'] == 0 && $row['credit'] == 120 && count($l) == 2 && array_column($l,'dc','accountId') == [$contra => 'DEBIT', $b1 => 'CREDIT'], json_encode($l));
+    chk('t9 side change: Cr bank / Dr contra', $row['cleared'] == 0 && $row['credit'] == 120 && count($l) == 2 && array_column($l,'dc','accountId') == [$contra => 'DEBIT', $b1 => 'CREDIT'], json_encode($l));
     if ($b2) {
-        q('UPDATE tblbankpostings SET cleared=1, clearedDare=? WHERE ID=?', ['2026-01-20', $id9]);
         $r = $bp->update(['id' => $id9, 'amount' => '120', 'type' => 2, 'bank' => $b2] + $base);
-        chk('t9 bank change un-clears, moves to bank 2', $r['success'] && brows(9, $id9)[0]['cleared'] == 0 && brows(9, $id9)[0]['bankId'] == $b2);
+        chk('t9 bank change moves to bank 2', $r['success'] && brows(9, $id9)[0]['cleared'] == 0 && brows(9, $id9)[0]['bankId'] == $b2);
     }
     // validation
     $n0 = (int)q('SELECT COUNT(*) c FROM tblbankpostings')[0]['c'];
@@ -99,6 +105,9 @@ try {
     q('UPDATE tblbankpostings SET cleared=1, clearedDare=? WHERE ID=?', ['2026-01-20', $br[0]['ID']]);
     $r = $bt->CreateUpdate($mk(['id' => $d, 'isedit' => true, 'description' => 'Edited narr', 'type' => 1])); chk('t13 edit narration', $r['success']);
     $br2 = brows(13, $d); chk('t13 narration edit keeps same cleared row', count($br2) == 1 && $br2[0]['ID'] == $br[0]['ID'] && $br2[0]['cleared'] == 1);
+    // 8.9 follow-up: a cleared bank row can no longer be changed (bank / amount) or voided; the test refuses it, then un-clears the row and goes on
+    $r = $bt->CreateUpdate($mk(['id' => $d, 'isedit' => true, 'amount' => 700, 'type' => 1])); chk('t13 edit amount on a cleared row refused', !$r['success'] && stripos(json_encode($r), 'cleared') !== false);
+    q('UPDATE tblbankpostings SET cleared=0, clearedDare=NULL WHERE ID=?', [$br[0]['ID']]);
     $r = $bt->CreateUpdate($mk(['id' => $d, 'isedit' => true, 'amount' => 700, 'type' => 1])); chk('t13 edit amount', $r['success']);
     $br3 = brows(13, $d); chk('t13 amount edit: new uncleared row, old voided', count($br3) == 1 && $br3[0]['ID'] != $br[0]['ID'] && $br3[0]['cleared'] == 0 && $br3[0]['debit'] == 700);
 

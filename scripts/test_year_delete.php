@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 // 8.4d: guarded financial year delete and the year overlap check (dev only). Temporary years are created far in the
 // future; every row the run creates is removed and no existing year is touched.
 chdir('E:/xampp/htdocs/cms/app');

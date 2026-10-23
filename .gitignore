@@ -6,3 +6,8 @@ public/dist/js/pages/utils/utils.js
 public/error_log
 scripts/logs/
 db_routines.sql
+# dev-only tools: never committed, never deployed (runbook gate 5)
+scripts/dev_*
+ledger-migration/dev_*
+**/make_dev_session*
+**/dev_session*
