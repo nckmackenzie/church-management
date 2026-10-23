@@ -60,7 +60,7 @@
                         <?php foreach($data['accounts'] as $account) :?>
                             <tr class="<?php echo !$account->active ? 'text-danger' : '';?>">
                                 <td><?php echo (int)$account->ID;?></td>
-                                <td class="sub-level-<?php echo (int)$account->depth;?>"><?php echo $h(strtoupper($account->accountType));?></td>
+                                <td class="sub-level-<?php echo (int)$account->depth;?>"<?php echo $account->note !== '' ? ' title="'.$h($account->note).'"' : '';?>><?php echo $h(strtoupper($account->accountType));?></td>
                                 <td><?php echo $h($account->typeName);?></td>
                                 <td>
                                     <?php if($account->canEdit) : ?>
@@ -68,9 +68,6 @@
                                     <?php endif;?>
                                     <?php if($account->canDelete) : ?>
                                         <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
-                                    <?php endif;?>
-                                    <?php if($account->note !== '') : ?>
-                                        <small class="text-muted"><?php echo $h($account->note);?></small>
                                     <?php endif;?>
                                 </td>
                             </tr>

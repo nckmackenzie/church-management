@@ -101,7 +101,7 @@ class Account {
         else {
             $row->canEdit = true;
             $row->canDelete = !AccountChart::isProtected($acct);
-            if (!$row->canDelete) { $row->note = 'Protected: description / group only'; }
+            if (!$row->canDelete) { $row->note = 'Protected account'; }
         }
         return $row;
     }

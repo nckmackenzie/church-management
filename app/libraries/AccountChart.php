@@ -288,8 +288,12 @@ class AccountChart
         if ($congregation === 0 && $pc !== 0) { return "A shared account can only sit under a shared account; $name belongs to a congregation"; }
         if ($pc !== 0 && $pc !== $congregation) { return "The parent account $name belongs to another congregation"; }
         if ($selfId !== null && self::wouldCycle($db, $selfId, $parentId)) { return "An account cannot be moved under itself or its own sub accounts ($name)"; }
-        $reasons = self::postingReasons($db, $parentId);
-        if ($reasons) { return "No sub account can be added under $name because it has postings (" . implode('; ', $reasons) . ')'; }
+        // decision 68 (corrected 8.10c): only a parent that is a POSTING account right now can be blocked by its postings; a reporting
+        // parent (top level, or with non-deleted children) keeps its status when it gets another child, whatever legacy rows refer to it
+        if (self::computeFlag($db, $parentId) === 1) {
+            $reasons = self::postingReasons($db, $parentId);
+            if ($reasons) { return "No sub account can be added under $name because it is a posting account with postings (" . implode('; ', $reasons) . ')'; }
+        }
         return null;
     }
 
@@ -394,9 +398,14 @@ class AccountChart
             }
             if (!$ok) { continue; }
             if ($root !== null && $cur !== $root) { continue; }
-            $cand[$id] = ['ID' => $id, 'path' => implode(' > ', $names), 'forGroup' => (int) $r['forGroup'], 'rootId' => $cur];
+            $cand[$id] = ['ID' => $id, 'path' => implode(' > ', $names), 'forGroup' => (int) $r['forGroup'], 'rootId' => $cur, 'depth' => count($names)];
         }
-        $busy = self::hasPostings($db, array_keys($cand));
+        // only candidates that are posting accounts now (depth 3+, no non-deleted children) are excluded for their postings
+        $kids = [];
+        foreach ($rows as $r) { if ((int) $r['deleted'] === 0) { $kids[(int) $r['parentId']] = true; } }
+        $postingNow = [];
+        foreach ($cand as $id => $c) { if ($c['depth'] >= 3 && !isset($kids[$id])) { $postingNow[] = $id; } }
+        $busy = self::hasPostings($db, $postingNow);
         $out = [];
         foreach ($cand as $id => $c) { if (!isset($busy[$id])) { $out[] = $c; } }
         usort($out, function ($a, $b) { return strcmp($a['path'], $b['path']); });

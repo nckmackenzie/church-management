@@ -223,9 +223,16 @@ WHERE   ID IN (29253, 29287)
 
 -- ---------------------------------------------------------------------
 -- F12 Chart: "cash at bank" (33, under cash and cash equivalents 22)
--- becomes a reporting account, and the bank accounts co-op bank (105)
--- and kcb development account (195) become its children.
--- Result: Asset (3) -> 22 -> 33 -> 105 / 195. Reports roll up recursively.
+-- becomes a reporting account, and EVERY live bank account becomes its
+-- child (decision 4). Production (2026-10-23): co-op bank 105, kcb
+-- development account 195, equity 101 (congregation 2) and equity bank 169
+-- (congregation 8) all sat under 22; 101 and 169 must move too, otherwise
+-- they stay direct children of 22 next to 33 and drop out of the 'cash at
+-- bank' roll-up (decision 4; chart_flags_check.sql section G). Ledger never
+-- offers a bank as a PAY_CASH account (isBank = 1 is excluded), under 22 or
+-- 33. The deleted bank 99 stays where it is. Idempotent: it selects banks, not IDs.
+-- Result: Asset (3) -> 22 -> 33 -> every live bank. Reports roll up recursively.
+-- Verify: chart_flags_check.sql section G returns no row.
 -- No ledger lines map to 33 after migration (they go to 105/195, see A10).
 -- ---------------------------------------------------------------------
 UPDATE  tblaccounttypes
@@ -235,7 +242,8 @@ WHERE   ID = 33
 
 UPDATE  tblaccounttypes
 SET     parentId = 33, isSubCategory = 1
-WHERE   ID IN (105, 195)
+WHERE   isBank = 1
+  AND   deleted = 0
   AND   (parentId <> 33 OR isSubCategory <> 1);
 
 

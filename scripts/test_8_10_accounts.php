@@ -121,6 +121,49 @@ try {
     $reject('a shared account under a congregation account', $A, 'shared', 0);
     $reject('non-numeric / empty parent through the model is the form error, not a crash', 0, 'Select');
 
+    // ================================================================ 8.10c: decision 68 corrected, reporting parents, protected parents, banks under 33
+    chk('8.10c: "tithes and offering" (32, reporting, 11 legacy receipt lines) passes parentProblem for congregation 11', AccountChart::computeFlag($pdo, 32) === 0 && AccountChart::postingReasons($pdo, 32) !== [] && AccountChart::parentProblem($pdo, 32, 11) === null, (string)AccountChart::parentProblem($pdo, 32, 11));
+    $offered = array_column(AccountChart::allowedParents($pdo, 11), 'ID');
+    chk('8.10c: the picker offers 32 (and the other reporting accounts with legacy references: 31, 127, 9, 23)', in_array(32, $offered, true) && in_array(31, $offered, true) && in_array(127, $offered, true) && in_array(9, $offered, true) && in_array(23, $offered, true));
+    chk('8.10c: the picker offers the protected parents 22, 25, 118 (and roots), not 33 and not a bank', in_array(22, $offered, true) && in_array(25, $offered, true) && in_array(118, $offered, true) && in_array(1, $offered, true) && !in_array(33, $offered, true) && !in_array(105, $offered, true) && !in_array(195, $offered, true));
+    chk('8.10c: a posting account WITH postings is still not offered (94 tithes, 98 petty cash, 20) and parentProblem refuses it', !array_intersect([94, 98, 20, 34], $offered) && stripos((string)AccountChart::parentProblem($pdo, 94, 11), 'posting account with postings') !== false);
+    $r = $mk('zz t810 under tithes offering', 32);
+    $T1 = (int)($r['id'] ?? 0);
+    chk('8.10c: create under the reporting parent 32 is accepted; 32 stays reporting; the child is posting under root 1', $r['success'] && flag(32) === 0 && flag($T1) === 1 && (int)row($T1)['accountTypeId'] === 1, errs($r));
+    $r = $mk('zz t810 under cash equivalents', 22);
+    $T2 = (int)($r['id'] ?? 0);
+    chk('8.10c: create under the protected reporting parent 22 is accepted (22 itself unchanged)', $r['success'] && flag(22) === 0 && (int)row(22)['parentId'] === 3, errs($r));
+    $r = $mk('zz t810 under groupfunds', 25);
+    $T3 = (int)($r['id'] ?? 0);
+    chk('8.10c: create under the protected reporting parent 25 is accepted', $r['success'] && flag(25) === 0, errs($r));
+    $r = $mk('zz t810 under bank 33 refused again', 33);
+    chk('8.10c: 33 and a bank are still refused as parents', !$r['success'] && !$mk('zz t810 under bank 105 again', 105)['success']);
+    $r = $upd($T2, ['parent' => 32]);
+    chk('8.10c: MOVE under a reporting parent with legacy references (32) is accepted (and across roots, no postings)', $r['success'] && (int)row($T2)['parentId'] === 32 && (int)row($T2)['accountTypeId'] === 1, errs($r));
+    $r = $upd($T2, ['parent' => 25]);
+    chk('8.10c: MOVE under the protected reporting parent 25 is accepted', $r['success'] && (int)row($T2)['accountTypeId'] === 4, errs($r));
+    $r = $upd($T2, ['parent' => 94]);
+    chk('8.10c: MOVE under a posting account with postings (94) is refused', !$r['success'] && has($r, 'posting account with postings') && (int)row($T2)['parentId'] === 25, errs($r));
+    $r = $upd($T2, ['parent' => 33]);
+    chk('8.10c: MOVE under 33 is refused', !$r['success']);
+    // a posting account WITHOUT postings is a valid parent and flips to reporting (unchanged behaviour)
+    $r = $mk('zz t810 under fresh leaf', $T1);
+    chk('8.10c: a posting parent without postings is accepted and flips to reporting', $r['success'] && flag($T1) === 0, errs($r));
+    clean('8.10c creates and moves');
+    // F12: every live bank under 33, idempotent, deleted banks untouched
+    $fixes = file_get_contents(__DIR__ . '/../ledger-migration/ledger_fixes.sql');
+    $f12 = '';
+    if (preg_match('/-- F12 Chart.*?\n(UPDATE\s+tblaccounttypes\s+SET\s+parentId = 33.*?;)/s', $fixes, $mm)) { $f12 = $mm[1]; }
+    chk('8.10c F12: the bank move selects live banks (isBank = 1, deleted = 0), not an ID list', $f12 !== '' && stripos($f12, 'isBank = 1') !== false && stripos($f12, 'deleted = 0') !== false && stripos($f12, 'IN (105') === false, $f12);
+    q('UPDATE tblaccounttypes SET parentId = 22, isSubCategory = 0 WHERE ID IN (101, 169)');
+    [$n, $by] = chartViolations();
+    chk('8.10c: banks left under 22 (101 and 169 as on production) are reported by chart_flags_check section G', ($by['G'] ?? 0) === 2, json_encode($by));
+    $st = $pdo->exec($f12);
+    chk('8.10c F12: moves exactly 101 and 169 (105 and 195 already under 33), sets isSubCategory = 1', $st === 2 && (int)row(101)['parentId'] === 33 && (int)row(169)['parentId'] === 33 && flag(101) === 1 && flag(169) === 1, "rows $st");
+    chk('8.10c F12: idempotent (second run changes 0 rows); deleted bank 99 untouched (still under 22)', $pdo->exec($f12) === 0 && (int)row(99)['parentId'] === 22 && (int)row(99)['deleted'] === 1);
+    Ledger::clearCashCache();
+    chk('8.10c: banks are never PAY_CASH accounts (isBank is excluded), under 22 or 33', !in_array(101, array_column(Ledger::listPaymentAccounts($pdo, 2, Ledger::PAY_CASH), 'ID'), true) && Ledger::postingProblem($pdo, 169, 8) === null);
+    clean('F12 widened');
     // ================================================================ decision 68: reasons for postings (every reference)
     $pr = AccountChart::postingReasons($pdo, 20);
     chk('postingReasons(20 opening balance equity): journal lines', $pr && stripos(implode(' ', $pr), 'journal line') !== false, implode('|', $pr));

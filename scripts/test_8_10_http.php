@@ -237,7 +237,7 @@ try {
     chk('POST rename of the protected account 34: edit form again with the reason; unchanged in the DB', $r[0] === 200 && stripos($r[2], 'protected') !== false && row(34)['accountType'] === 'cash at hand');
     $r = http('GET', 'accounts', $uAdmin);
     $b34 = rowButtons($r[2], 34); $b105 = rowButtons($r[2], 105); $b9 = rowButtons($r[2], 9); $b1 = rowButtons($r[2], 1);
-    chk('index: 34 protected = Edit but no Delete; bank 105 none ("Managed in Banks"); 9 none; roots none', $b34['edit'] && !$b34['delete'] && !$b105['edit'] && !$b105['delete'] && stripos($b105['text'], 'Managed in Banks') !== false && !$b9['edit'] && !$b9['delete'] && !$b1['edit'] && !$b1['delete']);
+    chk('index: 34 protected = Edit but no Delete; bank 105 none (no text, no buttons); 9 none; roots none', $b34['edit'] && !$b34['delete'] && !$b105['edit'] && !$b105['delete'] && trim($b105['text']) === '' && !$b9['edit'] && !$b9['delete'] && !$b1['edit'] && !$b1['delete']);
     $r = http('GET', 'accounts', $uCong);
     $b26 = rowButtons($r[2], 26); $bHX = rowButtons($r[2], $HX);
     chk('index for a congregation login: no Edit / Delete on shared 26, buttons on its own account', !$b26['edit'] && !$b26['delete'] && $bHX['edit'] && $bHX['delete']);
@@ -341,8 +341,34 @@ try {
     $r = http('POST', 'banks/delete', $uCong, ['id' => $BK, 'bankname' => 'zz t810 http bank 2']);
     chk('banks/delete: refused while a sub account exists? (guard = bank rows / ledger lines; sub accounts do not block) -> soft deleted and 33 recomputed', redirectsTo($r, 'banks') && (int)row($BK)['deleted'] === 1 && (int)row(33)['isSubCategory'] === 0);
 
-    // ---------------------------------------------------------------- the chart is still sound after every real POST
+    // ---------------------------------------------------------------- 8.10c: reporting parents with legacy references, protected parents, Actions column
+    $r = http('POST', 'accounts/getparents', $uCong, ['congregation' => '11', 'root' => '1']);
+    $ids = array_column(jsonOf($r[2]) ?: [], 'id');
+    chk('8.10c getparents (Income): "tithes and offering" 32 and 31 are offered', in_array(32, $ids, true) && in_array(31, $ids, true) && !in_array(94, $ids, true), json_encode(array_slice($ids, 0, 15)));
+    $ids = array_column(jsonOf(http('POST', 'accounts/getparents', $uCong, ['congregation' => '11'])[2]) ?: [], 'id');
+    chk('8.10c getparents: protected 22, 25, 118 offered; 33, banks and posting accounts with postings (94, 98, 34) not', in_array(22, $ids, true) && in_array(25, $ids, true) && in_array(118, $ids, true) && !array_intersect($ids, [33, 105, 195, 94, 98, 34]));
+    $addp = http('GET', 'accounts/add', $uCong)[2];
+    chk('8.10c add form: the Income filter + parent list contain TITHES AND OFFERING', isset(selectOptions($addp, 'parent')['32']));
+    $r = http('POST', 'accounts/create', $uCong, ['accountname' => 'zz t810 h under 32', 'parent' => '32']);
+    $U32 = idOf('zz t810 h under 32');
+    chk('8.10c create under 32 (reporting, legacy receipt lines): saved, 32 stays reporting', redirectsTo($r, 'accounts') && $U32 > 0 && (int)row($U32)['parentId'] === 32 && (int)row(32)['isSubCategory'] === 0);
+    $r = http('POST', 'accounts/create', $uCong, ['accountname' => 'zz t810 h under 94', 'parent' => '94']);
+    chk('8.10c create under 94 (posting account with lines): refused with the reason, nothing saved', $r[0] === 200 && stripos($r[2], 'posting account with postings') !== false && !idOf('zz t810 h under 94'));
+    $r = http('POST', 'accounts/create', $uCong, ['accountname' => 'zz t810 h under 22', 'parent' => '22']);
+    $U22 = idOf('zz t810 h under 22');
+    chk('8.10c create under the protected parent 22: saved', redirectsTo($r, 'accounts') && $U22 > 0 && (int)row(22)['isSubCategory'] === 0);
+    $r = http('POST', 'accounts/update', $uCong, ['id' => $U22, 'accountname' => 'zz t810 h under 22', 'parent' => '32', 'active' => 'on']);
+    chk('8.10c move under 32 through the form: saved, accountTypeId follows (Income)', redirectsTo($r, 'accounts') && (int)row($U22)['parentId'] === 32 && (int)row($U22)['accountTypeId'] === 1);
+    $r = http('POST', 'accounts/update', $uCong, ['id' => $U22, 'accountname' => 'zz t810 h under 22', 'parent' => '94', 'active' => 'on']);
+    chk('8.10c move under 94 through the form: refused (edit form again with the reason)', $r[0] === 200 && stripos($r[2], 'posting account with postings') !== false && (int)row($U22)['parentId'] === 32);
+    $r = http('GET', 'accounts', $uCong);
+    $stripped = [];
+    $dd = new DOMDocument; @$dd->loadHTML('<?xml encoding="utf-8"?>' . $r[2]);
+    foreach ((new DOMXPath($dd))->query("//table[@id='accountsTable']/tbody/tr/td[4]") as $td) { $stripped[] = trim(preg_replace('/\b(Edit|Delete)\b/', '', $td->textContent)); }
+    chk('8.10c index: the Actions column holds only the Edit / Delete buttons (no text in any of ' . count($stripped) . ' rows)', count($stripped) > 100 && count(array_filter($stripped, function ($t) { return $t !== ''; })) === 0, json_encode(array_slice(array_filter($stripped), 0, 3)));
+    chk('8.10c index: the description is not shown in the list table (no description wording or note text)', (preg_match('~<table.*</table>~s', $r[2], $tm) && stripos($tm[0], 'description') === false && stripos($tm[0], '<small') === false) && stripos($r[2], 'Protected: description') === false);
     $viol = 0;
+    // ---------------------------------------------------------------- the chart is still sound after every real POST
     $sql = preg_replace('/^--.*$/m', '', file_get_contents(__DIR__ . '/sql/chart_flags_check.sql'));
     $section = '';
     foreach (array_filter(array_map('trim', explode(';', $sql))) as $stmt) {
