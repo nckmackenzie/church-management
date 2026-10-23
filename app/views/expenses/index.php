@@ -93,6 +93,33 @@
     </div>
   </div>
 </div>
+<!-- Modal -->
+<div class="modal fade" id="unapproveModalCenter" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLongTitle">Unapprove Expense</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+          <form action="<?php echo URLROOT;?>/expenses/unapprove" method="post">
+              <div class="row">
+                <div class="col-md-12">
+                  <label for="">Unapprove selected expense? Its ledger entry, bank rows and petty cash row will be reversed and it becomes a draft again.</label>
+                  <input type="hidden" name="id" id="uid">
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-danger">Yes</button>
+              </div>
+          </form>
+      </div>
+    </div>
+  </div>
+</div>
   <!-- Content Wrapper. Contains page content -->
   <div class="content-wrapper">
     <!-- Content Header (Page header) -->
@@ -108,33 +135,6 @@
     </section>
     <!-- Main content -->
     <section class="content">
-        <?php if($_SESSION['userType'] <= 2) : ?>
-          <div class="col-md-6 mx-auto">
-            <div class="alert custom-danger alert-dismissible fade approval-error" role="alert">
-              <strong>Error!</strong> Something went wrong while performing this action.
-              <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </div>
-            <div class="card card-body bg-light">
-              <div class="card-title mb-2">Reset Approval Status for selected financial year.</div>
-              <form action="<?php echo URLROOT;?>/expenses/resetApproval" method="post" id="resetApproval">
-                  <div class="form-group">
-                    <label for="year">Financial Year</label>
-                    <select name="year" id="year" 
-                            class="form-control form-control-sm">
-                        <option value="" selected disabled>Select year</option>    
-                        <?php foreach($data['years'] as $year) : ?>
-                            <option value="<?php echo $year->ID;?>"><?php echo strtolower($year->yearName);?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <span class="invalid-feedback">Select financial year</span>
-                  </div>
-                  <button type="submit" class="btn btn-sm bg-navy btnsubmit">Submit</button>
-              </form>
-            </div>
-          </div>
-        <?php endif; ?>
         <div class="row">
             <div class="col-md-12 table-responsive">
                 <table class="table table-striped table-bordered table-sm" id="expensesTable">
@@ -178,6 +178,7 @@
                                                 <button type="button" class="btn btn-sm btn-danger custom-font btndel"><i class="far fa-trash-alt"></i></button>
                                             <?php else : ?>
                                                 <?php if((int)$_SESSION['userType'] < 3) : ?>
+                                                    <button type="button" class="btn btn-sm btn-warning custom-font btnunapprove"><i class="fas fa-undo"></i></button>
                                                     <a href="<?php echo URLROOT;?>/expenses/edit/<?php echo $expense->ID;?>" class="btn btn-sm bg-olive btnedit custom-font"><i class="far fa-edit"></i></a>
                                                     <button type="button" class="btn btn-sm btn-danger custom-font btndel"><i class="far fa-trash-alt"></i></button>
                                                 <?php endif; ?>
@@ -216,42 +217,8 @@
           ]
       });
 
-      $('#resetApproval').submit(function(e){
-        e.preventDefault();
-        var year = $('#year').val();
-        if(year == null || year == ""){
-          $('#year').addClass('is-invalid');
-          return false;
-        }
-
-        if(!confirm('Are you sure you want to reset the approval status for the selected financial year?')){
-          return false;
-        }
-
-        $('#year').attr('disabled',true);
-        $('.btnsubmit').attr('disabled',true);
-        $.ajax({
-            url: "<?php echo URLROOT;?>/expenses/resetApprovals",
-            method: "POST",
-            data: { year },
-            dataType: "json",
-            success: function(data){
-              location.reload();
-            },
-            error: function() {
-              $('.approval-error').addClass('show');
-              $('#year').attr('disabled',false);
-              $('.btnsubmit').attr('disabled',false);
-            }
-        });
-
-      });
-
-      $('#year').change(function(){
-        $('#year').removeClass('is-invalid');
-      });
-      
       $(".btnapprove").attr('title', 'Approve');
+      $(".btnunapprove").attr('title', 'Unapprove');
       $(".btnedit").attr('title', 'Edit');
       $(".btndel").attr('title', 'Delete');
       $(".btnprint").attr('title', 'Print Voucher');
@@ -282,6 +249,11 @@
           var currentRow = $(this).closest("tr");
           var data1 = $('#expensesTable').DataTable().row(currentRow).data();
           $('#aid').val(data1[0]);
+      });
+      $('#expensesTable').on('click','.btnunapprove',function(){
+        $('#unapproveModalCenter').modal('show');
+        var data1 = $('#expensesTable').DataTable().row($(this).closest("tr")).data();
+        $('#uid').val(data1[0]);
       });
       $('#expensesTable').on('click','.btnview',function(){
         $('#viewModalCenter').modal('show');

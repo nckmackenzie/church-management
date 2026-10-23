@@ -57,6 +57,9 @@
                                 </div>
                                 <div class="col-12 table-responsive">
                                     <div class="card-header text-center h3">Journal</div>
+                                    <?php if(empty($data['posted'])) : ?>
+                                        <p class="text-center text-danger font-weight-bold">NOT POSTED - preview only. Nothing is in the ledger until the expense is approved.</p>
+                                    <?php endif; ?>
                                     <table class="table table-bordered table-striped">
                                         <thead>
                                             <tr>
@@ -87,7 +90,7 @@
         </section><!--End Of invoice section -->
     </div><!--End Of Wrapper -->
 <script>
-  window.addEventListener("load", window.print());
+  window.addEventListener("load", function () { window.print(); });
 </script>
 </body>
 </html>

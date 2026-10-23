@@ -168,7 +168,7 @@ class Contributions extends Controller {
 
             $result = $this->contributionModel->create($data);
             if ($result['success']) {
-                flash('contribution_msg',($data['isedit'] ? 'Contribution Edited Successfully!' : 'Contribution Added Successfully!').' Receipt No '.htmlspecialchars($result['receiptno']));
+                flash('contribution_msg',($data['isedit'] ? 'Contribution Edited Successfully!' : 'Contribution Added Successfully!').' Receipt No '.htmlspecialchars($result['receiptno']).(!empty($result['renumbered']) ? '. '.htmlspecialchars($result['renumbered']) : ''));
                 redirect('contributions');
                 exit;
             }

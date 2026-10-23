@@ -326,13 +326,11 @@ class Bank {
 
     public function SetOpeningBalance($data)
     {
-        $id = getLastId($this->db->dbh,'tblbanktransactions_subaccounts');
-
         $this->db->query('INSERT INTO tblbanktransactions_subaccounts (TransactionDate,TransactionId,SubAccountId,
                                                                        Amount,ToAccountId,Narration,TransactionType,CongregationId)
                           VALUES(:tdate,:tid,:subaccount,:amount,:toaccount,:narr,:ttype,:congid)');
         $this->db->bind(':tdate',$data['asof']);
-        $this->db->bind(':tid',$id);
+        $this->db->bind(':tid',0);   // set to the row's own ID below
         $this->db->bind(':subaccount',$data['subaccount']);
         $this->db->bind(':amount',$data['balance']);
         $this->db->bind(':toaccount',$data['subaccount']);
@@ -342,7 +340,11 @@ class Bank {
         if(!$this->db->execute()){
             return false;
         }
-        return true;
+        $id = (int)$this->db->dbh->lastInsertId();
+        $this->db->query('UPDATE tblbanktransactions_subaccounts SET TransactionId = :id WHERE ID = :id2');
+        $this->db->bind(':id',$id);
+        $this->db->bind(':id2',$id);
+        return $this->db->execute();
     }
 
     public function GetSubAccountOpeningBalances()
