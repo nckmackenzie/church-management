@@ -1,6 +1,7 @@
 <?php require APPROOT . '/views/inc/header.php';?>
 <?php require APPROOT . '/views/inc/topNav.php';?>
 <?php require APPROOT . '/views/inc/sideNav.php';?>
+<?php $h = function ($v) { return htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8'); }; ?>
   <!-- Content Wrapper. Contains page content -->
   <div class="content-wrapper">
     <!-- Content Header (Page header) -->
@@ -20,31 +21,52 @@
                 <div class="card bg-light">
                     <div class="card-header">Add Account</div>
                     <div class="card-body">
+                        <?php if(!empty($data['errors']['general'])) : ?>
+                            <div class="alert alert-danger"><?php echo $h($data['errors']['general']);?></div>
+                        <?php endif;?>
                         <form action="<?php echo URLROOT;?>/accounts/create" method="post">
                             <div class="row">
                                 <div class="col-md-12">
                                     <div class="form-group">
                                         <label for="accountname">Account Name</label>
-                                        <input type="text" name="accountname" id="accountname" 
+                                        <input type="text" name="accountname" id="accountname"
                                                class="form-control form-control-sm mandatory
-                                               <?php echo (!empty($data['name_err'])) ? 'is-invalid' : ''?>"
-                                               value="<?php echo $data['accountname'];?>"
-                                               autocomplete="off"
+                                               <?php echo (!empty($data['errors']['name'])) ? 'is-invalid' : ''?>"
+                                               value="<?php echo $h($data['accountname']);?>"
+                                               autocomplete="off" maxlength="100"
                                                placeholder="eg Offering,Tithe,Water Bill etc">
-                                        <span class="invalid-feedback"><?php echo $data['name_err'];?></span>
+                                        <span class="invalid-feedback"><?php echo $h($data['errors']['name'] ?? '');?></span>
                                     </div>
                                 </div>
                             </div>
+                            <?php if($data['mayshare']) : ?>
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="form-group">
+                                            <label for="congregation">Congregation</label>
+                                            <select name="congregation" id="congregation"
+                                                    class="form-control form-control-sm">
+                                                <option value="0" <?php selectdCheck((string)$data['congregation'],'0')?>>All (shared)</option>
+                                                <option value="<?php echo (int)$_SESSION['congId'];?>"
+                                                    <?php selectdCheck((int)$data['congregation'],(int)$_SESSION['congId'])?>>
+                                                        <?php echo $h($data['congregationName']);?>
+                                                </option>
+                                            </select>
+                                            <small class="text-muted">Cannot be changed after the account is created.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif;?>
                             <div class="row">
                                 <div class="col-md-12">
                                     <div class="form-group">
-                                        <label for="accounttype">Account Type</label>
-                                        <select name="accounttype" id="accounttype"
-                                                class="form-control form-control-sm">
+                                        <label for="root">Account Type (narrows the list below)</label>
+                                        <select name="root" id="root" class="form-control form-control-sm">
+                                            <option value="">All</option>
                                             <?php foreach($data['accounttypes'] as $accounttype) : ?>
-                                                <option value="<?php echo $accounttype->ID;?>"
-                                                <?php selectdCheck($data['accounttype'],$accounttype->ID)?>>
-                                                    <?php echo $accounttype->accountType;?>
+                                                <option value="<?php echo (int)$accounttype->ID;?>"
+                                                <?php selectdCheck($data['root'],$accounttype->ID)?>>
+                                                    <?php echo $h($accounttype->accountType);?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
@@ -54,65 +76,46 @@
                             <div class="row">
                                 <div class="col-md-12">
                                     <div class="form-group">
-                                        <div class="checkbox">    
-                                            <label class="custom-sm">
-                                                <input type="checkbox" id="check" name="check"
-                                                <?php echo ($data['check'] == 1) ? 'checked' : ''?>> Sub Category Of
-                                            </label>       
-                                        </div>  
-                                        <select name="subcategory" id="subcategory" 
+                                        <label for="parent">Sub Category Of</label>
+                                        <select name="parent" id="parent"
                                                  class="form-control form-control-sm
-                                                 <?php echo (!empty($data['account_err'])) ? 'is-invalid' : ''?>" 
-                                                 <?php echo ($data['check'] != 1) ? 'disabled' : ''?>>
-                                            <?php if(!empty($data['accounts'])) : ?>
-                                                <?php foreach($data['accounts'] as $account) : ?>
-                                                    <option value="<?php echo $account->ID;?>"
-                                                    <?php selectdCheck($data['subcategory'],$account->ID)?>>
-                                                        <?php echo $account->accountType;?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            <?php endif;?>    
-                                         </select>   
-                                         <span class="invalid-feedback"><?php echo $data['account_err'];?></span>   
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-12">
-                                    <div class="form-group">
-                                         <label for="description">Description</label>       
-                                         <input type="text" name="description" id="description"
-                                                class="form-control form-control-sm"
-                                                value="<?php echo $data['description'];?>">
-                                    </div>
-                                </div>
-                            </div>
-                            <?php if(converttobool($_SESSION['isParish'])) : ?>
-                                <div class="row">
-                                    <div class="col-md-12">
-                                        <div class="form-group">
-                                            <label for="congregation">Congregation</label>
-                                            <select name="congregation" id="congregation"
-                                                    class="form-control form-control-sm">
-                                                <option value="0">All</option>
-                                                <option value="<?php echo $_SESSION['congId'];?>"
-                                                    <?php selectdCheck($data['congregation'],$_SESSION['congId'])?>>
-                                                        <?php echo $data['congregationName'];?>
+                                                 <?php echo (!empty($data['errors']['parent'])) ? 'is-invalid' : ''?>">
+                                            <option value="">Select the parent account</option>
+                                            <?php foreach($data['parents'] as $p) : ?>
+                                                <option value="<?php echo (int)$p['ID'];?>" data-forgroup="<?php echo (int)$p['forGroup'];?>"
+                                                    <?php selectdCheck((string)$data['parent'],(string)$p['ID'])?>>
+                                                    <?php echo $h(strtoupper($p['path']));?>
                                                 </option>
-                                            </select>
-                                        </div>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <span class="invalid-feedback"><?php echo $h($data['errors']['parent'] ?? '');?></span>
+                                        <small class="text-muted">Accounts with postings, banks and 'cash at bank' are not listed. Whether this account
+                                            posts or only groups its sub accounts is worked out automatically.</small>
                                     </div>
                                 </div>
+                            </div>
+                            <?php if(!empty($data['errors']['congregation'])) : ?>
+                                <div class="alert alert-danger"><?php echo $h($data['errors']['congregation']);?></div>
                             <?php endif;?>
                             <div class="row">
                                 <div class="col-md-12">
                                     <div class="form-group">
-                                        <div class="checkbox">    
+                                         <label for="description">Description</label>
+                                         <input type="text" name="description" id="description"
+                                                class="form-control form-control-sm" maxlength="255"
+                                                value="<?php echo $h($data['description']);?>">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <div class="checkbox">
                                             <label class="custom-sm">
                                                 <input type="checkbox" id="forgroup" name="forgroup"
-                                                <?php echo ($data['forgroup'] == 1) ? 'checked' : ''?>>For Group
-                                            </label>       
-                                        </div>        
+                                                <?php echo ($data['forgroup']) ? 'checked' : ''?>> For Group
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -131,45 +134,31 @@
 <?php require APPROOT . '/views/inc/footer.php'?>
 <script>
     $(function(){
-        function loadSubCategories(main){
+        // Rebuild the parent list from the server (type filter / congregation changed). Options are built with the DOM, never as HTML strings.
+        function loadParents(){
+            var keep = $('#parent').val();
             $.ajax({
-                url  : '<?php echo URLROOT;?>/accounts/getsubcategory',
+                url  : '<?php echo URLROOT;?>/accounts/getparents',
                 method : 'POST',
-                data : {main : main},
-                success : function(html){
-                    $('#subcategory').html(html);
+                dataType : 'json',
+                data : {root : $('#root').val(), congregation : $('#congregation').length ? $('#congregation').val() : '<?php echo (int)$_SESSION['congId'];?>'},
+                success : function(list){
+                    var $p = $('#parent').empty().append($('<option>').val('').text('Select the parent account'));
+                    list.forEach(function(a){
+                        $p.append($('<option>').val(a.id).text(a.label).attr('data-forgroup', a.forgroup));
+                    });
+                    $p.val(keep);
                 }
             });
         }
-        $(window).on('load',function(){
-            var main = $('#accounttype').val();
-            $('#subcategory').val('');
-        });
-        $('#accounttype').change(function(){
-            var main = $(this).val();
-            if($('#check').prop('checked') == true) {
-                loadSubCategories($(this).val());
-            }
-            else{
-                $('#subcategory').prop('disabled',true);
-                $('#subcategory').val('');
-            }
-            
-        });
-        $('#check').click(function(){
-            if ($(this).prop('checked') == true) {
-                $('#subcategory').prop('disabled',false);
-                $('#forgroup').prop('disabled',true);
-                var parentId = $('#accounttype').val();
-                loadSubCategories(parentId);
-            }
-            else{
-                $('#subcategory').prop('disabled',true);
-                $('#forgroup').prop('disabled',false);
-                $('#subcategory').val('');
-            }
+        $('#root').change(loadParents);
+        $('#congregation').change(loadParents);
+        // For Group is pre-ticked from the parent's value when the parent is chosen; the user can still change it (nothing is forced on the server)
+        $('#parent').change(function(){
+            var fg = $(this).find('option:selected').attr('data-forgroup');
+            if (typeof fg !== 'undefined') { $('#forgroup').prop('checked', fg === '1'); }
         });
     });
 </script>
 </body>
-</html>  
+</html>

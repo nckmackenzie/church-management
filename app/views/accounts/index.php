@@ -1,6 +1,7 @@
 <?php require APPROOT . '/views/inc/header.php';?>
 <?php require APPROOT . '/views/inc/topNav.php';?>
 <?php require APPROOT . '/views/inc/sideNav.php';?>
+<?php $h = function ($v) { return htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8'); }; ?>
 <!-- Modal -->
 <div class="modal fade" id="deleteModalCenter" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
@@ -25,7 +26,7 @@
               </div>
           </form>
       </div>
-     
+
     </div>
   </div>
 </div>
@@ -52,63 +53,32 @@
                             <th>ID</th>
                             <th>Account Name</th>
                             <th>Account Type</th>
-                            <?php if ($_SESSION['userType'] <=2) : ?>
-                                <th>Action</th>
-                            <?php endif; ?>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach($data['accounts'] as $account) :?>
-                            <tr>
-                                <td><?php echo $account->ID;?></td>
-                                <td class="sub-level-<?php echo $account->levels;?>"><?php echo $account->accountType;?></td>
-                                <td><?php echo $account->atype;?></td>
-                                <?php if($_SESSION['userType'] <=2) : ?>
-                                  <td>
-                                     <?php if($account->isEditable == 1 && converttobool($_SESSION['isParish'])) : ?>
-                                        <a href="<?php echo URLROOT;?>/accounts/edit/<?php echo $account->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
-                                     <?php endif;?>
-                                  </td>     
-                                <?php endif; ?>
+                            <tr class="<?php echo !$account->active ? 'text-danger' : '';?>">
+                                <td><?php echo (int)$account->ID;?></td>
+                                <td class="sub-level-<?php echo (int)$account->depth;?>"><?php echo $h(strtoupper($account->accountType));?></td>
+                                <td><?php echo $h($account->typeName);?></td>
+                                <td>
+                                    <?php if($account->canEdit) : ?>
+                                        <a href="<?php echo URLROOT;?>/accounts/edit/<?php echo (int)$account->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
+                                    <?php endif;?>
+                                    <?php if($account->canDelete) : ?>
+                                        <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
+                                    <?php endif;?>
+                                    <?php if($account->note !== '') : ?>
+                                        <small class="text-muted"><?php echo $h($account->note);?></small>
+                                    <?php endif;?>
+                                </td>
                             </tr>
-                            <?php
-                                $con=new PDO('mysql:host=localhost;dbname='.DB_NAME.'',DB_USER,DB_PASS);
-                                $con->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
-                                $sql = 'SELECT t.ID,UCASE(t.accountType) as accountType,
-                                               a.accountType as atype,brand_level(t.ID) AS levels,
-                                               t.isEditable,t.active,t.congregationId
-                                        FROM   tblaccounttypes t inner join tblaccounttypes as a 
-                                               on t.accountTypeId=a.ID
-                                        WHERE  (t.isBank=0) AND (t.deleted=0) AND (t.parentId=?) AND (t.congregationId = 0 OR t.congregationId = ?)';
-                                $stmt = $con->prepare($sql);
-                                $stmt->execute([$account->ID,$_SESSION['congId']]);
-                                $hasChildren = $stmt->rowCount() > 0 ? true : false;
-                            ?>
-                            <?php if($hasChildren) : ?>
-                                <?php foreach($stmt->fetchAll(PDO::FETCH_OBJ) as $child) : ?>
-                                  <tr class="<?php echo !converttobool($child->active)  ? 'text-danger' : '';?>">
-                                      <td><?php echo $child->ID;?></td>
-                                      <td class="sub-level-3"><?php echo $child->accountType;?></td>
-                                      <td><?php echo $child->atype;?></td>
-                                      <td>
-                                          <?php if (
-    ($account->isEditable == 1 && $_SESSION['userType'] <= 2 && (int)$child->congregationId === (int)$_SESSION['congId']) 
-    || (converttobool($_SESSION['isParish']) && (int)$child->congregationId === 0) 
-    || (int)$_SESSION['userType'] < 2
-) : ?>
-    <a href="<?php echo URLROOT; ?>/accounts/edit/<?php echo $child->ID; ?>" class="btn btn-sm bg-olive custom-font">Edit</a>
-    <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
-<?php endif; ?>
-
-                                      </td>
-                                  </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
-            </div>    
-        </div>        
+            </div>
+        </div>
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 
@@ -120,25 +90,15 @@
         'ordering': false,
         'columnDefs' : [
             {"visible" : false, "targets": 0},
-            {"width" : "15%" , "targets": 2}
-            <?php if ($_SESSION['userType'] <=2) : ?>
-            ,{"width" : "15%" , "targets": 3},
-            <?php endif;?>
+            {"width" : "15%" , "targets": 2},
+            {"width" : "20%" , "targets": 3}
           ]
       });
 
       $('#accountsTable').on('click','.btndel',function(){
           $('#deleteModalCenter').modal('show');
-          $tr = $(this).closest('tr');
-
-          let data = $tr.children('td').map(function(){
-              return $(this).text();
-          }).get();
-          
-          var currentRow = $(this).closest("tr");
-          var data1 = $('#accountsTable').DataTable().row(currentRow).data();
+          var data1 = $('#accountsTable').DataTable().row($(this).closest("tr")).data();
           $('#id').val(data1[0]);
-        // dummy code
       });
     });
 </script>

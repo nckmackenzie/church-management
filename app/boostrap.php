@@ -9,6 +9,7 @@ require_once 'helpers/sms_helper.php';
 //Ledger.php defines two classes (Ledger, LedgerException); the autoloader
 //below assumes one class per file matching the class name, so load it directly.
 require_once 'libraries/Ledger.php';
+require_once 'libraries/AccountChart.php';
 
 //AUTOLOAD CORE LIBRARIES
 spl_autoload_register(function($className){
