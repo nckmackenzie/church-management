@@ -12,9 +12,12 @@ import {
   dueDateInput,
   invoiceNoInput,
   vatSelect,
-} from './supplier.js';
+  payableSelect,
+  lineAccountText,
+} from './supplier-v2.js';
 
 import { getSelectedText, numberFormatter } from '../utils/utils.js';
+import { setError, clearError, escapeHtml } from '../utils/feedback.js';
 const vatamountInput = document.getElementById('vatamount');
 const idInput = document.getElementById('id');
 const isEditInput = document.getElementById('isedit');
@@ -40,9 +43,9 @@ export function formatDate(date) {
 export function validateModal() {
   let errorCount = 0;
   modalRequired.forEach(field => {
+    clearError(field);
     if (field.value === '') {
-      field.classList.add('is-invalid');
-      field.nextSibling.nextSibling.textContent = 'Field is required';
+      setError(field, 'Field is required');
       errorCount++;
     }
   });
@@ -53,17 +56,18 @@ export function validateModal() {
 export function calcGrossValue() {
   if (!rateInput.value || !qtyInput.value) return;
   const gross = parseFloat(rateInput.value) * parseFloat(qtyInput.value);
-  grossInput.value = gross;
+  grossInput.value = (Math.round(gross * 100) / 100).toFixed(2);
 }
 
 export function addToTable() {
   const html = `
     <tr>
-      <td class="d-none pid">${productSelect.value}</td>
-      <td>${getSelectedText(productSelect)}</td>
-      <td class="qty">${qtyInput.value}</td>
-      <td class="rate">${rateInput.value}</td>
-      <td class="gross">${grossInput.value}</td>
+      <td class="d-none pid">${escapeHtml(productSelect.value)}</td>
+      <td>${escapeHtml(getSelectedText(productSelect))}</td>
+      <td class="account">${escapeHtml(lineAccountText.dataset.account || '')}</td>
+      <td class="qty">${escapeHtml(qtyInput.value)}</td>
+      <td class="rate">${escapeHtml(rateInput.value)}</td>
+      <td class="gross">${escapeHtml(grossInput.value)}</td>
       <td class="btnremove"><button type="button" class="tablebtn text-danger btnremove">Remove</button></td>
     </tr>
   `;
@@ -72,6 +76,7 @@ export function addToTable() {
   newRow.innerHTML = html;
 }
 
+// display only: the server recomputes lines, VAT and total (the VAT rate has always been 16%)
 export function calculateVat() {
   if (!totalsInput.value || !vatTypeSelect.value) return;
   if (+vatTypeSelect.value === 1) {
@@ -95,9 +100,9 @@ export function header() {
     vatType: vatTypeSelect.value,
     vat: vatSelect.value,
     invoiceNo: invoiceNoInput.value,
+    payable: payableSelect.value,
     id: idInput.value,
     isEdit: isEditInput.value,
-    total: numberFormatter(totalsInput.value),
   };
 }
 
@@ -108,8 +113,7 @@ export function tableData() {
     const pid = tr.querySelector('.pid').innerText;
     const qty = tr.querySelector('.qty').innerText;
     const rate = tr.querySelector('.rate').innerText;
-    const gross = tr.querySelector('.gross').innerText;
-    tableData.push({ pid, qty, rate, gross });
+    tableData.push({ pid, qty, rate });
   });
   return tableData;
 }

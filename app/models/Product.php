@@ -46,7 +46,7 @@ class Product
                               VALUES(:pname,:narr,:rate,:account,:cid)');
         }else{
             $this->db->query('UPDATE tblproducts SET productName=:pname,`description`=:narr,rate=:rate 
-                              WHERE (ID = :id)');
+                              WHERE (ID = :id) AND (congregationId = :cid)');
         }
         $this->db->bind(':pname',!empty($data['productname']) ? strtolower($data['productname']) : null);
         $this->db->bind(':narr',!empty($data['description']) ? strtolower($data['description']) : null);
@@ -56,6 +56,7 @@ class Product
             $this->db->bind(':cid',(int)$_SESSION['congId']);
         }else{
             $this->db->bind(':id',(int)$data['id']);
+            $this->db->bind(':cid',(int)$_SESSION['congId']);
         }
         
         if(!$this->db->execute()){
@@ -66,15 +67,17 @@ class Product
 
     public function GetProduct($id)
     {
-        $this->db->query('SELECT * FROM tblproducts WHERE (ID = :id)');
+        $this->db->query('SELECT * FROM tblproducts WHERE (ID = :id) AND (congregationId = :cid)');
         $this->db->bind(':id',(int)$id);
+        $this->db->bind(':cid',(int)$_SESSION['congId']);
         return $this->db->single();
     }
 
     public function Delete($id)
     {
-        $this->db->query('UPDATE tblproducts SET deleted = 1 WHERE (ID = :id)');
+        $this->db->query('UPDATE tblproducts SET deleted = 1 WHERE (ID = :id) AND (congregationId = :cid)');
         $this->db->bind(':id',(int)$id);
+        $this->db->bind(':cid',(int)$_SESSION['congId']);
         if(!$this->db->execute()){
             return false;
         }
@@ -83,6 +86,6 @@ class Product
 
     public function GetRate($id)
     {
-        return getdbvalue($this->db->dbh,'SELECT rate FROM tblproducts WHERE ID = ?',[$id]);
+        return getdbvalue($this->db->dbh,'SELECT rate FROM tblproducts WHERE ID = ? AND congregationId = ? AND deleted = 0',[(int)$id,(int)$_SESSION['congId']]);
     }
 }

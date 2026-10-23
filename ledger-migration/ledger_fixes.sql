@@ -248,6 +248,51 @@ WHERE   isBank = 1
 
 
 -- ---------------------------------------------------------------------
+-- F15 Chart (task 8.7, decisions 78-79): shared posting account
+-- "accounts payable" under 23 "payables and accruals". The old supplier code
+-- posted to a literal 'accounts payable' that has no chart row; account 23 is a
+-- reporting account and cannot be posted to. The new supplier invoice and
+-- supplier opening balance forms offer every posting account under 23 and
+-- PRESELECT this one, found at runtime (Ledger::accountsPayableId(): shared,
+-- named 'accounts payable', parent 23, exactly one row). Nothing in PHP holds its ID.
+--
+-- Preflight (decision 75 counts deleted rows). Expect no row on dev and on
+-- production; adjudicate any row before running the INSERT:
+--     SELECT ID, accountType, parentId, congregationId, deleted FROM tblaccounttypes
+--     WHERE  LOWER(TRIM(accountType)) = 'accounts payable';
+-- The INSERT skips itself when a live 'accounts payable' already sits under 23,
+-- so a second run changes nothing. accountTypeId is copied from the parent (4, Liability).
+-- F4 (below, runs last) then recomputes isSubCategory: 23 stays reporting, the new leaf is posting.
+--
+-- Verify (after F4; exactly one row: parentId 23, accountTypeId 4, isSubCategory 1,
+-- active 1, congregationId 0, deleted 0, parentIsReporting 1):
+--     SELECT a.ID, a.accountType, a.accountTypeId, a.parentId, a.isSubCategory, a.active,
+--            a.congregationId, a.deleted, p.accountType parentName, (p.isSubCategory = 0) parentIsReporting
+--     FROM   tblaccounttypes a JOIN tblaccounttypes p ON p.ID = a.parentId
+--     WHERE  LOWER(TRIM(a.accountType)) = 'accounts payable';
+--
+-- Rollback: before any entry or source row uses it, delete exactly that row:
+--     DELETE FROM tblaccounttypes WHERE LOWER(TRIM(accountType)) = 'accounts payable' AND parentId = 23
+--       AND fn_checkreferencedaccount(ID) = 0;
+-- Once supplier invoices / entries reference it, roll back by restoring the cutover backup instead.
+-- ---------------------------------------------------------------------
+INSERT INTO tblaccounttypes
+        (accountType, accountTypeId, parentId, isSubCategory, `description`,
+         isBank, forGroup, isEditable, active, congregationId, deleted)
+SELECT  'accounts payable', p.accountTypeId, p.ID, 1,
+        'Default supplier invoice and supplier opening balance control account',
+        0, 0, 1, 1, 0, 0
+FROM    tblaccounttypes p
+WHERE   p.ID = 23
+  AND   p.deleted = 0
+  AND   NOT EXISTS (
+            SELECT 1 FROM tblaccounttypes x
+            WHERE  LOWER(TRIM(x.accountType)) = 'accounts payable'
+              AND  x.parentId = 23
+              AND  x.deleted = 0);
+
+
+-- ---------------------------------------------------------------------
 -- F4 (RUNS LAST) Chart: align isSubCategory with the chart rule.
 --   directly under a root (parent's parentId = 0)  -> 0 (reporting)
 --   deeper, with non-deleted children              -> 0 (reporting)

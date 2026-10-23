@@ -100,6 +100,11 @@ class Products extends Controller
     public function edit($id)
     {
         $product = $this->productmodel->GetProduct($id);
+        if(!$product){
+            flash('product_msg','Product not found for this congregation','alert custom-danger alert-dismissible fade show');
+            redirect('products');
+            exit;
+        }
         checkcenter($product->congregationId);
         $data = [
             'title' => 'Edit Product',

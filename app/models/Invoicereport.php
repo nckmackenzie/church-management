@@ -26,7 +26,7 @@ class Invoicereport
 
     public function GetPaymentPayInvoice($invoice)
     {
-        return loadresultset($this->db->dbh,'CALL sp_get_payments_by_invoiceno(?)',[$invoice]);
+        return loadresultset($this->db->dbh,'CALL sp_get_payments_by_invoiceno(?,?)',[$invoice,(int)$_SESSION['congId']]);
     }
 
     public function GetSupplierBalances($data)
@@ -35,9 +35,9 @@ class Invoicereport
                     s.supplierName,
                     IFNULL(SUM(getinvoicebalance_supplier(h.ID)),0) As TotalBalance
                 FROM `tblinvoice_header_suppliers` h join tblsuppliers s on h.supplierId = s.ID
-                WHERE h.deleted = 0
+                WHERE h.deleted = 0 AND s.deleted = 0 AND h.congregationId = ?
                 GROUP BY s.supplierName;';
-        return loadresultset($this->db->dbh,$sql,[]);
+        return loadresultset($this->db->dbh,$sql,[(int)$_SESSION['congId']]);
     }
 
     public function GetSuppliers()

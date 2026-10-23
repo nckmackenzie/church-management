@@ -572,7 +572,8 @@ class Report {
         if($data['type'] === 'customer'){
             $this->db->query('CALL sp_getcustomerpayments(:cid,:sdate,:edate)');
         }else{
-            $this->db->query('CALL sp_getsupplierpayments(:cid,:sdate,:edate)');
+            $this->db->query('CALL sp_getsupplierpayments(:cid,:sdate,:edate,:cong)');
+            $this->db->bind(':cong',(int)$_SESSION['congId']);
         }
         $this->db->bind(':cid',(int)$data['customer']);
         $this->db->bind(':sdate',$data['start']);

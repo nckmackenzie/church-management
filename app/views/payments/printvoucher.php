@@ -14,29 +14,29 @@
     <div class="wrapper">
         <section class="invoice">
             <div class="d-flex justify-content-end align-items-center mb-2">
-                <span><strong>Voucher No:&nbsp;</strong></span><span><?php echo $data['paymentno'];?></span>
+                <span><strong>Voucher No:&nbsp;</strong></span><span><?php echo htmlspecialchars((string)$data['paymentno'],ENT_QUOTES,'UTF-8');?></span>
             </div>
             <div class="text-center">
-                <h6 class="font-weight-bolder h3"><?php echo strtoupper($data['congregationinfo']->CongregationName);?></h6>
+                <h6 class="font-weight-bolder h3"><?php echo htmlspecialchars((string)strtoupper($data['congregationinfo']->CongregationName),ENT_QUOTES,'UTF-8');?></h6>
                 <p class="h5 text-uppercase text-decoration-underline pb-1" style="text-decoration: underline;">cheque payment voucher</p>
             </div>
             <!-- title row -->
             <div class="row invoice-info">
                 <div class="col-sm-12 invoice-col mb-2">
                     <strong>BANK ACCOUNT:&nbsp; &nbsp;</strong>
-                    <span><?php echo $data['bank'];?></span>
+                    <span><?php echo htmlspecialchars((string)$data['bank'],ENT_QUOTES,'UTF-8');?></span>
                 </div><!-- /.col -->
                 <div class="col-sm-9 invoice-col mb-2">
                     <strong>CHEQUE NO:&nbsp; &nbsp;</strong>
-                    <span><?php echo $data['chequeno'];?></span>
+                    <span><?php echo htmlspecialchars((string)$data['chequeno'],ENT_QUOTES,'UTF-8');?></span>
                 </div><!-- /.col -->
                 <div class="col-sm-3 invoice-col mb-2">
                     <strong>PAYMENT DATE:&nbsp; &nbsp;</strong>
-                    <span><?php echo $data['paymentdate'];?></span>
+                    <span><?php echo htmlspecialchars((string)$data['paymentdate'],ENT_QUOTES,'UTF-8');?></span>
                 </div><!-- /.col -->
                 <div class="col-sm-12 invoice-col mb-2">
                     <strong>PAYEE NAME:&nbsp; &nbsp;</strong>
-                    <span><?php echo strtoupper($data['supplier']->supplierName);?></span>
+                    <span><?php echo htmlspecialchars((string)strtoupper($data['supplier']->supplierName),ENT_QUOTES,'UTF-8');?></span>
                 </div><!-- /.col -->
             </div><!-- /.row -->
             <!-- Table row -->
@@ -56,7 +56,7 @@
                         <tbody>
                             <?php foreach($data['invoicedetails'] as $detail) : ?>
                                 <tr>
-                                    <td><?php echo strtoupper($detail->invoiceNo); ?></td>
+                                    <td><?php echo htmlspecialchars((string)strtoupper($detail->invoiceNo),ENT_QUOTES,'UTF-8');?></td>
                                     <td><?php echo date('d-m-Y',strtotime($detail->invoiceDate)); ?></td>
                                     <td><?php echo date('d-m-Y',strtotime($detail->duedate)); ?></td>
                                     <td><?php echo number_format($detail->inclusiveVat,2); ?></td>

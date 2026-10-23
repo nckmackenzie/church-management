@@ -56,53 +56,39 @@
                 <th>Actions</th>
             </thead>
             <tbody>
+                <?php $type = (int)$_SESSION['userType']; $fullRights = ($type <= 2 || $type > 4); ?>
                 <?php foreach($data['invoices'] as $invoice) :?>
+                    <?php
+                        $canEdit = $fullRights || ((int)$invoice->postedBy === (int)$_SESSION['userId'] && (int)$invoice->status === 0);
+                        $canDelete = $fullRights && (int)$invoice->status === 0;
+                        $id = encryptId($invoice->ID);
+                    ?>
                     <tr>
-                        <td class="d-none"><?php echo $invoice->ID;?></td>
-                        <td><?php echo $invoice->invoiceDate;?></td>
-                        <td><?php echo $invoice->invoiceNo;?></td>
-                        <td><?php echo $invoice->supplier;?></td>
-                        <td><?php echo $invoice->duedate;?></td>
+                        <td class="d-none"><?php echo (int)$invoice->ID;?></td>
+                        <td><?php echo htmlspecialchars((string)$invoice->invoiceDate,ENT_QUOTES,'UTF-8');?></td>
+                        <td><?php echo htmlspecialchars((string)$invoice->invoiceNo,ENT_QUOTES,'UTF-8');?></td>
+                        <td><?php echo htmlspecialchars((string)$invoice->supplier,ENT_QUOTES,'UTF-8');?></td>
+                        <td><?php echo htmlspecialchars((string)$invoice->duedate,ENT_QUOTES,'UTF-8');?></td>
                         <td><?php echo number_format($invoice->balance,2);?></td>
                        
                         <?php if($invoice->status == 0) : ?>
-                            <td class="text-danger"><?php echo $invoice->state; ?></td>
+                            <td class="text-danger"><?php echo htmlspecialchars((string)$invoice->state,ENT_QUOTES,'UTF-8'); ?></td>
                         <?php elseif($invoice->status == 2) : ?>
-                            <td class="text-success"><?php echo $invoice->state; ?></td>
+                            <td class="text-success"><?php echo htmlspecialchars((string)$invoice->state,ENT_QUOTES,'UTF-8'); ?></td>
                         <?php else : ?>
-                            <td class="text-warning"><?php echo $invoice->state; ?></td>    
+                            <td class="text-warning"><?php echo htmlspecialchars((string)$invoice->state,ENT_QUOTES,'UTF-8'); ?></td>
                         <?php endif; ?>
-                        <?php if($_SESSION['userType'] <=2 || (int)$_SESSION['userType'] > 4) : ?>
-                            <td>
-                                <div class="btn-group">
-                                    <?php if($invoice->status == 0) : ?>
-                                        <a href="<?php echo URLROOT;?>/supplierinvoices/edit/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm bg-olive custom-font">Edit</a> 
-                                        <a href="<?php echo URLROOT;?>/supplierinvoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>
-                                        <button class="btn btn-danger btn-sm custom-font btndel">Delete</button>
-                                    <?php elseif($invoice->status == 1) : ?>
-                                        <a href="<?php echo URLROOT;?>/supplierinvoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>
-                                    <?php else : ?>
-                                        <a href="<?php echo URLROOT;?>/supplierinvoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>    
-                                    <?php endif; ?>
-                                </div>
-                            </td>
-                        <?php elseif($_SESSION['userType'] <=5) : ?>
-                          <td>
+                        <td>
                             <div class="btn-group">
-                                <?php if($invoice->status == 0) : ?>
-                                    <!-- Allow edit if created by logged user -->
-                                    <?php if($invoice->postedBy == $_SESSION['userId']) : ?>
-                                      <a href="<?php echo URLROOT;?>/supplierinvoices/edit/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm bg-olive custom-font">Edit</a>
-                                    <?php endif; ?>
-                                    <a href="<?php echo URLROOT;?>/supplierinvoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>
-                                <?php elseif($invoice->status == 1) : ?>
-                                    <a href="<?php echo URLROOT;?>/supplierinvoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>
-                                <?php else : ?>
-                                    <a href="<?php echo URLROOT;?>/supplierinvoices/print/<?php echo encryptId($invoice->ID);?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a> 
+                                <?php if($canEdit) : ?>
+                                    <a href="<?php echo URLROOT;?>/supplierinvoices/edit/<?php echo $id;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
+                                <?php endif; ?>
+                                <a href="<?php echo URLROOT;?>/supplierinvoices/print/<?php echo $id;?>" class="btn btn-sm btn-warning custom-font" target="_blank">Print</a>
+                                <?php if($canDelete) : ?>
+                                    <button class="btn btn-danger btn-sm custom-font btndel">Delete</button>
                                 <?php endif; ?>
                             </div>
-                          </td>
-                        <?php endif; ?>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
