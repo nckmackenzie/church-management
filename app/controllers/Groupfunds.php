@@ -321,6 +321,15 @@ class Groupfunds extends Controller
                 exit;
             }
             checkcenter($request->CongregationId);
+            $ownerid = $this->fundmodel->OwnerId($request);
+            // Keep the six approval inputs raw for model validation. In particular, do not cast
+            // strings such as "98abc" to a valid account ID or let array-shaped fields reach trim().
+            $rawApproved = $_POST['approved'] ?? null;
+            $rawPaydate = $_POST['paydate'] ?? null;
+            $rawPaymethod = $_POST['paymethod'] ?? null;
+            $rawPaidfrom = $_POST['paidfrom'] ?? null;
+            $rawReceiving = $_POST['receiving'] ?? null;
+            $rawReference = $_POST['reference'] ?? null;
             // group / district, type, DontDeduct and the requested amount are the stored row's; the posted copies are only shown again on an error
             $data = [
                 'title' => 'Approve requisition',
@@ -328,41 +337,35 @@ class Groupfunds extends Controller
                 'cashaccounts' => $this->fundmodel->GetCashAccounts(),
                 'bankaccounts' => $this->fundmodel->GetBankAccounts(),
                 'receivingaccounts' => $this->fundmodel->GetReceivingAccounts(),
-                'receiving' => isset($_POST['receiving']) && !empty(trim($_POST['receiving'])) ? trim($_POST['receiving']) : null,   // the model checks it is digits only (an (int) cast would turn '121abc' into 121)
-                'reqno' => trim($_POST['reqno']),
-                'groupid' => trim($_POST['groupid']),
-                'type' => isset($_POST['type']) && !empty(trim($_POST['type'])) ? trim($_POST['type']) : 'group',
-                'id' => isset($_POST['id']) && !empty(trim($_POST['id'])) ? trim($_POST['id']) : '',
-                'group' => isset($_POST['group']) && !empty(trim($_POST['group'])) ? trim($_POST['group']) : '',
-                'reqdate' => isset($_POST['date']) && !empty(trim($_POST['date'])) ? date('Y-m-d',strtotime(trim($_POST['date']))) : '',
-                'paydate' => isset($_POST['paydate']) && !empty(trim($_POST['paydate'])) ? date('Y-m-d',strtotime(trim($_POST['paydate']))) : '',
-                'availableamount' => isset($_POST['availableamount']) && !empty(trim($_POST['availableamount'])) ? floatval(numberFormat($_POST['availableamount'])) : '',
-                'amount' => isset($_POST['amount']) && !empty(trim($_POST['amount'])) ? floatval(numberFormat(trim($_POST['amount']))) : '',
-                'approved' => isset($_POST['approved']) && !empty(trim($_POST['approved'])) ? floatval(trim($_POST['approved'])) : '',
-                'balance' => isset($_POST['balance']) && !empty(trim($_POST['balance'])) ? floatval(trim($_POST['balance'])) : '',
-                'paymethod' => isset($_POST['paymethod']) && !empty(trim($_POST['paymethod'])) ? (int)trim($_POST['paymethod']) : null,
-                'paidfrom' => isset($_POST['paidfrom']) && !empty(trim($_POST['paidfrom'])) ? (int)trim($_POST['paidfrom']) : null,
-                'reference' => isset($_POST['reference']) && !empty(trim($_POST['reference'])) ? trim($_POST['reference']) : '',
-                'dontdeduct' => isset($_POST['dontdeduct']) && !empty(trim($_POST['dontdeduct'])) ? converttobool($_POST['dontdeduct']) : false,
-                'reason' => trim($_POST['reason']),
+                'receiving' => is_string($rawReceiving) ? $rawReceiving : null,
+                'reqno' => $request->ReqNo,
+                'groupid' => $ownerid,
+                'type' => $request->RequestType,
+                'id' => $request->ID,
+                'group' => strtoupper($this->fundmodel->GetGroupName($request->RequestType,$ownerid ?? $request->ChurchCategoryId)),
+                'reqdate' => date('d/m/Y',strtotime($request->RequisitionDate)),
+                'paydate' => is_string($rawPaydate) ? $rawPaydate : '',
+                'availableamount' => number_format(floatval($this->fundmodel->GetBalance($ownerid,$request->RequisitionDate,$request->RequestType)),2),
+                'amount' => number_format($request->AmountRequested,2),
+                'approved' => is_string($rawApproved) ? $rawApproved : '',
+                'balance' => '',
+                'paymethod' => is_string($rawPaymethod) && ctype_digit($rawPaymethod) ? $rawPaymethod : null,
+                'paidfrom' => is_string($rawPaidfrom) && ctype_digit($rawPaidfrom) ? $rawPaidfrom : null,
+                'reference' => is_string($rawReference) ? $rawReference : '',
+                'dontdeduct' => $request->DontDeduct,
+                'reason' => strtoupper($request->Purpose),
                 'errmsg' => '',
             ];
 
-
-            if(empty($data['paydate']) || empty($data['approved']) || empty($data['paymethod'])
-               || empty($data['reference']) || empty($data['paidfrom']) || empty($data['receiving'])){
-                $data['errmsg'] = 'Fill all required field';
-            }
-            if($data['approved'] > $data['amount']){
-                $data['errmsg'] = 'Payment amount greater than amount requested';
-            }
-
-            if(!empty($data['errmsg'])){
-                $this->view('groupfunds/approve',$data);
-                exit;
-            }
-
-            $approval = $this->fundmodel->Approve($data);
+            $approval = $this->fundmodel->Approve([
+                'id' => (int)$request->ID,
+                'approved' => $rawApproved,
+                'paydate' => $rawPaydate,
+                'paymethod' => $rawPaymethod,
+                'paidfrom' => $rawPaidfrom,
+                'receiving' => $rawReceiving,
+                'reference' => $rawReference,
+            ]);
             if(is_array($approval)){
                 if($approval['final']){
                     flash('approval_msg',$approval['error'],'alert custom-danger alert-dismissible fade show');

@@ -102,6 +102,7 @@
                         <th>Group Name</th>
                         <th>Amount Requested</th>
                         <th>Amount Approved</th>
+                        <th>Received into</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </thead>
@@ -114,6 +115,7 @@
                                 <td><?php echo $approval->GroupName;?></td>
                                 <td><?php echo $approval->AmountRequested;?></td>
                                 <td><?php echo $approval->AmountApproved;?></td>
+                                <td><?php echo htmlspecialchars($approval->ReceivedInto,ENT_QUOTES,'UTF-8');?></td>
                                 <td><span class="badge badge-<?php badgeclasses($approval->Status);?>"><?php echo $approval->State;?></span></td>
                                 <td>
                                     <?php if($_SESSION['userType'] <=2 || $_SESSION['userType'] == 5) : ?>
@@ -150,7 +152,7 @@
           'columnDefs' : [
             {"width" : "10%" , "targets": 1},
             {"width" : "10%" , "targets": 2},
-            {"width" : "15%" , "targets": 7},
+            {"width" : "15%" , "targets": 8},
           ]
       });
 

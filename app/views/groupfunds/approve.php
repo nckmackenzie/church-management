@@ -82,7 +82,7 @@
                                         <label for="approved">Amount Approved</label>
                                         <input type="number" name="approved" id="approved" 
                                                class="form-control form-control-sm mandatory"
-                                               value="<?php echo $data['approved'];?>"
+                                               value="<?php echo htmlspecialchars((string)$data['approved'],ENT_QUOTES,'UTF-8');?>"
                                                placeholder="eg 2,000">
                                         <span class="invalid-feedback"></span>
                                     </div>
@@ -100,7 +100,7 @@
                                         <label for="paydate">Payment Date</label>
                                         <input type="date" name="paydate" id="paydate" 
                                                class="form-control form-control-sm mandatory"
-                                               value="<?php echo $data['paydate'];?>">
+                                               value="<?php echo htmlspecialchars((string)$data['paydate'],ENT_QUOTES,'UTF-8');?>">
                                         <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
@@ -148,7 +148,7 @@
                                         <label for="reference">Payment Reference</label>
                                         <input type="text" name="reference" id="reference" 
                                                class="form-control form-control-sm mandatory"
-                                               value="<?php echo $data['reference'];?>"
+                                               value="<?php echo htmlspecialchars((string)$data['reference'],ENT_QUOTES,'UTF-8');?>"
                                                placeholder="chq00909">
                                         <span class="invalid-feedback"></span>
                                     </div>
@@ -173,4 +173,4 @@
 <?php require APPROOT . '/views/inc/footer.php'?>
 <script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/approve-v6.js"></script>
 </body>
-</html>  
+</html>

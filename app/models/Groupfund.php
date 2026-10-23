@@ -233,8 +233,20 @@ class Groupfund
 
     public function GetApprovals()
     {
-        $sql = 'SELECT * FROM vw_requisition_approvals   
-                WHERE (congregationId = ?)';
+        // One batched join supplies the debit account of each active type-12 entry.  Old approvals
+        // have no journal entry, and pending / rejected requisitions should not imply an account.
+        $sql = "SELECT v.*,
+                       CASE WHEN v.Status = 1 THEN COALESCE(ri.ReceivedInto,'OLD STYLE') ELSE '' END AS ReceivedInto
+                  FROM vw_requisition_approvals v
+             LEFT JOIN (
+                        SELECT e.congregationId,e.transactionId,UCASE(MAX(a.accountType)) AS ReceivedInto
+                          FROM journal_entries e
+                          JOIN journal_lines l ON l.journalEntryId = e.ID AND l.dc = 'DEBIT'
+                          JOIN tblaccounttypes a ON a.ID = l.accountId
+                         WHERE e.transactionTypeId = 12 AND e.deleted = 0
+                      GROUP BY e.congregationId,e.transactionId
+                       ) ri ON ri.congregationId = v.CongregationId AND ri.transactionId = v.ID
+                 WHERE v.congregationId = ?";
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
 
@@ -309,7 +321,6 @@ class Groupfund
      */
     public function Approve($data)
     {
-        $reference = !empty($data['reference']) ? strtolower(trim($data['reference'])) : null;
         $pdo = $this->db->pdo();
         $cong = (int)$_SESSION['congId'];
         try {
@@ -323,36 +334,66 @@ class Groupfund
                 return $this->refuseAction($pdo,'This requisition has already been '.((int)$req->Status === 1 ? 'approved' : 'rejected').'. Nothing was posted',true);
             }
 
-            $approved = $data['approved'];
-            if(!is_numeric($approved) || (float)$approved <= 0 || round((float)$approved,2) !== (float)$approved){
+            $rawApproved = $data['approved'] ?? null;
+            if (is_int($rawApproved) || is_float($rawApproved)) {
+                $approvedText = (string)$rawApproved;
+            } elseif (is_string($rawApproved)) {
+                $approvedText = $rawApproved;
+            } else {
+                $approvedText = '';
+            }
+            if(!preg_match('/^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,2})?$/D',$approvedText) || (float)$approvedText <= 0){
                 return $this->refuseAction($pdo,'Enter a valid amount to approve (greater than zero, at most 2 decimals)');
             }
-            $approved = (float)$approved;
+            $approved = (float)$approvedText;
             if($approved > (float)$req->AmountRequested){
                 return $this->refuseAction($pdo,'Payment amount greater than amount requested');
             }
 
-            $paydate = DateTime::createFromFormat('!Y-m-d',(string)$data['paydate']);
-            if(!$paydate || $paydate->format('Y-m-d') !== $data['paydate']){
+            $rawPaydate = $data['paydate'] ?? null;
+            if(!is_string($rawPaydate)){
                 return $this->refuseAction($pdo,'Select a valid payment date');
             }
-            if($data['paydate'] > date('Y-m-d')){
+            $paydate = DateTime::createFromFormat('!Y-m-d',$rawPaydate);
+            if(!$paydate || $paydate->format('Y-m-d') !== $rawPaydate){
+                return $this->refuseAction($pdo,'Select a valid payment date');
+            }
+            if($rawPaydate > date('Y-m-d')){
                 return $this->refuseAction($pdo,'Payment date cannot be in the future');
             }
 
-            if(is_null($reference)){
+            $rawReference = $data['reference'] ?? null;
+            if(!is_string($rawReference)){
+                return $this->refuseAction($pdo,'Enter a valid payment reference');
+            }
+            $reference = strtolower(trim($rawReference));
+            if($reference === ''){
                 return $this->refuseAction($pdo,'Enter payment reference');
             }
             if(mb_strlen($reference) > self::REFERENCE_LEN){
                 return $this->refuseAction($pdo,'Reference cannot be longer than '.self::REFERENCE_LEN.' characters');
             }
 
-            $method = (int)($data['paymethod'] ?? 0);
+            $rawMethod = $data['paymethod'] ?? null;
+            if(!is_int($rawMethod) && !(is_string($rawMethod) && ctype_digit($rawMethod))){
+                return $this->refuseAction($pdo,'Select a valid pay method');
+            }
+            $method = (int)$rawMethod;
+            if($method <= 0){
+                return $this->refuseAction($pdo,'Select a valid pay method');
+            }
             if((int)getdbvalue($pdo,'SELECT COUNT(*) FROM tblpaymentmethods WHERE ID = ?',[$method]) === 0){
                 return $this->refuseAction($pdo,'Select a valid pay method');
             }
             $isBank = $method !== self::CASH_METHOD;
-            $paidfrom = (int)($data['paidfrom'] ?? 0);
+            $rawPaidfrom = $data['paidfrom'] ?? null;
+            if(!is_int($rawPaidfrom) && !(is_string($rawPaidfrom) && ctype_digit($rawPaidfrom))){
+                return $this->refuseAction($pdo,$isBank ? 'Select the bank account it is paid from' : 'Select the cash account it is paid from');
+            }
+            $paidfrom = (int)$rawPaidfrom;
+            if($paidfrom <= 0){
+                return $this->refuseAction($pdo,$isBank ? 'Select the bank account it is paid from' : 'Select the cash account it is paid from');
+            }
             if($paidfrom === Ledger::CASH_HOLDING){
                 return $this->refuseAction($pdo,'The cash holding account only pays the expenses of a requisition: it cannot be the paid-from account of an approval');
             }
@@ -415,12 +456,12 @@ class Groupfund
             if(!$dontdeduct && $groupid !== null){
                 $pdo->prepare('INSERT INTO tblmmf (TransactionDate,Type,DistrictId,GroupId,Credit,BankId,Reference,Narration,TransactionType,TransactionId,
                                CongregationId) VALUES(?,?,?,?,?,?,?,?,12,?,?)')
-                    ->execute([$data['paydate'],$type,$type === 'district' ? $groupid : null,$type === 'group' ? $groupid : null,
+                    ->execute([$rawPaydate,$type,$type === 'district' ? $groupid : null,$type === 'group' ? $groupid : null,
                                $amount,$isBank ? $paidfrom : null,$reference,$narration,$id,$cong]);
             }
 
             Ledger::post($pdo,[
-                'congregationId' => $cong,'entryDate' => $data['paydate'],'transactionTypeId' => self::TYPE,'transactionId' => $id,
+                'congregationId' => $cong,'entryDate' => $rawPaydate,'transactionTypeId' => self::TYPE,'transactionId' => $id,
                 'reference' => $reference,'description' => $desc,
             ],[
                 Ledger::debit($receiving,$amount,$desc),
@@ -430,7 +471,7 @@ class Groupfund
                 Ledger::syncBankPostings($pdo,$cong,self::TYPE,$id,self::BANK_METHOD,$reference);
             }
 
-            saveLog($pdo,'Approved fund requisition ' . $id . ' (req no ' . $req->ReqNo . ') for ' . $amount . ' dated ' . $data['paydate']);
+            saveLog($pdo,'Approved fund requisition ' . $id . ' (req no ' . $req->ReqNo . ') for ' . $amount . ' dated ' . $rawPaydate);
             $pdo->commit();
         } catch (LedgerException $e) {
             return $this->refuseAction($pdo,implode('. ',$e->getErrors()));

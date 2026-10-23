@@ -71,6 +71,15 @@ function nodeAttr($html, $query, $attr) {
     $n = (new DOMXPath($d))->query($query)->item(0);
     return $n ? $n->getAttribute($attr) : null;
 }
+/** Text of each cell in the approvals-list row whose hidden first cell is the requisition ID. */
+function approvalRowCells($html, $id) {
+    $d = new DOMDocument; @$d->loadHTML('<?xml encoding="utf-8"?>' . $html);
+    $x = new DOMXPath($d);
+    $row = $x->query("//table[@id='reqTable']/tbody/tr[normalize-space(td[1])='" . (int)$id . "']")->item(0);
+    $out = [];
+    if ($row) { foreach ($x->query('./td', $row) as $cell) { $out[] = trim($cell->textContent); } }
+    return $out;
+}
 function redirectsTo($r, $needle) { return in_array($r[0], [301, 302, 303], true) && strpos($r[1]['location'] ?? '', $needle) !== false; }
 
 $mm = new Mmfreceipt; $gf = new Groupfund;
@@ -245,11 +254,37 @@ try {
     $r = $postApprove($rqa, ['receiving' => '98']);
     chk('approval with receiving = paid-from (98 / 98) -> refused with the message, nothing posted', $r[0] === 200 && stripos($r[2], 'cannot be the same') !== false && $nothing($rqa), "status {$r[0]}");
     $r = $postApprove($rqa, ['receiving' => '']);
-    chk('approval without a receiving account -> "Fill all required field", nothing posted', $r[0] === 200 && stripos($r[2], 'Fill all required') !== false && $nothing($rqa), "status {$r[0]}");
+    chk('approval without a receiving account -> model refusal, nothing posted', $r[0] === 200 && stripos($r[2], 'received into') !== false && $nothing($rqa), "status {$r[0]}");
     $r = $postApprove($rqa, ['receiving' => '121abc']);
     chk('approval with receiving "121abc" (tampered) -> refused, nothing posted', $r[0] === 200 && stripos($r[2], 'valid receiving account') !== false && $nothing($rqa), "status {$r[0]}");
     $r = $postApprove($rqa, ['receiving' => '99999999']);
     chk('approval with a non-existent receiving account -> refused, nothing posted', $r[0] === 200 && stripos($r[2], 'valid receiving account') !== false && $nothing($rqa), "status {$r[0]}");
+
+    // Every editable approve field reaches the model as its raw POST value. Arrays, negatives and
+    // strings with a valid-looking prefix must be refused instead of being coerced by the controller.
+    $strictCases = [
+        ['pay method trailing text', ['paymethod' => '1abc'], 'valid pay method'],
+        ['pay method array', ['paymethod' => ['1']], 'valid pay method'],
+        ['pay method negative', ['paymethod' => '-1'], 'valid pay method'],
+        ['paid-from trailing text', ['paidfrom' => '98abc'], 'cash account'],
+        ['paid-from array', ['paidfrom' => ['98']], 'cash account'],
+        ['paid-from negative', ['paidfrom' => '-98'], 'cash account'],
+        ['amount trailing text', ['approved' => '400abc'], 'valid amount'],
+        ['amount array', ['approved' => ['400']], 'valid amount'],
+        ['amount negative', ['approved' => '-400'], 'valid amount'],
+        ['amount exponent notation', ['approved' => '4e2'], 'valid amount'],
+        ['payment date trailing text', ['paydate' => $today . 'junk'], 'valid payment date'],
+        ['payment date array', ['paydate' => [$today]], 'valid payment date'],
+        ['payment date negative', ['paydate' => '-1'], 'valid payment date'],
+        ['reference array', ['reference' => ['HTTPR']], 'valid payment reference'],
+    ];
+    foreach ($strictCases as [$label, $change, $message]) {
+        $r = $postApprove($rqa, $change);
+        chk("strict approve POST: $label refused without posting", $r[0] === 200 && stripos($r[2], $message) !== false && $nothing($rqa), "status {$r[0]} " . substr(strip_tags($r[2]), 0, 160));
+    }
+    $r = $postApprove($rqa, ['approved' => '"><script id="approve-xss">']);
+    chk('strict approve POST: rejected raw value is escaped when the form is rendered again', $r[0] === 200 && strpos($r[2], '<script id="approve-xss">') === false && strpos($r[2], '&lt;script id=&quot;approve-xss&quot;&gt;') !== false && $nothing($rqa));
+
     $r = $postApprove($rqa, ['receiving' => '34']);
     $e = q('SELECT l.accountId,l.dc FROM journal_lines l JOIN journal_entries e ON e.ID=l.journalEntryId WHERE e.transactionTypeId=12 AND e.transactionId=? AND e.deleted=0 ORDER BY lineNumber', [$rqa]);
     chk('approval with cash at hand (34) as the receiving account -> Dr 34 / Cr 98', redirectsTo($r, 'approvals') && $e == [['accountId' => 34, 'dc' => 'DEBIT'], ['accountId' => 98, 'dc' => 'CREDIT']], json_encode($e));
@@ -258,7 +293,13 @@ try {
     $e = q('SELECT l.accountId,l.dc FROM journal_lines l JOIN journal_entries e ON e.ID=l.journalEntryId WHERE e.transactionTypeId=12 AND e.transactionId=? AND e.deleted=0 ORDER BY lineNumber', [$rqa]);
     chk('unapprove, then approve again with another receiving / paid-from pair (98 / 34) -> Dr 98 / Cr 34', redirectsTo($r, 'approvals') && $e == [['accountId' => 98, 'dc' => 'DEBIT'], ['accountId' => 34, 'dc' => 'CREDIT']], json_encode($e));
     $r = http('GET', "groupfunds/approvals", $uFund);
-    chk('approvals list still opens after the changes', $r[0] === 200);
+    $cells = approvalRowCells($r[2], $rqa);
+    chk('approvals list: Received into is the approval debit account (one rendered list request)', $r[0] === 200 && ($cells[6] ?? '') === 'PETTY CASH', json_encode($cells));
+    $oldStyle = $newRq();
+    q('UPDATE tblfundrequisition SET Status=1,AmountApproved=AmountRequested,ApprovalDate=? WHERE ID=?', [$today, $oldStyle]);
+    $r = http('GET', "groupfunds/approvals", $uFund);
+    $cells = approvalRowCells($r[2], $oldStyle);
+    chk('approvals list: approved requisition without an active type-12 entry says OLD STYLE', $r[0] === 200 && ($cells[6] ?? '') === 'OLD STYLE', json_encode($cells));
     // the expense form offers the requisition together with the account it is paid from
     $r = http('GET', 'expenses/requisitionoptions?type=2&centre=' . $G, $uAdmin);
     $j = jsonOf($r[2]);
