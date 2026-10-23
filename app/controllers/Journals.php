@@ -228,7 +228,10 @@ class Journals extends Controller{
         }
 
         $output = '';
-        $output .= 
+        if(!empty($details) && !empty($details[0]->notPosted)){
+            $output .= '<div class="alert alert-warning py-1"><strong>Not posted</strong> - preview only. Nothing is in the ledger until the expense is approved.</div>';
+        }
+        $output .=
         '<table class="table table-bordered table-striped">
             <thead>
                 <tr>

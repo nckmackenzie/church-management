@@ -93,9 +93,13 @@ class Ledger
      */
     const PETTY_CASH_ACCOUNTS = [98, 194];
 
-    /** Number sequences (receipt_number_seq): receipts per congregation + fiscal year, petty cash per congregation. */
+    /**
+     * Number sequences (receipt_number_seq): receipts and expense vouchers per congregation + fiscal year, petty cash
+     * per congregation.
+     */
     const SEQ_RECEIPT   = 'receipt';
     const SEQ_PETTYCASH = 'pettycash';
+    const SEQ_VOUCHER   = 'voucher';
 
     /**
      * @var array<int, array{pdo: PDO, set: array<int, true>}> descendants of CASH_ROOT per connection, cached per
@@ -351,9 +355,10 @@ class Ledger
     /**
      * Allocate the next number of a sequence. Locks the sequence row until the caller's transaction ends, so two
      * saves never get the same number, and a number is never handed out twice (deleted receipts included).
-     * A missing sequence row is seeded from the highest number already in the source table.
+     * The number is max(counter, highest number in the source table, deleted rows included) + 1; a missing sequence
+     * row is created from the same rule.
      *
-     * @param string $kind SEQ_RECEIPT (needs $yearId) or SEQ_PETTYCASH ($yearId ignored)
+     * @param string $kind SEQ_RECEIPT or SEQ_VOUCHER (both need $yearId), or SEQ_PETTYCASH ($yearId ignored)
      */
     public static function nextNumber(PDO $db, int $cong, string $kind, int $yearId = 0): int
     {
@@ -378,7 +383,9 @@ class Ledger
             }
         }
 
-        $next = (int) $last + 1;
+        // safety net: never behind a number already stored (e.g. one carried into this scope by an edit), so the
+        // allocation always equals peekNextNumber()
+        $next = max((int) $last, self::highestNumber($db, $cong, $kind, $yearId)) + 1;
         $db->prepare('UPDATE receipt_number_seq SET lastNo = ? WHERE congregationId = ? AND kind = ? AND fiscalYearId = ?')
            ->execute([$next, $cong, $kind, $yearId]);
         return $next;
@@ -398,7 +405,7 @@ class Ledger
     private static function seqYear(string $kind, int $yearId): int
     {
         if ($kind === self::SEQ_PETTYCASH) { return 0; }
-        if ($kind !== self::SEQ_RECEIPT)   { throw new LogicException("unknown number sequence '$kind'"); }
+        if ($kind !== self::SEQ_RECEIPT && $kind !== self::SEQ_VOUCHER) { throw new LogicException("unknown number sequence '$kind'"); }
         if ($yearId <= 0)                  { throw new LedgerException(['no fiscal year is defined for this date']); }
         return $yearId;
     }
@@ -409,6 +416,9 @@ class Ledger
         if ($kind === self::SEQ_PETTYCASH) {
             $st = $db->prepare('SELECT COALESCE(MAX(ReceiptNo), 0) FROM tblpettycash WHERE CongregationId = ?');
             $st->execute([$cong]);
+        } elseif ($kind === self::SEQ_VOUCHER) {
+            $st = $db->prepare('SELECT COALESCE(MAX(voucherNo), 0) FROM tblexpenses WHERE congregationId = ? AND fiscalYearId = ?');
+            $st->execute([$cong, $yearId]);
         } else {
             $st = $db->prepare("SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(receiptNo, '/', -1) AS UNSIGNED)), 0)
                                 FROM tblcontributions_header

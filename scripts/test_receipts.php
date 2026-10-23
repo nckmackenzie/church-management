@@ -19,9 +19,15 @@ $tables = ['journal_entries' => 'ID', 'tblledger' => 'ID', 'tblbankpostings' => 
 $max = [];
 foreach ($tables as $t => $k) { $max[$t] = (int)$pdo->query("SELECT IFNULL(MAX($k),0) FROM $t")->fetchColumn(); }
 $seqSnapshot = $pdo->query('SELECT * FROM receipt_number_seq')->fetchAll(PDO::FETCH_ASSOC);
+$yearSnapshot = $pdo->query('SELECT ID, closed, deleted FROM tblfiscalyears ORDER BY ID')->fetchAll(PDO::FETCH_ASSOC);
+// the checks need years 10, 11 and 12 open; set that for the run (restoreYears() puts the snapshot back at the end)
+$pdo->exec('UPDATE tblfiscalyears SET closed = 0, deleted = 0 WHERE ID IN (10, 11, 12)');
 
 $pass = 0; $fail = 0;
 function chk($name, $ok, $extra = '') { global $pass, $fail; if ($ok) { $pass++; echo "PASS $name\n"; } else { $fail++; echo "FAIL $name $extra\n"; } }
+/** Put every fiscal year's closed / deleted flags back exactly as they were when the run started. */
+function restoreYears() { global $pdo, $yearSnapshot; $u = $pdo->prepare('UPDATE tblfiscalyears SET closed = ?, deleted = ? WHERE ID = ?'); foreach ($yearSnapshot as $y) { $u->execute([$y['closed'], $y['deleted'], $y['ID']]); } }
+function yearsAreRestored() { global $pdo, $yearSnapshot; return $pdo->query('SELECT ID, closed, deleted FROM tblfiscalyears ORDER BY ID')->fetchAll(PDO::FETCH_ASSOC) == $yearSnapshot; }
 function q($sql, $p = []) { global $pdo; $st = $pdo->prepare($sql); $st->execute($p); return $st->fetchAll(PDO::FETCH_ASSOC); }
 function entry($type, $id) {
     return q('SELECT l.accountId,l.dc,l.amount FROM journal_lines l JOIN journal_entries e ON e.ID=l.journalEntryId
@@ -48,7 +54,6 @@ try {
     $NOYEAR = '2013-06-01';   // no fiscal year at all covers this date
     $DELCLOSED = '2022-09-01'; // fiscal year 8 (2021/2022): closed AND deleted
     $CLOSED = '2023-11-15';   // fiscal year 10, closed for the refusal tests only and reopened afterwards
-    $year10 = (int)q('SELECT closed c FROM tblfiscalyears WHERE ID=10')[0]['c'];
 
     $mk = function ($o = []) use ($bank, $member, $OPEN) {
         return $o + ['id' => '', 'isedit' => false, 'date' => $OPEN, 'paymethod' => '2', 'bank' => $bank, 'cashaccount' => '',
@@ -169,9 +174,18 @@ try {
     $r = $ct->create($mk(['id' => $c1, 'isedit' => true, 'paymethod' => '3', 'reference' => 'CHQ9']));
     chk('edit cash receipt into cheque: bank row created, Dr 105', $r['success'] && count(brows(1, $c1)) == 1 && dr(1, $c1)[0]['accountId'] == 105, json_encode($r));
     // edit into another open fiscal year takes a number from that year's sequence
-    $s11 = seq('receipt', 11);
+    $s11 = seq('receipt', 11); $oldNo2 = hdr($m2)['receiptNo'];
     $r = $ct->create($mk(['id' => $m2, 'isedit' => true, 'paymethod' => '4', 'bank' => $bank2, 'reference' => 'BK1', 'date' => $OPEN11]));
     chk('edit into fiscal year 11: new number from year 11 sequence, year updated', $r['success'] && (int)hdr($m2)['fiscalYearId'] === 11 && (int)hdr($m2)['receiptNo'] === $s11 + 1, json_encode([$r, hdr($m2)]));
+    chk('year change: message names both numbers and the new year; log has both', strpos((string)($r['renumbered'] ?? ''), 'renumbered from ' . $oldNo2 . ' to ' . hdr($m2)['receiptNo']) !== false && strpos($r['renumbered'], '2024-2025') !== false
+        && (int)q('SELECT COUNT(*) c FROM tbllogs WHERE Activity LIKE ?', ['%receipt renumbered from ' . $oldNo2 . ' to ' . hdr($m2)['receiptNo'] . '%'])[0]['c'] === 1, json_encode($r));
+    $r = $ct->create($mk(['date' => $OPEN11])); $nn = $newhdr();
+    chk('year change: the next receipt in year 11 is right after the moved one', $r['success'] && (int)hdr($nn)['receiptNo'] === $s11 + 2, json_encode([hdr($nn)['receiptNo'], $s11]));
+    $r = $ct->create($mk()); $n12 = $newhdr();
+    chk('year change: the retired year-12 number is never handed out again', $r['success'] && hdr($n12)['receiptNo'] !== $oldNo2 && (int)hdr($n12)['receiptNo'] > (int)$oldNo2, json_encode([$oldNo2, hdr($n12)['receiptNo']]));
+    $r = $ct->create($mk(['id' => $m2, 'isedit' => true, 'paymethod' => '4', 'bank' => $bank2, 'reference' => 'BK1', 'date' => '2025-02-20']));
+    chk('same-year edit (date changes inside year 11): number kept, no renumber message', $r['success'] && empty($r['renumbered']) && (int)hdr($m2)['receiptNo'] === $s11 + 1, json_encode($r));
+    $ct->delete(['id' => $nn]); $ct->delete(['id' => $n12]);
 
     // ---------------- old rows stored a blank sub account as 0: such a receipt must stay editable
     $r = $ct->create($mk()); $z = $newhdr();
@@ -303,11 +317,11 @@ try {
     // refusals
     $realTransfer = q('SELECT * FROM tblpettycash WHERE TransactionType=13 AND Deleted=0 AND CongregationId=11 ORDER BY ID LIMIT 1')[0];
     $expenseRow = q('SELECT * FROM tblpettycash WHERE IsReceipt=0 AND Deleted=0 AND CongregationId=11 ORDER BY ID LIMIT 1')[0];
-    $pdo->prepare("INSERT INTO tblpettycash (ReceiptNo,TransactionDate,Debit,IsReceipt,BankId,PettyCashAccountId,Reference,Narration,CongregationId) VALUES (9999,?,10,1,?,98,'x','t84b other',?)")->execute([$OPEN, $bank, $other]);
+    $pdo->prepare("INSERT INTO tblpettycash (ReceiptNo,TransactionDate,Debit,IsReceipt,BankId,PettyCashAccountId,Reference,Narration,CongregationId) VALUES (NULL,?,10,1,?,98,'x','t84b other',?)")->execute([$OPEN, $bank, $other]);
     $foreignPc = (int)$pdo->lastInsertId();
-    $pdo->prepare("INSERT INTO tblpettycash (ReceiptNo,TransactionDate,Debit,IsReceipt,BankId,PettyCashAccountId,Reference,Narration,CongregationId) VALUES (9998,?,10,1,?,98,'x','t84b closed',11)")->execute([$CLOSED, $bank]);
+    $pdo->prepare("INSERT INTO tblpettycash (ReceiptNo,TransactionDate,Debit,IsReceipt,BankId,PettyCashAccountId,Reference,Narration,CongregationId) VALUES (NULL,?,10,1,?,98,'x','t84b closed',11)")->execute([$CLOSED, $bank]);
     $closedPc = (int)$pdo->lastInsertId();
-    $pdo->prepare("INSERT INTO tblpettycash (ReceiptNo,TransactionDate,Debit,IsReceipt,BankId,PettyCashAccountId,Reference,Narration,CongregationId) VALUES (9997,?,10,1,?,98,'x','t84c deleted year',11)")->execute([$DELCLOSED, $bank]);
+    $pdo->prepare("INSERT INTO tblpettycash (ReceiptNo,TransactionDate,Debit,IsReceipt,BankId,PettyCashAccountId,Reference,Narration,CongregationId) VALUES (NULL,?,10,1,?,98,'x','t84c deleted year',11)")->execute([$DELCLOSED, $bank]);
     $delPc = (int)$pdo->lastInsertId();
     $snap = function ($ids) { $o = []; foreach ($ids as $i) { $o[$i] = md5(json_encode(q('SELECT * FROM tblpettycash WHERE ID=?', [$i]))); } return $o; };
     $watch = [$realTransfer['ID'], $expenseRow['ID'], $foreignPc, $closedPc, $delPc];
@@ -350,7 +364,7 @@ try {
         $r = $cr->Delete($d[1]); echo "   [{$d[0]}] " . json_encode($r['errors']) . "\n";
         chk("refused: petty {$d[0]}", !$r['success'] && $r['errors']);
     }
-    $pdo->prepare('UPDATE tblfiscalyears SET closed=? WHERE ID=10')->execute([$year10]);
+    $pdo->exec('UPDATE tblfiscalyears SET closed=0, deleted=0 WHERE ID=10');   // the run's own state (open); the final restoreYears() puts the real flags back
     chk('refused petty actions left the real transfer / expense / other-congregation / closed-year rows untouched', $snap($watch) == $snapBefore);
     chk('the screen query lists only own receipts (no type 13 / expense rows)', (function () use ($cr, $realTransfer, $expenseRow, $p98) {
         $ids = array_map(function ($r) { return (int)$r->ID; }, $cr->GetReceipts());
@@ -423,7 +437,7 @@ try {
     $fail++; echo "EXCEPTION: " . $e->getMessage() . " @ " . $e->getFile() . ":" . $e->getLine() . "\n";
 }
 
-$pdo->exec('UPDATE tblfiscalyears SET closed=0, deleted=0 WHERE ID=10');   // dev year 10 is open; the refusal tests close it temporarily
+restoreYears();   // the refusal tests change the flags of year 10; put every year back exactly as it was (also after a failure)
 $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
 $pdo->prepare('DELETE FROM journal_lines WHERE journalEntryId > ?')->execute([$max['journal_entries']]);
 foreach ($tables as $t => $k) { $pdo->prepare("DELETE FROM $t WHERE $k > ?")->execute([$max[$t]]); }
@@ -434,4 +448,4 @@ foreach ($seqSnapshot as $s) { $ins->execute([$s['congregationId'], $s['kind'], 
 $left = 0;
 foreach ($tables as $t => $k) { $left += (int)$pdo->query("SELECT COUNT(*) FROM $t WHERE $k > {$max[$t]}")->fetchColumn(); }
 $seqNow = $pdo->query('SELECT * FROM receipt_number_seq')->fetchAll(PDO::FETCH_ASSOC);
-echo "\nPASSED $pass FAILED $fail ; leftover rows after cleanup: $left ; sequences restored: " . ($seqNow == $seqSnapshot ? 'yes' : 'NO') . "\n";
+echo "\nPASSED $pass FAILED $fail ; leftover rows after cleanup: $left ; sequences restored: " . ($seqNow == $seqSnapshot ? 'yes' : 'NO') . ' ; fiscal years restored: ' . (yearsAreRestored() ? 'yes' : 'NO') . "\n";

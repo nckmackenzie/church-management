@@ -1,104 +1,145 @@
 import { sendHttpRequest, HOST_URL } from '../utils/utils.js';
+const form = document.getElementById('expenseform');
 const accountSelect = document.getElementById('account');
 const expenseDateInput = document.getElementById('date');
 const voucherNoInput = document.getElementById('voucher');
 const expenseTypeSelect = document.getElementById('expensetype');
 const costCenterSelect = document.getElementById('costcentre');
 const paymethodSelect = document.getElementById('paymethod');
-const cashtypeSelect = document.getElementById('cashtype');
+const paidFromSelect = document.getElementById('paidfrom');
 const requisitionSelect = document.getElementById('reqid');
 const expenseRoute = `${HOST_URL}/expenses`;
 
-paymethodSelect.addEventListener('change', function (e) {
-  if (Number(e.target.value) === 1) {
-    cashtypeSelect.value = 'petty cash';
-    cashtypeSelect.disabled = false;
-    cashtypeSelect.classList.add('mandatory');
-  } else {
-    cashtypeSelect.value = '';
-    cashtypeSelect.disabled = true;
-    cashtypeSelect.classList.remove('mandatory');
-    requisitionSelect.value = '';
-    requisitionSelect.disabled = true;
-  }
-});
+const isEdit = form.dataset.mode === 'edit';
+const expenseId = form.dataset.expenseId || '';
+const CASH_METHOD = '1';
+// the account a new-style requisition is paid from (set by the server)
+const CASH_HOLDING = form.dataset.cashHolding || '';
 
-expenseDateInput.addEventListener('change', async function (e) {
-  const date = e.target.value;
-  const data = await sendHttpRequest(
-    `${expenseRoute}/voucherno?txndate=${date}`
-  );
-  voucherNoInput.value = data;
-});
+function esc(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
 
-expenseTypeSelect.addEventListener('change', async function (e) {
-  accountSelect.innerHTML = '';
-  removeOptions(requisitionSelect);
-  requisitionSelect.disabled = true;
-  const selectedValue = e.target.value;
-  const data = await sendHttpRequest(
-    `${expenseRoute}/getaccounts?type=${
-      selectedValue == '2' ? selectedValue : '1'
-    }`
-  );
-
-  accountSelect.innerHTML =
-    '<option value="" selected disabled>Select account</option>';
-
-  data.length &&
-    data.forEach(req => {
-      let html = '';
-      html += `
-        <option value="${req.id}" >${req.label}</option>
-    `;
-      accountSelect.insertAdjacentHTML('beforeend', html);
-    });
-});
-
-costCenterSelect.addEventListener('change', async function (e) {
-  const type = Number(expenseTypeSelect.value?.trim());
-  if (!type || type === 1) return;
-  getRequisitions(e.target.value, type);
-});
-
-async function getRequisitions(group, type) {
-  removeOptions(requisitionSelect);
-  const data = await sendHttpRequest(
-    `${expenseRoute}/getrequisitions?group=${group}&type=${type}`
-  );
-
-  if (data.length) {
-    requisitionSelect.disabled = false;
-    data.forEach(dt => {
-      let newOption = new Option(dt.label, dt.id);
-      requisitionSelect.add(newOption, undefined);
-    });
-    cashtypeSelect.value = 'cash holding';
-  } else {
-    requisitionSelect.disabled = false;
+function fillSelect(select, items, placeholder, selected) {
+  select.innerHTML = placeholder
+    ? `<option value="" selected disabled>${esc(placeholder)}</option>`
+    : '';
+  items.forEach(item => {
+    const opt = new Option(item.label, item.id);
+    if (item.style) opt.dataset.style = item.style;
+    select.add(opt, undefined);
+  });
+  if (selected !== undefined && selected !== null && selected !== '') {
+    select.value = String(selected);
+    if (select.value !== String(selected)) select.selectedIndex = 0;
   }
 }
 
-cashtypeSelect.addEventListener('change', async function (e) {
-  if (e.target.value !== 'cash holding') {
-    requisitionSelect.value = '';
+// ---- paid from: cash list for cash, bank list for M-Pesa / cheque / bank
+async function loadPaidFrom(selected) {
+  const data = await sendHttpRequest(
+    `${expenseRoute}/paidfrom?method=${paymethodSelect.value}`
+  );
+  const wanted = selected || data.default || '';
+  fillSelect(
+    paidFromSelect,
+    data.accounts,
+    'Select account',
+    wanted
+  );
+}
+
+paymethodSelect.addEventListener('change', async function () {
+  if (paymethodSelect.value !== CASH_METHOD) requisitionSelect.value = '';
+  await loadPaidFrom();
+});
+
+// ---- voucher number: shown on new expenses only (kept on edit)
+if (!isEdit) {
+  expenseDateInput.addEventListener('change', async function (e) {
+    const data = await sendHttpRequest(
+      `${expenseRoute}/voucherno?txndate=${e.target.value}`
+    );
+    voucherNoInput.value = data;
+  });
+}
+
+// ---- expense type: accounts, cost centres, requisitions
+async function loadAccounts() {
+  const type = expenseTypeSelect.value;
+  const extra = isEdit ? `&expense=${expenseId}` : '';
+  const data = await sendHttpRequest(
+    `${expenseRoute}/getaccounts?type=${type}${extra}`
+  );
+  fillSelect(accountSelect, data, 'Select account');
+}
+
+function loadCostCentres() {
+  return new Promise(resolve => {
+    $.ajax({
+      url: `${expenseRoute}/getcostcentre`,
+      method: 'POST',
+      data: { category: expenseTypeSelect.value },
+      success: function (html) {
+        $('#costcentre').html(html);
+        resolve();
+      },
+      error: () => resolve(),
+    });
+  });
+}
+
+async function loadRequisitions(selected) {
+  const type = Number(expenseTypeSelect.value);
+  const centre = costCenterSelect.value;
+  requisitionSelect.innerHTML = '';
+  if ((type !== 2 && type !== 3) || !centre) {
     requisitionSelect.disabled = true;
-  } else {
-    requisitionSelect.disabled = false;
+    return;
+  }
+  const extra = isEdit ? `&expense=${expenseId}` : '';
+  const data = await sendHttpRequest(
+    `${expenseRoute}/requisitionoptions?type=${type}&centre=${centre}${extra}`
+  );
+  requisitionSelect.disabled = false;
+  fillSelect(requisitionSelect, data, null, null);
+  requisitionSelect.insertAdjacentHTML(
+    'afterbegin',
+    '<option value="">No requisition</option>'
+  );
+  requisitionSelect.value = selected ? String(selected) : '';
+  if (requisitionSelect.value !== String(selected || ''))
+    requisitionSelect.value = '';
+}
+
+expenseTypeSelect.addEventListener('change', async function () {
+  await Promise.all([loadAccounts(), loadCostCentres()]);
+  await loadRequisitions();
+});
+
+$('#costcentre').on('change', function () {
+  loadRequisitions();
+});
+
+// picking a requisition: it is paid in cash; a new-style one is paid from the cash holding account
+requisitionSelect.addEventListener('change', async function () {
+  if (!requisitionSelect.value) return;
+  const style = requisitionSelect.selectedOptions[0]?.dataset.style;
+  if (paymethodSelect.value !== CASH_METHOD) {
+    paymethodSelect.value = CASH_METHOD;
+    await loadPaidFrom();
+  }
+  if (style === 'new' && CASH_HOLDING) {
+    paidFromSelect.value = CASH_HOLDING;
   }
 });
 
-function removeOptions(selectElement) {
-  var i,
-    L = selectElement.options.length - 1;
-  for (i = L; i >= 0; i--) {
-    selectElement.remove(i);
-  }
-}
-
-accountSelect.addEventListener('change', async function (e) {
+// ---- budget warning
+$('#account').on('change', async function () {
   const type = Number(expenseTypeSelect.value?.trim());
-  if (!e.target.value || e.target.value == '' || type === 3) return;
+  if (!accountSelect.value || type === 3) return;
   if (await checkOverSpent()) {
     $('#alertModal').modal('show');
   }
@@ -125,3 +166,10 @@ async function checkOverSpent() {
   const data = await sendHttpRequest(url);
   return data;
 }
+
+// ---- one click saves once
+const saveBtn = document.getElementById('save-btn');
+form.addEventListener('submit', function () {
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+});

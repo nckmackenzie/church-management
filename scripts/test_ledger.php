@@ -100,6 +100,9 @@ expectError('bank void refuses to run outside a transaction', function () use ($
 }, LogicException::class, 'transaction');
 
 $db->beginTransaction();
+// The checks need years 10, 11 and 12 open; set that here, inside the rolled-back transaction, so the run never depends on
+// (or changes) the flags on dev.
+$db->exec('UPDATE tblfiscalyears SET closed = 0, deleted = 0 WHERE ID IN (10, 11, 12)');
 try {
     // 2. Journal numbers
     $peek = Ledger::peekNextJournalNo($db, $cong);
@@ -396,12 +399,64 @@ try {
     $maxp = (int) $mp->fetchColumn();
     check('petty cash: missing sequence row is seeded from max + 1 (deleted rows included)', Ledger::nextNumber($db, $cong, Ledger::SEQ_PETTYCASH) === $maxp + 1);
 
+    // expense voucher numbers (task 8.5d): per congregation + fiscal year, seeded from tblexpenses
+    $mv = $db->prepare('SELECT COALESCE(MAX(voucherNo), 0) FROM tblexpenses WHERE congregationId = ? AND fiscalYearId = 12');
+    $mv->execute([$cong]);
+    $maxv = (int) $mv->fetchColumn();
+    $db->prepare('DELETE FROM receipt_number_seq WHERE congregationId = ? AND kind = ?')->execute([$cong, 'voucher']);
+    check('voucher: preview with no sequence row = max + 1 of tblexpenses (deleted rows included)', Ledger::peekNextNumber($db, $cong, Ledger::SEQ_VOUCHER, 12) === $maxv + 1);
+    $vp = Ledger::peekNextNumber($db, $cong, Ledger::SEQ_VOUCHER, 12);
+    $va = Ledger::nextNumber($db, $cong, Ledger::SEQ_VOUCHER, 12);
+    $vb = Ledger::nextNumber($db, $cong, Ledger::SEQ_VOUCHER, 12);
+    check('voucher: missing sequence row is seeded from max + 1; preview = next; numbers increase by 1', $va === $maxv + 1 && $va === $vp && $vb === $va + 1, "$maxv / $vp / $va / $vb");
+    check('voucher: preview moves on after a number is taken, and reserves nothing', Ledger::peekNextNumber($db, $cong, Ledger::SEQ_VOUCHER, 12) === $vb + 1 && Ledger::peekNextNumber($db, $cong, Ledger::SEQ_VOUCHER, 12) === $vb + 1);
+    $v11 = Ledger::peekNextNumber($db, $cong, Ledger::SEQ_VOUCHER, 11);
+    check('voucher: each fiscal year has its own sequence', Ledger::nextNumber($db, $cong, Ledger::SEQ_VOUCHER, 11) === $v11 && Ledger::peekNextNumber($db, $cong, Ledger::SEQ_VOUCHER, 12) === $vb + 1);
+    check('voucher: the sequence is separate from receipts and petty cash',
+          Ledger::peekNextNumber($db, $cong, Ledger::SEQ_RECEIPT, 12) !== $vb + 1 || Ledger::peekNextNumber($db, $cong, Ledger::SEQ_PETTYCASH) !== $vb + 1);
+    expectError('voucher sequence needs a fiscal year', function () use ($db, $cong) { Ledger::nextNumber($db, $cong, Ledger::SEQ_VOUCHER, 0); }, LedgerException::class, 'fiscal year');
+    expectError('voucher preview needs a fiscal year', function () use ($db, $cong) { Ledger::peekNextNumber($db, $cong, Ledger::SEQ_VOUCHER, 0); }, LedgerException::class, 'fiscal year');
+    $vo = Ledger::peekNextNumber($db, 99999, Ledger::SEQ_VOUCHER, 12);
+    check('voucher: another congregation has its own sequence (empty = 1)', $vo === 1, (string) $vo);
+
+    // safety net (task 8.5f): a stored number above the counter makes the next allocation skip past it; peek = next
+    $uid = (int) $db->query('SELECT ID FROM tblusers ORDER BY ID LIMIT 1')->fetchColumn();
+    $acctAny = (int) $db->query('SELECT ID FROM tblaccounttypes WHERE deleted = 0 LIMIT 1')->fetchColumn();
+    $seqRow = function (string $kind, int $year, int $last) use ($db, $cong) {
+        $db->prepare('DELETE FROM receipt_number_seq WHERE congregationId = ? AND kind = ? AND fiscalYearId = ?')->execute([$cong, $kind, $year]);
+        $db->prepare('INSERT INTO receipt_number_seq (congregationId, kind, fiscalYearId, lastNo) VALUES (?, ?, ?, ?)')->execute([$cong, $kind, $year, $last]);
+    };
+    $stored = [
+        'receipt' => function (int $no) use ($db, $cong, $uid) {
+            $db->prepare("INSERT INTO tblcontributions_header (fiscalYearId, postedBy, postedDate, receiptNo, congregationId) VALUES (12, ?, CURDATE(), ?, ?)")->execute([$uid, (string) $no, $cong]);
+        },
+        'voucher' => function (int $no) use ($db, $cong, $uid, $acctAny) {
+            $db->prepare("INSERT INTO tblexpenses (fiscalYearId, voucherNo, expenseType, expenseDate, accountId, paymethodId, amount, status, postedBy, postedDate, congregationId, deleted)
+                          VALUES (12, ?, 1, '2026-01-15', ?, 1, 1, 0, ?, CURDATE(), ?, 1)")->execute([$no, $acctAny, $uid, $cong]);   // a DELETED row still counts
+        },
+        'pettycash' => function (int $no) use ($db, $cong) {
+            $db->prepare("INSERT INTO tblpettycash (ReceiptNo, TransactionDate, CongregationId, Deleted) VALUES (?, CURDATE(), ?, 1)")->execute([$no, $cong]);
+        },
+    ];
+    foreach ([['receipt', Ledger::SEQ_RECEIPT, 12], ['voucher', Ledger::SEQ_VOUCHER, 12], ['pettycash', Ledger::SEQ_PETTYCASH, 0]] as [$label, $kind, $yr]) {
+        $seqRow($kind, $yr, 3);
+        $stored[$label](880000);
+        $pk = Ledger::peekNextNumber($db, $cong, $kind, $yr);
+        $nx = Ledger::nextNumber($db, $cong, $kind, $yr);
+        $nx2 = Ledger::nextNumber($db, $cong, $kind, $yr);
+        $cn = $db->prepare('SELECT lastNo FROM receipt_number_seq WHERE congregationId = ? AND kind = ? AND fiscalYearId = ?');
+        $cn->execute([$cong, $kind, $yr]);
+        check("$label: a stored number above the counter is skipped (peek = next = stored + 1, counter follows)", $pk === 880001 && $nx === 880001 && $nx2 === 880002 && (int) $cn->fetchColumn() === 880002, json_encode([$pk, $nx, $nx2]));
+        $seqRow($kind, $yr, 880100);
+        check("$label: a counter above every stored number wins", Ledger::peekNextNumber($db, $cong, $kind, $yr) === 880101 && Ledger::nextNumber($db, $cong, $kind, $yr) === 880101);
+    }
+
     // =================== financial year lock (task 8.4d)
     echo PHP_EOL . 'Financial year lock' . PHP_EOL;
-    $OPEN10 = '2023-11-15';    // year 10 (2023-2024, open on dev)
-    $OPEN11 = '2025-01-15';    // year 11 (2024-2025, open on dev)
+    $OPEN10 = '2023-11-15';    // year 10 (2023-2024, opened at the start of the run)
+    $OPEN11 = '2025-01-15';    // year 11 (2024-2025, opened at the start of the run)
     $NOYEAR = '2013-06-01';    // covered by no year
-    $DELCLOSED = '2022-09-01'; // year 8 (2021/2022): closed and deleted on dev
+    $DELCLOSED = '2022-09-01'; // year 8 (2021/2022): closed and deleted (history, never touched)
     $setYear = function (int $id, int $closed, int $deleted) use ($db) {
         $db->prepare('UPDATE tblfiscalyears SET closed = ?, deleted = ? WHERE ID = ?')->execute([$closed, $deleted, $id]);
     };

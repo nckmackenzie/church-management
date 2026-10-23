@@ -59,7 +59,6 @@ class Pledge{
     }
     public function create($data)
     {
-        $id = getLastId($this->db->dbh,'tblpledges_header');
         if ($data['category'] == 1) {
             $member = $data['pledger'];
             $group = null;
@@ -80,10 +79,9 @@ class Pledge{
         try {
             //begin transaction
             $this->db->dbh->beginTransaction();
-            $this->db->query('INSERT INTO tblpledges_header (ID,pledgeDate,category,pledgerMember,
+            $this->db->query('INSERT INTO tblpledges_header (pledgeDate,category,pledgerMember,
                                           pledgerGroup,pledgerDistrict,amountPledged,congregationId)
-                              VALUES(:id,:pdate,:cat,:mem,:grp,:dst,:pledged,:cid)');
-            $this->db->bind(':id',$id);
+                              VALUES(:pdate,:cat,:mem,:grp,:dst,:pledged,:cid)');
             $this->db->bind(':pdate',$data['date']);
             $this->db->bind(':cat',$data['category']);
             $this->db->bind(':mem',$member);
@@ -92,6 +90,7 @@ class Pledge{
             $this->db->bind(':pledged',$data['amountpledged']);
             $this->db->bind(':cid',$_SESSION['congId']);
             $this->db->execute();
+            $id = (int)$this->db->dbh->lastInsertId();
             //details
             $this->db->query('INSERT INTO tblpledges_details (pledgeId,paymentDate,openingBal,
                                           amountPaid,balance,paymethodId,bankId,payReference)
