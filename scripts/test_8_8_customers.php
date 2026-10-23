@@ -328,14 +328,15 @@ try {
     foreach ([['the date', ['idate' => date('Y-m-d', strtotime('-1 day'))], 'date'], ['the customer', ['customer' => $cb], 'customer'], ['the receivable account', ['receivable' => $rDeep], 'receivable account'],
               ['a quantity', ['table' => [['pid' => $p1, 'qty' => '2', 'rate' => '500.00']]], 'lines'], ['a rate (higher total)', ['table' => [['pid' => $p1, 'qty' => '1', 'rate' => '1000.01']]], 'lines'],
               ['the product', ['table' => [['pid' => $p2, 'qty' => '1', 'rate' => '1000.00']]], 'lines'], ['an added line', ['table' => [['pid' => $p1, 'qty' => '1', 'rate' => '1000.00'], ['pid' => $p3, 'qty' => '1', 'rate' => '1.00']]], 'lines'],
+              ['a line description', ['table' => [['pid' => $p1, 'qty' => '1', 'rate' => '1000.00', 'desc' => 'Changed']]], 'line descriptions'],
               ['the VAT type', ['vattype' => 3, 'vat' => '16'], 'VAT']] as [$label, $over, $needle]) {
         $r = $model->save(base(array_merge($same, $over)));
         ok("invoice with payments: changing $label is refused", !$r['success'] && stripos(errs($r), 'has payments') !== false && stripos(errs($r), $needle) !== false, errs($r));
     }
     ok('refused edits of the paid invoice changed nothing', dbstate() === $before);
     $entryBefore = one('SELECT ID FROM journal_entries WHERE transactionTypeId=14 AND transactionId=? AND deleted=0', [$pi])['ID'];
-    $r = $model->save(base(array_merge($same, ['ddate' => date('Y-m-d', strtotime('+45 days')), 'table' => [['pid' => $p1, 'qty' => '1', 'rate' => '1000.00', 'desc' => 'Now described']]])));
-    ok('invoice with payments: the due date and the descriptions can still be changed (same entry, same lines, status kept)', $r['success'] && hdr($pi)['duedate'] === date('Y-m-d', strtotime('+45 days')) && one('SELECT description d FROM tblinvoice_details WHERE header_id=?', [$pi])['d'] === 'now described'
+    $r = $model->save(base(array_merge($same, ['ddate' => date('Y-m-d', strtotime('+45 days'))])));
+    ok('invoice with payments: the due date alone can still be changed (same entry, same lines, status kept)', $r['success'] && hdr($pi)['duedate'] === date('Y-m-d', strtotime('+45 days')) && one('SELECT description d FROM tblinvoice_details WHERE header_id=?', [$pi])['d'] === null
         && one('SELECT ID FROM journal_entries WHERE transactionTypeId=14 AND transactionId=? AND deleted=0', [$pi])['ID'] === $entryBefore && lines(14, $pi) === ["$ra|DEBIT|1000.00", "$incA|CREDIT|1000.00"] && (int)hdr($pi)['status'] === 2, errs($r));
 
     // ------------------------------------------------------------ number sequence per congregation

@@ -243,13 +243,13 @@ class Invoice
             foreach ($lines as $l) { $exc += $l['exc']; $vat += $l['vat']; $inc += $l['inc']; }
             if ($inc <= 0 || $inc > InvoiceMath::MAX_CENTS) { throw new LedgerException(['The invoice total is out of range']); }
 
-            // decision 82: once any payment exists only the due date and the line descriptions may change
+            // decision 82: once any payment exists only the due date may change (customer invoices have no reference field)
             if ($old) {
                 $paid = $this->payments((int)$old['ID']);
                 if ($paid['count'] > 0) {
                     if ($inc < $paid['cents']) { throw new LedgerException(['The invoice total cannot be less than the payments already made']); }
                     if (($why = $this->changedAccountingFields($old,$oldLines,$in,$lines,$vatId,$inc)) !== null) {
-                        throw new LedgerException(["This invoice has payments, so its $why cannot be changed. Only the due date and the line descriptions can be edited"]);
+                        throw new LedgerException(["This invoice has payments, so its $why cannot be changed. Only the due date can be edited"]);
                     }
                 }
             }
@@ -416,14 +416,18 @@ class Invoice
         if ((int)$old['customerId'] !== $in['customer']) { return 'customer'; }
         if ($old['ReceivableAccountId'] === null || (int)$old['ReceivableAccountId'] !== $in['receivable']) { return 'receivable account'; }
         if ((int)$old['vattype'] !== $in['vattype'] || ($old['vatId'] === null ? null : (int)$old['vatId']) !== $vatId) { return 'VAT'; }
-        $a = array_map(function($l){ return $l['productId'] . '|' . $l['AccountId'] . '|' . InvoiceMath::cents((string)$l['qty']) . '|' . InvoiceMath::cents((string)$l['rate']); },$oldLines);
-        $b = array_map(function($l){ return $l['pid'] . '|' . $l['account'] . '|' . $l['qty'] . '|' . $l['rate']; },$lines);
+        $a = array_map(function($l){ return $l['productId'] . '|' . $l['AccountId'] . '|' . InvoiceMath::cents((string)$l['qty']) . '|' . InvoiceMath::cents((string)$l['rate']) . '|' . ($l['description'] ?? ''); },$oldLines);
+        $b = array_map(function($l){ return $l['pid'] . '|' . $l['account'] . '|' . $l['qty'] . '|' . $l['rate'] . '|' . ($l['desc'] ?? ''); },$lines);
         sort($a); sort($b);
         if ($a !== $b) {
             $pa = array_map(function($l){ return $l['productId'] . '|' . InvoiceMath::cents((string)$l['qty']) . '|' . InvoiceMath::cents((string)$l['rate']); },$oldLines);
             $pb = array_map(function($l){ return $l['pid'] . '|' . $l['qty'] . '|' . $l['rate']; },$lines);
             sort($pa); sort($pb);
-            return $pa === $pb ? 'line accounts' : 'lines';
+            if ($pa !== $pb) { return 'lines'; }
+            $aa = array_map(function($l){ return $l['productId'] . '|' . $l['AccountId']; },$oldLines);
+            $ab = array_map(function($l){ return $l['pid'] . '|' . $l['account']; },$lines);
+            sort($aa); sort($ab);
+            return $aa === $ab ? 'line descriptions' : 'line accounts';
         }
         if (InvoiceMath::cents((string)$old['inclusiveVat']) !== $inc) { return 'total'; }
         return null;
@@ -450,7 +454,7 @@ class Invoice
 
     private function storedLines(int $headerId): array
     {
-        $st = $this->db->dbh->prepare('SELECT productId, AccountId, qty, rate, gross FROM tblinvoice_details WHERE header_id = ? ORDER BY ID');
+        $st = $this->db->dbh->prepare('SELECT productId, AccountId, qty, rate, gross, `description` FROM tblinvoice_details WHERE header_id = ? ORDER BY ID');
         $st->execute([$headerId]);
         return $st->fetchAll(PDO::FETCH_ASSOC);
     }

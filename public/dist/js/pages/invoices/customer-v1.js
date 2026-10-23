@@ -228,7 +228,7 @@ clearOnChange(document.querySelectorAll('.mandatory'));
 clearOnChange(addControls);
 if (+vatTypeSelect.value <= 1) vatSelect.value = '';
 
-// an invoice that has payments: only the due date and the line descriptions may change (the server enforces it)
+// an invoice that has payments: only the due date may change (the server enforces it)
 if (form.dataset.locked) {
   [customerSelect, invoiceDateInput, vatTypeSelect, vatSelect, receivableSelect, productSelect, qtyInput, rateInput, addBtn].forEach(
     field => (field.disabled = true)
