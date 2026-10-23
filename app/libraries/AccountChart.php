@@ -22,7 +22,7 @@ class AccountChart
     /**
      * Every column that holds a tblaccounttypes.ID (inventory section 3). [table, column, label, extra WHERE].
      * journal_lines count only lines of non-voided entries; tblbankpostings only non-deleted rows; the rest count every row.
-     * Keep in step with fn_checkreferencedaccount (scripts/sql/fn_checkreferencedaccount_v2.sql): test_8_10_accounts.php compares them.
+     * Keep in step with fn_checkreferencedaccount (scripts/sql/fn_checkreferencedaccount_v3.sql): test_8_10_accounts.php compares them.
      */
     const REFERENCES = [
         ['journal_lines',                  'accountId',          'active journal line(s)',            'journal'],
@@ -44,8 +44,9 @@ class AccountChart
         ['tblchurchbudget_details',        'accountId',          'church budget line(s)',             ''],
         ['tblgroupbudget_details',         'accountId',          'group budget line(s)',              ''],
         ['tblproducts',                    'accountId',          'product(s)',                        ''],
-        ['tblpledges_header',              'category',           'pledge(s)',                         ''],
-        ['tblpledges_details',             'bankId',             'pledge payment(s)',                 ''],
+        ['tblpledges_header',              'IncomeAccountId',    'pledge(s) using it as income',      ''],
+        ['tblpledges_details',             'PaymentAccountId',   'pledge payment(s)',                 ''],
+        ['tblpledges_details',             'bankId',             'pledge payment(s) (legacy bank column)', ''],
         ['tblinvoice_payments',            'bankId',             'customer payment(s)',               ''],
         ['tblinvoice_payments_suppliers',  'bankId',             'supplier payment(s)',               ''],
         ['tbldesposits',                   'BankId',             'deposit(s)',                        ''],
