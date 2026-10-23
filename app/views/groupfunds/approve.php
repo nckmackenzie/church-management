@@ -159,6 +159,6 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/approve-v4.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/groupfunds/approve-v5.js"></script>
 </body>
 </html>  

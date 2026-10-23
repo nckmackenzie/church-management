@@ -195,15 +195,15 @@ class Banktransaction
         $wanted = !$data['issubtxn'] && (int)$data['type'] === 5 && Ledger::isPettyCashAccount($data['transfer']);
         if(!$wanted){
             if($existing){
-                $pdo->prepare('UPDATE tblpettycash SET Deleted = 1 WHERE ID = ?')->execute([$existing[0]->ID]);
+                $pdo->prepare('UPDATE tblpettycash SET Deleted = 1 WHERE ID = ? AND CongregationId = ?')->execute([$existing[0]->ID,(int)$_SESSION['congId']]);
             }
             return;
         }
 
         $narr = mb_substr(!empty($data['description']) ? strtolower($data['description']) : 'bank transaction reference ' .$data['reference'],0,150);
         if($existing){
-            $pdo->prepare('UPDATE tblpettycash SET TransactionDate=?,Debit=?,BankId=?,PettyCashAccountId=?,Reference=?,Narration=? WHERE ID=?')
-                ->execute([$data['date'],$data['amount'],$data['bank'],(int)$data['transfer'],strtolower($data['reference']),$narr,$existing[0]->ID]);
+            $pdo->prepare('UPDATE tblpettycash SET TransactionDate=?,Debit=?,BankId=?,PettyCashAccountId=?,Reference=?,Narration=? WHERE ID=? AND CongregationId=?')
+                ->execute([$data['date'],$data['amount'],$data['bank'],(int)$data['transfer'],strtolower($data['reference']),$narr,$existing[0]->ID,(int)$_SESSION['congId']]);
             return;
         }
         $pdo->prepare('INSERT INTO tblpettycash (ReceiptNo,TransactionDate,Debit,IsReceipt,BankId,PettyCashAccountId,Reference,Narration,TransactionType,TransactionId,CongregationId)
@@ -492,8 +492,9 @@ class Banktransaction
             Ledger::void($pdo,$cong,13,(int)$id);
             Ledger::voidBankPostings($pdo,$cong,13,(int)$id);
 
-            $this->db->query('UPDATE tblpettycash SET Deleted=1 WHERE (TransactionType = 13) AND (TransactionId=:tid)');
+            $this->db->query('UPDATE tblpettycash SET Deleted=1 WHERE (TransactionType = 13) AND (TransactionId=:tid) AND (CongregationId=:cid)');
             $this->db->bind(':tid',$id);
+            $this->db->bind(':cid',$cong);
             $this->db->execute();
 
             saveLog($pdo,'Deleted bank transaction '.(int)$id);

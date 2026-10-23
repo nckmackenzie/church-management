@@ -157,6 +157,16 @@ try {
     setCleared(13, $d, false);
     $r = $bt->Delete($d); chk('bank transaction: delete ok once not cleared', $r['success'] && activeEntries(13, $d) === 0, msgs($r));
 
+    // tblpettycash rows are scoped by congregation: a row of another congregation with the same TransactionType / TransactionId is left alone
+    $r = $bt->CreateUpdate($bm(['reference' => 'T89SC'])); chk('scoping: deposit saved', $r['success'], msgs($r));
+    $sc = $newbt();
+    q("INSERT INTO tblpettycash (ReceiptNo,TransactionDate,Debit,IsReceipt,BankId,PettyCashAccountId,Reference,Narration,TransactionType,TransactionId,CongregationId) VALUES (NULL,?,10,1,?,98,'x','t89 foreign',13,?,2)", [$OPEN, $bank, $sc]);
+    $foreignPc = (int)$pdo->lastInsertId();
+    q("INSERT INTO tblpettycash (ReceiptNo,TransactionDate,Debit,IsReceipt,BankId,PettyCashAccountId,Reference,Narration,TransactionType,TransactionId,CongregationId) VALUES (NULL,?,10,1,?,98,'x','t89 own',13,?,11)", [$OPEN, $bank, $sc]);
+    $ownPc = (int)$pdo->lastInsertId();
+    $r = $bt->Delete($sc);
+    chk('scoping: delete of the bank transaction voids the own petty cash row only', $r['success'] && (int)q('SELECT Deleted d FROM tblpettycash WHERE ID=?', [$ownPc])[0]['d'] === 1
+        && (int)q('SELECT Deleted d FROM tblpettycash WHERE ID=?', [$foreignPc])[0]['d'] === 0, msgs($r));
     // bank -> bank transfer: two bank rows, both cleared; unchanged edit passes, a change of either refused
     $r = $bt->CreateUpdate($bm(['type' => 5, 'transfer' => $bank2, 'amount' => 300, 'reference' => 'T89TR'])); chk('bank-to-bank transfer saved', $r['success'] && count(brows(13, $newbt())) === 2, msgs($r));
     $t = $newbt();

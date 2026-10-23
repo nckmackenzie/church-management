@@ -73,6 +73,30 @@ class Groupfund
     }
 
     /** Held balance of a group / district up to $date; $group is the GROUP or DISTRICT ID that matches $type. Church: 0. */
+    /** Church categories of this congregation, same shape as GetGroups() / GetDistricts() (ID, itemName). */
+    public function GetCategories()
+    {
+        $this->db->query('SELECT id AS ID,UCASE(categoryName) as itemName
+                          FROM tblchurchrequisitioncategories
+                          WHERE (deleted = 0) AND (congregationId = :cid)
+                          ORDER BY itemName');
+        $this->db->bind(':cid',$_SESSION['congId']);
+        return $this->db->resultSet();
+    }
+
+    /** The groups / districts / church categories a requisition of $type can be for (this congregation). Unknown type: []. */
+    public function GetOwners($type)
+    {
+        if($type === 'group'){
+            return $this->GetGroups();
+        }elseif($type === 'district'){
+            return $this->GetDistricts();
+        }elseif($type === 'church'){
+            return $this->GetCategories();
+        }
+        return [];
+    }
+
     public function GetBalance($group,$date,$type)
     {
         if($type === 'group'){

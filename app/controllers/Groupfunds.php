@@ -13,6 +13,20 @@ class Groupfunds extends Controller
         $this->fundmodel = $this->model('Groupfund');
     }
 
+    /** Same rule as checkrights(), for the JSON endpoints (they answer 403 as JSON instead of redirecting to an HTML page). */
+    private function allowed($form)
+    {
+        return !(isset($_SESSION['userType']) && (int)$_SESSION['userType'] > 2 && (int)$_SESSION['userType'] !== 6
+                 && !$this->authmodel->CheckRights($form));
+    }
+
+    private function denyJson()
+    {
+        http_response_code(403);
+        echo json_encode(['success' => false,'message' => 'Access denied']);
+        exit;
+    }
+
     public function index()
     {
         checkrights($this->authmodel,'fund requisition');
@@ -48,7 +62,7 @@ class Groupfunds extends Controller
     public function getamountavailable()
     {
         if($_SERVER['REQUEST_METHOD'] === 'GET'){
-            checkrights($this->authmodel,'fund requisition');
+            if(!$this->allowed('fund requisition')) $this->denyJson();
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'group' => isset($_GET['group']) && !empty(trim($_GET['group'])) ? (int)trim($_GET['group']) : '',
@@ -71,6 +85,27 @@ class Groupfunds extends Controller
         }
     }
 
+    /**
+     * The group / district / church category list of the requisition form (JSON [{id,label}]). It has its own endpoint and
+     * its own right: the form must not depend on the 'group collections' right of Groupcollections::getgroupordistrict().
+     */
+    public function getgroupordistrict()
+    {
+        if(!$this->allowed('fund requisition')) $this->denyJson();
+        $type = isset($_GET['type']) ? strtolower(trim($_GET['type'])) : '';
+        if(!in_array($type,['group','district','church'],true)){
+            http_response_code(400);
+            echo json_encode(['success' => false,'message' => 'Select group, district or church']);
+            exit;
+        }
+        $data = [];
+        foreach($this->fundmodel->GetOwners($type) as $o){
+            $data[] = ['id' => $o->ID,'label' => strtoupper($o->itemName)];
+        }
+        echo json_encode($data);
+        exit;
+    }
+
     public function createupdate()
     {
         if($_SERVER['REQUEST_METHOD'] === 'POST'){
@@ -79,7 +114,7 @@ class Groupfunds extends Controller
             $data = [
                 'title' => converttobool($_POST['isedit']) ? 'Edit requisition' : 'Add requisition',
                 'reqno' => trim($_POST['reqno']),
-                'groups' => $this->fundmodel->GetGroups(),
+                'groups' => $this->fundmodel->GetOwners(!empty(trim($_POST['type'])) ? strtolower(trim($_POST['type'])) : 'group'),
                 'id' => trim($_POST['id']),
                 'isedit' => converttobool($_POST['isedit']) ,
                 'reqdate' => !empty(trim($_POST['date'])) ? date('Y-m-d',strtotime(trim($_POST['date']))) : '',
@@ -167,7 +202,7 @@ class Groupfunds extends Controller
         checkcenter($request->CongregationId);
         $data = [
             'title' => 'Edit requisition',
-            'groups' => $request->RequestType === 'group' ? $this->fundmodel->GetGroups() : $this->fundmodel->GetDistricts(),
+            'groups' => $this->fundmodel->GetOwners($request->RequestType),
             'reqno' => $request->ReqNo,
             'type' => $request->RequestType,
             'id' => $request->ID,

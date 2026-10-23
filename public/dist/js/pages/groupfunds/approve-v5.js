@@ -33,8 +33,14 @@ function fillPaidFrom(keepSelected) {
   const accounts = JSON.parse(
     paidFromSelect.dataset[+paymethodSelect.value === CASH_METHOD ? 'cash' : 'bank']
   );
-  const selected = keepSelected ? paidFromSelect.value || paidFromSelect.dataset.selected : '';
-  paidFromSelect.innerHTML = '<option value="" disabled>Select account...</option>';
+  // first load: the posted / default account; later switches: cash goes back to the default (98 petty cash), a bank list starts empty
+  const isCash = +paymethodSelect.value === CASH_METHOD;
+  const selected = keepSelected
+    ? paidFromSelect.value || paidFromSelect.dataset.selected
+    : isCash
+      ? paidFromSelect.dataset.selected
+      : '';
+  paidFromSelect.innerHTML = '<option value="" disabled selected>Select account...</option>';
   accounts.forEach(a => {
     const opt = document.createElement('option');
     opt.value = a.id;
