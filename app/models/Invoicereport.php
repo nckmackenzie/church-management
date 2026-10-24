@@ -16,17 +16,18 @@ class Invoicereport
 
     public function GetInvoiceNos()
     {
-        $sql = 'SELECT h.invoiceNo
+        $sql = 'SELECT h.ID, h.invoiceNo, s.supplierName
                 FROM tblinvoice_header_suppliers h
-                WHERE (h.congregationId = ?) AND (h.deleted = 0) AND 
+                JOIN tblsuppliers s ON h.supplierId = s.ID
+                WHERE (h.congregationId = ?) AND (h.deleted = 0) AND
                     h.ID IN (SELECT DISTINCT invoice_Id FROM tblinvoice_payments_suppliers WHERE Deleted = 0)
-                ORDER By invoiceNo';
+                ORDER By h.invoiceNo, s.supplierName';
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
 
     public function GetPaymentPayInvoice($invoice)
     {
-        return loadresultset($this->db->dbh,'CALL sp_get_payments_by_invoiceno(?,?)',[$invoice,(int)$_SESSION['congId']]);
+        return loadresultset($this->db->dbh,'CALL sp_get_payments_by_invoiceno(?,?)',[(int)$invoice,(int)$_SESSION['congId']]);
     }
 
     public function GetSupplierBalances($data)

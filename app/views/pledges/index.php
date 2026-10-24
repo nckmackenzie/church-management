@@ -96,7 +96,7 @@
                                 <td><?php echo $h($pledge->amountPledged);?></td>
                                 <td><?php echo $h($pledge->amountPaid);?></td>
                                 <td><?php echo $h($pledge->balance);?></td>
-                                <td><div class="btn-group"><a href="<?php echo URLROOT;?>/pledges/pay/<?php echo (int)$pledge->ID;?>" class="btn btn-sm bg-olive custom-font">Pay</a><button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button></div></td>
+                                <td><div class="btn-group"><a href="<?php echo URLROOT;?>/pledges/pay/<?php echo (int)$pledge->ID;?>" class="btn btn-sm bg-olive custom-font">Pay</a><?php if((int)$_SESSION['userType'] <= 2 || (int)$_SESSION['userType'] > 4) : ?><button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button><?php endif; ?></div></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

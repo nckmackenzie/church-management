@@ -450,7 +450,7 @@ try {
     ok('Invoicereport::GetSupplierBalances is congregation-filtered (own suppliers only, no deleted ones)', in_array('zz supplier a', $names) && !in_array('zz supplier foreign', $names) && !in_array('xyz', $names));
     $bs = one('SELECT fn_get_supplier_balance(?) b', [$sa]);
     ok('fn_get_supplier_balance ignores deleted headers and deleted payments', $bs['b'] === number_format((float)one('SELECT SUM(inclusiveVat) s FROM tblinvoice_header_suppliers WHERE supplierId=? AND deleted=0', [$sa])['s'] - (float)one('SELECT COALESCE(SUM(p.amount),0) s FROM tblinvoice_payments_suppliers p JOIN tblinvoice_header_suppliers h ON h.ID=p.invoice_Id WHERE h.supplierId=? AND h.deleted=0 AND p.Deleted=0', [$sa])['s'], 2, '.', ''));
-    ok('payment statement routines take the congregation (sp_get_payments_by_invoiceno with the wrong one is empty)', count(rows('CALL sp_get_payments_by_invoiceno(?,?)', [(string)header_row($pi1)['invoiceNo'], 11])) >= 1 && count(rows('CALL sp_get_payments_by_invoiceno(?,?)', [(string)header_row($pi1)['invoiceNo'], 2])) === 0);
+    ok('payment statement routines take the congregation (sp_get_payments_by_invoiceno with the wrong one is empty)', count(rows('CALL sp_get_payments_by_invoiceno(?,?)', [(int)$pi1, 11])) >= 1 && count(rows('CALL sp_get_payments_by_invoiceno(?,?)', [(int)$pi1, 2])) === 0);
 
     // ------------------------------------------------------------ opening balances (type 15)
     $so = function($o = []) { global $pa, $today; return array_merge(['id' => 0, 'isedit' => false, 'suppliername' => 'zz opening ' . mt_rand(1000, 9999), 'contact' => '', 'pin' => '', 'address' => '', 'email' => '', 'contactperson' => '', 'balance' => '1000', 'asof' => $today, 'payable' => $pa], $o); };
