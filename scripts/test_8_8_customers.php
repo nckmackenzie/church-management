@@ -7,7 +7,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 ini_set('session.save_path', __DIR__ . '/logs');
 chdir(__DIR__ . '/../app');
 require 'boostrap.php';
-foreach (['Invoice', 'Product', 'Supplierinvoice', 'Reusables'] as $m) { require_once "models/$m.php"; }
+foreach (['Invoice', 'Product', 'Supplierinvoice', 'Reusables', 'Customer'] as $m) { require_once "models/$m.php"; }
 
 $pdo = (new Database)->pdo();
 $_SESSION['congId'] = 11; $_SESSION['userId'] = 64; $_SESSION['userType'] = 1; $_SESSION['isParish'] = 0; $_SESSION['zero'] = 0; $_SESSION['one'] = 1;
@@ -58,6 +58,7 @@ $today = date('Y-m-d');
 $closedDate = '2024-05-01';
 $noYear = '1990-01-01';
 $model = new Invoice;
+$customerModel = new Customer;
 
 // ---------------------------------------------------------------- fixtures
 $pdo->exec("INSERT INTO tblcustomers(customerName,congregationId) VALUES('zz customer a',11),('zz customer b',11)");
@@ -92,6 +93,34 @@ try {
     ok('the customer tables have no deleted column and invoiceNo is INT (documented in the schema script)', cnt("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('tblinvoice_header','tblinvoice_details','tblinvoice_payments') AND COLUMN_NAME IN ('deleted','Deleted')") === 0
         && one("SELECT DATA_TYPE t FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tblinvoice_header' AND COLUMN_NAME='invoiceNo'")['t'] === 'int');
     ok('there is no resolver / default for receivables and no invoice delete anywhere', !method_exists('Ledger', 'accountsReceivableId') && !method_exists($model, 'delete') && !method_exists($model, 'Delete') && stripos(file_get_contents('controllers/Invoices.php'), 'function delete') === false && strpos(file_get_contents('views/invoices/index.php'), 'invoices/delete') === false);
+
+    // ------------------------------------------------------------ customer master data ownership / validation
+    $customerData = ['id' => '', 'isedit' => false, 'customername' => 'ZZ Customer CRUD', 'contact' => '12345678901234567890',
+                     'address' => 'Somewhere', 'pin' => 'PIN-1', 'email' => 'crud@example.com', 'contactperson' => 'Contact'];
+    $r = $customerModel->save($customerData); $crudCustomer = (int)($r['id'] ?? 0);
+    ok('customer create: valid fields are stored in the session congregation', $r['success'] && $crudCustomer > 0 && (int)one('SELECT congregationId c FROM tblcustomers WHERE ID=?',[$crudCustomer])['c'] === 11, errs($r));
+    $r = $customerModel->save(array_merge($customerData,['customername' => '  zz CUSTOMER crud  ']));
+    ok('customer names are unique per congregation after trim/case normalization', has($r,'name exists'));
+    foreach ([['empty name',['customername'=>''],'customer name'],['empty contact person',['contactperson'=>''],'contact person'],['bad email',['email'=>'bad@'],'valid email'],
+              ['long contact',['contact'=>str_repeat('1',21)],'20'],['long PIN',['pin'=>str_repeat('x',16)],'15'],['array field',['address'=>['x']],'Address']] as [$label,$over,$needle]) {
+        $r = $customerModel->save(array_merge($customerData,['customername'=>'zz bad '.$label],$over));
+        ok("customer validation refuses $label", has($r,$needle), errs($r));
+    }
+    $r = $customerModel->save(array_merge($customerData,['id'=>(string)$crudCustomer,'isedit'=>true,'customername'=>'ZZ Customer CRUD Renamed']));
+    ok('customer update: own row changes under the congregation scope', $r['success'] && one('SELECT customerName n FROM tblcustomers WHERE ID=?',[$crudCustomer])['n'] === 'zz customer crud renamed', errs($r));
+    ok('customer lookup refuses a customer of another congregation', $customerModel->getCustomer($cForeign) === false);
+    $foreignName = one('SELECT customerName n FROM tblcustomers WHERE ID=?',[$cForeign])['n'];
+    $r = $customerModel->save(array_merge($customerData,['id'=>(string)$cForeign,'isedit'=>true,'customername'=>'forged rename']));
+    ok('customer update refuses a forged cross-congregation ID and changes nothing', has($r,'not found') && one('SELECT customerName n FROM tblcustomers WHERE ID=?',[$cForeign])['n'] === $foreignName, errs($r));
+    $r = $customerModel->delete((string)$cForeign);
+    ok('customer delete refuses a forged cross-congregation ID and changes nothing', !$r['success'] && cnt('SELECT deleted FROM tblcustomers WHERE ID=?',[$cForeign]) === 0, errs($r));
+    $_SESSION['congId'] = 2;
+    $r = $customerModel->save(array_merge($customerData,['customername'=>'zz customer crud renamed']));
+    ok('the same customer name is allowed in another congregation', $r['success'], errs($r));
+    $_SESSION['congId'] = 11;
+    $r = $customerModel->save(array_merge($customerData,['customername'=>'zz deletable customer'])); $deletable = (int)($r['id'] ?? 0);
+    $r = $customerModel->delete((string)$deletable);
+    ok('customer delete keeps its legacy soft-delete behaviour when unreferenced', $r['success'] && cnt('SELECT deleted FROM tblcustomers WHERE ID=?',[$deletable]) === 1, errs($r));
 
     // ------------------------------------------------------------ receivable list
     $list = array_column(Ledger::listReceivableAccounts($pdo, 11), 'ID');
@@ -140,6 +169,8 @@ try {
     $e = one('SELECT * FROM journal_entries WHERE transactionTypeId=14 AND transactionId=? AND deleted=0', [$i1]);
     ok('create: entry date, congregation and reference', $e['entryDate'] === $today && (int)$e['congregationId'] === 11 && $e['reference'] === 'invoice-' . $seq0);
     ok('create: no bank row; legacy mirror has 3 balanced rows', cnt('SELECT COUNT(*) FROM tblbankpostings WHERE transactionType=14 AND transactionId=?', [$i1]) === 0 && cnt('SELECT COUNT(*) FROM tblledger WHERE transactionType=14 AND transactionId=? AND deleted=0', [$i1]) === 3 && cnt('SELECT SUM(debit)=SUM(credit) FROM tblledger WHERE transactionType=14 AND transactionId=? AND deleted=0', [$i1]) === 1);
+    $r = $customerModel->delete((string)$ca);
+    ok('customer delete is refused when any invoice exists, leaving the customer active', has($r,'have invoices') && cnt('SELECT deleted FROM tblcustomers WHERE ID=?',[$ca]) === 0, errs($r));
 
     $r = $model->save(base(['vattype' => 2, 'vat' => '16', 'table' => [['pid' => $p1, 'qty' => '1', 'rate' => '1160.00']]]));
     $i2 = (int)$r['id']; $h = hdr($i2);
@@ -342,11 +373,20 @@ try {
     // ------------------------------------------------------------ number sequence per congregation
     $_SESSION['congId'] = 2;
     $pdo->prepare('INSERT INTO tblinvoice_header(invoiceDate,duedate,customerId,invoiceNo,fiscalYearId,vattype,ReceivableAccountId,exclusiveVat,vat,inclusiveVat,postedBy,congregationId) VALUES(?,?,?,700,25,1,?,10,0,10,64,2)')->execute([$today, $today, $cForeign, $rForeign]);
-    ok('a congregation\'s next number starts above its highest stored number (701 after a stored 700), not from a count', $model->peekInvoiceNo() === 701);
+    $pdo->prepare("DELETE FROM receipt_number_seq WHERE congregationId=2 AND kind='custinv' AND fiscalYearId=0")->execute();
+    ok('a congregation with invoices and no sequence row previews MAX(invoiceNo)+1', $model->peekInvoiceNo() === 701);
+    $pdo->beginTransaction(); $seeded = Ledger::nextNumber($pdo,2,Ledger::SEQ_CUSTOMER_INVOICE); $pdo->commit();
+    ok('first allocation lazily seeds that congregation at MAX(invoiceNo)+1', $seeded === 701 && cnt("SELECT lastNo FROM receipt_number_seq WHERE congregationId=2 AND kind='custinv' AND fiscalYearId=0") === 701);
+
+    $emptyCong = (int)$pdo->query("SELECT c.ID FROM tblcongregation c WHERE NOT EXISTS (SELECT 1 FROM tblinvoice_header h WHERE h.congregationId=c.ID) AND c.ID NOT IN (2,11) ORDER BY c.ID LIMIT 1")->fetchColumn();
+    $pdo->prepare("DELETE FROM receipt_number_seq WHERE congregationId=? AND kind='custinv' AND fiscalYearId=0")->execute([$emptyCong]);
+    $pdo->beginTransaction(); $emptyFirst = Ledger::nextNumber($pdo,$emptyCong,Ledger::SEQ_CUSTOMER_INVOICE); $pdo->commit();
+    ok('a congregation with no invoices and no sequence row starts at 1', $emptyCong > 0 && $emptyFirst === 1);
+
     $_SESSION['congId'] = 11;
     $last = (int)one('SELECT MAX(invoiceNo) m FROM tblinvoice_header WHERE congregationId=11')['m'];
     $r = $model->save(base());
-    ok('congregation 11 keeps its own sequence', $r['success'] && (int)hdr((int)$r['id'])['invoiceNo'] === $last + 1, errs($r));
+    ok('two congregations have independent sequences', $r['success'] && (int)hdr((int)$r['id'])['invoiceNo'] === $last + 1 && (int)hdr((int)$r['id'])['invoiceNo'] !== $seeded, errs($r));
 
     // ------------------------------------------------------------ reports / views / routines
     $v = one('SELECT * FROM vw_invoices WHERE ID=?', [$pi]);

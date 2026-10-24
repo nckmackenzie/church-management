@@ -48,6 +48,11 @@ function http88($method, $path, $sid = '', $body = null, $json = false, $rawBody
     return [$code, $headers, substr((string)$raw, $hs)];
 }
 function redir($r, $s) { return in_array($r[0], [301, 302, 303], true) && strpos($r[1]['location'] ?? '', $s) !== false; }
+function parse88($code, $raw, $headerSize) {
+    $headers = [];
+    foreach (explode("\r\n", substr((string)$raw,0,$headerSize)) as $line) { if (strpos($line,':') !== false) { [$k,$v] = explode(':',$line,2); $headers[strtolower(trim($k))] = trim($v); } }
+    return [$code,$headers,substr((string)$raw,$headerSize)];
+}
 function opts($html, $name) {
     $d = new DOMDocument; @$d->loadHTML('<?xml encoding="utf-8"?>' . $html);
     $o = [];
@@ -61,6 +66,8 @@ $parish = (int)$pdo->query('SELECT ID FROM tblusers WHERE UsertypeId=3 AND Congr
 $ins = $pdo->prepare('INSERT IGNORE INTO tbluserrights(UserId,FormId,access) VALUES(?,?,1)');
 foreach ([95, 98, $cong2User] as $u) { $ins->execute([$u, 21]); }
 $ins->execute([$parish, 65]);
+foreach ([95, 98, $cong2User] as $u) { $ins->execute([$u, 4]); }
+$ins->execute([$parish, 49]);
 $uRight = mkSession(95); $uType4 = mkSession(98); $uNone = mkSession(101); $uAdmin = mkSession(64, 11); $uOther = mkSession($cong2User); $uParish = mkSession($parish);
 $today = date('Y-m-d');
 $closedDate = '2024-05-01';
@@ -99,6 +106,41 @@ try {
         $r = http88('GET', $u, $uNone);
         chk("AJAX $u denied without the right", redir($r, 'deniedaccess'));
     }
+
+    // ------------------------------------------------------------ customer master screen
+    foreach (['customers','customers/add'] as $p) {
+        foreach (['admin'=>$uAdmin,'right'=>$uRight,'type4'=>$uType4,'parish'=>$uParish] as $label=>$sid) {
+            $r = http88('GET',$p,$sid);
+            chk("$p opens for $label",$r[0] === 200 && stripos($r[2],'<html') !== false,"status {$r[0]}");
+        }
+        chk("$p denied without the right",redir(http88('GET',$p,$uNone),'deniedaccess'));
+        chk("$p without a session goes to login",redir(http88('GET',$p,''),'users'));
+    }
+    $customerAdd = http88('GET','customers/add',$uRight)[2];
+    chk('customer form loads its module and feedback helper without nextSibling.nextSibling',strpos($customerAdd,'customers/add-v1.js') !== false && strpos(jsfile($base . '/dist/js/pages/customers/add-v1.js'),'nextSibling.nextSibling') === false && strlen(jsfile($base . '/dist/js/pages/utils/feedback.js')) > 200);
+    $customerIndex = http88('GET','customers',$uRight)[2];
+    chk('customer list escapes names and does not expose another congregation',stripos($customerIndex,'<script>alert(1)</script>') === false && stripos($customerIndex,'&lt;script&gt;alert(1)&lt;/script&gt;') !== false && stripos($customerIndex,'zz http foreign customer') === false);
+    $customerPayload = ['customername'=>'ZZ HTTP CRUD','contact'=>'12345678901234567890','address'=>'Address','pin'=>'PIN-HTTP','email'=>'http-crud@example.com','contactperson'=>'Person','id'=>'0'];
+    $r = http88('POST','customers/create',$uRight,$customerPayload,true); $j = jo($r[2]); $httpCustomer = (int)($j['id'] ?? 0);
+    chk('customer JSON create stores an own customer',$r[0] === 200 && $httpCustomer > 0 && (int)one('SELECT congregationId c FROM tblcustomers WHERE ID=?',[$httpCustomer])['c'] === 11,$r[2]);
+    $r = http88('POST','customers/create',$uRight,array_merge($customerPayload,['customername'=>' zz http crud ']),true);
+    chk('customer JSON create refuses a duplicate name in the congregation',$r[0] === 422 && stripos($r[2],'name exists') !== false);
+    $r = http88('POST','customers/create',$uRight,array_merge($customerPayload,['customername'=>'zz bad email','email'=>'bad@']),true);
+    chk('customer JSON create validates email server-side',$r[0] === 422 && stripos($r[2],'valid email') !== false);
+    $r = http88('GET','customers/edit/' . $httpCustomer,$uRight);
+    chk('customer edit form loads an own customer and escapes its values',$r[0] === 200 && strpos($r[2],'value="ZZ HTTP CRUD"') !== false);
+    $r = http88('GET','customers/edit/' . $cusForeign,$uRight);
+    chk('customer edit GET refuses a forged cross-congregation ID',redir($r,'customers') && stripos($r[2],'foreign customer') === false);
+    $foreignCustomerName = one('SELECT customerName n FROM tblcustomers WHERE ID=?',[$cusForeign])['n'];
+    $r = http88('POST','customers/update',$uRight,array_merge($customerPayload,['id'=>(string)$cusForeign,'customername'=>'forged customer']),true);
+    chk('customer update POST refuses a forged cross-congregation ID',$r[0] === 422 && one('SELECT customerName n FROM tblcustomers WHERE ID=?',[$cusForeign])['n'] === $foreignCustomerName);
+    $r = http88('POST','customers/update',$uRight,array_merge($customerPayload,['id'=>(string)$httpCustomer,'customername'=>'ZZ HTTP CRUD EDITED']),true);
+    chk('customer update changes an own customer',$r[0] === 200 && one('SELECT customerName n FROM tblcustomers WHERE ID=?',[$httpCustomer])['n'] === 'zz http crud edited',$r[2]);
+    $r = http88('POST','customers/delete',$uRight,['id'=>$cusForeign]);
+    chk('customer delete refuses a forged cross-congregation ID',redir($r,'customers') && cnt('SELECT deleted FROM tblcustomers WHERE ID=?',[$cusForeign]) === 0);
+    $r = http88('POST','customers/delete',$uRight,['id'=>$httpCustomer]);
+    chk('customer delete remains a soft delete for an unreferenced own customer',redir($r,'customers') && cnt('SELECT deleted FROM tblcustomers WHERE ID=?',[$httpCustomer]) === 1);
+    chk('customer create/update GET methods are refused as JSON',http88('GET','customers/create',$uRight)[0] === 405 && http88('GET','customers/update',$uRight)[0] === 405);
 
     // ------------------------------------------------------------ rendered invoice form
     $add = http88('GET', 'invoices/add', $uRight)[2];
@@ -169,6 +211,24 @@ try {
     $j = jo($r[2]); $inv = (int)($j['id'] ?? 0);
     chk('real JSON create: 200, number from the sequence, type 14 entry Dr receivable 116.00 / Cr income 116.00', $r[0] === 200 && $inv > 0 && !empty($j['invoiceNo']) && one("SELECT GROUP_CONCAT(CONCAT(l.accountId,'|',l.dc,'|',l.amount) ORDER BY l.lineNumber) g FROM journal_lines l JOIN journal_entries e ON e.ID=l.journalEntryId WHERE e.transactionTypeId=14 AND e.transactionId=? AND e.deleted=0", [$inv])['g'] === "$recA|DEBIT|116.00,90|CREDIT|116.00", $r[2]);
     chk('create stores the receivable account and the owner congregation', (int)one('SELECT ReceivableAccountId a FROM tblinvoice_header WHERE ID=?', [$inv])['a'] === $recA && (int)one('SELECT congregationId c FROM tblinvoice_header WHERE ID=?', [$inv])['c'] === 11);
+    $r = http88('POST','customers/delete',$uRight,['id'=>$cus]);
+    chk('customer delete is refused once the customer has an invoice',redir($r,'customers') && cnt('SELECT deleted FROM tblcustomers WHERE ID=?',[$cus]) === 0);
+
+    // Two sessions of the same congregation submit together: the locked sequence must allocate two distinct numbers.
+    $beforeConcurrent = cnt('SELECT COALESCE(MAX(invoiceNo),0) FROM tblinvoice_header WHERE congregationId=11');
+    $mh = curl_multi_init(); $handles = [];
+    foreach ([$uRight,$uAdmin] as $sid) {
+        $ch = curl_init($base . '/invoices/create');
+        curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_HEADER=>true,CURLOPT_COOKIE=>'PHPSESSID=' . $sid,CURLOPT_HTTPHEADER=>['Content-Type: application/json'],CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode(payload()),CURLOPT_FOLLOWLOCATION=>false,CURLOPT_TIMEOUT=>60]);
+        curl_multi_add_handle($mh,$ch); $handles[] = $ch;
+    }
+    do { curl_multi_exec($mh,$running); if ($running) { curl_multi_select($mh,0.2); } } while ($running > 0);
+    $parallel = [];
+    foreach ($handles as $ch) { $raw = curl_multi_getcontent($ch); $parallel[] = parse88(curl_getinfo($ch,CURLINFO_HTTP_CODE),$raw,curl_getinfo($ch,CURLINFO_HEADER_SIZE)); curl_multi_remove_handle($mh,$ch); curl_close($ch); }
+    curl_multi_close($mh);
+    $parallelJson = array_map(function($response){ return jo($response[2]); },$parallel);
+    $parallelNos = array_map(function($json){ return (int)($json['invoiceNo'] ?? 0); },$parallelJson); sort($parallelNos);
+    chk('concurrent customer invoice creates get distinct consecutive congregation numbers',array_column($parallel,0) === [200,200] && $parallelNos === [$beforeConcurrent + 1,$beforeConcurrent + 2],json_encode([$parallelNos,$parallel]));
     $entriesBefore = cnt('SELECT COUNT(*) FROM journal_entries WHERE ID>?', [$max['journal_entries']]);
     foreach ([['receivable missing', ['header' => ['receivable' => '']]], ['receivable 9', ['header' => ['receivable' => '9']]], ['receivable inactive', ['header' => ['receivable' => (string)$recInactive]]], ['receivable of another congregation', ['header' => ['receivable' => (string)$recForeign]]],
               ['future date', ['header' => ['invoiceDate' => date('Y-m-d', strtotime('+1 day'))]]], ['closed-year date', ['header' => ['invoiceDate' => $closedDate]]], ['forged customer', ['header' => ['customer' => (string)$cusForeign]]],
