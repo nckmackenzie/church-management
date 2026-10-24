@@ -19,7 +19,7 @@ reportTypeSelect.addEventListener('change', async function (e) {
   reportType = type;
   criteriaSelect.innerHTML = '';
   addMandatory();
-  if (type === 'balances' || 'supplierbalances') {
+  if (type === 'balances' || type === 'supplierbalances') {
     sdateInput.value = edateInput.value = criteriaSelect.value = '';
     sdateInput.disabled = true;
     edateInput.disabled = true;
@@ -106,7 +106,7 @@ btnPreview.addEventListener('click', async function () {
       resultsDiv.innerHTML = paymentByInvoice(results);
       const table = document.getElementById('invoicereport');
       const paid = document.getElementById('paid');
-      paid.innerText = getColumnTotal(table, 2);
+      paid.innerText = getColumnTotal(table, 4);
     } else if (reportType === 'bysupplier') {
       resultsDiv.innerHTML = paymentBySupplier(results);
       const table = document.getElementById('invoicereport');

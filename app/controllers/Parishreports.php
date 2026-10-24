@@ -9,6 +9,19 @@ class Parishreports extends Controller
         $this->authmodel = $this->model('Auth');
         $this->parishReportModel = $this->model('Parishreport');
     }
+    /** A posted bank must be in the report-safe bank list of the session congregation (task 9.1): 400 otherwise. */
+    private function reportBank($value)
+    {
+        $id = positiveIntParam($value,'bank');
+        if (!$this->parishReportModel->isReportBank($id)) { badRequest('Invalid bank.'); }
+        return $id;
+    }
+    /** Posted account IDs must all be in the report-safe account list of the root type for the parish scope. */
+    private function reportAccountsIn(array $ids,$root)
+    {
+        if ($ids && array_diff($ids,$this->parishReportModel->reportAccountIds($root))) { badRequest('Invalid account.'); }
+        return $ids;
+    }
     public function contributions()
     {
         checkrights($this->authmodel,'receipts reports');
@@ -26,7 +39,7 @@ class Parishreports extends Controller
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'congregations' => positiveIntListParam($_GET['congregations'] ?? null,'congregations'),
-                'accounts' => positiveIntListParam($_GET['accounts'] ?? null,'accounts'),
+                'accounts' => $this->reportAccountsIn(positiveIntListParam($_GET['accounts'] ?? null,'accounts'),1),
                 'start' => strictDateParam($_GET['start'] ?? null,'start date'),
                 'end' => strictDateParam($_GET['end'] ?? null,'end date'),
             ];
@@ -85,7 +98,7 @@ class Parishreports extends Controller
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'congregations' => positiveIntListParam($_GET['congregations'] ?? null,'congregations'),
-                'accounts' => positiveIntListParam($_GET['accounts'] ?? null,'accounts'),
+                'accounts' => $this->reportAccountsIn(positiveIntListParam($_GET['accounts'] ?? null,'accounts'),1),
                 'start' => strictDateParam($_GET['start'] ?? null,'start date'),
                 'end' => strictDateParam($_GET['end'] ?? null,'end date'),
             ];
@@ -144,7 +157,7 @@ class Parishreports extends Controller
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'congregations' => positiveIntListParam($_GET['congregations'] ?? null,'congregations'),
-                'accounts' => positiveIntListParam($_GET['accounts'] ?? null,'accounts'),
+                'accounts' => $this->reportAccountsIn(positiveIntListParam($_GET['accounts'] ?? null,'accounts'),2),
                 'start' => strictDateParam($_GET['start'] ?? null,'start date'),
                 'end' => strictDateParam($_GET['end'] ?? null,'end date'),
             ];
@@ -650,13 +663,13 @@ class Parishreports extends Controller
         if($_SERVER['REQUEST_METHOD'] === 'GET'){
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
-                'bank' => trim($_GET['bank']),
+                'bank' => $this->reportBank($_GET['bank'] ?? null),
                 'from' => trim($_GET['from']),
                 'to' => trim($_GET['to']),
                 'status' => trim($_GET['status']),
             ];
 
-            $bankings = $this->reportModel->bankingrpt($data);
+            $bankings = $this->parishReportModel->bankingrpt($data);
             $output = '';
             $output .= '
                 <table class="table table-bordered table-sm" id="table">

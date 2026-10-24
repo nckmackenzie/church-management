@@ -39,7 +39,7 @@
                                                 <?php echo (!empty($data['bank_err'])) ? 'is-invalid' : '';?>">
                                             <option value="" selected disabled>Select Bank</option>
                                             <?php foreach($data['banks'] as $bank) : ?>
-                                                <option value="<?php echo $bank->ID;?>" <?php selectdCheck($data['bank'],$bank->ID)?>><?php echo $bank->Bank;?></option>
+                                                <option value="<?php echo (int)$bank->ID;?>" <?php selectdCheck($data['bank'],$bank->ID)?>><?php echo htmlspecialchars((string)$bank->Bank,ENT_QUOTES,'UTF-8');?></option>
                                             <?php endforeach; ?>
                                         </select>
                                         <span class="invalid-feedback"><?php echo $data['bank_err'];?></span>

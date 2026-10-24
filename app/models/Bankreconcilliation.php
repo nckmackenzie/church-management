@@ -15,14 +15,15 @@ class Bankreconcilliation
             return false;
         }
     }
+    /** Report-safe banks of the session congregation: non-deleted, active or with history (inactive ones labelled). */
     public function getBanks()
     {
-        $this->db->query("SELECT   ID,
-                                   CONCAT(UCASE(accountType),'-',accountNo) As Bank
-                          FROM     tblaccounttypes 
-                          WHERE    (isBank=1) AND (Deleted=0) AND (congregationId=:cid)");
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();
+        return array_map(function($b){ return (object)['ID' => $b['id'],'Bank' => $b['label']]; },
+            FinancialReport::bankOptions($this->db->pdo(),[(int)$_SESSION['congId']]));
+    }
+    public function isReportBank($id)
+    {
+        return FinancialReport::bankAllowed($this->db->pdo(),[(int)$_SESSION['congId']],(int)$id);
     }
     public function getAmounts($data)
     {
@@ -102,6 +103,8 @@ class Bankreconcilliation
         // $this->db->bind(':cid',$_SESSION['congId']);
         // $result = $this->db->single();
         // array_push($amounts,$result->bal);
+        // 9.1: with no 'cash at bank' row on that date the opening balance is 0 (the controller reads $amounts[4]; it was undefined)
+        if (count($amounts) < 5) { $amounts[] = 0; }
         return $amounts;
     }
 

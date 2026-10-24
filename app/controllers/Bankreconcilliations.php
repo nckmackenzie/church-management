@@ -12,6 +12,13 @@ class Bankreconcilliations extends Controller
         checkrights($this->authmodel,'bank reconcilliations');
         $this->bankreconModel = $this->model('Bankreconcilliation');
     }
+    /** A posted bank must be in the report-safe bank list of the session congregation (task 9.1): 400 otherwise. */
+    private function reportBank($value)
+    {
+        $id = positiveIntParam($value,'bank');
+        if (!$this->bankreconModel->isReportBank($id)) { badRequest('Invalid bank.'); }
+        return $id;
+    }
     public function index()
     {
         $banks = $this->bankreconModel->getBanks();
@@ -23,7 +30,7 @@ class Bankreconcilliations extends Controller
         if($_SERVER['REQUEST_METHOD'] === 'GET'){
            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW) ;
            $data = [
-                'bank' => trim($_GET['bank']),
+                'bank' => $this->reportBank($_GET['bank'] ?? null),
                 'from' => isset($_GET['from']) && !empty(trim($_GET['from'])) ? date('Y-m-d',strtotime(trim($_GET['from']))) : null,
                 'to' => isset($_GET['to']) && !empty(trim($_GET['to'])) ? date('Y-m-d',strtotime(trim($_GET['to']))) : null,
                 // 'to' => trim($_GET['to']),
@@ -106,7 +113,7 @@ class Bankreconcilliations extends Controller
         if($_SERVER['REQUEST_METHOD'] === 'GET'){
            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW) ;
            $data = [
-                'bank' => trim($_GET['bank']),
+                'bank' => $this->reportBank($_GET['bank'] ?? null),
                 'from' => isset($_GET['from']) && !empty(trim($_GET['from'])) ? date('Y-m-d',strtotime(trim($_GET['from']))) : null,
                 'to' => isset($_GET['from']) && !empty(trim($_GET['to'])) ? date('Y-m-d',strtotime(trim($_GET['to']))) : null,
                 // 'to' => trim($_GET['to']),
@@ -218,7 +225,7 @@ class Bankreconcilliations extends Controller
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'type' => isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : null,
-                'bankid' => isset($_GET['bank']) && !empty(trim($_GET['bank'])) ? trim($_GET['bank']) : null,
+                'bankid' => isset($_GET['bank']) && !empty(trim($_GET['bank'])) ? $this->reportBank($_GET['bank']) : null,
                 'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
                 'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
                 'results' => []
@@ -253,7 +260,7 @@ class Bankreconcilliations extends Controller
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'type' => isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : null,
-                'bankid' => isset($_GET['bank']) && !empty(trim($_GET['bank'])) ? trim($_GET['bank']) : null,
+                'bankid' => isset($_GET['bank']) && !empty(trim($_GET['bank'])) ? $this->reportBank($_GET['bank']) : null,
                 'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
                 'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
                 'results' => []

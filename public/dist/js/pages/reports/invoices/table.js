@@ -1,4 +1,7 @@
 import { numberWithCommas } from '../../utils/utils.js';
+// every server string is escaped before it goes into the table markup (stored XSS, security list S10)
+const esc = value =>
+  String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export function withBalancesTable(data) {
   let html = `
       <table class="table table-striped table-bordered table-sm" id="invoicereport">
@@ -17,10 +20,10 @@ export function withBalancesTable(data) {
   data.forEach(dt => {
     html += `
               <tr>
-                <td>${dt.supplierName}</td>
-                <td>${dt.invoiceNo}</td>
-                <td>${dt.invoiceDate}</td>
-                <td>${dt.dueDate}</td>
+                <td>${esc(dt.supplierName)}</td>
+                <td>${esc(dt.invoiceNo)}</td>
+                <td>${esc(dt.invoiceDate)}</td>
+                <td>${esc(dt.dueDate)}</td>
                 <td>${numberWithCommas(dt.inclusiveVat)}</td>
                 <td>${numberWithCommas(dt.amountPaid)}</td>
                 <td>${numberWithCommas(dt.Balance)}</td>
@@ -48,6 +51,8 @@ export function paymentByInvoice(data) {
             <tr>
               <th>Payment Date</th>
               <th>Payment No</th>
+              <th>Supplier</th>
+              <th>Invoice No</th>
               <th>Amount Paid</th>
               <th>Payment Method</th>
               <th>Payment Reference</th>
@@ -57,18 +62,20 @@ export function paymentByInvoice(data) {
   data.forEach(dt => {
     html += `
               <tr>
-                <td>${dt.paymentDate}</td>
-                <td>${dt.paymentNo}</td>
+                <td>${esc(dt.paymentDate)}</td>
+                <td>${esc(dt.paymentNo)}</td>
+                <td>${esc(dt.supplierName)}</td>
+                <td>${esc(dt.invoiceNo)}</td>
                 <td>${numberWithCommas(dt.amount)}</td>
-                <td>${dt.payMethod}</td>
-                <td>${dt.paymentReference}</td>
+                <td>${esc(dt.payMethod)}</td>
+                <td>${esc(dt.paymentReference)}</td>
               </tr>
            `;
   });
   html += `</tbody>
     <tfoot>
       <tr>
-          <th colspan="2" style="text-align:center">Total:</th>
+          <th colspan="4" style="text-align:center">Total:</th>
           <th id="paid"></th>
           <th colspan="2"></th>
       </tr>
@@ -94,19 +101,19 @@ export function paymentBySupplier(data) {
   data.forEach(dt => {
     html += `
               <tr>
-                <td>${dt.paymentDate}</td>
-                <td>${dt.paymentNo}</td>
-                <td>${dt.invoiceNo}</td>
+                <td>${esc(dt.paymentDate)}</td>
+                <td>${esc(dt.paymentNo)}</td>
+                <td>${esc(dt.invoiceNo)}</td>
                 <td>${numberWithCommas(dt.amount)}</td>
-                <td>${dt.payMethod}</td>
-                <td>${dt.paymentReference}</td>
+                <td>${esc(dt.payMethod)}</td>
+                <td>${esc(dt.paymentReference)}</td>
               </tr>
            `;
   });
   html += `</tbody>
     <tfoot>
       <tr>
-          <th colspan="2" style="text-align:center">Total:</th>
+          <th colspan="3" style="text-align:center">Total:</th>
           <th id="paid"></th>
           <th colspan="2"></th>
       </tr>
@@ -132,12 +139,12 @@ export function allPayments(data) {
   data.forEach(dt => {
     html += `
           <tr>
-            <td>${dt.paymentDate}</td>
-            <td>${dt.paymentNo}</td>
-            <td>${dt.supplierName}</td>
-            <td>${dt.invoiceNo}</td>
+            <td>${esc(dt.paymentDate)}</td>
+            <td>${esc(dt.paymentNo)}</td>
+            <td>${esc(dt.supplierName)}</td>
+            <td>${esc(dt.invoiceNo)}</td>
             <td>${numberWithCommas(dt.amount)}</td>
-            <td>${dt.paymentReference}</td>
+            <td>${esc(dt.paymentReference)}</td>
           </tr>
        `;
   });
@@ -166,7 +173,7 @@ export function supplierBalances(data) {
   data.forEach(dt => {
     html += `
               <tr>
-                <td>${dt.supplierName}</td>
+                <td>${esc(dt.supplierName)}</td>
                 <td>${numberWithCommas(dt.TotalBalance)}</td>
               </tr>
            `;

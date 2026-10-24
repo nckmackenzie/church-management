@@ -16,7 +16,7 @@
                                     <select name="congregation" id="congregation" class="form-control form-control-sm">
                                         <option value="0" selected>All</option>
                                         <?php foreach($data['congregations'] as $congregation) : ?>
-                                            <option value="<?php echo $congregation->ID;?>"><?php echo $congregation->CongregationName;?></option>
+                                            <option value="<?php echo (int)$congregation->ID;?>"><?php echo htmlspecialchars((string)$congregation->CongregationName,ENT_QUOTES,'UTF-8');?></option>
                                         <?php endforeach;?>
                                     </select>
                                 </div>

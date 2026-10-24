@@ -22,15 +22,20 @@ class Parishreport
                           WHERE  (deleted = 0)');
         return $this->db->resultSet();
     }
+    /**
+     * Report-safe account list for one root type over the parish scope (every congregation with a non-deleted record or history,
+     * decision 127): by ID with a path label, no `active` filter, deleted ones only with history (task 9.1).
+     */
     public function GetAccounts($id)
     {
-        $this->db->query('SELECT ID,
-                                 UCASE(accountType) AS accountType 
-                          FROM   tblaccounttypes 
-                          WHERE  (accountTypeId = :id) AND (deleted = 0)
-                          ORDER BY accountType');
-        $this->db->bind(':id',$id);
-        return $this->db->resultSet();
+        return array_map(function($a){ return (object)['ID' => $a['id'],'accountType' => $a['label']]; },
+            FinancialReport::accountOptions($this->db->pdo(),FinancialReport::parishScope($this->db->pdo()),['roots' => [(int)$id]]));
+    }
+    /** IDs of GetAccounts($root): a posted account must be one of them. @return int[] */
+    public function reportAccountIds($root)
+    {
+        return array_map(function($a){ return $a['id']; },
+            FinancialReport::accountOptions($this->db->pdo(),FinancialReport::parishScope($this->db->pdo()),['roots' => [(int)$root]]));
     }
     public function GetContributions($data)
     {
@@ -412,14 +417,15 @@ class Parishreport
         $expensesBalance = floatval($expensesDebit) - floatval($expensesCredit);
         return floatval($revenueBalance) - floatval($expensesBalance);
     }
+    /** Report-safe banks of the session congregation: non-deleted, active or with history (inactive ones labelled). */
     public function getBanks()
     {
-        $this->db->query('SELECT   ID,
-                                   UCASE(accountType) As Bank
-                          FROM     tblaccounttypes 
-                          WHERE    (isBank=1) AND (Deleted=0) AND (congregationId=:cid)');
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();
+        return array_map(function($b){ return (object)['ID' => $b['id'],'Bank' => $b['label']]; },
+            FinancialReport::bankOptions($this->db->pdo(),[(int)$_SESSION['congId']]));
+    }
+    public function isReportBank($id)
+    {
+        return FinancialReport::bankAllowed($this->db->pdo(),[(int)$_SESSION['congId']],(int)$id);
     }
     public function bankingrpt($data)
     {

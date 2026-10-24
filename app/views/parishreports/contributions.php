@@ -15,7 +15,7 @@
                                     <label for="congregation">Congregation</label>
                                     <select name="congregation[]" id="congregation" class="form-control form-control-sm multi" multiple data-actions-box="true">
                                         <?php foreach($data['congregations'] as $congregation) : ?>
-                                            <option value="<?php echo $congregation->ID;?>"><?php echo $congregation->CongregationName;?></option>
+                                            <option value="<?php echo (int)$congregation->ID;?>"><?php echo htmlspecialchars((string)$congregation->CongregationName,ENT_QUOTES,'UTF-8');?></option>
                                         <?php endforeach;?>
                                     </select>
                                     <span class="invalid-feedback" id="congregation_err"></span>
@@ -26,7 +26,7 @@
                                     <label for="account">Account</label>
                                     <select name="account[]" id="account" class="form-control form-control-sm multi" multiple data-actions-box="true">
                                         <?php foreach($data['accounts'] as $accounts) : ?>
-                                            <option value="<?php echo $accounts->ID;?>"><?php echo $accounts->accountType;?></option>
+                                            <option value="<?php echo (int)$accounts->ID;?>"><?php echo htmlspecialchars((string)$accounts->accountType,ENT_QUOTES,'UTF-8');?></option>
                                         <?php endforeach;?>
                                     </select>
                                     <span class="invalid-feedback" id="account_err"></span>

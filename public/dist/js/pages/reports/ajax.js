@@ -7,9 +7,9 @@ export async function invoiceReports(type,criteria=null,sdate=null,edate=null) {
     if(type === 'balances' || type === 'supplierbalances'){
         url = `${HOST_URL}/invoicereports/getinvoicereport?type=${type}`
     }else if(type === 'byinvoice'){
-      url = `${HOST_URL}/invoicereports/getinvoicereport?type=${type}&criteria=${criteria}`
+      url = `${HOST_URL}/invoicereports/getinvoicereport?type=${type}&criteria=${encodeURIComponent(criteria)}`
     }else if(type === 'bysupplier'){
-      url = `${HOST_URL}/invoicereports/getinvoicereport?type=${type}&criteria=${criteria}&sdate=${sdate}&edate=${edate}`;
+      url = `${HOST_URL}/invoicereports/getinvoicereport?type=${type}&criteria=${encodeURIComponent(criteria)}&sdate=${sdate}&edate=${edate}`;
     }else if(type === 'all'){
       url = `${HOST_URL}/invoicereports/getinvoicereport?type=${type}&sdate=${sdate}&edate=${edate}`;
     }

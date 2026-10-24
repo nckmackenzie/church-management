@@ -16,7 +16,7 @@
                 <select name="account" id="account" class="form-control form-control-sm mandatory">
                     <option value="" selected disabled>Select G/L account</option>
                     <?php foreach($data['accounts'] as $account) : ?>
-                        <option value="<?php echo $account->ID?>"><?php echo $account->accountType?></option>
+                        <option value="<?php echo (int)$account->ID?>"><?php echo htmlspecialchars((string)$account->accountType,ENT_QUOTES,'UTF-8')?></option>
                     <?php endforeach?>
                 </select>
                 <span class="invalid-feedback" id="account-err"></span>

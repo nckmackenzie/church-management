@@ -19,7 +19,7 @@ $pages=[
  ['contributions/add','dist/js/pages/contributions-v2.js'],['banktransactions/add','dist/js/pages/banktransactions/index-v1.js'],
  ['expenses/add','dist/js/pages/expenses/add-expense-v9.js'],['groupcollections/add','dist/js/pages/groupcollections/index-v2.js'],
  ['groupfunds/add','dist/js/pages/groupfunds/add-v5.js'],['journals','dist/js/pages/journals/index-v1.js'],
- ['members/transfer','dist/js/pages/members/transfers-v1.js'],['invoicereports','dist/js/pages/reports/invoices/invoicereports-v1.js'],
+ ['members/transfer','dist/js/pages/members/transfers-v1.js'],['invoicereports','dist/js/pages/reports/invoices/invoicereports-v2.js'],
  ['trialbalance/report','dist/js/pages/reports/tb/tb-report-v1.js'],['trialbalance','dist/js/pages/reports/tb/tb-v3.js'],['reports/balancesheet','']
 ];
 $editableExpense=(int)$pdo->query('SELECT ID FROM tblexpenses WHERE congregationId=11 AND deleted=0 AND status=0 ORDER BY ID LIMIT 1')->fetchColumn();
