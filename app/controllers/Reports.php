@@ -291,12 +291,13 @@ class Reports extends Controller {
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
+            $type = positiveIntParam($_GET['type'] ?? null,'type',[1,2,3]);
+            $accounts = positiveIntListParam($_GET['account'] ?? null,'account',$type !== 2);
             $data = [
-                'type' => trim($_GET['type']),
-                'start' => trim($_GET['start']),
-                'end' => trim($_GET['end']),
-                // 'account' => !empty($_GET['account']) ? $_GET['account'] : ''
-                'account' => !empty($_GET['account']) ? join(",",$_GET['account']) : ''
+                'type' => $type,
+                'start' => strictDateParam($_GET['start'] ?? null,'start date'),
+                'end' => strictDateParam($_GET['end'] ?? null,'end date'),
+                'account' => $accounts
             ];
         //    echo join(",",$data['account']);
             $contributions = $this->reportModel->GetContributions($data);
@@ -381,11 +382,13 @@ class Reports extends Controller {
     {
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
+            $type = positiveIntParam($_GET['type'] ?? null,'type',[1,2]);
+            $accounts = positiveIntListParam($_GET['account'] ?? null,'account',$type !== 2);
             $data = [
-                'type' => trim($_GET['type']),
-                'start' => trim($_GET['start']),
-                'end' => trim($_GET['end']),
-                'account' => !empty($_GET['account']) ? join(",",$_GET['account']) : ''
+                'type' => $type,
+                'start' => strictDateParam($_GET['start'] ?? null,'start date'),
+                'end' => strictDateParam($_GET['end'] ?? null,'end date'),
+                'account' => $accounts
             ];
         
             $expenses = $this->reportModel->GetExpenses($data);

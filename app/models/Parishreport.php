@@ -34,6 +34,8 @@ class Parishreport
     }
     public function GetContributions($data)
     {
+        $accountParams = $this->integerPlaceholders('account',$data['accounts']);
+        $congregationParams = $this->integerPlaceholders('congregation',$data['congregations']);
         $this->db->query("SELECT d.contributionDate,
                                  ucase(c.CongregationName) as congregation,
                                  ucase(a.accountType) as account,
@@ -43,13 +45,17 @@ class Parishreport
                                  on d.contributionTypeId = a.ID inner join tblcongregation c on 
                                  h.congregationId = c.ID
                           WHERE  (h.Deleted = 0) AND (d.contributionDate BETWEEN :startd AND :endd) 
-                                 AND d.contributionTypeId IN (".$data['accounts'].") AND h.congregationId IN (".$data['congregations'].")");
+                                 AND d.contributionTypeId IN (".implode(',',$accountParams).") AND h.congregationId IN (".implode(',',$congregationParams).")");
         $this->db->bind(':startd',$data['start']);
         $this->db->bind(':endd',$data['end']);
+        $this->bindIntegerList('account',$data['accounts']);
+        $this->bindIntegerList('congregation',$data['congregations']);
         return $this->db->resultSet();
     }
     public function GetContributionsByContributor($data)
     {
+        $accountParams = $this->integerPlaceholders('account',$data['accounts']);
+        $congregationParams = $this->integerPlaceholders('congregation',$data['congregations']);
         $this->db->query("SELECT d.contributionDate,
                                  ucase(c.CongregationName) as congregation,
                                  ucase(a.accountType) as account,
@@ -59,24 +65,44 @@ class Parishreport
                                  on d.contributionTypeId = a.ID left join tblcongregation c on 
                                  d.contributotCong = c.ID
                           WHERE  (h.Deleted = 0) AND (d.contributionDate BETWEEN :startd AND :endd) 
-                                 AND d.contributionTypeId IN (".$data['accounts'].") AND d.contributotCong IN (".$data['congregations'].")");
+                                 AND d.contributionTypeId IN (".implode(',',$accountParams).") AND d.contributotCong IN (".implode(',',$congregationParams).")");
         $this->db->bind(':startd',$data['start']);
         $this->db->bind(':endd',$data['end']);
+        $this->bindIntegerList('account',$data['accounts']);
+        $this->bindIntegerList('congregation',$data['congregations']);
         return $this->db->resultSet();
     }
     public function GetExpenses($data)
     {
+        $accountParams = $this->integerPlaceholders('account',$data['accounts']);
+        $congregationParams = $this->integerPlaceholders('congregation',$data['congregations']);
         $this->db->query("SELECT ucase(c.CongregationName) as congregation,
                                  ucase(a.accountType) as account,
                                  IFNULL(SUM(amount),0) as sumofamount
                           FROM   tblexpenses e inner join tblaccounttypes a on e.accountId = a.ID
                                  inner join tblcongregation c on e.congregationId = c.ID
                           WHERE  (e.expenseDate BETWEEN :startd AND :endd) AND (e.deleted = 0)
-                                 AND e.accountId IN (".$data['accounts'].") AND e.congregationId IN (".$data['congregations'].")
+                                 AND e.accountId IN (".implode(',',$accountParams).") AND e.congregationId IN (".implode(',',$congregationParams).")
                           GROUP BY c.CongregationName,a.accountType;");
         $this->db->bind(':startd',$data['start']);
         $this->db->bind(':endd',$data['end']);
+        $this->bindIntegerList('account',$data['accounts']);
+        $this->bindIntegerList('congregation',$data['congregations']);
         return $this->db->resultSet();
+    }
+    private function integerPlaceholders($prefix,array $values)
+    {
+        $placeholders = [];
+        foreach ($values as $index => $value) {
+            $placeholders[] = ':' . $prefix . $index;
+        }
+        return $placeholders;
+    }
+    private function bindIntegerList($prefix,array $values)
+    {
+        foreach ($values as $index => $value) {
+            $this->db->bind(':' . $prefix . $index,$value,PDO::PARAM_INT);
+        }
     }
     public function GetGroups($cong)
     {

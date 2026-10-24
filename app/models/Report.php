@@ -186,6 +186,10 @@ class Report {
             $this->db->bind(':end',$data['end']);
             return $this->db->resultSet();
         }elseif ($data['type'] == 2) {
+            $accountParams = [];
+            foreach ($data['account'] as $index => $accountId) {
+                $accountParams[] = ':account' . $index;
+            }
             $sql = "SELECT DISTINCT d.ID,DATE_FORMAT(d.contributionDate,'%d/%m/%Y') AS contdate,
                            ucase(a.accountType) as conttype,ucase(IF(d.category = 1,m.memberName,IF(d.category=2,g.groupName,
                            IF(d.category=3,t.districtName,s.serviceName)))) As cont,d.amount,ucase(p.paymentMethod) as paymethod,
@@ -195,11 +199,14 @@ class Report {
                            = t.ID left join tblservices s on d.contributotService = s.ID inner join
                            tblaccounttypes a on d.contributionTypeId = a.ID left join tblpaymentmethods p on d.paymentMethodId = p.ID
                     WHERE  (h.Deleted = 0) AND (h.congregationId = :cong) AND (h.status = 1) AND (d.contributionDate BETWEEN :startd AND :endd)
-                           AND (d.contributionTypeId IN (".$data['account'].")) ORDER BY d.contributionDate";
+                           AND (d.contributionTypeId IN (".implode(',',$accountParams).")) ORDER BY d.contributionDate";
             $this->db->query($sql);
             $this->db->bind(':cong',$_SESSION['congId']);
             $this->db->bind(':startd',$data['start']);
             $this->db->bind(':endd',$data['end']);
+            foreach ($data['account'] as $index => $accountId) {
+                $this->db->bind(':account' . $index,$accountId,PDO::PARAM_INT);
+            }
             return $this->db->resultSet();
         }elseif ($data['type'] == 3) {
             $sql = 'SELECT 
@@ -226,6 +233,10 @@ class Report {
             $this->db->bind(':end',$data['end']);
             return $this->db->resultSet();
         }elseif ($data['type'] == 2) {
+            $accountParams = [];
+            foreach ($data['account'] as $index => $accountId) {
+                $accountParams[] = ':account' . $index;
+            }
             $sql = "SELECT DATE_FORMAT(e.expenseDate,'%d/%m/%Y') AS expenseDate,voucherNo,ucase(a.accountType) as accountType,
                            ucase(IF(e.expenseType = 1,'lcc',g.groupName)) As costcenter,
                            e.amount,ucase(p.paymentMethod) as paymethod,
@@ -233,13 +244,16 @@ class Report {
                     FROM   tblexpenses e inner join tblaccounttypes a on e.accountId=a.ID inner join tblpaymentmethods p  
                            on e.paymethodId = p.ID left join tblgroups g on e.groupId = g.ID
                     WHERE  (e.congregationId = :cong) AND (e.expenseDate BETWEEN :startd AND :endd) AND (e.status = 1) AND (e.deleted = 0)
-                           AND (e.accountId IN (".$data['account'].") )
+                           AND (e.accountId IN (".implode(',',$accountParams).") )
                     ORDER BY e.expenseDate;";
                     
             $this->db->query($sql);
             $this->db->bind(':cong',$_SESSION['congId']);
             $this->db->bind(':startd',$data['start']);
             $this->db->bind(':endd',$data['end']);
+            foreach ($data['account'] as $index => $accountId) {
+                $this->db->bind(':account' . $index,$accountId,PDO::PARAM_INT);
+            }
             return $this->db->resultSet();
         }
     }
