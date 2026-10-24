@@ -55,9 +55,9 @@ try {
     echo "== pages\n";
     foreach (['reports/incomestatement', 'parishreports/incomestatement', "reports/plchildaccount?account=$A&$q", "parishreports/plchildaccount?account=$A&$q"] as $p) {
         [$code, $body] = http('GET', $p, $admin11);
-        ok("renders $p", $code === 200 && strpos($body, 'income-statement-v1.js') !== false && strpos($body, 'id="isapp"') !== false, "status $code");
+        ok("renders $p", $code === 200 && strpos($body, 'income-statement-v2.js') !== false && strpos($body, 'id="isapp"') !== false, "status $code");
     }
-    $js = (string) file_get_contents('E:/xampp/htdocs/cms/public/dist/js/pages/reports/is/income-statement-v1.js');
+    $js = (string) file_get_contents('E:/xampp/htdocs/cms/public/dist/js/pages/reports/is/income-statement-v2.js');
     ok('the screen script puts server text on the page with textContent only (no innerHTML / insertAdjacentHTML / document.write)', strpos($js, 'textContent') !== false && !preg_match('/innerHTML|insertAdjacentHTML|document\.write|outerHTML/', $js));
     [$code, $body] = http('GET', 'parishreports/incomestatement', $admin11);
     $po = options($body);

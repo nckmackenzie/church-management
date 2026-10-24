@@ -36,6 +36,9 @@ class FinancialReport
 {
     const MAX_DEPTH = AccountChart::MAX_DEPTH;
 
+    /** largest page linesPage() returns */
+    const MAX_PAGE_SIZE = 200;
+
     /** root account types that are debit-normal */
     const DEBIT_NORMAL  = [2, 3, 5];
     /** root account types that are credit-normal */
@@ -909,44 +912,8 @@ class FinancialReport
      */
     public static function lines(PDO $db, array $scope, int $accountId, array $period, bool $includeDescendants = false): array
     {
-        $scope = self::normalizeScope($scope);
-        $chart = self::chart($db, $scope);
-        $node  = $chart['nodes'][$accountId] ?? null;
-        if ($node === null || !$node['classified']) { throw new FinancialReportException("account $accountId is not part of the chart for this scope"); }
-        $root = (int) $node['root'];
-
-        $d    = self::describe($db, $period);
-        $spec = $d['sets'][0];
-        // from / to of THIS account under the basis of the report
-        if ($spec['mode'] === 'bs' || $spec['mode'] === 'tb') {
-            $from = in_array($root, [3, 4, 6], true) ? null : $spec['yearStart'];
-            $to   = $spec['to'];
-            $creditNormal = !self::isDebitNormal($root);
-        } else {
-            $from = $spec['from'];
-            $to   = $spec['to'];
-            $creditNormal = $spec['mode'] === 'range' && $spec['direction'] === 'credit' ? true
-                          : ($spec['mode'] === 'range' && $spec['direction'] === 'debit' ? false : !self::isDebitNormal($root));
-        }
-
-        $ids = [$accountId];
-        if ($includeDescendants) {
-            $stack = [$accountId]; $seen = [$accountId => true]; $n = 0;
-            while ($stack && $n++ < 5000) {
-                $cur = array_pop($stack);
-                foreach ($chart['kids'][$cur] ?? [] as $k) { if (!isset($seen[$k])) { $seen[$k] = true; $ids[] = $k; $stack[] = $k; } }
-            }
-        }
-
-        // opening: everything before $from
-        $opening = 0;
-        if ($from !== null) {
-            $st = $db->prepare("SELECT COALESCE(SUM(CASE WHEN l.dc = 'DEBIT' THEN l.amount ELSE -l.amount END), 0)
-                                FROM journal_lines l JOIN journal_entries e ON e.ID = l.journalEntryId
-                                WHERE e.deleted = 0 AND e.congregationId IN (" . self::marks($scope) . ') AND l.accountId IN (' . self::marks($ids) . ') AND e.entryDate < ?');
-            $st->execute(array_merge($scope, $ids, [$from]));
-            $opening = self::cents($st->fetchColumn());
-        }
+        $st0 = self::linesSetup($db, $scope, $accountId, $period, $includeDescendants);
+        $scope = $st0['scope']; $node = $st0['node']; $from = $st0['from']; $to = $st0['to']; $creditNormal = $st0['creditNormal']; $ids = $st0['ids']; $opening = $st0['opening'];
 
         $sql = "SELECT e.ID AS entryId, e.entryDate, e.journalNo, e.reference, e.description, e.transactionTypeId, t.transactionType AS typeName,
                        e.transactionId, l.lineNumber, l.memo, l.accountId, a.accountType AS accountName,
@@ -1011,6 +978,146 @@ class FinancialReport
         ];
     }
 
+    /** Shared by lines() and linesPage(): the node, the basis (from / to / direction), the account IDs and the opening balance. */
+    private static function linesSetup(PDO $db, array $scope, int $accountId, array $period, bool $includeDescendants): array
+    {
+        $scope = self::normalizeScope($scope);
+        $chart = self::chart($db, $scope);
+        $node  = $chart['nodes'][$accountId] ?? null;
+        if ($node === null || !$node['classified']) { throw new FinancialReportException("account $accountId is not part of the chart for this scope"); }
+        $root = (int) $node['root'];
+
+        $d    = self::describe($db, $period);
+        $spec = $d['sets'][0];
+        // from / to of THIS account under the basis of the report
+        if ($spec['mode'] === 'bs' || $spec['mode'] === 'tb') {
+            $from = in_array($root, [3, 4, 6], true) ? null : $spec['yearStart'];
+            $to   = $spec['to'];
+            $creditNormal = !self::isDebitNormal($root);
+        } else {
+            $from = $spec['from'];
+            $to   = $spec['to'];
+            $creditNormal = $spec['mode'] === 'range' && $spec['direction'] === 'credit' ? true
+                          : ($spec['mode'] === 'range' && $spec['direction'] === 'debit' ? false : !self::isDebitNormal($root));
+        }
+
+        $ids = [$accountId];
+        if ($includeDescendants) {
+            $stack = [$accountId]; $seen = [$accountId => true]; $n = 0;
+            while ($stack && $n++ < 5000) {
+                $cur = array_pop($stack);
+                foreach ($chart['kids'][$cur] ?? [] as $k) { if (!isset($seen[$k])) { $seen[$k] = true; $ids[] = $k; $stack[] = $k; } }
+            }
+        }
+
+        // opening: everything before $from
+        $opening = 0;
+        if ($from !== null) {
+            $st = $db->prepare("SELECT COALESCE(SUM(CASE WHEN l.dc = 'DEBIT' THEN l.amount ELSE -l.amount END), 0)
+                                FROM journal_lines l JOIN journal_entries e ON e.ID = l.journalEntryId
+                                WHERE e.deleted = 0 AND e.congregationId IN (" . self::marks($scope) . ') AND l.accountId IN (' . self::marks($ids) . ') AND e.entryDate < ?');
+            $st->execute(array_merge($scope, $ids, [$from]));
+            $opening = self::cents($st->fetchColumn());
+        }
+
+        return ['scope' => $scope, 'node' => $node, 'from' => $from, 'to' => $to, 'creditNormal' => $creditNormal, 'ids' => $ids, 'opening' => $opening];
+    }
+
+    /**
+     * One page of journal lines for server-side paging and search (decision 142). The running balance of every row is the TRUE
+     * running balance of the account: the window function runs over the whole list of the period and the search / page only
+     * filter afterwards.
+     *
+     * $search matches (substring) the date (dd-mm-yyyy and yyyy-mm-dd), entry ID, journal number, reference, narration, type,
+     * account name and the debit / credit amount (with or without thousands separators). $pageSize 0 = every matching row
+     * (used by the Excel export); otherwise capped at MAX_PAGE_SIZE. Ordered by entry date, entry ID, line number.
+     *
+     * Returns what lines() returns, with 'rows' = the page and 'matching' (rows matching the search), 'filtered'
+     * (debit / credit totals of the matching rows), 'page', 'pageSize', 'pages'; 'totals', 'movement', 'opening', 'closing' stay
+     * those of the whole period.
+     */
+    public static function linesPage(PDO $db, array $scope, int $accountId, array $period, bool $includeDescendants, int $page = 1, int $pageSize = 50, string $search = ''): array
+    {
+        $st0 = self::linesSetup($db, $scope, $accountId, $period, $includeDescendants);
+        $scope = $st0['scope']; $node = $st0['node']; $from = $st0['from']; $to = $st0['to']; $creditNormal = $st0['creditNormal']; $ids = $st0['ids']; $opening = $st0['opening'];
+        $pageSize = $pageSize <= 0 ? 0 : min($pageSize, self::MAX_PAGE_SIZE);
+        $page = max(1, $page);
+
+        $inner = "SELECT e.ID AS entryId, e.entryDate, e.journalNo, COALESCE(e.reference, '') AS reference, COALESCE(NULLIF(l.memo, ''), e.description, '') AS narr,
+                         e.transactionTypeId, COALESCE(t.transactionType, '') AS typeName, e.transactionId, l.lineNumber, l.accountId, a.accountType AS accountName,
+                         CASE WHEN l.dc = 'DEBIT'  THEN l.amount ELSE 0 END AS debit,
+                         CASE WHEN l.dc = 'CREDIT' THEN l.amount ELSE 0 END AS credit,
+                         SUM(CASE WHEN l.dc = 'DEBIT' THEN l.amount ELSE -l.amount END)
+                             OVER (ORDER BY e.entryDate, e.ID, l.lineNumber ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS runningNet
+                  FROM journal_lines l
+                  JOIN journal_entries e ON e.ID = l.journalEntryId
+                  JOIN tblaccounttypes a ON a.ID = l.accountId
+                  LEFT JOIN tbltransactiontypes t ON t.ID = e.transactionTypeId
+                  WHERE e.deleted = 0 AND e.congregationId IN (" . self::marks($scope) . ') AND l.accountId IN (' . self::marks($ids) . ') AND e.entryDate <= ?'
+               . ($from !== null ? ' AND e.entryDate >= ?' : '');
+        $params = array_merge($scope, $ids, [$to]);
+        if ($from !== null) { $params[] = $from; }
+
+        $where = '';
+        $wp = [];
+        $search = trim($search);
+        if ($search !== '') {
+            $like = '%' . addcslashes($search, '\\%_') . '%';
+            $num = str_replace([',', ' '], '', $search);
+            $conds = ["DATE_FORMAT(entryDate, '%d-%m-%Y') LIKE ?", "DATE_FORMAT(entryDate, '%Y-%m-%d') LIKE ?", 'CAST(entryId AS CHAR) LIKE ?', 'CAST(COALESCE(journalNo, \'\') AS CHAR) LIKE ?',
+                      'reference LIKE ?', 'narr LIKE ?', 'typeName LIKE ?', 'accountName LIKE ?'];
+            $wp = array_fill(0, count($conds), $like);
+            if ($num !== '' && preg_match('/^\d+(\.\d*)?$/', $num)) {
+                $nl = '%' . addcslashes($num, '\\%_') . '%';
+                $conds[] = '(debit > 0 AND CAST(debit AS CHAR) LIKE ?)';
+                $conds[] = '(credit > 0 AND CAST(credit AS CHAR) LIKE ?)';
+                $wp[] = $nl; $wp[] = $nl;
+            }
+            $where = ' WHERE ' . implode(' OR ', array_map(function ($c) { return $c; }, $conds));
+        }
+
+        // matching rows and their totals
+        $st = $db->prepare("SELECT COUNT(*) AS n, COALESCE(SUM(debit), 0) AS dr, COALESCE(SUM(credit), 0) AS cr FROM ($inner) q$where");
+        $st->execute(array_merge($params, $wp));
+        $agg = $st->fetch(PDO::FETCH_ASSOC);
+        $matching = (int) $agg['n'];
+
+        // the period as a whole
+        $st = $db->prepare("SELECT COUNT(*) AS n, COALESCE(SUM(debit), 0) AS dr, COALESCE(SUM(credit), 0) AS cr FROM ($inner) q");
+        $st->execute($params);
+        $all = $st->fetch(PDO::FETCH_ASSOC);
+        $dr = self::cents($all['dr']); $cr = self::cents($all['cr']);
+        $closingNet = $opening + $dr - $cr;
+
+        $sql = "SELECT * FROM ($inner) q$where ORDER BY entryDate, entryId, lineNumber";
+        $qp = array_merge($params, $wp);
+        if ($pageSize > 0) { $sql .= ' LIMIT ' . (int) $pageSize . ' OFFSET ' . (int) (($page - 1) * $pageSize); }
+        $st = $db->prepare($sql);
+        $st->execute($qp);
+        $rows = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $net = $opening + self::cents($r['runningNet']);
+            $type = (int) $r['transactionTypeId'];
+            $rows[] = [
+                'entryId' => (int) $r['entryId'], 'date' => (string) $r['entryDate'], 'journalNo' => $r['journalNo'] === null ? null : (int) $r['journalNo'],
+                'reference' => (string) $r['reference'], 'memo' => (string) $r['narr'], 'typeId' => $type, 'typeName' => (string) $r['typeName'],
+                'transactionId' => (int) $r['transactionId'], 'lineNumber' => (int) $r['lineNumber'], 'accountId' => (int) $r['accountId'], 'accountName' => (string) $r['accountName'],
+                'debit' => self::cents($r['debit']), 'credit' => self::cents($r['credit']),
+                'balance' => $creditNormal ? -$net : $net, 'net' => $net, 'link' => self::sourceLink($type, (int) $r['transactionId']),
+            ];
+        }
+        return [
+            'account' => self::nodeSummary($node), 'from' => $from, 'to' => $to, 'direction' => $creditNormal ? 'CREDIT' : 'DEBIT',
+            'includeDescendants' => $includeDescendants,
+            'opening' => $creditNormal ? -$opening : $opening, 'openingNet' => $opening,
+            'rows' => $rows, 'matching' => $matching, 'search' => $search,
+            'filtered' => ['debit' => self::cents($agg['dr']), 'credit' => self::cents($agg['cr'])],
+            'page' => $page, 'pageSize' => $pageSize, 'pages' => $pageSize > 0 ? max(1, (int) ceil($matching / $pageSize)) : 1,
+            'totals' => ['debit' => $dr, 'credit' => $cr], 'count' => (int) $all['n'],
+            'movement' => $creditNormal ? $cr - $dr : $dr - $cr,
+            'closing' => $creditNormal ? -$closingNet : $closingNet, 'closingNet' => $closingNet,
+        ];
+    }
     /** Route (relative to URLROOT) of the source document of an entry, or null where no safe route exists. */
     public static function sourceLink(int $transactionTypeId, int $transactionId): ?string
     {

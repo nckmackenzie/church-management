@@ -106,7 +106,8 @@ try {
     [$code, $body] = $get('reports/ledgerstatementrpt?' . $q);
     ok('ledger statement refuses a missing account with 400', $code === 400, "status $code");
     [$code, $body] = $get('reports/ledgerstatementrpt?account=' . $incInactive . '&' . $q);
-    ok('ledger statement accepts an inactive account with history (200 and the statement table; the figures still come from the old routine until 9.3)', $code === 200 && strpos($body, 'id="table"') !== false, "status $code");
+    $j = json_decode($body, true);
+    ok('ledger statement accepts an inactive account with history (200, JSON statement with its line)', $code === 200 && ($j['success'] ?? false) === true && $j['count'] === 1 && $j['rows'][0]['debit'] === '' && $j['rows'][0]['credit'] === '10.00', "status $code $body");
     [$code] = $get('reports/ledgerstatementrpt?account=' . $expDeletedH . '&' . $q);
     ok('ledger statement accepts a deleted account with history', $code === 200, "status $code");
     $dates = '&start=2026-10-01&end=2026-10-31';

@@ -85,6 +85,8 @@ class IncomeStatementReport
             'name'      => self::name((string) $r['name']),
             'amount'    => self::bracket($r['amount']),
             'cmp'       => self::bracket($r['comparative']),
+            'amountRaw' => $r['amount'],
+            'cmpRaw'    => $r['comparative'],
             'direct'    => $direct,
             // children = another level of accounts; lines = the journal lines
             'next'      => (!$direct && $kids) ? 'children' : 'lines',
@@ -94,7 +96,7 @@ class IncomeStatementReport
     private static function section(array $s): array
     {
         return ['title' => $s['title'], 'rows' => array_map([self::class, 'row'], $s['rows']),
-                'total' => self::bracket($s['total']), 'cmpTotal' => self::bracket($s['comparativeTotal']), 'sumsExactly' => $s['sumsExactly']];
+                'total' => self::bracket($s['total']), 'cmpTotal' => self::bracket($s['comparativeTotal']), 'totalRaw' => $s['total'], 'cmpTotalRaw' => $s['comparativeTotal'], 'sumsExactly' => $s['sumsExactly']];
     }
 
     /** The statement: Income, Total income, Expenditure, Total expenditure, Surplus, and type 5 lines only when non-zero. */
@@ -110,7 +112,7 @@ class IncomeStatementReport
         if ($r['dividends'] !== null) {
             $div = self::section($r['dividends']);
             $div['title'] = 'Dividends';
-            $final = ['amount' => self::bracket($r['surplusAfterDividends']['amount']), 'cmp' => self::bracket($r['surplusAfterDividends']['comparative'])];
+            $final = ['amount' => self::bracket($r['surplusAfterDividends']['amount']), 'cmp' => self::bracket($r['surplusAfterDividends']['comparative']), 'amountRaw' => $r['surplusAfterDividends']['amount'], 'cmpRaw' => $r['surplusAfterDividends']['comparative']];
         }
         $u = [];
         foreach ($r['unclassified']['rows'] as $x) { $u[] = ['id' => $x['id'], 'name' => self::name($x['name']), 'amount' => self::bracket($x['net'])]; }
@@ -122,7 +124,7 @@ class IncomeStatementReport
             'cmpEnd'       => $r['comparative']['to'] ?? null,
             'income'       => $income,
             'expense'      => $expense,
-            'surplus'      => ['amount' => self::bracket($r['surplus']['amount']), 'cmp' => self::bracket($r['surplus']['comparative'])],
+            'surplus'      => ['amount' => self::bracket($r['surplus']['amount']), 'cmp' => self::bracket($r['surplus']['comparative']), 'amountRaw' => $r['surplus']['amount'], 'cmpRaw' => $r['surplus']['comparative']],
             'dividends'    => $div,
             'final'        => $final,
             'unclassified' => ['present' => $r['unclassified']['present'], 'message' => $r['unclassified']['message'], 'rows' => $u],
@@ -134,7 +136,7 @@ class IncomeStatementReport
      * One drill level for an account ID: the next level of accounts (rows add up to the figure clicked) or the journal lines.
      * $mode: 'children' (default when there is a next level) or 'lines'; $direct = only the account's own postings.
      */
-    public static function drill(PDO $db, array $scope, int $accountId, string $start, string $end, string $mode, bool $direct): array
+    public static function drill(PDO $db, array $scope, int $accountId, string $start, string $end, string $mode, bool $direct, int $page = 1, int $pageSize = 50, string $search = ''): array
     {
         $chart = FinancialReport::chart($db, $scope);
         $node = $chart['nodes'][$accountId] ?? null;
@@ -162,38 +164,82 @@ class IncomeStatementReport
                     'cmpEnd'       => $c['period']['comparative'] ? FinancialReport::samePeriodLastYear($start, $end)[1] : null,
                     'rows'         => array_map([self::class, 'row'], $c['rows']),
                     'rowsTotal'    => self::bracket($c['rowsTotal']),
+                    'rowsTotalRaw' => $c['rowsTotal'],
                     'sumsExactly'  => $c['sumsExactly'],
                 ];
             }
         }
-        // journal lines: the whole subtree, or only the postings on the account itself
-        $L = FinancialReport::lines($db, $scope, $accountId, $period, !$direct);
-        $rows = [];
-        foreach ($L['rows'] as $x) {
-            $rows[] = [
-                'date'      => date('d-m-Y', strtotime($x['date'])),
-                'entryId'   => $x['entryId'],
-                'journalNo' => $x['journalNo'],
-                'reference' => $x['reference'],
-                'memo'      => $x['memo'],
-                'type'      => $x['typeName'],
-                'account'   => self::name($x['accountName']),
-                'debit'     => $x['debit'] ? self::bracket($x['debit']) : '',
-                'credit'    => $x['credit'] ? self::bracket($x['credit']) : '',
-                'balance'   => self::bracket($x['balance']),
-                'link'      => $x['link'] === null ? null : URLROOT . '/' . $x['link'],
-            ];
+        // journal lines: the whole subtree, or only the postings on the account itself (server-side search and paging)
+        $L = FinancialReport::linesPage($db, $scope, $accountId, $period, !$direct, $page, $pageSize, $search);
+        return $out + LinesView::shape($L) + ['name' => self::name($node['name']) . ($direct ? ' (postings on this account)' : '')];
+    }
+
+    /** GET parameters of the export: format=xlsx */
+    public static function wantsXlsx(): bool
+    {
+        return ($_GET['format'] ?? '') === 'xlsx';
+    }
+
+    /** JSON or, with format=xlsx, the Excel workbook of the statement */
+    public static function respondReport(PDO $db, array $scope, string $entity, string $start, string $end): void
+    {
+        $d = self::report($db, $scope, $entity, $start, $end);
+        if (!self::wantsXlsx()) { self::send($d); }
+        XlsxWriter::download('income-statement-' . $start . '-to-' . $end . '.xlsx', 'Income statement', self::reportSheet($d), [44, 20, 28]);
+    }
+
+    /**
+     * One drill level as JSON or Excel. Excel carries every row: the accounts of the level, or all the journal lines of the view
+     * (those matching `search`, whatever the page).
+     */
+    public static function respondDrill(PDO $db, array $scope, string $entity, int $account, string $start, string $end, string $mode, bool $direct, array $q): void
+    {
+        [$page, $size, $search] = LinesView::params($q);
+        if (!self::wantsXlsx()) { self::send(self::drill($db, $scope, $account, $start, $end, $mode, $direct, $page, $size, $search)); }
+        $d = self::drill($db, $scope, $account, $start, $end, $mode, $direct, 1, 1, '');   // decides children or lines
+        $heading = [$entity, 'Income statement drill-down: ' . $d['name'], 'Period ' . self::ddmmyyyy($start) . ' to ' . self::ddmmyyyy($end)];
+        if ($d['mode'] === 'lines') {
+            $L = FinancialReport::linesPage($db, $scope, $account, ['kind' => 'is', 'from' => $start, 'to' => $end, 'comparative' => true], !$direct, 1, 0, $search);
+            XlsxWriter::download('income-statement-lines-' . $account . '.xlsx', 'Journal lines', LinesView::sheetRows($L, $heading), LinesView::widths());
         }
-        return $out + [
-            'mode'        => 'lines',
-            'name'        => self::name($node['name']) . ($direct ? ' (postings on this account)' : ''),
-            'opening'     => self::bracket($L['opening']),
-            'closing'     => self::bracket($L['closing']),
-            'movement'    => self::bracket($L['movement']),
-            'debits'      => self::bracket($L['totals']['debit']),
-            'credits'     => self::bracket($L['totals']['credit']),
-            'direction'   => $L['direction'],
-            'rows'        => $rows,
+        $rows = [];
+        foreach ($heading as $i => $h) { $rows[] = [XlsxWriter::s($h, $i === 0)]; }
+        $rows[] = [];
+        $rows[] = [XlsxWriter::s('Account', true), XlsxWriter::s('Amount', true), XlsxWriter::s('Last year', true)];
+        foreach ($d['rows'] as $r) { $rows[] = [XlsxWriter::s($r['name']), XlsxWriter::m($r['amountRaw']), XlsxWriter::m($r['cmpRaw'])]; }
+        $rows[] = [XlsxWriter::s('Total', true), XlsxWriter::m($d['rowsTotalRaw'], true), null];
+        XlsxWriter::download('income-statement-' . $account . '.xlsx', 'Income statement', $rows, [44, 20, 20]);
+    }
+
+    private static function ddmmyyyy(string $d): string { return date('d-m-Y', strtotime($d)); }
+
+    /** the statement as a worksheet: headings, period labels, lines, totals, comparative column (real numbers) */
+    public static function reportSheet(array $d): array
+    {
+        $S = function ($t, $b = false) { return XlsxWriter::s($t, $b); };
+        $rows = [
+            [$S($d['entity'], true)],
+            [$S('Income statement for the period ' . self::ddmmyyyy($d['start']) . ' to ' . self::ddmmyyyy($d['end']))],
+            [],
+            [$S('Account', true), $S(self::ddmmyyyy($d['start']) . ' - ' . self::ddmmyyyy($d['end']), true), $S($d['cmpStart'] ? self::ddmmyyyy($d['cmpStart']) . ' - ' . self::ddmmyyyy($d['cmpEnd']) . ' (last year)' : 'Last year', true)],
         ];
+        $sec = function ($s) use (&$rows, $S) {
+            $rows[] = [$S($s['title'], true)];
+            foreach ($s['rows'] as $r) { $rows[] = [$S($r['name']), XlsxWriter::m($r['amountRaw']), XlsxWriter::m($r['cmpRaw'])]; }
+            $rows[] = [$S('Total ' . strtolower($s['title']), true), XlsxWriter::m($s['totalRaw'], true), XlsxWriter::m($s['cmpTotalRaw'], true)];
+        };
+        $sec($d['income']);
+        $sec($d['expense']);
+        $rows[] = [$S('Surplus / (deficit) for the period', true), XlsxWriter::m($d['surplus']['amountRaw'], true), XlsxWriter::m($d['surplus']['cmpRaw'], true)];
+        if ($d['dividends']) {
+            $sec($d['dividends']);
+            $rows[] = [$S('Surplus / (deficit) after dividends', true), XlsxWriter::m($d['final']['amountRaw'], true), XlsxWriter::m($d['final']['cmpRaw'], true)];
+        }
+        if ($d['unclassified']['present']) {
+            $rows[] = [];
+            $rows[] = [$S($d['unclassified']['message'], true)];
+            foreach ($d['unclassified']['rows'] as $u) { $rows[] = [$S($u['name'] . ' (account ' . $u['id'] . ')'), $S($u['amount'])]; }
+        }
+        return $rows;
     }
 }

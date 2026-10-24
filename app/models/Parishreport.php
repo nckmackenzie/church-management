@@ -165,20 +165,6 @@ class Parishreport
         }
         return $this->db->resultSet();
     }
-    public function GetTrialBalance($data)
-    {
-        if ($data['cong'] != 0) {
-            $this->db->query('CALL sp_trialbalance(:startdate,:enddate,:cong)');
-        }else {
-            $this->db->query('CALL sp_trialbalance_parish(:startdate,:enddate)');
-        }
-        $this->db->bind(':startdate',$data['start']);
-        $this->db->bind(':enddate',$data['end']);
-        if ($data['cong'] != 0) {
-            $this->db->bind(':cong',$data['cong']);
-        }
-        return $this->db->resultSet();
-    }
     public function GetAssets($data)
     {
         if ($data['cong'] != 0) {

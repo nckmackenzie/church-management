@@ -466,7 +466,7 @@ class Parishreports extends Controller
         [$start, $end] = IncomeStatementReport::dates($_GET);
         $db = (new Database)->pdo();
         [$scope,$entity] = IncomeStatementReport::parishScope($db,$_GET['cong'] ?? null);
-        IncomeStatementReport::send(IncomeStatementReport::report($db,$scope,$entity,$start,$end));
+        IncomeStatementReport::respondReport($db,$scope,$entity,$start,$end);
     }
 
     /** One drill level (account ID): the next level of accounts or the journal lines; the rows add up to the figure clicked. */
@@ -484,8 +484,8 @@ class Parishreports extends Controller
         $mode = ($_GET['view'] ?? '') === 'lines' ? 'lines' : 'children';
         $direct = ($_GET['direct'] ?? '') === '1';
         $db = (new Database)->pdo();
-        [$scope] = IncomeStatementReport::parishScope($db,$_GET['cong'] ?? null);
-        IncomeStatementReport::send(IncomeStatementReport::drill($db,$scope,$account,$start,$end,$mode,$direct));
+        [$scope,$entity] = IncomeStatementReport::parishScope($db,$_GET['cong'] ?? null);
+        IncomeStatementReport::respondDrill($db,$scope,$entity,$account,$start,$end,$mode,$direct,$_GET);
     }
 
     /** Old name-based drill URLs: nothing is queried any more. */
@@ -503,57 +503,29 @@ class Parishreports extends Controller
     public function trialbalance()
     {
         checkrights($this->authmodel,'trial balance');
-        $congregations = $this->parishReportModel->GetCongregations();
-        $data = [
-            'congregations' => $congregations,
-        ];
+        $data = ['congregations' => $this->parishReportModel->GetCongregations()];
         $this->view('parishreports/trialbalance',$data);
     }
+
+    /** JSON (or format=xlsx): asof, cong (0 / empty = the whole parish scope), detailed=1 */
     public function trialbalancerpt()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [
-                'cong' => trim($_GET['cong']),
-                'start' => trim($_GET['start']),
-                'end' => trim($_GET['end']),
-            ];
-            $accounts_balances = $this->parishReportModel->GetTrialBalance($data);
-            $output = '';
-            $output .='
-                <table id="table" class="table table-striped table-bordered table-sm">
-                    <thead class="bg-lightblue">
-                        <tr>
-                            <th>Account</th>
-                            <th>Debit</th>
-                            <th>Credit</th>
-                        </tr>
-                    </thead>
-                    <tbody>';
-                    foreach ($accounts_balances as $balance ) {
-                        $output .='
-                            <tr>
-                                <td>'.strtoupper($balance->account).'</td>
-                                <td>'.number_format(floatval($balance->Debit),2).'</td>
-                                <td>'.number_format(floatval($balance->credit),2).'</td>
-                            </tr>
-                        ';
-                    }
-                    $output .='
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <th style="text-align:right">Total</th>
-                            <th id="debittotal"></th>
-                            <th id="credittotal"></th>
-                        </tr>
-                    </tfoot>
-                </table>';
-            
-            echo $output;
-        }else {
-            redirect('users');
-        }
+        $db = (new Database)->pdo();
+        [$scope,$entity] = IncomeStatementReport::parishScope($db,$_GET['cong'] ?? null);
+        TrialBalanceReport::serveReport($db,$scope,$entity);
+    }
+
+    public function trialbalancedrill()
+    {
+        $this->view('parishreports/trialbalancedrill',[]);
+        exit;
+    }
+
+    public function trialbalancedrillrpt()
+    {
+        $db = (new Database)->pdo();
+        [$scope,$entity] = IncomeStatementReport::parishScope($db,$_GET['cong'] ?? null);
+        TrialBalanceReport::serveDrill($db,$scope,$entity);
     }
     public function balancesheet()
     {

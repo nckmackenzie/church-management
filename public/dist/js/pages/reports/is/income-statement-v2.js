@@ -1,56 +1,18 @@
-// Income statement (congregation and parish) and its drill-down, task 9.2.
+// Income statement (congregation and parish) and its drill-down, tasks 9.2 / 9.3.
 // Every server string is put on the page with textContent; the URLs carry account IDs only.
+import { el, show, ddmmyyyy, getJson, query, amountCell, printButton, excelLink, childrenPanel, linesPanel } from './report-ui-v1.js';
+
 const app = document.getElementById('isapp');
 const base = app.dataset.base; // .../reports or .../parishreports
 const page = app.dataset.mode; // 'index' | 'drill'
 const alertBox = document.getElementById('isalert');
+const say = (m, k) => show(alertBox, m, k);
 
-function el(tag, text, cls, attrs) {
-  const e = document.createElement(tag);
-  if (text !== undefined && text !== null) e.textContent = text;
-  if (cls) e.className = cls;
-  if (attrs) Object.keys(attrs).forEach(k => e.setAttribute(k, attrs[k]));
-  return e;
-}
-function show(message, kind) {
-  alertBox.replaceChildren();
-  if (message) alertBox.appendChild(el('div', message, 'alert alert-' + (kind || 'danger')));
-}
-function ddmmyyyy(d) {
-  const p = String(d).split('-');
-  return p.length === 3 ? p[2] + '-' + p[1] + '-' + p[0] : String(d);
-}
-async function getJson(url) {
-  const res = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
-  const text = await res.text();
-  let data = null;
-  try { data = JSON.parse(text); } catch (e) { /* plain text message */ }
-  if (!res.ok || !data || data.success !== true) {
-    throw new Error((data && data.message) || text || 'The report could not be loaded');
-  }
-  return data;
-}
-function query(params) {
-  const q = new URLSearchParams();
-  Object.keys(params).forEach(k => { if (params[k] !== undefined && params[k] !== null && params[k] !== '') q.set(k, params[k]); });
-  return q.toString();
-}
 function drillUrl(ctx, row) {
   const p = { account: row.id, start: ctx.start, end: ctx.end, cong: ctx.cong };
   if (row.direct) p.direct = '1';
   else if (row.next === 'lines') p.view = 'lines';
   return base + '/plchildaccount?' + query(p);
-}
-function amountCell(text, href, cls) {
-  const td = el('td', null, 'text-right ' + (cls || ''));
-  if (text === null || text === undefined) return td;
-  if (href) { const a = el('a', text, '', { href, target: '_blank', rel: 'noopener' }); td.appendChild(a); } else { td.textContent = text; }
-  return td;
-}
-function printButton() {
-  const b = el('button', 'Print', 'btn btn-sm btn-secondary no-print', { type: 'button' });
-  b.addEventListener('click', () => window.print());
-  return b;
 }
 
 // ---------------------------------------------------------------- report
@@ -109,6 +71,7 @@ function renderReport(d, ctx) {
   tw.appendChild(table);
   wrap.appendChild(tw);
   area.appendChild(printButton());
+  area.appendChild(excelLink(base + '/incomestatementrpt?' + query({ start: ctx.start, end: ctx.end, cong: ctx.cong, format: 'xlsx' })));
   area.appendChild(wrap);
 }
 
@@ -116,89 +79,57 @@ async function preview() {
   const start = document.getElementById('start').value;
   const end = document.getElementById('end').value;
   const congSel = document.getElementById('cong');
-  const cong = congSel ? congSel.value : '';
-  if (!start || !end) return show('Select the start and end dates');
-  if (start > end) return show('Start date cannot be after the end date');
-  show('');
+  const cong = congSel && congSel.value !== '0' ? congSel.value : '';
+  if (!start || !end) return say('Select the start and end dates');
+  if (start > end) return say('Start date cannot be after the end date');
+  say('');
   try {
-    const d = await getJson(base + '/incomestatementrpt?' + query({ start, end, cong: cong === '0' ? '' : cong }));
-    renderReport(d, { start, end, cong: cong === '0' ? '' : cong });
+    const d = await getJson(base + '/incomestatementrpt?' + query({ start, end, cong }));
+    renderReport(d, { start, end, cong });
   } catch (e) {
     document.getElementById('results').replaceChildren();
-    show(e.message);
+    say(e.message);
   }
 }
 
 // ---------------------------------------------------------------- drill
-function renderDrill(d, ctx) {
+function renderDrill(d, ctx, account) {
   const area = document.getElementById('results');
   area.replaceChildren();
   const wrap = el('div', null, 'is-print-area');
   wrap.id = 'printarea';
   const nav = el('nav', null, 'mb-2');
-  const top = el('a', 'Income statement', '', { href: base + '/incomestatement?' + query({ start: ctx.start, end: ctx.end, cong: ctx.cong }) });
-  nav.appendChild(top);
+  nav.appendChild(el('a', 'Income statement', '', { href: base + '/incomestatement?' + query({ start: ctx.start, end: ctx.end, cong: ctx.cong }) }));
   d.crumbs.forEach((c, i) => {
     nav.appendChild(document.createTextNode(' > '));
-    const last = i === d.crumbs.length - 1 && !ctx.direct && ctx.view !== 'lines' && d.mode === 'children';
-    if (last) { nav.appendChild(el('span', c.name)); }
-    else { nav.appendChild(el('a', c.name, '', { href: base + '/plchildaccount?' + query({ account: c.id, start: ctx.start, end: ctx.end, cong: ctx.cong }) })); }
+    const last = i === d.crumbs.length - 1 && d.mode === 'children';
+    if (last) nav.appendChild(el('span', c.name));
+    else nav.appendChild(el('a', c.name, '', { href: base + '/plchildaccount?' + query({ account: c.id, start: ctx.start, end: ctx.end, cong: ctx.cong }) }));
   });
   if (d.mode === 'lines') { nav.appendChild(document.createTextNode(' > ')); nav.appendChild(el('span', d.direct ? 'Postings on this account' : 'Journal lines')); }
   wrap.appendChild(nav);
   wrap.appendChild(el('div', 'Period ' + ddmmyyyy(d.start) + ' to ' + ddmmyyyy(d.end), 'mb-2'));
-
-  const table = el('table', null, 'table table-sm table-bordered');
-  table.id = 'table';
-  const thead = el('thead', null, 'bg-lightblue');
-  const tr0 = el('tr');
-  const tb = el('tbody');
+  const xlParams = { account, start: ctx.start, end: ctx.end, cong: ctx.cong, direct: ctx.direct ? '1' : '', view: ctx.view };
+  area.appendChild(printButton());
   if (d.mode === 'children') {
+    area.appendChild(excelLink(base + '/plchildaccountrpt?' + query(Object.assign({}, xlParams, { format: 'xlsx' }))));
     wrap.appendChild(el('h5', d.name + ': ' + d.amount + (d.cmp !== null ? '  (last year ' + d.cmp + ')' : '')));
-    ['Account', 'Amount', 'Last year'].forEach((t, i) => tr0.appendChild(el('th', t, i ? 'text-right' : '')));
-    d.rows.forEach(r => {
-      const tr = el('tr');
-      tr.appendChild(el('td', r.name));
+    const rows = d.rows.map(r => {
       const href = drillUrl(ctx, r);
-      tr.appendChild(amountCell(r.amount, href));
-      tr.appendChild(amountCell(r.cmp, r.cmp === null ? null : href));
-      tb.appendChild(tr);
+      return { text: r.name, cells: [el('td', r.name), amountCell(r.amount, href), amountCell(r.cmp, r.cmp === null ? null : href)] };
     });
-    const tr = el('tr', null, 'font-weight-bold table-active');
-    tr.appendChild(el('td', 'Total of the rows (' + (d.sumsExactly ? 'adds up to' : 'DOES NOT add up to') + ' ' + d.amount + ')'));
-    tr.appendChild(amountCell(d.rowsTotal));
-    tr.appendChild(amountCell(''));
-    tb.appendChild(tr);
+    const footer = [el('td', 'Total of the rows (' + (d.sumsExactly ? 'adds up to' : 'DOES NOT add up to') + ' ' + d.amount + ')'), amountCell(d.rowsTotal), amountCell('')];
+    childrenPanel(wrap, ['Account', 'Amount', 'Last year'], rows, footer);
   } else {
     wrap.appendChild(el('h5', d.name + ': movement ' + d.movement));
-    ['Date', 'Entry no', 'Journal no', 'Reference', 'Narration', 'Type', 'Account', 'Debit', 'Credit', 'Balance', 'Source'].forEach((t, i) => tr0.appendChild(el('th', t, i >= 7 && i <= 9 ? 'text-right' : '')));
-    const op = el('tr', null, 'font-italic');
-    op.appendChild(el('td', 'Opening balance (before ' + ddmmyyyy(d.start) + ')', '', { colspan: '9' }));
-    op.appendChild(amountCell(d.opening));
-    op.appendChild(el('td'));
-    tb.appendChild(op);
-    d.rows.forEach(r => {
-      const tr = el('tr');
-      [r.date, r.entryId, r.journalNo === null ? '' : r.journalNo, r.reference, r.memo, r.type, r.account].forEach(v => tr.appendChild(el('td', v)));
-      tr.appendChild(amountCell(r.debit)); tr.appendChild(amountCell(r.credit)); tr.appendChild(amountCell(r.balance));
-      const src = el('td');
-      if (r.link) src.appendChild(el('a', 'Open', '', { href: r.link, target: '_blank', rel: 'noopener' }));
-      tr.appendChild(src);
-      tb.appendChild(tr);
+    linesPanel(wrap, {
+      withAccount: true,
+      openingLabel: 'Opening balance (before ' + ddmmyyyy(d.start) + ')',
+      first: d,
+      load: (p, s, q) => getJson(base + '/plchildaccountrpt?' + query(Object.assign({}, xlParams, { page: p, pageSize: s, search: q }))),
+      excel: (q) => base + '/plchildaccountrpt?' + query(Object.assign({}, xlParams, { format: 'xlsx', search: q })),
     });
-    const tot = el('tr', null, 'font-weight-bold table-active');
-    tot.appendChild(el('td', 'Total of the period', '', { colspan: '7' }));
-    tot.appendChild(amountCell(d.debits)); tot.appendChild(amountCell(d.credits)); tot.appendChild(amountCell(d.closing));
-    tot.appendChild(el('td'));
-    tb.appendChild(tot);
   }
-  thead.appendChild(tr0);
-  table.appendChild(thead);
-  table.appendChild(tb);
-  const tw = el('div', null, 'table-responsive');
-  tw.appendChild(table);
-  wrap.appendChild(tw);
-  area.appendChild(printButton());
   area.appendChild(wrap);
 }
 
@@ -208,9 +139,9 @@ async function loadDrill() {
   const account = p.get('account') || '';
   try {
     const d = await getJson(base + '/plchildaccountrpt?' + query({ account, start: ctx.start, end: ctx.end, cong: ctx.cong, direct: ctx.direct ? '1' : '', view: ctx.view }));
-    renderDrill(d, ctx);
+    renderDrill(d, ctx, account);
   } catch (e) {
-    show(e.message);
+    say(e.message);
   }
 }
 

@@ -329,14 +329,6 @@ class Report {
         return $this->db->resultSet();
     }
 
-    public function GetTrialBalance($data)
-    {
-        $this->db->query('CALL sp_trialbalance(:startdate,:enddate,:cong)');
-        $this->db->bind(':startdate',$data['start']);
-        $this->db->bind(':enddate',$data['end']);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        return $this->db->resultSet();
-    }
     public function GetAssets($date)
     {
         // $this->db->query('CALL sp_balancesheet_assets(:startd,:cong)');
@@ -741,23 +733,6 @@ class Report {
             $sql = 'CALL sp_get_subaccounts_balances_breakdown_district(?,?,?)';
             return loadresultset($this->db->dbh,$sql,[$data['asdate'],$details->CategoryId, $data['account']]);
         }
-    }
-
-    public function GetAccountStatement($data)
-    {
-        $details = loadsingleset($this->db->dbh,'SELECT LOWER(accountType) as accountType,isSubCategory FROM tblaccounttypes WHERE (ID = ?)',[$data['account']]);
-        $account = $details->accountType;
-        $isSubcategory = converttobool($details->isSubCategory);
-        if($isSubcategory){
-            $sql = "CALL sp_get_account_statement(?,?,?,?)";
-        }else{
-            if($data['subledgers'] == 1){
-                $sql = "CALL sp_get_account_statement_parent(?,?,?,?)";
-            }else{
-                $sql = "CALL sp_get_account_statement(?,?,?,?)";
-            }            
-        }
-        return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$account,(int)$_SESSION['congId']]);
     }
 
     public function GetUnaccountedReport($data)

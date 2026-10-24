@@ -638,7 +638,7 @@ class Reports extends Controller {
         [$start, $end] = IncomeStatementReport::dates($_GET);
         $db = (new Database)->pdo();
         $cong = (int)$_SESSION['congId'];
-        IncomeStatementReport::send(IncomeStatementReport::report($db,[$cong],IncomeStatementReport::congregationName($db,$cong),$start,$end));
+        IncomeStatementReport::respondReport($db,[$cong],IncomeStatementReport::congregationName($db,$cong),$start,$end);
     }
 
     /** One drill level (account ID): the next level of accounts or the journal lines; the rows add up to the figure clicked. */
@@ -656,7 +656,8 @@ class Reports extends Controller {
         $mode = ($_GET['view'] ?? '') === 'lines' ? 'lines' : 'children';
         $direct = ($_GET['direct'] ?? '') === '1';
         $db = (new Database)->pdo();
-        IncomeStatementReport::send(IncomeStatementReport::drill($db,[(int)$_SESSION['congId']],$account,$start,$end,$mode,$direct));
+        $cong = (int)$_SESSION['congId'];
+        IncomeStatementReport::respondDrill($db,[$cong],IncomeStatementReport::congregationName($db,$cong),$account,$start,$end,$mode,$direct,$_GET);
     }
 
     /** Old name-based drill URLs: nothing is queried any more. */
@@ -876,57 +877,13 @@ class Reports extends Controller {
         }
     }
 
+    /** The old period trial balance is gone (task 9.3): the trial balance has one screen, with an As Of Date. */
     public function trialbalance()
     {
-        checkrights($this->authmodel,'trial balance');
-        $data = [];
-        $this->view('reports/trialbalance',$data);
+        redirect('trialbalance');
+        exit;
     }
-    public function trialbalancerpt()
-    {
-        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [
-                'start' => trim($_GET['start']),
-                'end' => trim($_GET['end']),
-            ];
-            $accounts_balances = $this->reportModel->GetTrialBalance($data);
-            $output = '';
-            $output .='
-                <table id="table" class="table table-striped table-bordered table-sm">
-                    <thead class="bg-lightblue">
-                        <tr>
-                            <th>Account</th>
-                            <th>Debit</th>
-                            <th>Credit</th>
-                        </tr>
-                    </thead>
-                    <tbody>';
-                    foreach ($accounts_balances as $balance ) {
-                        $output .='
-                            <tr>
-                                <td>'.strtoupper($balance->account).'</td>
-                                <td>'.number_format(floatval($balance->Debit),2).'</td>
-                                <td>'.number_format(floatval($balance->credit),2).'</td>
-                            </tr>
-                        ';
-                    }
-                    $output .='
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <th style="text-align:right">Total</th>
-                            <th id="debittotal"></th>
-                            <th id="credittotal"></th>
-                        </tr>
-                    </tfoot>
-                </table>';
-            
-            echo $output;
-        }else {
-            redirect('users');
-        }
-    }
+
     public function balancesheet()
     {
         checkrights($this->authmodel,'balance sheet');
@@ -1670,71 +1627,13 @@ class Reports extends Controller {
         $this->view('reports/ledger_statement',$data);
     } 
 
+    /** Ledger Statement data (task 9.3): JSON, or format=xlsx; the account must be in the report-safe selector, every descendant when subledgers=1 */
     public function ledgerstatementrpt()
     {
-        if($_SERVER['REQUEST_METHOD'] === 'GET'){
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW) ;
-
-            $data = [
-                 'account' => $this->reportLedgerAccount($_GET['account'] ?? null),
-                 'from' => isset($_GET['from']) && !empty(trim($_GET['from'])) ? date('Y-m-d',strtotime(trim($_GET['from']))) : null,
-                 'to' => isset($_GET['from']) && !empty(trim($_GET['to'])) ? date('Y-m-d',strtotime(trim($_GET['to']))) : null,
-                 'subledgers' => isset($_GET['subledgers']) && !empty(trim($_GET['subledgers'])) ? (int)$_GET['subledgers'] : 0,
-            ];
- 
-            $rows = $this->reportModel->GetAccountStatement($data);
-            $debitsTotal = 0;
-            $creditsTotal = 0;
-
-            $output = '';
-            $output .='
-                <table class="table table-bordered table-sm" id="table">
-                    <thead class="bg-lightblue">
-                        <tr>
-                            <th>Date</th>
-                            <th>Narraion</th>
-                            <th>Reference</th>
-                            <th>Debit</th>
-                            <th>Credit</th>
-                            <th>Balance</th>
-                        </tr>
-                    </thead>
-                    <tbody>';
-                    foreach($rows as $row) {
-                        $debitsTotal += floatval($row->debit);
-                        $creditsTotal += floatval($row->credit);
-                        $debit = floatval($row->debit) == 0 ? '' : number_format($row->debit,2);
-                        $credit = floatval($row->credit) == 0 ? '' : number_format($row->credit,2);
-                       
-                        $output .= '
-                            <tr>
-                                <td>'.date('d-m-Y',strtotime($row->transactionDate)).'</td>
-                                <td>'.ucwords($row->narration).'</td>
-                                <td>'.ucwords($row->reference).'</td>
-                                <td>'.$debit.'</td>
-                                <td>'.$credit.'</td>
-                                <td>'.number_format($row->runningBalance,2).'</td>
-                            </tr>
-                        ';
-                    }
-                    $output .= '
-                    </tbody>
-                    <tfoot>
-                            <tr>
-                                <th style="text-align:center" colspan="3">Total:</th>
-                                <th id="debitsTotals">'.number_format($debitsTotal,2).'</th>
-                                <th id="creditsTotals">'.number_format($creditsTotal,2).'</th>
-                                <th></th>
-                            </tr>
-                    </tfoot>
-                </table>';
-
-            echo $output;
- 
-         }else{
-             redirect('users/deniedaccess');
-             exit();
-         }
+        $account = $this->reportLedgerAccount($_GET['account'] ?? null);
+        $db = (new Database)->pdo();
+        $cong = (int)$_SESSION['congId'];
+        LedgerStatementReport::serve($db,[$cong],IncomeStatementReport::congregationName($db,$cong),$account);
     }
 
     public function unaccounted_requisitions()
