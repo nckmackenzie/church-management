@@ -25,10 +25,10 @@ class Parishreports extends Controller
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
-                'congregations' => !empty($_GET['congregations']) ? join(",",$_GET['congregations']) : '',
-                'accounts' => !empty($_GET['accounts']) ? join(",",$_GET['accounts']) : '',
-                'start' => trim($_GET['start']),
-                'end' => trim($_GET['end']),
+                'congregations' => positiveIntListParam($_GET['congregations'] ?? null,'congregations'),
+                'accounts' => positiveIntListParam($_GET['accounts'] ?? null,'accounts'),
+                'start' => strictDateParam($_GET['start'] ?? null,'start date'),
+                'end' => strictDateParam($_GET['end'] ?? null,'end date'),
             ];
             // print_r($data);
             $contributions = $this->parishReportModel->GetContributions($data);
@@ -84,10 +84,10 @@ class Parishreports extends Controller
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
-                'congregations' => !empty($_GET['congregations']) ? join(",",$_GET['congregations']) : '',
-                'accounts' => !empty($_GET['accounts']) ? join(",",$_GET['accounts']) : '',
-                'start' => trim($_GET['start']),
-                'end' => trim($_GET['end']),
+                'congregations' => positiveIntListParam($_GET['congregations'] ?? null,'congregations'),
+                'accounts' => positiveIntListParam($_GET['accounts'] ?? null,'accounts'),
+                'start' => strictDateParam($_GET['start'] ?? null,'start date'),
+                'end' => strictDateParam($_GET['end'] ?? null,'end date'),
             ];
             // print_r($data);
             $contributions = $this->parishReportModel->GetContributionsByContributor($data);
@@ -143,10 +143,10 @@ class Parishreports extends Controller
         if ($_SERVER['REQUEST_METHOD'] == 'GET') {
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
-                'congregations' => !empty($_GET['congregations']) ? join(",",$_GET['congregations']) : '',
-                'accounts' => !empty($_GET['accounts']) ? join(",",$_GET['accounts']) : '',
-                'start' => trim($_GET['start']),
-                'end' => trim($_GET['end']),
+                'congregations' => positiveIntListParam($_GET['congregations'] ?? null,'congregations'),
+                'accounts' => positiveIntListParam($_GET['accounts'] ?? null,'accounts'),
+                'start' => strictDateParam($_GET['start'] ?? null,'start date'),
+                'end' => strictDateParam($_GET['end'] ?? null,'end date'),
             ];
             // print_r($data);
             $expenses = $this->parishReportModel->GetExpenses($data);

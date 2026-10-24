@@ -237,6 +237,63 @@ function converttobool($val){
     $converted = filter_var($val, FILTER_VALIDATE_BOOLEAN);
     return $converted;
 }
+
+/** Stop a request with a client-safe validation error. */
+function badRequest($message = 'Invalid request parameters.')
+{
+    http_response_code(400);
+    header('Content-Type: text/plain; charset=UTF-8');
+    echo $message;
+    exit;
+}
+
+/** Accept an exact calendar date in YYYY-MM-DD form. */
+function strictDateParam($value, $name)
+{
+    if (!is_string($value) || !preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value)) {
+        badRequest('Invalid ' . $name . ': expected YYYY-MM-DD.');
+    }
+    $date = DateTime::createFromFormat('!Y-m-d', $value);
+    $errors = DateTime::getLastErrors();
+    if ($date === false || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0)) || $date->format('Y-m-d') !== $value) {
+        badRequest('Invalid ' . $name . ': expected a valid calendar date.');
+    }
+    return $value;
+}
+
+/** Accept a plain positive decimal integer, optionally restricted to known values. */
+function positiveIntParam($value, $name, array $allowed = null)
+{
+    if (!is_string($value) || !ctype_digit($value) || $value === '' || strlen($value) > 10 || (strlen($value) === 10 && strcmp($value,'2147483647') > 0) || (int)$value < 1) {
+        badRequest('Invalid ' . $name . ': expected a positive integer.');
+    }
+    $number = (int)$value;
+    if ($allowed !== null && !in_array($number, $allowed, true)) {
+        badRequest('Invalid ' . $name . '.');
+    }
+    return $number;
+}
+
+/** Accept a bounded list of plain positive decimal integers. */
+function positiveIntListParam($value, $name, $allowEmpty = false, $maximum = 250)
+{
+    if ($value === null || $value === '') {
+        if ($allowEmpty) { return []; }
+        badRequest('Invalid ' . $name . ': select at least one value.');
+    }
+    if (!is_array($value) || count($value) === 0) {
+        if ($allowEmpty && is_array($value)) { return []; }
+        badRequest('Invalid ' . $name . ': expected a list of positive integers.');
+    }
+    if (count($value) > $maximum) {
+        badRequest('Invalid ' . $name . ': too many values.');
+    }
+    $result = [];
+    foreach ($value as $item) {
+        $result[] = positiveIntParam($item, $name);
+    }
+    return $result;
+}
 //Get value from Database
 function getdbvalue($con,$sql,$arr){
     $stmt = $con->prepare($sql);
