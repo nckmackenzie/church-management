@@ -5,3 +5,9 @@ public/.htaccess
 public/dist/js/pages/utils/utils.js
 public/error_log
 scripts/logs
+# dev-only files, never deployed
+scripts/dev_*
+ledger-migration/dev_*
+**/make_dev_session*
+**/dev_session*
+scripts/logs/
