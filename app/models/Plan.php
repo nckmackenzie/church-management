@@ -57,16 +57,28 @@ class Plan
         $this->db->bind(':cid',$_SESSION['congId']);
         $this->db->execute();
     }
-    public function GetAccounts()
+    public function GetAccounts($legacyId = 0)
     {
-        $this->db->query('SELECT ID,
-                                 UCASE(accountType) as accountType 
-                          FROM   tblaccounttypes
-                          WHERE  (parentId <> 0) AND (deleted = 0)
-                                 AND ((congregationId = 0) OR (congregationId=:cid))
-                          ORDER BY accountType');
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();
+        $cong=(int)$_SESSION['congId'];
+        $rows=loadresultset($this->db->dbh,'SELECT ID,UCASE(accountType) accountType FROM tblaccounttypes
+            WHERE deleted=0 AND active=1 AND isBank=0 AND accountTypeId IN (1,2)
+              AND congregationId IN (0,?) ORDER BY accountType',[$cong]);
+        $valid=array_flip(Ledger::filterPostingAccounts($this->db->dbh,$cong,array_map(fn($r)=>(int)$r->ID,$rows)));
+        $out=array_values(array_filter($rows,fn($r)=>isset($valid[(int)$r->ID])));
+        $legacyId=(int)$legacyId;
+        if($legacyId && !isset($valid[$legacyId])){
+            $r=loadsingleset($this->db->dbh,'SELECT ID,UCASE(accountType) accountType FROM tblaccounttypes WHERE ID=?',[$legacyId]);
+            if($r){$out[]=$r;}
+        }
+        usort($out,fn($a,$b)=>strcmp($a->accountType,$b->accountType));
+        return $out;
+    }
+    public function accountProblem($id,$legacyId=0)
+    {
+        $id=(int)$id;
+        if($id && $id===(int)$legacyId){return null;}
+        foreach($this->GetAccounts() as $account){if((int)$account->ID===$id){return null;}}
+        return 'Select an active income or expense posting account for this congregation';
     }
     public function GetGroups()
     {
@@ -126,6 +138,7 @@ class Plan
     }
     public function create($data)
     {
+        if($this->accountProblem($data['account'])){return false;}
         $this->db->query('INSERT INTO tblworkplan (`Level`,FiscalYearId,WorkPlanName,Theme,MeetingDate,
                                                     Activty,Reason,EstimatedCost,FromDate,ToDate,
                                                     ImplementaionDate,AccountId,OfficeResponsible,Other,
@@ -164,19 +177,22 @@ class Plan
     }
     public function GetPlan($id)
     {
-        $this->db->query('SELECT * FROM tblworkplan WHERE (ID=:id)');
+        $this->db->query('SELECT * FROM tblworkplan WHERE (ID=:id) AND (CongregationId=:cid)');
         $this->db->bind(':id',decryptId($id));
+        $this->db->bind(':cid',(int)$_SESSION['congId']);
         return $this->db->single();
     }
     public function update($data)
     {
+        $stored=loadsingleset($this->db->dbh,'SELECT AccountId FROM tblworkplan WHERE ID=? AND CongregationId=?',[(int)$data['id'],(int)$_SESSION['congId']]);
+        if(!$stored || $this->accountProblem($data['account'],(int)$stored->AccountId)){return false;}
         $this->db->query('UPDATE tblworkplan SET `Level`=:lev,FiscalYearId=:fid,WorkPlanName=:pname,Theme=:theme,
                                                   MeetingDate=:mdate,Activty=:act,Reason=:reason,EstimatedCost=:ecost,
                                                   FromDate=:fdate,ToDate=:tdate,ImplementaionDate=:idate,AccountId=:aid,
                                                   OfficeResponsible=:office,Other=:other,Collaborator=:collabo,Results=:result,
                                                   ActualCost=:acost,EvidenceOfActivity=:evidence,
                                                   `FileName`=:filen,Remarks=:remarks,WorkPlanStatus=:wstatus
-                          WHERE (ID = :id)');
+                          WHERE (ID = :id) AND (CongregationId=:cid)');
 
         $this->db->bind(':lev',$data['level']);
         $this->db->bind(':fid',$data['year']);
@@ -200,6 +216,7 @@ class Plan
         $this->db->bind(':remarks',!empty($data['remarks']) ? $data['remarks'] : null);
         $this->db->bind(':wstatus',$data['status']);
         $this->db->bind(':id',$data['id']);
+        $this->db->bind(':cid',(int)$_SESSION['congId']);
 
         if ($this->db->execute()) {
             return true;

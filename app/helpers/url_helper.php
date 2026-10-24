@@ -76,40 +76,6 @@ function getRecordExists($sql,$connection,$param)
     $stmt->execute([$param]);
     return $stmt->fetchColumn();
 }
-function saveToLedger($connection,$date,$account,$parent,$debit,$credit,$narration,$accountId,$type,$tid,$cong,$reference){
-    $sql = "INSERT INTO tblledger (transactionDate,account,parentaccount,debit,credit,narration,accountId,
-            transactionType,transactionId,congregationId,reference) VALUES(?,?,?,?,?,?,?,?,?,?,?)";
-    $stmt = $connection->prepare($sql);
-    $stmt->execute([$date,$account,$parent,$debit,$credit,$narration,$accountId,$type,$tid,$cong,$reference]);
-}
-
-function saveToBanking($connection,$bank,$date,$debit,$credit,$method,$reference,$type,$tid,$cong){
-    $sql = 'INSERT INTO tblbankpostings (bankId,transactionDate,debit,credit,transactionMethod,reference
-            ,transactionType,transactionId,congregationId) VALUES(?,?,?,?,?,?,?,?,?)';
-    $stmt =$connection->prepare($sql);
-    $stmt->execute([$bank,$date,$debit,$credit,$method,$reference,$type,$tid,$cong]);
-}
-
-function deleteLedgerBanking($connection,$type,$tid){
-    $sql = 'DELETE FROM tblledger WHERE (transactionType=?) AND (transactionId=?)';
-    $stmt=$connection->prepare($sql);
-    if ($stmt->execute([$type,$tid])) {
-        $sql = 'DELETE FROM tblbankpostings WHERE (transactionType=?) AND (transactionId=?)';
-        $stmt=$connection->prepare($sql);
-        $stmt->execute([$type,$tid]);
-    }
-}
-
-function softdeleteLedgerBanking($connection,$type,$tid){
-    $sql = 'UPDATE tblledger SET deleted = 1 WHERE (transactionType=?) AND (transactionId=?)';
-    $stmt=$connection->prepare($sql);
-    if ($stmt->execute([$type,$tid])) {
-        $sql = 'UPDATE tblbankpostings SET deleted = 1 WHERE (transactionType=?) AND (transactionId=?)';
-        $stmt=$connection->prepare($sql);
-        $stmt->execute([$type,$tid]);
-    }
-}
-
 function generateId($sql,$connection,$param)
 {
     $stmt = $connection->prepare($sql);
@@ -394,20 +360,6 @@ function fiscalYearIdClosedProblem($con,$id){
         return 'The financial year '.strtoupper($year->yearName).' is closed';
     }
     return null;
-}
-
-//function to get the parent G/L Account
-function getparentgl($con,$childgl)
-{
-    $subcheckqry = 'SELECT isSubCategory FROM tblaccounttypes WHERE (accountType = ?)';
-    $isSub = getdbvalue($con,$subcheckqry,[trim(strtolower($childgl))]);
-    if(!converttobool($isSub)){
-        return $childgl;
-    }
-
-    $sql = 'SELECT parentId FROM tblaccounttypes WHERE (accountType = ?)';
-    $parentid = getdbvalue($con,$sql,[trim(strtolower($childgl))]);
-    return trim(getdbvalue($con,'SELECT accountType FROM tblaccounttypes WHERE (ID = ?)',[$parentid]));
 }
 
 //validate email

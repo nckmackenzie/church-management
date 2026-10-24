@@ -34,12 +34,38 @@ class Churchbudget {
         return $this->db->resultSet();
     }
 
-    public function getAccounts()
+    public function getAccounts(array $legacyIds = [])
     {
-        $this->db->query('SELECT * FROM tblaccounttypes 
-                          WHERE (deleted=0) AND (isSubCategory =1)
-                          ORDER BY accountType');
-        return $this->db->resultSet();
+        $cong = (int)$_SESSION['congId'];
+        $rows = loadresultset($this->db->dbh,'SELECT ID,UCASE(accountType) accountType FROM tblaccounttypes
+            WHERE deleted=0 AND active=1 AND isBank=0 AND accountTypeId IN (1,2)
+              AND congregationId IN (0,?) ORDER BY accountType',[$cong]);
+        $valid = array_flip(Ledger::filterPostingAccounts($this->db->dbh,$cong,array_map(fn($r)=>(int)$r->ID,$rows)));
+        $out = array_values(array_filter($rows,fn($r)=>isset($valid[(int)$r->ID])));
+        $present = array_flip(array_map(fn($r)=>(int)$r->ID,$out));
+        foreach(array_unique(array_map('intval',$legacyIds)) as $id){
+            if($id && !isset($present[$id])){
+                $r = loadsingleset($this->db->dbh,'SELECT ID,UCASE(accountType) accountType FROM tblaccounttypes WHERE ID=?',[$id]);
+                if($r){ $out[]=$r; $present[$id]=true; }
+            }
+        }
+        usort($out,fn($a,$b)=>strcmp($a->accountType,$b->accountType));
+        return $out;
+    }
+
+    public function accountProblem(array $ids, array $legacyIds = [])
+    {
+        $valid = array_flip(array_map(fn($r)=>(int)$r->ID,$this->getAccounts()));
+        $legacy = array_count_values(array_map('intval',$legacyIds));
+        foreach($ids as $id){
+            $id=(int)$id;
+            if(isset($valid[$id])){continue;}
+            if(isset($legacy[$id]) && $legacy[$id]>0){$legacy[$id]--;continue;}
+            if(!$id || !isset($valid[$id])){
+                return 'Select an active income or expense posting account for this congregation';
+            }
+        }
+        return null;
     }
 
     public function CheckYear($data)
@@ -60,6 +86,7 @@ class Churchbudget {
 
     public function Save($data)
     {
+        if($this->accountProblem((array)$data['accountsid'])){ return false; }
         try {
             $this->db->dbh->beginTransaction();
             $id = $this->getnewid();
@@ -97,6 +124,10 @@ class Churchbudget {
 
     public function Update($data)
     {
+        $header = loadsingleset($this->db->dbh,'SELECT ID FROM tblchurchbudget_header WHERE ID=? AND congregationId=?',[(int)$data['id'],(int)$_SESSION['congId']]);
+        if(!$header){ return false; }
+        $legacy = array_map('intval',array_column(loadresultset($this->db->dbh,'SELECT accountId FROM tblchurchbudget_details WHERE ID=?',[(int)$data['id']]),'accountId'));
+        if($this->accountProblem((array)$data['accountsid'],$legacy)){ return false; }
         try {
             $this->db->dbh->beginTransaction();
             
@@ -145,7 +176,7 @@ class Churchbudget {
 
     public function BudgetDetails($id)
     {
-        $this->db->query('SELECT d.tid,
+        $this->db->query('SELECT d.accountId,
                                  ucase(a.accountType) as accountType,
                                  d.amount
                           FROM   tblchurchbudget_details d inner join tblaccounttypes a on d.accountId=a.ID

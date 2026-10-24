@@ -154,19 +154,9 @@
                                     <?php endif; ?>
                                   </td>     
                             </tr>
-                            <?php
-                                $con=new PDO('mysql:host=localhost;dbname='.DB_NAME.'',DB_USER,DB_PASS);
-                                $con->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
-                                $sql = 'SELECT s.ID,UCASE(s.AccountName) as AccountName,
-                                               UCASE(a.accountType) AS Account
-                                        FROM   tblbanksubaccounts s join tblaccounttypes a on s.AccountId = a.ID
-                                        WHERE  (s.BankId=?) AND (s.Deleted=0)';
-                                $stmt = $con->prepare($sql);
-                                $stmt->execute([$bank->ID]);
-                                $hasChildren = $stmt->rowCount() > 0 ? true : false;
-                            ?>
-                            <?php if($hasChildren) : ?>
-                                <?php foreach($stmt->fetchAll(PDO::FETCH_OBJ) as $child) : ?>
+                            <?php $children=$data['subaccountsByBank'][(int)$bank->ID] ?? []; ?>
+                            <?php if($children) : ?>
+                                <?php foreach($children as $child) : ?>
                                   <tr>
                                       <td><?php echo $child->ID;?></td>
                                       <td class="sub-level-3"><?php echo $child->AccountName;?></td>

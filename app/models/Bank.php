@@ -27,6 +27,20 @@ class Bank {
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
 
+    public function getSubaccountsByBank()
+    {
+        $rows=loadresultset($this->db->dbh,'SELECT s.BankId,s.ID,UCASE(s.AccountName) AccountName,
+                    UCASE(a.accountType) Account
+                FROM tblbanksubaccounts s
+                JOIN tblaccounttypes a ON s.AccountId=a.ID
+                JOIN tblaccounttypes b ON s.BankId=b.ID
+                WHERE b.congregationId=? AND b.isBank=1 AND b.deleted=0 AND s.Deleted=0
+                ORDER BY s.BankId,s.AccountName',[(int)$_SESSION['congId']]);
+        $grouped=[];
+        foreach($rows as $row){$grouped[(int)$row->BankId][]=$row;}
+        return $grouped;
+    }
+
     public function getBanks()
     {
         $this->db->query('SELECT ID,

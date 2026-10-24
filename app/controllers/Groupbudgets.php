@@ -111,6 +111,13 @@ class Groupbudgets extends Controller{
                 ]);
             }
 
+            $legacy = $data['isedit'] ? array_map(fn($r)=>(int)$r->accountId,$this->budgetModel->BudgetDetails($data['id'])) : [];
+            if($problem=$this->budgetModel->accountProblem((array)$data['accountsid'],$legacy)){
+                $data['errmsg']=$problem;
+                $this->view('groupbudgets/add',$data);
+                exit;
+            }
+
             if(!$this->budgetModel->CreateUpdate($data)){
                 $data['errmsg'] = 'Unable to save budget. Retry or contact admin for help';
                 $this->view('groupbudgets/add',$data);
@@ -155,7 +162,7 @@ class Groupbudgets extends Controller{
 
         foreach($details as $detail){
             array_push($data['table'],[
-                'aid' => $detail->tid,
+                'aid' => $detail->accountId,
                 'name' => $detail->accountType,
                 'amount' => $detail->amount
             ]);
