@@ -3,7 +3,6 @@
 class Clearbankings extends Controller
 {
     private $clearmodel;
-    private $reusemodel;
     private $authmodel;
     public function __construct()
     {
@@ -14,13 +13,12 @@ class Clearbankings extends Controller
         $this->authmodel = $this->model('Auth');
         
         $this->clearmodel = $this->model('Clearbanking');
-        $this->reusemodel = $this->model('Reusables');
     }
 
     public function index()
     {
         checkrights($this->authmodel,'clear bankings');
-        $banks = $this->reusemodel->GetBanks();
+        $banks = $this->clearmodel->getBanks();
         $data = [
             'banks' => $banks,
         ];
@@ -174,7 +172,7 @@ class Clearbankings extends Controller
     public function modify()
     {
         checkrights($this->authmodel,'edit cleared bankings');
-        $banks = $this->reusemodel->GetBanks();
+        $banks = $this->clearmodel->getBanks();
         $data = [
             'banks' => $banks,
         ];

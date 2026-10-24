@@ -178,20 +178,10 @@ class Journal {
         if(!isset($data['id']) || empty(trim($data['id'])) || !is_numeric($data['id'])){
             return [];
         }
-        if((int)$data['type'] === 2){
-            // expenses: one shared method (posted entry, or a 'Not posted' preview of a draft); false = not found
-            require_once APPROOT . '/models/Expense.php';
-            return (new Expense)->getJournalDetails((int)$data['id']);
+        if((int)$data['type'] !== 2){
+            return null;
         }
-        $sql = 'SELECT 
-                    l.ID,
-                    l.transactionDate,
-                    l.account,
-                    l.debit,
-                    l.credit,
-                    l.narration
-                FROM `tblledger` l 
-                WHERE (transactionId = ?) AND (transactionType = ?) AND (l.deleted = 0) AND (l.congregationId=?)';
-        return loadresultset($this->db->dbh,$sql,[(int)$data['id'],$data['type'],(int)$_SESSION['congId']]);
+        require_once APPROOT . '/models/Expense.php';
+        return (new Expense)->getJournalDetails((int)$data['id']);
     }
 }

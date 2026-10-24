@@ -253,6 +253,8 @@ class Plans extends Controller
             }
             if (empty($data['account'])) {
                 $data['account_err'] = 'Select Budget Account';
+            }elseif($problem=$this->planModel->accountProblem($data['account'])){
+                $data['account_err'] = $problem;
             }
             if (empty($data['office'])) {
                 $data['office_err'] = 'Select Office Responsible';
@@ -340,7 +342,11 @@ class Plans extends Controller
         $years = $this->planModel->GetFiscalYears();
         $currentYear = $this->planModel->GetCurrentYear();
         $activities = $this->planModel->GetActivities();
-        $accounts = $this->planModel->GetAccounts();
+        if(!$plan){
+            redirect('users/deniedaccess');
+            exit;
+        }
+        $accounts = $this->planModel->GetAccounts((int)$plan->AccountId);
         if ($plan->Level === 1) {
             $collaborator = $this->planModel->GetCongregationAndGroups();
         }else{
@@ -455,7 +461,12 @@ class Plans extends Controller
             ];
             $encryId = encryptId($data['id']);
             $plan = $this->planModel->GetPlan($encryId);
+            if(!$plan){
+                redirect('users/deniedaccess');
+                exit;
+            }
             $data['plan'] = $plan;
+            $data['accounts'] = $this->planModel->GetAccounts((int)$plan->AccountId);
 
             $fileTmpName = '';
             $fileDesination = '';
@@ -524,6 +535,8 @@ class Plans extends Controller
             }
             if (empty($data['account'])) {
                 $data['account_err'] = 'Select Budget Account';
+            }elseif($problem=$this->planModel->accountProblem($data['account'],(int)$plan->AccountId)){
+                $data['account_err'] = $problem;
             }
             if (empty($data['office'])) {
                 $data['office_err'] = 'Select Office Responsible';

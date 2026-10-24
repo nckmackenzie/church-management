@@ -8,6 +8,17 @@ class Clearbanking
         $this->db = new Database;
     }
 
+    public function getBanks()
+    {
+        return loadresultset($this->db->dbh,"SELECT a.ID,UCASE(CONCAT(a.accountType,'-',IFNULL(a.accountNo,''))) Bank
+            FROM tblaccounttypes a
+            WHERE a.isBank=1 AND a.deleted=0 AND a.congregationId=?
+              AND (a.active=1 OR EXISTS (
+                    SELECT 1 FROM tblbankpostings b
+                    WHERE b.bankId=a.ID AND b.congregationId=a.congregationId AND b.deleted=0))
+            ORDER BY a.accountType",[(int)$_SESSION['congId']]);
+    }
+
     public function getBankings($data)
     {
         $sql = 'SELECT b.ID,

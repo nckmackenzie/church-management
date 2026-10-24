@@ -221,6 +221,12 @@ class Journals extends Controller{
 
         $details = $this->journalModel->getJournalDetails($data);
 
+        if($details === null){
+            http_response_code(400);
+            echo json_encode(['message' => 'Only expense journal details are available','success' => false]);
+            exit;
+        }
+
         if($details === false){
             http_response_code(404);
             echo json_encode(['message' => 'Journal not found','success' => false]);

@@ -295,7 +295,7 @@ try {
     ok('edit refused: invoice of another congregation (forged ID)', has($r, 'not found') && dbstate() === $before);
     $r = $model->Delete($foreignInv);
     ok('delete refused: invoice of another congregation (forged ID)', !$r['success'] && stripos(errs($r), 'not found') !== false && dbstate() === $before);
-    ok('lookups by ID are congregation-scoped: header, supplier, product rate', $model->getInvoiceHeader(encryptId($foreignInv)) === false && $model->getSupplierDetails($sForeign) === false && (new Product)->GetRate($pForeignProd) === false && (new Product)->GetRate($p1) !== false);
+    ok('lookups by ID are congregation-scoped: header and supplier', $model->getInvoiceHeader(encryptId($foreignInv)) === false && $model->getSupplierDetails($sForeign) === false);
 
     // closed-year lock on the OLD date of a stored invoice
     $r = $model->save(base(['invoiceno' => nextno()])); $ic = (int)$r['id'];

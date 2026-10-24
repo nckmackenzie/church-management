@@ -97,8 +97,4 @@ class Product
         return true;
     }
 
-    public function GetRate($id)
-    {
-        return getdbvalue($this->db->dbh,'SELECT rate FROM tblproducts WHERE ID = ? AND congregationId = ? AND deleted = 0',[(int)$id,(int)$_SESSION['congId']]);
-    }
 }

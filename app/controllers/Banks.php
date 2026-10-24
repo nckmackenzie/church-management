@@ -20,7 +20,8 @@ class Banks extends Controller{
         $banks = $this->bankModel->getBanks();
         $data = [
             'banks' => $banks,
-            'subaccounts' => $this->bankModel->GetSubaccounts()
+            'subaccounts' => $this->bankModel->GetSubaccounts(),
+            'subaccountsByBank' => $this->bankModel->getSubaccountsByBank()
         ];
         $this->view('banks/index',$data);
     }

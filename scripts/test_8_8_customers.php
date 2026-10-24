@@ -258,7 +258,7 @@ try {
     $before = dbstate();
     $r = $model->save(base(['id' => $foreignInv, 'isedit' => true]));
     ok('edit refused: invoice of another congregation (forged ID)', has($r, 'not found') && dbstate() === $before);
-    ok('lookups by ID are congregation-scoped: header, pay form, customer, print info, product rate', $model->getInvoiceHeader(encryptId($foreignInv)) === false && $model->fillInvoiceDetails(encryptId($foreignInv)) === false && $model->getCustomerDetails($cForeign) === false && $model->getCustomernInfo($cForeign) === false && (new Product)->GetRate($pForeignProd) === false);
+    ok('lookups by ID are congregation-scoped: header, pay form, customer and print info', $model->getInvoiceHeader(encryptId($foreignInv)) === false && $model->fillInvoiceDetails(encryptId($foreignInv)) === false && $model->getCustomerDetails($cForeign) === false && $model->getCustomernInfo($cForeign) === false);
     ok('lookups of an own invoice work', $model->getInvoiceHeader(encryptId($i1)) && $model->fillInvoiceDetails(encryptId($i1)) && $model->getCustomerDetails($ca));
 
     // closed-year lock on the OLD date of a stored invoice

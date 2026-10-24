@@ -41,7 +41,7 @@
                                             <thead class="table-info">
                                                 <tr>
                                                     <th class="d-none">ID</th>
-                                                    <th>Expense Account</th>
+                                                    <th>Income / Expense Account</th>
                                                     <th class="text-center">Amount Budgeted</th>
                                                 </tr>
                                             </thead>
@@ -68,4 +68,4 @@
 <?php require APPROOT . '/views/inc/footer.php'?>
 <script type="module" src="<?php echo URLROOT;?>/dist/js/pages/budgets/lcc-budget.js"></script>
 </body>
-</html>  
+</html>

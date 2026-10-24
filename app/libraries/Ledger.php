@@ -3,8 +3,8 @@
  * Ledger - the single way to write accounting entries (task 7).
  *
  * Writes journal_entries (header) and journal_lines (lines). Replaces
- * saveToLedger() / deleteLedgerBanking() / softdeleteLedgerBanking() for the
- * ledger side. tblbankpostings is still written separately for now (task 8).
+ * the former ledger helpers. tblbankpostings is maintained here as part of
+ * each source transaction.
  *
  * Rules enforced on every write:
  *   - at least 2 lines, every amount > 0 with at most 2 decimals
@@ -465,8 +465,8 @@ class Ledger
      * Matching is on bankId + side + amount (ROUND 2, tolerance 0.005, the
      * columns are FLOAT): a matched row is updated in place and keeps
      * cleared / clearedDare; an unmatched row is soft-deleted; an unmatched
-     * line gets a new uncleared row. accountId is left NULL, as saveToBanking()
-     * does. Rows are never hard-deleted.
+     * line gets a new uncleared row. accountId is left NULL for compatibility.
+     * Rows are never hard-deleted.
      *
      * Guard (8.9 follow-up): a CLEARED (reconciled) row that no wanted line matches would be
      * soft-deleted, which silently re-opens a reconciliation: that throws a LedgerException instead
