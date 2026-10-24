@@ -23,9 +23,8 @@ function renderReport(d, ctx) {
   area.replaceChildren();
   const wrap = el('div', null, 'is-print-area');
   wrap.id = 'printarea';
-  wrap.appendChild(el('h5', d.entity, 'mb-0'));
+  if (d.entity) wrap.appendChild(el('h5', d.entity, 'mb-0'));   // parish scope line only (decision 147)
   wrap.appendChild(el('div', (d.detailed ? 'Detailed trial balance' : 'Trial balance') + ' as at ' + ddmmyyyy(d.asOf), 'mb-0'));
-  wrap.appendChild(el('div', 'Assets, liabilities and equity are cumulative to the date; income, expenses and dividends run from ' + ddmmyyyy(d.yearStart) + ' (' + d.yearName + '); the result of earlier years is in "Accumulated fund b/f".', 'small mb-2'));
   if (d.unclassified.present) {
     const w = el('div', null, 'alert alert-warning');
     w.appendChild(el('div', d.unclassified.message));
@@ -48,7 +47,7 @@ function renderReport(d, ctx) {
       tb.appendChild(tr);
     }
     const tr = el('tr');
-    tr.appendChild(el('td', d.detailed && r.path ? r.path : r.name, 'pl-4'));
+    tr.appendChild(el('td', r.name, 'pl-4'));
     const href = r.next ? drillUrl(ctx, r, false) : null;
     tr.appendChild(amountCell(r.debit, r.debit ? href : null));
     tr.appendChild(amountCell(r.credit, r.credit ? href : null));

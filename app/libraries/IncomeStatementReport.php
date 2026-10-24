@@ -73,7 +73,7 @@ class IncomeStatementReport
 
     private static function name(string $n): string
     {
-        return ucwords($n);
+        return FinancialReport::title($n);
     }
 
     private static function row(array $r): array
@@ -146,7 +146,7 @@ class IncomeStatementReport
         $period = ['kind' => 'is', 'from' => $start, 'to' => $end, 'comparative' => true];
         $crumbs = [];
         foreach (array_reverse($node['chain']) as $cid) {
-            if (($chart['nodes'][$cid]['depth'] ?? 0) >= 2) { $crumbs[] = ['id' => $cid, 'name' => self::name($chart['nodes'][$cid]['name'])]; }
+            if (($chart['nodes'][$cid]['depth'] ?? 0) >= 2) { $crumbs[] = ['id' => $cid, 'name' => self::name($chart['nodes'][$cid]['label'])]; }
         }
         $out = ['crumbs' => $crumbs, 'start' => $start, 'end' => $end, 'direct' => $direct, 'root' => $node['root']];
 
@@ -157,7 +157,7 @@ class IncomeStatementReport
             if ($c['rows'] && !$onlyDirect) {
                 return $out + [
                     'mode'         => 'children',
-                    'name'         => self::name($c['node']['name']),
+                    'name'         => self::name($c['node']['label']),
                     'amount'       => self::bracket($c['amount']),
                     'cmp'          => self::bracket($c['comparative']),
                     'cmpStart'     => $c['period']['comparative'] ? FinancialReport::samePeriodLastYear($start, $end)[0] : null,
@@ -171,7 +171,7 @@ class IncomeStatementReport
         }
         // journal lines: the whole subtree, or only the postings on the account itself (server-side search and paging)
         $L = FinancialReport::linesPage($db, $scope, $accountId, $period, !$direct, $page, $pageSize, $search);
-        return $out + LinesView::shape($L) + ['name' => self::name($node['name']) . ($direct ? ' (postings on this account)' : '')];
+        return $out + LinesView::shape($L) + ['name' => self::name($node['label']) . ($direct ? ' (postings on this account)' : '')];
     }
 
     /** GET parameters of the export: format=xlsx */
@@ -197,7 +197,7 @@ class IncomeStatementReport
         [$page, $size, $search] = LinesView::params($q);
         if (!self::wantsXlsx()) { self::send(self::drill($db, $scope, $account, $start, $end, $mode, $direct, $page, $size, $search)); }
         $d = self::drill($db, $scope, $account, $start, $end, $mode, $direct, 1, 1, '');   // decides children or lines
-        $heading = [$entity, 'Income statement drill-down: ' . $d['name'], 'Period ' . self::ddmmyyyy($start) . ' to ' . self::ddmmyyyy($end)];
+        $heading = array_values(array_filter([$entity, 'Income statement drill-down: ' . $d['name'], 'Period ' . self::ddmmyyyy($start) . ' to ' . self::ddmmyyyy($end)], 'strlen'));   // no congregation heading (decision 147)
         if ($d['mode'] === 'lines') {
             $L = FinancialReport::linesPage($db, $scope, $account, ['kind' => 'is', 'from' => $start, 'to' => $end, 'comparative' => true], !$direct, 1, 0, $search);
             XlsxWriter::download('income-statement-lines-' . $account . '.xlsx', 'Journal lines', LinesView::sheetRows($L, $heading), LinesView::widths());
@@ -217,12 +217,13 @@ class IncomeStatementReport
     public static function reportSheet(array $d): array
     {
         $S = function ($t, $b = false) { return XlsxWriter::s($t, $b); };
-        $rows = [
-            [$S($d['entity'], true)],
-            [$S('Income statement for the period ' . self::ddmmyyyy($d['start']) . ' to ' . self::ddmmyyyy($d['end']))],
+        $rows = [];
+        if ($d['entity'] !== '') { $rows[] = [$S($d['entity'], true)]; }   // parish scope line only (decision 147)
+        $rows = array_merge($rows, [
+            [$S('Income statement for the period ' . self::ddmmyyyy($d['start']) . ' to ' . self::ddmmyyyy($d['end']), $d['entity'] === '')],
             [],
             [$S('Account', true), $S(self::ddmmyyyy($d['start']) . ' - ' . self::ddmmyyyy($d['end']), true), $S($d['cmpStart'] ? self::ddmmyyyy($d['cmpStart']) . ' - ' . self::ddmmyyyy($d['cmpEnd']) . ' (last year)' : 'Last year', true)],
-        ];
+        ]);
         $sec = function ($s) use (&$rows, $S) {
             $rows[] = [$S($s['title'], true)];
             foreach ($s['rows'] as $r) { $rows[] = [$S($r['name']), XlsxWriter::m($r['amountRaw']), XlsxWriter::m($r['cmpRaw'])]; }

@@ -21,9 +21,8 @@ async function preview() {
     const first = await getJson(base + '/ledgerstatementrpt?' + query(params));
     const wrap = el('div', null, 'is-print-area');
     wrap.id = 'printarea';
-    wrap.appendChild(el('h5', first.entity, 'mb-0'));
+    if (first.entity) wrap.appendChild(el('h5', first.entity, 'mb-0'));   // parish scope line only (decision 147)
     wrap.appendChild(el('div', 'Ledger statement: ' + first.name, 'mb-0'));
-    wrap.appendChild(el('div', first.path, 'small'));
     wrap.appendChild(el('div', ddmmyyyy(first.from) + ' to ' + ddmmyyyy(first.to) + ' - ' + first.directionNote, 'mb-2'));
     results.appendChild(printButton());
     results.appendChild(wrap);

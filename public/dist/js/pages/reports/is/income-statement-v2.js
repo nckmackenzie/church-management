@@ -21,7 +21,7 @@ function renderReport(d, ctx) {
   area.replaceChildren();
   const wrap = el('div', null, 'is-print-area');
   wrap.id = 'printarea';
-  wrap.appendChild(el('h5', d.entity, 'mb-0'));
+  if (d.entity) wrap.appendChild(el('h5', d.entity, 'mb-0'));   // parish scope line only (decision 147)
   wrap.appendChild(el('div', 'Income statement for the period ' + ddmmyyyy(d.start) + ' to ' + ddmmyyyy(d.end), 'mb-2'));
   if (d.unclassified.present) {
     const w = el('div', null, 'alert alert-warning');

@@ -10,7 +10,7 @@
  */
 class TrialBalanceReport
 {
-    private static function name(string $n): string { return ucwords($n); }
+    private static function name(string $n): string { return FinancialReport::title($n); }
 
     private static function cols(?int $netDebit): array
     {
@@ -31,7 +31,7 @@ class TrialBalanceReport
         return $v;
     }
 
-    private static function year(PDO $db, string $asOf): array
+    public static function year(PDO $db, string $asOf): array
     {
         try { return FinancialReport::financialYear($db, $asOf); }
         catch (FinancialReportException $e) { IncomeStatementReport::fail($e->getMessage()); }
@@ -50,7 +50,6 @@ class TrialBalanceReport
             $rows[] = [
                 'id'        => $x['id'],
                 'name'      => self::name((string) $x['name']),
-                'path'      => $detailed && !$unc && !$synthetic ? self::name((string) $x['path']) : null,
                 'section'   => $x['section'] ?? '',
                 'debit'     => $c['debit'], 'credit' => $c['credit'], 'debitRaw' => $c['debitRaw'], 'creditRaw' => $c['creditRaw'],
                 'direct'    => !empty($x['direct']) || $detailed,
@@ -78,7 +77,7 @@ class TrialBalanceReport
         $start = FinancialReport::yearStart($db, $asOf);
         $prev = DateTime::createFromFormat('!Y-m-d', $start);
         $prev->modify('-1 day');
-        return ['kind' => 'range', 'from' => null, 'to' => $prev->format('Y-m-d'), 'direction' => 'credit'];
+        return ['kind' => 'range', 'from' => null, 'to' => $prev->format('Y-m-d'), 'direction' => 'credit', 'fy' => false];
     }
 
     /**
@@ -99,7 +98,7 @@ class TrialBalanceReport
         if ($bf && !in_array($node['root'], [1, 2, 5], true)) { IncomeStatementReport::fail('Invalid account'); }
         $crumbs = [];
         foreach (array_reverse($node['chain']) as $cid) {
-            if (($chart['nodes'][$cid]['depth'] ?? 0) >= 2) { $crumbs[] = ['id' => $cid, 'name' => self::name($chart['nodes'][$cid]['name'])]; }
+            if (($chart['nodes'][$cid]['depth'] ?? 0) >= 2) { $crumbs[] = ['id' => $cid, 'name' => self::name($chart['nodes'][$cid]['label'])]; }
         }
         $period = self::period($db, $asOf, $bf);
         $out += ['crumbs' => $crumbs, 'root' => $node['root']];
@@ -111,7 +110,7 @@ class TrialBalanceReport
         $L = FinancialReport::linesPage($db, $scope, $account, $period, !$direct, $page, $pageSize, $search);
         $net = $bf ? -$L['movement'] : ($L['totals']['debit'] - $L['totals']['credit']);   // the trial-balance figure of the node
         $figure = self::cols($bf ? $net : $net);
-        return $out + LinesView::shape($L) + ['name' => self::name($node['name']) . ($direct ? ' (postings on this account)' : ''), 'figureDebit' => $figure['debit'], 'figureCredit' => $figure['credit']];
+        return $out + LinesView::shape($L) + ['name' => self::name($node['label']) . ($direct ? ' (postings on this account)' : ''), 'figureDebit' => $figure['debit'], 'figureCredit' => $figure['credit']];
     }
 
     private static function childrenShape(array $c, bool $syntheticBf, bool $bf): array
@@ -135,7 +134,7 @@ class TrialBalanceReport
         $rowsNet = $bf ? -(int) $c['rowsTotal'] : (int) $c['rowsTotal'];
         $rc = self::cols($rowsNet);
         return [
-            'name' => self::name((string) ($c['node']['name'] ?? '')),
+            'name' => self::name((string) ($c['node']['label'] ?? '')),
             'debit' => $nc['debit'], 'credit' => $nc['credit'], 'debitRaw' => $nc['debitRaw'], 'creditRaw' => $nc['creditRaw'],
             'rows' => $rows, 'rowsDebit' => $rc['debit'], 'rowsCredit' => $rc['credit'], 'rowsDebitRaw' => $rc['debitRaw'], 'rowsCreditRaw' => $rc['creditRaw'],
             'sumsExactly' => $c['sumsExactly'],
@@ -148,7 +147,7 @@ class TrialBalanceReport
     {
         $d = self::report($db, $scope, $entity, $asOf, $detailed);
         if (!IncomeStatementReport::wantsXlsx()) { IncomeStatementReport::send($d); }
-        XlsxWriter::download('trial-balance-' . ($detailed ? 'detailed-' : '') . $asOf . '.xlsx', 'Trial balance', self::reportSheet($d), $detailed ? [18, 60, 18, 18] : [18, 44, 18, 18]);
+        XlsxWriter::download('trial-balance-' . ($detailed ? 'detailed-' : '') . $asOf . '.xlsx', 'Trial balance', self::reportSheet($d), [18, 44, 18, 18]);
     }
 
     public static function respondDrill(PDO $db, array $scope, string $entity, $account, string $asOf, string $mode, bool $direct, bool $bf, array $q): void
@@ -156,7 +155,7 @@ class TrialBalanceReport
         [$page, $size, $search] = LinesView::params($q);
         if (!IncomeStatementReport::wantsXlsx()) { IncomeStatementReport::send(self::drill($db, $scope, $account, $asOf, $mode, $direct, $bf, $page, $size, $search)); }
         $d = self::drill($db, $scope, $account, $asOf, $mode, $direct, $bf, 1, 1, '');
-        $heading = [$entity, 'Trial balance drill-down: ' . $d['name'] . ($bf ? ' (accumulated fund b/f)' : ''), 'As at ' . self::ddmmyyyy($asOf)];
+        $heading = array_values(array_filter([$entity, 'Trial balance drill-down: ' . $d['name'] . ($bf ? ' (accumulated fund b/f)' : ''), 'As at ' . self::ddmmyyyy($asOf)], 'strlen'));
         if ($d['mode'] === 'lines') {
             $L = FinancialReport::linesPage($db, $scope, (int) $account, self::period($db, $asOf, $bf), !$direct, 1, 0, $search);
             XlsxWriter::download('trial-balance-lines-' . $account . '.xlsx', 'Journal lines', LinesView::sheetRows($L, $heading), LinesView::widths());
@@ -173,15 +172,13 @@ class TrialBalanceReport
     public static function reportSheet(array $d): array
     {
         $S = function ($t, $b = false) { return XlsxWriter::s($t, $b); };
-        $rows = [
-            [$S($d['entity'], true)],
-            [$S(($d['detailed'] ? 'Detailed trial balance' : 'Trial balance') . ' as at ' . self::ddmmyyyy($d['asOf']))],
-            [$S('Basis: assets, liabilities and equity cumulative to the date; income, expenses and dividends from ' . self::ddmmyyyy($d['yearStart']) . ' (' . $d['yearName'] . '); prior years\' result in "Accumulated fund b/f".')],
-            [],
-            [$S('Section', true), $S($d['detailed'] ? 'Account (full path)' : 'Account', true), $S('Debit', true), $S('Credit', true)],
-        ];
+        $rows = [];
+        if ($d['entity'] !== '') { $rows[] = [$S($d['entity'], true)]; }   // parish scope line only (decision 147)
+        $rows[] = [$S(($d['detailed'] ? 'Detailed trial balance' : 'Trial balance') . ' as at ' . self::ddmmyyyy($d['asOf']), $d['entity'] === '')];
+        $rows[] = [];
+        $rows[] = [$S('Section', true), $S('Account', true), $S('Debit', true), $S('Credit', true)];
         foreach ($d['rows'] as $r) {
-            $rows[] = [$S($r['section']), $S($r['path'] ?? $r['name']), $r['debitRaw'] ? XlsxWriter::m($r['debitRaw']) : null, $r['creditRaw'] ? XlsxWriter::m($r['creditRaw']) : null];
+            $rows[] = [$S($r['section']), $S($r['name']), $r['debitRaw'] ? XlsxWriter::m($r['debitRaw']) : null, $r['creditRaw'] ? XlsxWriter::m($r['creditRaw']) : null];
         }
         $rows[] = [$S('Total', true), null, XlsxWriter::m($d['totals']['debitRaw'], true), XlsxWriter::m($d['totals']['creditRaw'], true)];
         $rows[] = [$S('Difference (debits - credits)', true), null, XlsxWriter::m($d['totals']['debitRaw'] - $d['totals']['creditRaw'], true), null];

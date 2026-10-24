@@ -27,7 +27,7 @@ class LinesView
         return [$page, $size, $search];
     }
 
-    private static function name(string $n): string { return ucwords($n); }
+    private static function name(string $n): string { return FinancialReport::title($n); }
 
     /** one page as JSON-ready data (money as text, negatives in brackets) */
     public static function shape(array $L): array
@@ -46,6 +46,9 @@ class LinesView
                 'credit'    => $x['credit'] ? IncomeStatementReport::bracket($x['credit']) : '',
                 'balance'   => IncomeStatementReport::bracket($x['balance']),
                 'link'      => $x['link'] === null ? null : URLROOT . '/' . $x['link'],
+                // financial year of the row and of the row before it (income / expense / dividend accounts restart each year, decision 144)
+                'fy'        => $x['fy'] ?? null,
+                'prevFy'    => $x['prevFy'] ?? null,
             ];
         }
         return [
@@ -76,6 +79,7 @@ class LinesView
     {
         $X = 'XlsxWriter';
         $rows = [];
+        $heading = array_values(array_filter($heading, 'strlen'));   // no congregation heading on congregation reports (decision 147)
         foreach ($heading as $i => $h) { $rows[] = [XlsxWriter::s($h, $i === 0)]; }
         $dir = $L['direction'] === 'CREDIT' ? 'Cr' : 'Dr';
         $rows[] = [];

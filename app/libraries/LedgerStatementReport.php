@@ -21,7 +21,7 @@ class LedgerStatementReport
         $chart = FinancialReport::chart($db, $scope);
         $node = $chart['nodes'][$account] ?? null;
         if ($node === null || !$node['classified']) { IncomeStatementReport::fail('Invalid account'); }
-        $title = ucwords($node['name']) . ($sub && !empty($chart['kids'][$account]) ? ' and its sub accounts' : '');
+        $title = FinancialReport::title($node['label']) . ($sub && !empty($chart['kids'][$account]) ? ' and its sub accounts' : '');
 
         if (IncomeStatementReport::wantsXlsx()) {
             $L = FinancialReport::linesPage($db, $scope, $account, $period, $sub, 1, 0, $search);
@@ -32,7 +32,7 @@ class LedgerStatementReport
         }
         $L = FinancialReport::linesPage($db, $scope, $account, $period, $sub, $page, $size, $search);
         IncomeStatementReport::send(LinesView::shape($L) + [
-            'entity' => $entity, 'name' => $title, 'path' => ucwords($node['path']), 'from' => $from, 'to' => $to,
+            'entity' => $entity, 'name' => $title, 'from' => $from, 'to' => $to,
             'subledgers' => $sub, 'account' => $account,
             'directionNote' => $L['direction'] === 'CREDIT' ? 'Cr: a credit balance is positive for this account' : 'Dr: a debit balance is positive for this account',
         ]);

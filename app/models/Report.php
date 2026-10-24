@@ -329,101 +329,6 @@ class Report {
         return $this->db->resultSet();
     }
 
-    public function GetAssets($date)
-    {
-        // $this->db->query('CALL sp_balancesheet_assets(:startd,:cong)');
-        $this->db->query('CALL sp_BalanceSheet_Assets(:cong,:startd)');
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $this->db->bind(':startd',$date);
-        return $this->db->resultSet();            
-    }
-    public function GetLiablityEquity($date)
-    {
-        // $this->db->query('CALL sp_balancesheet_liablityequity(:startd,:cong)');
-        // $this->db->query('CALL sp_get_liabilities_equity(:startd,:cong)'); // before v2
-        $this->db->query('CALL sp_BalanceSheet_LiabilitiesEquity(:cong,:startd)');
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $this->db->bind(':startd',$date);
-        return $this->db->resultSet();            
-    }
-    public function GetAssetsTotal($date)
-    {
-        $this->db->query('SELECT IFNULL(SUM(debit),0) as sumofdebits 
-                          FROM   tblledger 
-                          WHERE  (accountId=3) AND (transactionDate <= :sdate)
-                                 AND (congregationId = :cong)');
-        $this->db->bind(':sdate',$date);
-        $this->db->bind(':cong',$_SESSION['congId']);                  
-        $debits = $this->db->getValue();
-
-        $this->db->query('SELECT IFNULL(SUM(credit),0) as sumofcredits 
-                          FROM   tblledger 
-                          WHERE  (accountId=3) AND (transactionDate <= :sdate)
-                                 AND (congregationId = :cong)');
-        $this->db->bind(':sdate',$date);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $credits = $this->db->getValue();
-        return floatval($debits) - floatval($credits);
-    }
-    public function GetLiabilityEquityTotal($date)
-    {
-        $this->db->query('SELECT IFNULL(SUM(debit),0) as sumofdebits 
-                          FROM   tblledger 
-                          WHERE  (accountId=4 OR accountId = 6) AND (transactionDate <= :sdate)
-                                 AND (congregationId = :cong)');
-        $this->db->bind(':sdate',$date);
-        $this->db->bind(':cong',$_SESSION['congId']);                  
-        $debits = $this->db->getValue();
-
-        $this->db->query('SELECT IFNULL(SUM(credit),0) as sumofcredits 
-                          FROM   tblledger 
-                          WHERE  (accountId=4 OR accountId = 6) AND (transactionDate <= :sdate)
-                                 AND (congregationId = :cong)');
-        $this->db->bind(':sdate',$date);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $credits = $this->db->getValue();
-        return (floatval($debits) * -1) - (floatval($credits) * -1);
-    }
-    public function GetNetIncome($date)
-    {
-        $this->db->query('SELECT IFNULL(SUM(debit),0) 
-                          FROM   tblledger 
-                          WHERE  (accountId=1) AND transactionDate <= :sdate
-                                 AND congregationId = :cong');
-        $this->db->bind(':sdate',$date);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $revenueDebit = $this->db->getValue();  
-        //===========================
-        $this->db->query('SELECT IFNULL(SUM(credit),0) 
-                          FROM   tblledger 
-                          WHERE  (accountId=1) AND transactionDate <= :sdate
-                                 AND (congregationId = :cong)');
-        $this->db->bind(':sdate',$date);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $revenueCredit = $this->db->getValue();    
-        //================================================
-        $revenueBalance = (floatval($revenueDebit) - floatval($revenueCredit)) *-1;
-        //=========================================================
-        $this->db->query('SELECT IFNULL(SUM(debit),0) 
-                          FROM   tblledger 
-                          WHERE  (accountId=2) AND transactionDate <= :sdate 
-                                 AND (congregationId = :cong)');
-        $this->db->bind(':sdate',$date);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $expensesDebit = $this->db->getValue();  
-        //===========================
-        $this->db->query('SELECT IFNULL(SUM(credit),0) 
-                          FROM   tblledger 
-                          WHERE  (accountId=2) AND transactionDate <= :sdate 
-                                 AND (congregationId = :cong)');
-        $this->db->bind(':sdate',$date);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $expensesCredit = $this->db->getValue();    
-        //================================================
-        $expensesBalance = floatval($expensesDebit) - floatval($expensesCredit);
-        return floatval($revenueBalance) - floatval($expensesBalance);
-    }
-    /** Report-safe banks of the session congregation: non-deleted, active or with history (inactive ones labelled). */
     public function getBanks()
     {
         return array_map(function($b){ return (object)['ID' => $b['id'],'Bank' => $b['label']]; },
@@ -533,10 +438,6 @@ class Report {
     {
        return loadresultset($this->db->dbh,'CALL getgroupstatement(?)',[$reqid]);
     }
-    public function GetAccountType($account)
-    {
-        return getdbvalue($this->db->dbh,'SELECT accountTypeId FROM tblaccounttypes WHERE (accountType = ?)',[$account]);
-    }
     public function GetGroupRevenues($data)
     {
         $sql = 'SELECT IFNULL(SUM(AmountApproved),0) AS Amount FROM tblfundrequisition WHERE (Deleted=0) AND (DontDeduct=1) AND (Status=1) AND (GroupId=?) AND (ApprovalDate BETWEEN ? AND ?)';
@@ -591,77 +492,6 @@ class Report {
         }
 
         return loadresultset($this->db->dbh,$sql,[$data['group'],$data['sdate'],$data['edate']]);
-    }
-
-    function GetAccountTypeId($account)
-    {
-        return getdbvalue($this->db->dbh,'SELECT accountTypeId 
-        FROM tblaccounttypes 
-        WHERE LOWER(accountType) = ? ',[strtolower($account)]);
-    }
-
-    public function GetBalanceSheetItemOpeningBalance($data)
-    {
-        $accountType = $this->GetAccountType($data['account']);
-
-        $yearStartDate = getdbvalue($this->db->dbh,'SELECT startDate FROM tblfiscalyears 
-                                                              WHERE ? BETWEEN startDate AND endDate',[$data['asdate']]);                                                    
-        $openingBalance = 0;
-        if((int)$accountType === 3){
-            $sql = "SELECT  IFNULL(SUM(debit - credit),0) AS OpeningBalance 
-                    FROM tblledger 
-                    WHERE (transactionDate < ?) AND (LOWER(account) = ?) AND (congregationId = ?) AND (deleted = 0)";
-            $openingBalance = getdbvalue($this->db->dbh,$sql,[$yearStartDate,$data['account'],$_SESSION['congId']]);
-        }else{
-            $sql = 'SELECT  IFNULL(SUM(credit - debit),0) AS OpeningBalance 
-                    FROM tblledger 
-                    WHERE (transactionDate < ?) AND (LOWER(account) = ?) AND (congregationId = ?) AND (deleted = 0)';
-        }
-        
-        $openingBalance = getdbvalue($this->db->dbh,$sql,[$yearStartDate,strtolower($data['account']),$_SESSION['congId']]);
-
-        return ['openingBalance' => $openingBalance,'yearStartDate' => $yearStartDate,'accountTypeId' => $accountType];
-    }
-
-    public function GetDetailedBalanceSheetAccountReport($data)
-    {
-        $accountType = $this->GetAccountType($data['account']);
-        $sql = '';
-        if($accountType == 3){
-            $sql = 'SELECT l.account, SUM(l.debit - l.credit) AS balance 
-                     FROM tblledger l 
-                     WHERE l.transactionDate <= ? AND l.congregationId = ? AND LOWER(l.parentaccount) = ? AND l.deleted = 0  
-                     GROUP BY account;';
-        }else{
-            $sql = 'SELECT l.account, SUM(l.credit - l.debit) AS balance 
-                     FROM tblledger l 
-                     WHERE l.transactionDate <= ? AND l.congregationId = ? AND LOWER(l.parentaccount) = ? AND l.deleted = 0  
-                     GROUP BY account;';
-        }     
-        return loadresultset($this->db->dbh,$sql,[$data['asdate'],$_SESSION['congId'],strtolower($data['account'])]);
-    }
-
-    public function GetChildDetailedBalanceSheetAccountReport($data)
-    {
-        try {
-            $sql = 'CALL sp_BalanceSheet_AccountDrilldown(?,?,?,?)';
-            // if((int)$data['accountTypeId'] === 3){
-            //     $sql = 'SELECT l.transactionDate,l.account,SUM(l.debit - l.credit) AS amount,l.narration,t.TransactionType 
-            //             FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID 
-            //             WHERE (LOWER(account) = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0) AND (l.congregationId=?)
-            //             ORDER BY transactionDate';
-            // }else{
-            //     $sql = 'SELECT l.transactionDate,l.account,SUM(l.credit - l.debit) AS amount,l.narration,t.TransactionType 
-            //             FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID 
-            //             WHERE (LOWER(account) = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0) AND (l.congregationId=?)
-            //             ORDER BY transactionDate';
-            // }
-
-            return loadresultset($this->db->dbh,$sql,[$data['account'],$_SESSION['congId'],$data['yearStartDate'],$data['asdate']]);
-        } catch (\Exception $eh) {
-            error_log($eh->getMessage());
-            return false;
-        }
     }
 
     public function GetJournalReport($data)

@@ -168,10 +168,12 @@ try {
     ok('numbers are numbers (credit total of the receipts), account names are text', $inc !== null && $inc[3][0] === 'n' && abs($inc[3][1] - $total) < 0.001 && $inc[1][0] === 's');
     $tot = $find($rows, 'Total');
     ok('totals row: debit and credit totals are equal numbers', $tot !== null && $tot[2][0] === 'n' && $tot[3][0] === 'n' && abs($tot[2][1] - $tot[3][1]) < 0.005);
-    ok('headings carry the congregation and the as-of date', cellText($rows[0], 0) !== '' && strpos(cellText($rows[1], 0), '31-10-2026') !== false);
+    ok('the heading is the title and the as-of date; no congregation name and no basis sentence (decisions 147, 148)', strpos(cellText($rows[0], 0), 'Trial balance as at 31-10-2026') === 0 && !array_filter($rows, function ($r) { return stripos(cellText($r, 0), 'Basis') === 0 || stripos(cellText($r, 0), 'cumulative') !== false; }));
     ok('the markup in an account name is plain text in the workbook', $find($rows, 'Zz <script>alert(1)</script> T93h') !== null);
     [$code, $bin2] = http("trialbalance/getreport?asof=$asof&detailed=1&format=xlsx", $admin11); $rows2 = xlsx($bin2);
-    ok('detailed export has every posting account (more rows than the summary) with the full path', $code === 200 && count($rows2) > count($rows) && $find($rows2, 'Income > Zz T93h Income Top > Zz T93h Income Mid > Zz T93h Income Low > Zz T93h Income Leaf') !== null);
+    ok('detailed export has every posting account (more rows than the summary) with the full path', $code === 200 && count($rows2) > count($rows) && $find($rows2, 'Zz T93h Income Leaf') !== null);
+    $pathForm = function ($rows) { foreach ($rows as $r) { foreach ($r as $c) { if ($c[0] === 's' && strpos($c[1], ' > ') !== false) { return true; } } } return false; };
+    ok('no "type > parent > name" path anywhere in the exports or the JSON (decision 149)', !$pathForm($rows) && !$pathForm($rows2) && strpos(json_encode($td), ' > ') === false && strpos(json_encode($tb), ' > ') === false);
     [$code, $bin3, $h3] = http("trialbalance/drillrpt?account=$A&asof=$asof&format=xlsx", $admin11); $rows3 = xlsx($bin3);
     ok('trial balance drill page (children) exports its rows and total', $code === 200 && $rows3 !== null && $find($rows3, 'Total') !== null && $find($rows3, 'Zz T93h Income Mid') !== null);
     [$code, $bin4] = http("trialbalance/drillrpt?account=$D&asof=$asof&view=lines&format=xlsx&page=2&pageSize=10", $admin11); $rows4 = xlsx($bin4);

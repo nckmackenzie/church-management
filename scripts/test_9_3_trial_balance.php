@@ -130,13 +130,24 @@ try {
     }
     ok("drill: all $levels levels add up and the $lineNodes line lists agree with the figure clicked (income / expense from the year start, balance sheet types from inception)", $levels >= 10 && $lineNodes >= 5 && !$bad, implode('; ', $bad));
     $l1 = TrialBalanceReport::drill($pdo, [$T], $I4, $asOf, 'lines', false, false);
-    ok('an income account lists lines from the year start with the prior years as opening balance', $l1['opening'] === '360.00' && $l1['rows'][0]['date'] === '01-10-2025');
+    ok('an income account lists lines from the year start and starts at zero: no opening balance carried from earlier years (decision 144)', $l1['opening'] === '0.00' && $l1['rows'][0]['date'] === '01-10-2025');
     $l2 = TrialBalanceReport::drill($pdo, [$T], $A5, $asOf, 'lines', false, false);
     ok('a balance-sheet account lists lines from inception (opening balance 0.00)', $l2['opening'] === '0.00' && $l2['rows'][0]['date'] === '01-12-2024');
     $bfl = TrialBalanceReport::drill($pdo, [$T], $I4, $asOf, 'lines', false, true);
     ok('under the accumulated fund b/f the income account shows only the prior years (credit direction)', $bfl['direction'] === 'Cr' && count($bfl['rows']) === 2 && $bfl['movement'] === '360.00');
     $c = TrialBalanceReport::drill($pdo, [$T], $I2, $asOf, 'children', false, false);
     ok('crumbs and ID-only navigation: the drill answers for an account ID and refuses nothing else here', $c['mode'] === 'children' && array_column($c['crumbs'], 'name') === ['Zz T93 Income Top']);
+
+    echo "== decision 144: income accounts start every financial year at zero\n";
+    $span = FinancialReport::linesPage($pdo, [$T], $I4, ['kind' => 'range', 'from' => '2025-09-15', 'to' => '2025-10-31', 'direction' => 'normal'], false, 1, 0, '');
+    ok('a statement across the year end: opening = the movement from the year start to the day before (300.00)', $span['opening'] === 30000 && count($span['rows']) === 2);
+    ok('the running balance restarts at zero at the new financial year (360.00 on 30 Sep, 1,000.00 on 1 Oct)', $span['rows'][0]['balance'] === 36000 && $span['rows'][1]['balance'] === 100000);
+    ok('the rows carry the year (fy) and the year of the row before (prevFy) so the screen can draw a separator', $span['rows'][0]['fy'] === '2024-10-01' && $span['rows'][1]['fy'] === '2025-10-01' && $span['rows'][1]['prevFy'] === '2024-10-01' && $span['rows'][0]['prevFy'] === null);
+    ok('closing = the last year\'s running balance, movement = both years together', $span['closing'] === 100000 && $span['movement'] === 106000);
+    $cum = FinancialReport::linesPage($pdo, [$T], $I4, ['kind' => 'range', 'from' => null, 'to' => '2025-09-30', 'direction' => 'credit', 'fy' => false], false, 1, 0, '');
+    ok('fy => false (the accumulated fund b/f view) keeps one cumulative running balance over the earlier years', $cum['opening'] === 0 && $cum['closing'] === 36000 && $cum['rows'][1]['balance'] === 36000);
+    $bal = FinancialReport::linesPage($pdo, [$T], $A5, ['kind' => 'range', 'from' => '2025-09-15', 'to' => '2025-10-31', 'direction' => 'normal'], false, 1, 0, '');
+    ok('a balance-sheet account keeps its cumulative opening balance and never restarts', $bal['restartsEachYear'] === false && $bal['opening'] === $naive([$A5], null, '2025-09-14', $T)[0] - $naive([$A5], null, '2025-09-14', $T)[1]);
 
     echo "== line paging and search (server side)\n";
     $per = ['kind' => 'range', 'from' => '2024-10-01', 'to' => '2026-12-31', 'direction' => 'normal'];
@@ -175,7 +186,6 @@ try {
                 $from = in_array($root, [3, 4, 6], true) ? '2000-01-01' : $fy['start'];
                 $L = FinancialReport::linesPage($pdo, [$cong], $row['id'], ['kind' => 'range', 'from' => $from, 'to' => $asOf, 'direction' => 'normal'], false, 1, 1, '');
                 $closingNet = $L['closingNet'];
-                if (in_array($root, [1, 2, 5], true)) { $closingNet -= $L['openingNet']; }   // trial balance figure of a P&L account is the year's movement
                 $res['n']++;
                 if ($closingNet !== rowNet($row)) { $res['bad'][] = "$asOf account {$row['id']}: statement $closingNet vs trial balance " . rowNet($row); }
             }

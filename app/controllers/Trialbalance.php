@@ -25,7 +25,7 @@ class Trialbalance extends Controller
     {
         $db = (new Database)->pdo();
         $cong = (int)$_SESSION['congId'];
-        TrialBalanceReport::serveReport($db,[$cong],IncomeStatementReport::congregationName($db,$cong));
+        TrialBalanceReport::serveReport($db,[$cong],'');
     }
 
     /** One drill level page (account ID only in the URL) */
@@ -39,7 +39,7 @@ class Trialbalance extends Controller
     {
         $db = (new Database)->pdo();
         $cong = (int)$_SESSION['congId'];
-        TrialBalanceReport::serveDrill($db,[$cong],IncomeStatementReport::congregationName($db,$cong));
+        TrialBalanceReport::serveDrill($db,[$cong],'');
     }
 
     /** Old name-based drill URLs: nothing is queried any more */

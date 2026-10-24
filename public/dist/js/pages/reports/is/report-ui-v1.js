@@ -145,7 +145,17 @@ export function linesPanel(container, opts) {
     op.appendChild(amountCell(d.opening));
     op.appendChild(el('td'));
     tb.appendChild(op);
-    d.rows.forEach(r => {
+    let prevFy = null;
+    d.rows.forEach((r, i) => {
+      const before = i === 0 ? r.prevFy : prevFy;
+      prevFy = r.fy;
+      if (r.fy && before && r.fy !== before) {
+        const sep = el('tr', null, 'table-info font-italic');
+        sep.appendChild(el('td', 'New financial year from ' + ddmmyyyy(r.fy) + ': opening balance 0.00', '', { colspan: String(span + 2) }));
+        sep.appendChild(amountCell('0.00'));
+        sep.appendChild(el('td'));
+        tb.appendChild(sep);
+      }
       const tr = el('tr');
       const cells = [r.date, r.entryId, r.journalNo === null ? '' : r.journalNo, r.reference, r.memo, r.type];
       if (opts.withAccount) cells.push(r.account);

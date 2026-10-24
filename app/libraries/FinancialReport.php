@@ -21,7 +21,8 @@
  *   ['kind' => 'is',    'from' => Y-m-d, 'to' => Y-m-d, 'comparative' => bool]    income statement (decision 122)
  *   ['kind' => 'bs',    'asOf' => Y-m-d, 'comparative' => bool]                    balance sheet: types 3/4/6 cumulative
  *   ['kind' => 'tb',    'asOf' => Y-m-d]                                           trial balance (decision 129)
- *   ['kind' => 'range', 'from' => ?Y-m-d, 'to' => Y-m-d, 'direction' => 'normal'|'credit'|'debit']   plain range
+ *   ['kind' => 'range', 'from' => ?Y-m-d, 'to' => Y-m-d, 'direction' => 'normal'|'credit'|'debit', 'fy' => bool]   plain range
+ *       (lines of an income / expense / dividend account restart at zero at every financial-year start unless 'fy' => false, decision 144)
  * Synthetic nodes of a 'bs' / 'tb' period: 'bf' (accumulated fund b/f), 'cy' (current year surplus, types 1/2) and
  * 'div' (type 5 in the current year) can be passed to children() in place of an account ID.
  *
@@ -70,6 +71,12 @@ class FinancialReport
         16 => null,
         17 => ['groupcollections/edit/{id}', 'plain', 'group collection (edit screen, congregation checked by checkcenter)'],
     ];
+
+    /** Display form of an account label: first letter of each word (and of a bracketed parent name) in capitals. */
+    public static function title(string $s): string
+    {
+        return ucwords($s, " (");
+    }
 
     // =================================================================
     // Money
@@ -323,6 +330,26 @@ class FinancialReport
             $kids[$p] = $list;
         }
         sort($unclassified);
+        // decision 149: the label of an account is its name only; two visible accounts with one name get the parent's name in
+        // brackets (and the ID if even the parents share a name); (deleted) / (inactive) suffixes stay. The path is never shown.
+        $visibleCong = array_merge([0], $scope);
+        $seen = [];
+        foreach ($nodes as $n) {
+            if ($n['classified'] && $n['depth'] >= 2 && in_array($n['congregationId'], $visibleCong, true)) { $seen[strtolower(trim($n['name']))][] = $n['id']; }
+        }
+        foreach ($nodes as $id => $n) {
+            $label = $n['name'];
+            $key = strtolower(trim($n['name']));
+            if ($n['classified'] && $n['depth'] >= 2 && count($seen[$key] ?? []) > 1) {
+                $parent = $nodes[$n['parentId']]['name'] ?? '';
+                $label .= ' (' . $parent . ')';
+                $twins = 0;
+                foreach ($seen[$key] as $tid) { if (strtolower($nodes[$nodes[$tid]['parentId']]['name'] ?? '') === strtolower($parent)) { $twins++; } }
+                if ($twins > 1) { $label .= ' [' . $id . ']'; }
+            }
+            if ($n['classified'] && $n['depth'] >= 2) { $label .= ($n['deleted'] ? ' (deleted)' : '') . (!$n['active'] ? ' (inactive)' : ''); }
+            $nodes[$id]['label'] = $label;
+        }
         return ['nodes' => $nodes, 'kids' => $kids, 'unclassified' => $unclassified, 'scope' => $scope];
     }
 
@@ -471,8 +498,9 @@ class FinancialReport
             $dir  = (string) ($period['direction'] ?? 'normal');
             if (!in_array($dir, ['normal', 'credit', 'debit'], true)) { throw new FinancialReportException("unknown direction '$dir'"); }
             if ($from !== null && $from > $to) { throw new FinancialReportException("the start date $from is after the end date $to"); }
-            $sets[] = ['key' => 'cur', 'mode' => 'range', 'boundary' => $from, 'to' => $to, 'from' => $from, 'direction' => $dir];
-            $norm += ['from' => $from, 'to' => $to, 'direction' => $dir];
+            $fy = !array_key_exists('fy', $period) || $period['fy'] !== false;
+            $sets[] = ['key' => 'cur', 'mode' => 'range', 'boundary' => $from, 'to' => $to, 'from' => $from, 'direction' => $dir, 'fy' => $fy];
+            $norm += ['from' => $from, 'to' => $to, 'direction' => $dir, 'fy' => $fy];
         } else {
             throw new FinancialReportException("unknown period kind '$kind'");
         }
@@ -582,7 +610,8 @@ class FinancialReport
         $row = [
             'id'          => $id,
             'direct'      => $direct,
-            'name'        => $direct ? $node['name'] . ' (postings on this account)' : $node['name'],
+            'name'        => $direct ? $node['label'] . ' (postings on this account)' : $node['label'],
+            'rawName'     => $node['name'],
             'path'        => $node['path'],
             'depth'       => $node['depth'],
             'root'        => $node['root'],
@@ -874,7 +903,7 @@ class FinancialReport
 
     private static function nodeSummary(array $n): array
     {
-        return ['id' => $n['id'], 'name' => $n['name'], 'path' => $n['path'], 'depth' => $n['depth'], 'root' => $n['root'],
+        return ['id' => $n['id'], 'name' => $n['name'], 'label' => $n['label'], 'path' => $n['path'], 'depth' => $n['depth'], 'root' => $n['root'],
                 'posting' => $n['posting'], 'isBank' => $n['isBank'], 'active' => $n['active'], 'deleted' => $n['deleted']];
     }
 
@@ -887,7 +916,7 @@ class FinancialReport
         $start = self::yearStart($db, $asOf);
         $prev  = DateTime::createFromFormat('!Y-m-d', $start);
         $prev->modify('-1 day');
-        if ($code === 'bf')     { $range = ['kind' => 'range', 'from' => null,   'to' => $prev->format('Y-m-d'), 'direction' => 'credit']; $roots = [1, 2, 5]; $label = 'Accumulated fund b/f'; }
+        if ($code === 'bf')     { $range = ['kind' => 'range', 'from' => null,   'to' => $prev->format('Y-m-d'), 'direction' => 'credit', 'fy' => false]; $roots = [1, 2, 5]; $label = 'Accumulated fund b/f'; }
         elseif ($code === 'cy') { $range = ['kind' => 'range', 'from' => $start, 'to' => $asOf,                  'direction' => 'credit']; $roots = [1, 2];    $label = 'Current year surplus'; }
         else                    { $range = ['kind' => 'range', 'from' => $start, 'to' => $asOf,                  'direction' => 'credit']; $roots = [5];       $label = 'Dividends'; }
         $ctx = self::context($db, $scope, $range);
@@ -905,80 +934,30 @@ class FinancialReport
     }
 
     /**
-     * Journal lines of an account (and, $includeDescendants, of everything below it) for a period (decision 124): date, entry
-     * ID, journal number, reference, memo, transaction type, debit, credit, running balance (window function ordered by entry
-     * date, entry ID, line number), the opening balance before the period and a source link where a safe route exists.
-     * 'balance' is in the account's normal direction (a contra balance is negative); 'net' is debit - credit.
+     * Journal lines of an account (and, $includeDescendants, of everything below it) for a period (decision 124), every row.
+     * See linesPage(): this is its unpaged, unfiltered form.
      */
     public static function lines(PDO $db, array $scope, int $accountId, array $period, bool $includeDescendants = false): array
     {
-        $st0 = self::linesSetup($db, $scope, $accountId, $period, $includeDescendants);
-        $scope = $st0['scope']; $node = $st0['node']; $from = $st0['from']; $to = $st0['to']; $creditNormal = $st0['creditNormal']; $ids = $st0['ids']; $opening = $st0['opening'];
-
-        $sql = "SELECT e.ID AS entryId, e.entryDate, e.journalNo, e.reference, e.description, e.transactionTypeId, t.transactionType AS typeName,
-                       e.transactionId, l.lineNumber, l.memo, l.accountId, a.accountType AS accountName,
-                       CASE WHEN l.dc = 'DEBIT'  THEN l.amount ELSE 0 END AS debit,
-                       CASE WHEN l.dc = 'CREDIT' THEN l.amount ELSE 0 END AS credit,
-                       SUM(CASE WHEN l.dc = 'DEBIT' THEN l.amount ELSE -l.amount END)
-                           OVER (ORDER BY e.entryDate, e.ID, l.lineNumber ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS runningNet
-                FROM journal_lines l
-                JOIN journal_entries e ON e.ID = l.journalEntryId
-                JOIN tblaccounttypes a ON a.ID = l.accountId
-                LEFT JOIN tbltransactiontypes t ON t.ID = e.transactionTypeId
-                WHERE e.deleted = 0 AND e.congregationId IN (" . self::marks($scope) . ') AND l.accountId IN (' . self::marks($ids) . ') AND e.entryDate <= ?'
-             . ($from !== null ? ' AND e.entryDate >= ?' : '')
-             . ' ORDER BY e.entryDate, e.ID, l.lineNumber';
-        $params = array_merge($scope, $ids, [$to]);
-        if ($from !== null) { $params[] = $from; }
-        $st = $db->prepare($sql);
-        $st->execute($params);
-
-        $rows = [];
-        $dr = 0; $cr = 0; $lastNet = $opening;
-        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
-            $debit  = self::cents($r['debit']);
-            $credit = self::cents($r['credit']);
-            $net    = $opening + self::cents($r['runningNet']);
-            $dr += $debit; $cr += $credit; $lastNet = $net;
-            $type = (int) $r['transactionTypeId'];
-            $rows[] = [
-                'entryId'      => (int) $r['entryId'],
-                'date'         => (string) $r['entryDate'],
-                'journalNo'    => $r['journalNo'] === null ? null : (int) $r['journalNo'],
-                'reference'    => (string) ($r['reference'] ?? ''),
-                'memo'         => (string) (($r['memo'] ?? '') !== '' ? $r['memo'] : ($r['description'] ?? '')),
-                'description'  => (string) ($r['description'] ?? ''),
-                'typeId'       => $type,
-                'typeName'     => (string) ($r['typeName'] ?? ''),
-                'transactionId' => (int) $r['transactionId'],
-                'lineNumber'   => (int) $r['lineNumber'],
-                'accountId'    => (int) $r['accountId'],
-                'accountName'  => (string) $r['accountName'],
-                'debit'        => $debit,
-                'credit'       => $credit,
-                'balance'      => $creditNormal ? -$net : $net,
-                'net'          => $net,
-                'link'         => self::sourceLink($type, (int) $r['transactionId']),
-            ];
-        }
-        return [
-            'account'     => self::nodeSummary($node),
-            'from'        => $from,
-            'to'          => $to,
-            'direction'   => $creditNormal ? 'CREDIT' : 'DEBIT',
-            'includeDescendants' => $includeDescendants,
-            'opening'     => $creditNormal ? -$opening : $opening,
-            'openingNet'  => $opening,
-            'rows'        => $rows,
-            'totals'      => ['debit' => $dr, 'credit' => $cr],
-            // movement of the period in the normal direction (the figure of an income statement / trial balance row); closing = opening + movement
-            'movement'    => $creditNormal ? $cr - $dr : $dr - $cr,
-            'closing'     => $creditNormal ? -$lastNet : $lastNet,
-            'closingNet'  => $lastNet,
-        ];
+        return self::linesPage($db, $scope, $accountId, $period, $includeDescendants, 1, 0, '');
     }
 
-    /** Shared by lines() and linesPage(): the node, the basis (from / to / direction), the account IDs and the opening balance. */
+    /** Start date of the financial year covering the date (the Ledger::yearForDate rule), or null when no year covers it. */
+    private static function yearStartSoft(PDO $db, string $date): ?string
+    {
+        $st = $db->prepare('SELECT startDate FROM tblfiscalyears WHERE ? BETWEEN startDate AND endDate ORDER BY deleted ASC, ID DESC LIMIT 1');
+        $st->execute([$date]);
+        $v = $st->fetchColumn();
+        return $v === false ? null : (string) $v;
+    }
+
+    /**
+     * Shared by lines() and linesPage(): the node, the basis (from / to / direction), the account IDs, the opening balance and
+     * the financial-year rule of decision 144: income, expense and dividend accounts (types 1, 2, 5) start every financial year at
+     * zero. Their opening balance is only the movement from the start of the financial year containing `from` to the day before
+     * `from`, and the running balance restarts at zero at each later year start (`restart`). Balance-sheet accounts (3, 4, 6) keep
+     * the cumulative opening balance.
+     */
     private static function linesSetup(PDO $db, array $scope, int $accountId, array $period, bool $includeDescendants): array
     {
         $scope = self::normalizeScope($scope);
@@ -1000,6 +979,9 @@ class FinancialReport
             $creditNormal = $spec['mode'] === 'range' && $spec['direction'] === 'credit' ? true
                           : ($spec['mode'] === 'range' && $spec['direction'] === 'debit' ? false : !self::isDebitNormal($root));
         }
+        $plRoot  = in_array($root, [1, 2, 5], true);
+        $restart = $plRoot && ($spec['mode'] !== 'range' || $spec['fy']);
+        $firstFy = ($restart && $from !== null) ? self::yearStartSoft($db, $from) : null;
 
         $ids = [$accountId];
         if ($includeDescendants) {
@@ -1010,53 +992,61 @@ class FinancialReport
             }
         }
 
-        // opening: everything before $from
+        // opening: everything before $from; for a restarting account only from the start of that financial year
         $opening = 0;
-        if ($from !== null) {
+        if ($from !== null && !($restart && $firstFy === null)) {
+            $lower = $restart ? ' AND e.entryDate >= ?' : '';
             $st = $db->prepare("SELECT COALESCE(SUM(CASE WHEN l.dc = 'DEBIT' THEN l.amount ELSE -l.amount END), 0)
                                 FROM journal_lines l JOIN journal_entries e ON e.ID = l.journalEntryId
-                                WHERE e.deleted = 0 AND e.congregationId IN (" . self::marks($scope) . ') AND l.accountId IN (' . self::marks($ids) . ') AND e.entryDate < ?');
-            $st->execute(array_merge($scope, $ids, [$from]));
+                                WHERE e.deleted = 0 AND e.congregationId IN (" . self::marks($scope) . ') AND l.accountId IN (' . self::marks($ids) . ') AND e.entryDate < ?' . $lower);
+            $st->execute(array_merge($scope, $ids, [$from], $restart ? [$firstFy] : []));
             $opening = self::cents($st->fetchColumn());
         }
-
-        return ['scope' => $scope, 'node' => $node, 'from' => $from, 'to' => $to, 'creditNormal' => $creditNormal, 'ids' => $ids, 'opening' => $opening];
+        return ['scope' => $scope, 'node' => $node, 'from' => $from, 'to' => $to, 'creditNormal' => $creditNormal, 'ids' => $ids, 'opening' => $opening,
+                'restart' => $restart, 'firstFy' => $firstFy];
     }
 
     /**
      * One page of journal lines for server-side paging and search (decision 142). The running balance of every row is the TRUE
      * running balance of the account: the window function runs over the whole list of the period and the search / page only
-     * filter afterwards.
+     * filter afterwards. For income, expense and dividend accounts the balance restarts at zero at every financial-year start
+     * (decision 144); each row carries `fy` (the start date of its financial year) and `prevFy` (that of the row before it in the
+     * whole list) so the screen can show a "new financial year" separator.
      *
      * $search matches (substring) the date (dd-mm-yyyy and yyyy-mm-dd), entry ID, journal number, reference, narration, type,
      * account name and the debit / credit amount (with or without thousands separators). $pageSize 0 = every matching row
      * (used by the Excel export); otherwise capped at MAX_PAGE_SIZE. Ordered by entry date, entry ID, line number.
      *
-     * Returns what lines() returns, with 'rows' = the page and 'matching' (rows matching the search), 'filtered'
-     * (debit / credit totals of the matching rows), 'page', 'pageSize', 'pages'; 'totals', 'movement', 'opening', 'closing' stay
-     * those of the whole period.
+     * Returns the account, the basis, 'rows' = the page, 'matching' (rows matching the search), 'filtered' (debit / credit totals
+     * of the matching rows), 'page', 'pageSize', 'pages'; 'totals', 'movement', 'opening', 'closing' are those of the whole period.
      */
     public static function linesPage(PDO $db, array $scope, int $accountId, array $period, bool $includeDescendants, int $page = 1, int $pageSize = 50, string $search = ''): array
     {
         $st0 = self::linesSetup($db, $scope, $accountId, $period, $includeDescendants);
-        $scope = $st0['scope']; $node = $st0['node']; $from = $st0['from']; $to = $st0['to']; $creditNormal = $st0['creditNormal']; $ids = $st0['ids']; $opening = $st0['opening'];
+        $scope = $st0['scope']; $node = $st0['node']; $from = $st0['from']; $to = $st0['to']; $creditNormal = $st0['creditNormal']; $ids = $st0['ids'];
+        $opening = $st0['opening']; $restart = $st0['restart']; $firstFy = $st0['firstFy'];
         $pageSize = $pageSize <= 0 ? 0 : min($pageSize, self::MAX_PAGE_SIZE);
         $page = max(1, $page);
 
-        $inner = "SELECT e.ID AS entryId, e.entryDate, e.journalNo, COALESCE(e.reference, '') AS reference, COALESCE(NULLIF(l.memo, ''), e.description, '') AS narr,
-                         e.transactionTypeId, COALESCE(t.transactionType, '') AS typeName, e.transactionId, l.lineNumber, l.accountId, a.accountType AS accountName,
-                         CASE WHEN l.dc = 'DEBIT'  THEN l.amount ELSE 0 END AS debit,
-                         CASE WHEN l.dc = 'CREDIT' THEN l.amount ELSE 0 END AS credit,
-                         SUM(CASE WHEN l.dc = 'DEBIT' THEN l.amount ELSE -l.amount END)
-                             OVER (ORDER BY e.entryDate, e.ID, l.lineNumber ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS runningNet
-                  FROM journal_lines l
-                  JOIN journal_entries e ON e.ID = l.journalEntryId
-                  JOIN tblaccounttypes a ON a.ID = l.accountId
-                  LEFT JOIN tbltransactiontypes t ON t.ID = e.transactionTypeId
-                  WHERE e.deleted = 0 AND e.congregationId IN (" . self::marks($scope) . ') AND l.accountId IN (' . self::marks($ids) . ') AND e.entryDate <= ?'
-               . ($from !== null ? ' AND e.entryDate >= ?' : '');
+        $base = "SELECT e.ID AS entryId, e.entryDate, e.journalNo, COALESCE(e.reference, '') AS reference, COALESCE(NULLIF(l.memo, ''), e.description, '') AS narr,
+                        e.transactionTypeId, COALESCE(t.transactionType, '') AS typeName, e.transactionId, l.lineNumber, l.accountId, a.accountType AS accountName,
+                        CASE WHEN l.dc = 'DEBIT'  THEN l.amount ELSE 0 END AS debit,
+                        CASE WHEN l.dc = 'CREDIT' THEN l.amount ELSE 0 END AS credit,
+                        (SELECT f.startDate FROM tblfiscalyears f WHERE e.entryDate BETWEEN f.startDate AND f.endDate ORDER BY f.deleted ASC, f.ID DESC LIMIT 1) AS fy
+                 FROM journal_lines l
+                 JOIN journal_entries e ON e.ID = l.journalEntryId
+                 JOIN tblaccounttypes a ON a.ID = l.accountId
+                 LEFT JOIN tbltransactiontypes t ON t.ID = e.transactionTypeId
+                 WHERE e.deleted = 0 AND e.congregationId IN (" . self::marks($scope) . ') AND l.accountId IN (' . self::marks($ids) . ') AND e.entryDate <= ?'
+              . ($from !== null ? ' AND e.entryDate >= ?' : '');
+        $inner = "SELECT b.*,
+                         SUM(b.debit - b.credit) OVER (" . ($restart ? 'PARTITION BY b.fy ' : '') . "ORDER BY b.entryDate, b.entryId, b.lineNumber ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS runningNet,
+                         LAG(b.fy) OVER (ORDER BY b.entryDate, b.entryId, b.lineNumber) AS prevFy
+                  FROM ($base) b";
         $params = array_merge($scope, $ids, [$to]);
         if ($from !== null) { $params[] = $from; }
+        // the opening balance applies to the first year's partition only when the account restarts every year
+        $baseOf = function ($fy) use ($restart, $opening, $firstFy) { return ($restart && $fy !== $firstFy) ? 0 : $opening; };
 
         $where = '';
         $wp = [];
@@ -1073,7 +1063,7 @@ class FinancialReport
                 $conds[] = '(credit > 0 AND CAST(credit AS CHAR) LIKE ?)';
                 $wp[] = $nl; $wp[] = $nl;
             }
-            $where = ' WHERE ' . implode(' OR ', array_map(function ($c) { return $c; }, $conds));
+            $where = ' WHERE ' . implode(' OR ', $conds);
         }
 
         // matching rows and their totals
@@ -1082,12 +1072,15 @@ class FinancialReport
         $agg = $st->fetch(PDO::FETCH_ASSOC);
         $matching = (int) $agg['n'];
 
-        // the period as a whole
+        // the period as a whole, and its last row (the closing balance)
         $st = $db->prepare("SELECT COUNT(*) AS n, COALESCE(SUM(debit), 0) AS dr, COALESCE(SUM(credit), 0) AS cr FROM ($inner) q");
         $st->execute($params);
         $all = $st->fetch(PDO::FETCH_ASSOC);
         $dr = self::cents($all['dr']); $cr = self::cents($all['cr']);
-        $closingNet = $opening + $dr - $cr;
+        $st = $db->prepare("SELECT fy, runningNet FROM ($inner) q ORDER BY entryDate DESC, entryId DESC, lineNumber DESC LIMIT 1");
+        $st->execute($params);
+        $last = $st->fetch(PDO::FETCH_ASSOC);
+        $closingNet = $last ? $baseOf($last['fy'] === null ? null : (string) $last['fy']) + self::cents($last['runningNet']) : $opening;
 
         $sql = "SELECT * FROM ($inner) q$where ORDER BY entryDate, entryId, lineNumber";
         $qp = array_merge($params, $wp);
@@ -1096,7 +1089,8 @@ class FinancialReport
         $st->execute($qp);
         $rows = [];
         foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
-            $net = $opening + self::cents($r['runningNet']);
+            $fy = $r['fy'] === null ? null : (string) $r['fy'];
+            $net = $baseOf($fy) + self::cents($r['runningNet']);
             $type = (int) $r['transactionTypeId'];
             $rows[] = [
                 'entryId' => (int) $r['entryId'], 'date' => (string) $r['entryDate'], 'journalNo' => $r['journalNo'] === null ? null : (int) $r['journalNo'],
@@ -1104,11 +1098,12 @@ class FinancialReport
                 'transactionId' => (int) $r['transactionId'], 'lineNumber' => (int) $r['lineNumber'], 'accountId' => (int) $r['accountId'], 'accountName' => (string) $r['accountName'],
                 'debit' => self::cents($r['debit']), 'credit' => self::cents($r['credit']),
                 'balance' => $creditNormal ? -$net : $net, 'net' => $net, 'link' => self::sourceLink($type, (int) $r['transactionId']),
+                'fy' => $restart ? $fy : null, 'prevFy' => $restart && $r['prevFy'] !== null ? (string) $r['prevFy'] : null,
             ];
         }
         return [
             'account' => self::nodeSummary($node), 'from' => $from, 'to' => $to, 'direction' => $creditNormal ? 'CREDIT' : 'DEBIT',
-            'includeDescendants' => $includeDescendants,
+            'includeDescendants' => $includeDescendants, 'restartsEachYear' => $restart, 'firstFy' => $firstFy,
             'opening' => $creditNormal ? -$opening : $opening, 'openingNet' => $opening,
             'rows' => $rows, 'matching' => $matching, 'search' => $search,
             'filtered' => ['debit' => self::cents($agg['dr']), 'credit' => self::cents($agg['cr'])],
@@ -1145,12 +1140,6 @@ class FinancialReport
         $allowBanks = $opts['banks'] ?? true;
         $allowReporting = $opts['reporting'] ?? true;
         $visibleCong = array_merge([0], $chart['scope']);
-        // decision 139: the label is the account name only; two visible accounts with the same name are told apart by the parent's name
-        $seen = [];
-        foreach ($chart['nodes'] as $n) {
-            if (!$n['classified'] || $n['depth'] < 2 || !in_array($n['congregationId'], $visibleCong, true)) { continue; }
-            $seen[strtolower(trim($n['name']))][] = $n['id'];
-        }
         $out = [];
         foreach ($chart['nodes'] as $n) {
             if (!$n['classified'] || $n['depth'] < 2) { continue; }
@@ -1158,17 +1147,7 @@ class FinancialReport
             if ($roots !== null && !in_array($n['root'], $roots, true)) { continue; }
             if (!$allowBanks && $n['isBank']) { continue; }
             if (!$allowReporting && !$n['posting']) { continue; }
-            $label = $n['name'];
-            if (count($seen[strtolower(trim($n['name']))]) > 1) {
-                $parent = $chart['nodes'][$n['parentId']]['name'] ?? '';
-                $label .= ' (' . $parent . ')';
-                // same name under same-named parents: the ID is the last resort
-                $twins = 0;
-                foreach ($seen[strtolower(trim($n['name']))] as $tid) { if (strtolower($chart['nodes'][$chart['nodes'][$tid]['parentId']]['name'] ?? '') === strtolower($parent)) { $twins++; } }
-                if ($twins > 1) { $label .= ' [' . $n['id'] . ']'; }
-            }
-            $suffix = ($n['deleted'] ? ' (deleted)' : '') . (!$n['active'] ? ' (inactive)' : '');
-            $out[] = ['id' => $n['id'], 'label' => $label . $suffix, 'name' => $n['name'], 'path' => $n['path'], 'root' => $n['root'],
+            $out[] = ['id' => $n['id'], 'label' => $n['label'], 'name' => $n['name'], 'path' => $n['path'], 'root' => $n['root'],
                       'depth' => $n['depth'], 'posting' => $n['posting'], 'active' => $n['active'], 'deleted' => $n['deleted'], 'isBank' => $n['isBank']];
         }
         usort($out, function ($a, $b) { return strnatcasecmp($a['label'], $b['label']) ?: $a['id'] <=> $b['id']; });

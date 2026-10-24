@@ -65,7 +65,7 @@ try {
 
     echo "== congregation income statement\n";
     [$code, $body] = http('GET', "reports/incomestatementrpt?$q", $admin11); $r = json_decode($body, true);
-    ok('JSON report for the session congregation', $code === 200 && $r['success'] === true && $r['income']['title'] === 'Income' && $r['start'] === '2026-10-01' && $r['entity'] !== '', $body);
+    ok('JSON report for the session congregation', $code === 200 && $r['success'] === true && $r['income']['title'] === 'Income' && $r['start'] === '2026-10-01' && $r['entity'] === '', $body);   // no congregation-name heading (decision 147)
     $names = array_column($r['income']['rows'], 'name');
     ok('top-level lines include the fixture accounts, the markup in a name comes back as data', in_array('Zz T92h Income Top', $names, true) && in_array('Zz <script>alert(1)</script> T92h', $names, true));
     $row = array_values(array_filter($r['income']['rows'], function ($x) use ($A) { return $x['id'] === $A; }))[0];

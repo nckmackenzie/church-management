@@ -329,7 +329,7 @@ try {
     ok('lines(): row carries entry ID, journal number, reference, memo, type name, debit/credit', $r0['entryId'] > 0 && $r0['journalNo'] !== null && strpos($r0['reference'], 'zz t91 ref') === 0 && strpos($r0['memo'], 'zz t91 memo') === 0 && $r0['typeName'] === 'journal entries' && ($r0['debit'] > 0 xor $r0['credit'] > 0));
     $lc = FinancialReport::lines($pdo, [$T], $I4, ['kind' => 'is', 'from' => '2025-10-01', 'to' => '2026-09-30'], false);
     ok('lines(): a credit-normal account shows its balance in the credit direction', $lc['direction'] === 'CREDIT' && end($lc['rows'])['balance'] === $lc['closing'] && $lc['closing'] === $lc['opening'] + $lc['movement']);
-    ok('lines(): income leaf: opening 314.00 (prior years), movement 461.00 (500 - 50 + 11), closing 775.00', $lc['opening'] === 31400 && $lc['movement'] === 46100 && $lc['closing'] === 77500, m($lc['opening']) . ' / ' . m($lc['movement']) . ' / ' . m($lc['closing']));
+    ok('lines(): income leaf starts the year at zero (decision 144): opening 0.00, movement 461.00, closing 461.00', $lc['opening'] === 0 && $lc['movement'] === 46100 && $lc['closing'] === 46100, m($lc['opening']) . ' / ' . m($lc['movement']) . ' / ' . m($lc['closing']));
     $lsub = FinancialReport::lines($pdo, [$T], $A2, ['kind' => 'is', 'from' => '2025-10-01', 'to' => '2026-09-30'], true);
     $want = $naive($subtree($A2), '2025-10-01', '2026-09-30', $T);
     ok('lines(): includeDescendants covers the whole subtree', $lsub['totals']['debit'] === $want[0] && $lsub['totals']['credit'] === $want[1]);
@@ -337,7 +337,7 @@ try {
     ok('lines(): a zero-net account still lists its two lines', count($lz['rows']) === 2 && $lz['closing'] === 0);
     $ltb = FinancialReport::lines($pdo, [$T], $I4, ['kind' => 'tb', 'asOf' => '2026-03-31'], false);
     $mv = $naive([$I4], '2025-10-01', '2026-03-31', $T);
-    ok('lines(): trial-balance basis for income starts at the financial-year start; the movement of the period (not the opening) is the trial-balance figure', $ltb['from'] === '2025-10-01' && $ltb['opening'] === $naive([$I4], null, '2025-09-30', $T)[1] - $naive([$I4], null, '2025-09-30', $T)[0] && $ltb['movement'] === $mv[1] - $mv[0], m($ltb['opening']) . ' / ' . m($ltb['movement']));
+    ok('lines(): trial-balance basis for income starts at the financial-year start; the movement of the period (not the opening) is the trial-balance figure', $ltb['from'] === '2025-10-01' && $ltb['opening'] === 0 && $ltb['movement'] === $mv[1] - $mv[0] && $ltb['closing'] === $ltb['movement'], m($ltb['opening']) . ' / ' . m($ltb['movement']));
     ok('lines(): balance-sheet types have no lower bound under a trial-balance period', FinancialReport::lines($pdo, [$T], $A5a, ['kind' => 'tb', 'asOf' => '2026-03-31'], false)['from'] === null);
     ok('lines(): foreign account refused', dies(function () use ($pdo, $T, $Foreign, $per) { FinancialReport::lines($pdo, [$T], $Foreign, $per); }) !== null);
     $lv = FinancialReport::lines($pdo, [$T], $I4, ['kind' => 'range', 'from' => null, 'to' => '2026-12-31', 'direction' => 'normal'], false);

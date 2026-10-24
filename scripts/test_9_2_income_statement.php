@@ -128,8 +128,8 @@ try {
     ok("drill: all $walk levels add up to the figure clicked, ending at the journal lines", $walk >= 10 && !$bad, implode('; ', $bad));
     $leaf = IncomeStatementReport::drill($pdo, [$T], $I5, $from, $to, 'children', false);
     ok('deep leaf (4 levels below the root) opens straight to journal lines', $leaf['mode'] === 'lines' && count($leaf['rows']) === 2 && $leaf['movement'] === '960.00');
-    ok('lines: opening balance before the period (income last year 800.00), closing = opening + movement', $leaf['opening'] === '800.00' && $leaf['closing'] === '1,760.00');
-    ok('lines: running balance in the credit direction, contra row lowers it', $leaf['rows'][0]['balance'] === '1,800.00' && $leaf['rows'][1]['balance'] === '1,760.00' && $leaf['rows'][1]['debit'] === '40.00' && $leaf['rows'][1]['credit'] === '');
+    ok('lines: an income account starts the financial year at zero (decision 144): opening 0.00, closing = movement 960.00', $leaf['opening'] === '0.00' && $leaf['closing'] === '960.00');
+    ok('lines: running balance in the credit direction, contra row lowers it', $leaf['rows'][0]['balance'] === '1,000.00' && $leaf['rows'][1]['balance'] === '960.00' && $leaf['rows'][1]['debit'] === '40.00' && $leaf['rows'][1]['credit'] === '');
     ok('lines: entry number, reference, narration and type per row', $leaf['rows'][0]['entryId'] > 0 && strpos($leaf['rows'][0]['reference'], 'zz t92 ref') === 0 && strpos($leaf['rows'][0]['memo'], 'zz t92 memo') === 0 && $leaf['rows'][0]['type'] === 'journal entries' && $leaf['rows'][0]['journalNo'] > 0);
     $el = IncomeStatementReport::drill($pdo, [$T], $E4, $from, $to, 'children', false);
     $link = null; foreach ($el['rows'] as $row) { if ($row['link']) { $link = $row['link']; } }

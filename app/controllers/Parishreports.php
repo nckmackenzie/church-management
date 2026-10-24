@@ -527,79 +527,58 @@ class Parishreports extends Controller
         [$scope,$entity] = IncomeStatementReport::parishScope($db,$_GET['cong'] ?? null);
         TrialBalanceReport::serveDrill($db,$scope,$entity);
     }
+    /** Balance sheet (task 9.4): FinancialReport on the journal; As Of Date only. */
     public function balancesheet()
     {
         checkrights($this->authmodel,'balance sheet');
-        $congregations = $this->parishReportModel->GetCongregations();
-        $data = [
-            'congregations' => $congregations,
-        ];
+        $data = ['congregations' => $this->parishReportModel->GetCongregations()];
         $this->view('parishreports/balancesheet',$data);
     }
+
+    /** JSON (or format=xlsx): asof=Y-m-d , cong (0 / empty = the whole parish scope) */
     public function balancesheetrpt()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [
-                'cong' => trim($_GET['cong']),
-                'todate' => trim($_GET['todate']),
-            ];
-            $assets = $this->parishReportModel->GetAssets($data);
-            $liablityequities = $this->parishReportModel->GetLiablityEquity($data);
-            $assetsTotal = $this->parishReportModel->GetAssetsTotal($data);
-            $liablityequitiesTotal = $this->parishReportModel->GetLiabilityEquityTotal($data);
-            $netIncome = $this->parishReportModel->GetNetIncome($data);
-            $totalLiablityEquity = floatval($liablityequitiesTotal) + floatval($netIncome);
-            $output = '';
-            $output .= '
-                <table class="table table-bordered table-sm" id="table">
-                    <thead class="bg-lightblue">
-                        <tr>
-                            <th>Balance Sheet As Of '.date("d/m/Y", strtotime($data['todate'])).'</th>
-                        </tr>
-                    </thead>   
-                    <tbody>
-                        <tr class="bg-olive">
-                            <td colspan="2">Assets</th>
-                        </tr>';
-                    foreach($assets as $asset){
-                        $output .='
-                        <tr>
-                            <td>'.strtoupper($asset->account).'</td>
-                            <td>'.number_format($asset->bal,2).'</td>
-                        </tr>';
-                    }
-                    $output .='
-                        <tr style="background-color: #abebbc;">
-                            <td style="font-weight: 700;">Assets Total</td>
-                            <td style="font-weight: 700;">'.number_format($assetsTotal,2).'</td>
-                        </tr>
-                        <tr style="background-color: #e85858; color: #fff;">
-                            <td colspan="2">Liability & Equity</th>
-                        </tr>';
-                    foreach ($liablityequities as $liabilityequity) {
-                        $output .='
-                        <tr>
-                             <td>'.strtoupper($liabilityequity->account).'</td>
-                             <td>'.number_format((floatval($liabilityequity->bal) * -1),2).'</td>
-                        </tr>';
-                    } 
-                    $output .='
-                        <tr>
-                            <td>NET INCOME</td>
-                            <td>'.number_format(floatval($netIncome),2).'</td>
-                        </tr>
-                        <tr style="background-color: #f59595;">
-                            <td style="font-weight: 700;">Liablity & Equity Total</td>
-                            <td style="font-weight: 700;">'.number_format($totalLiablityEquity,2).'</td>
-                        </tr>
-                    </tbody>
-                </table>';   
-            echo $output;
-        }else {
-            redirect('users');
-        }
+        $db = (new Database)->pdo();
+        [$scope,$entity] = IncomeStatementReport::parishScope($db,$_GET['cong'] ?? null);
+        BalanceSheetReport::serveReport($db,$scope,$entity);
     }
+
+    public function balancesheetdrill()
+    {
+        $this->view('parishreports/balancesheetdrill',[]);
+        exit;
+    }
+
+    public function balancesheetdrillrpt()
+    {
+        $db = (new Database)->pdo();
+        [$scope,$entity] = IncomeStatementReport::parishScope($db,$_GET['cong'] ?? null);
+        BalanceSheetReport::serveDrill($db,$scope,$entity);
+    }
+
+    /** Old name-based drill URLs: nothing is queried any more */
+    public function balancesheetdetailed()
+    {
+        redirect('parishreports/balancesheet');
+        exit;
+    }
+
+    public function getbalancesheetdetailedrpt()
+    {
+        IncomeStatementReport::fail('This link is no longer supported; open the balance sheet again');
+    }
+
+    public function balancesheetchilddetails()
+    {
+        redirect('parishreports/balancesheet');
+        exit;
+    }
+
+    public function balancesheetchilddetailsrpt()
+    {
+        IncomeStatementReport::fail('This link is no longer supported; open the balance sheet again');
+    }
+
     public function banking()
     {
         checkrights($this->authmodel,'banking reports');
