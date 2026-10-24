@@ -16,17 +16,18 @@ class Invoicereport
 
     public function GetInvoiceNos()
     {
-        $sql = 'SELECT h.invoiceNo
+        $sql = 'SELECT h.ID, h.invoiceNo, s.supplierName
                 FROM tblinvoice_header_suppliers h
-                WHERE (h.congregationId = ?) AND (h.deleted = 0) AND 
-                    h.ID IN (SELECT DISTINCT invoice_Id FROM tblinvoice_payments_suppliers)
-                ORDER By invoiceNo';
+                JOIN tblsuppliers s ON h.supplierId = s.ID
+                WHERE (h.congregationId = ?) AND (h.deleted = 0) AND
+                    h.ID IN (SELECT DISTINCT invoice_Id FROM tblinvoice_payments_suppliers WHERE Deleted = 0)
+                ORDER By h.invoiceNo, s.supplierName';
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
 
     public function GetPaymentPayInvoice($invoice)
     {
-        return loadresultset($this->db->dbh,'CALL sp_get_payments_by_invoiceno(?)',[$invoice]);
+        return loadresultset($this->db->dbh,'CALL sp_get_payments_by_invoiceno(?,?)',[(int)$invoice,(int)$_SESSION['congId']]);
     }
 
     public function GetSupplierBalances($data)
@@ -35,9 +36,9 @@ class Invoicereport
                     s.supplierName,
                     IFNULL(SUM(getinvoicebalance_supplier(h.ID)),0) As TotalBalance
                 FROM `tblinvoice_header_suppliers` h join tblsuppliers s on h.supplierId = s.ID
-                WHERE h.deleted = 0
+                WHERE h.deleted = 0 AND s.deleted = 0 AND h.congregationId = ?
                 GROUP BY s.supplierName;';
-        return loadresultset($this->db->dbh,$sql,[]);
+        return loadresultset($this->db->dbh,$sql,[(int)$_SESSION['congId']]);
     }
 
     public function GetSuppliers()
@@ -47,8 +48,8 @@ class Invoicereport
                     UCASE(s.supplierName) As supplierName
                 FROM tblinvoice_header_suppliers h join tblsuppliers s on h.supplierId = s.ID
                 WHERE (h.congregationId = ?) AND (h.deleted = 0) AND 
-                    h.ID IN (SELECT DISTINCT invoice_Id FROM tblinvoice_payments_suppliers)
-                ORDER By invoiceNo';
+                    h.ID IN (SELECT DISTINCT invoice_Id FROM tblinvoice_payments_suppliers WHERE Deleted = 0)
+                ORDER By supplierName';
         return loadresultset($this->db->dbh,$sql,[$_SESSION['congId']]);
     }
 

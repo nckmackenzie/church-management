@@ -1,8 +1,5 @@
 import {
-  mandatoryFields,
-  clearOnChange,
   updateSubTotal,
-  validation,
   displayAlert,
   alertBox,
   setLoadingState,
@@ -12,9 +9,9 @@ import {
 import {
   getSupplierDetails,
   saveProduct,
-  getProductRate,
+  getProduct,
   saveForm,
-} from './ajax-requests.js';
+} from './ajax-requests-v2.js';
 import {
   formatDate,
   addDays,
@@ -24,7 +21,13 @@ import {
   calculateVat,
   header,
   tableData,
-} from './functionalities.js';
+} from './functionalities-v2.js';
+import {
+  setError,
+  clearError,
+  validateRequired,
+  clearOnChange,
+} from '../utils/feedback.js';
 
 export const supplierSelect = document.getElementById('supplier');
 export const invoiceDateInput = document.getElementById('idate');
@@ -34,7 +37,9 @@ const pinInput = document.getElementById('pin');
 const emailInput = document.getElementById('email');
 export const vatTypeSelect = document.getElementById('vattype');
 export const vatSelect = document.getElementById('vat');
+export const payableSelect = document.getElementById('payable');
 export const productSelect = document.getElementById('product');
+export const lineAccountText = document.getElementById('lineaccount');
 const modalForm = document.getElementById('productForm');
 const modalBtn = document.getElementById('newproduct');
 export const modalRequired = document.querySelectorAll('.modalrequired');
@@ -48,12 +53,18 @@ export const table = document.getElementById('details');
 const addInputControls = document.querySelectorAll('.addcontrol');
 const invoiceForm = document.getElementById('invoiceForm');
 const saveBtn = document.getElementById('save');
-// export const descriptionInput = document.getElementById('description');
+const GROSS_CELL = 5;
+
+function showLineAccount(account) {
+  lineAccountText.dataset.account = account || '';
+  lineAccountText.textContent = account ? `Debit account: ${account}` : '';
+}
 
 //fetch supplier details
 supplierSelect.addEventListener('change', async function (e) {
   if (e.target.value == '' || !e.target.value) return;
   const fetchedDetails = await getSupplierDetails(+e.target.value);
+  if (!fetchedDetails) return;
   pinInput.value = fetchedDetails.pin;
   emailInput.value = fetchedDetails.email;
 });
@@ -61,8 +72,7 @@ supplierSelect.addEventListener('change', async function (e) {
 invoiceDateInput.addEventListener('change', function (e) {
   if (e.target.value == '' || !e.target.value) return;
   dueDateInput.value = formatDate(addDays(e.target.value, 30));
-  dueDateInput.classList.remove('is-invalid');
-  dueDateInput.nextSibling.nextSibling.textContent = '';
+  clearError(dueDateInput);
 });
 
 vatTypeSelect.addEventListener('change', function (e) {
@@ -82,13 +92,19 @@ productSelect.addEventListener('change', async function (e) {
   if (+e.target.value === 0) {
     $('#addModal').modal('show');
     this.value = '';
+    showLineAccount('');
     return;
   }
-  rateInput.value = await getProductRate(+e.target.value);
-  if (rateInput.value != '') {
-    rateInput.classList.remove('is-invalid');
-    rateInput.nextSibling.nextSibling.textContent = '';
+  const product = await getProduct(+e.target.value);
+  if (!product) {
+    this.value = '';
+    showLineAccount('');
+    return;
   }
+  rateInput.value = product.rate;
+  showLineAccount(product.account);
+  if (rateInput.value != '') clearError(rateInput);
+  calcGrossValue();
 });
 
 //product save
@@ -101,7 +117,6 @@ modalForm.addEventListener('submit', async function (e) {
     rate: document.getElementById('sellingprice').value,
     account: document.getElementById('account').value,
   };
-  const rate = document.getElementById('sellingprice').value;
 
   modalBtn.disabled = true;
   modalBtn.textContent = 'Saving...';
@@ -118,7 +133,8 @@ modalForm.addEventListener('submit', async function (e) {
     productSelect.innerHTML = '';
     productSelect.innerHTML = data.products;
     productSelect.value = data.productid;
-    rateInput.value = rate;
+    // the new product's rate and account come from the server like any other product
+    productSelect.dispatchEvent(new Event('change'));
   }
 });
 
@@ -128,21 +144,23 @@ rateInput.addEventListener('blur', calcGrossValue);
 addBtn.addEventListener('click', function () {
   let error = 0;
   addInputControls.forEach(cntrl => {
+    clearError(cntrl);
     if (cntrl.value === '') {
-      cntrl.classList.add('is-invalid');
-      cntrl.nextSibling.nextSibling.textContent = 'Field is required';
+      setError(cntrl, 'Field is required');
       error++;
     }
   });
   if (error > 0) return;
+  calcGrossValue();
   addToTable();
-  updateSubTotal(table, 4, 'input', totalsInput);
+  updateSubTotal(table, GROSS_CELL, 'input', totalsInput);
   calculateVat();
   productSelect.value =
     qtyInput.value =
     rateInput.value =
     grossInput.value =
       '';
+  showLineAccount('');
 });
 
 //remove button clicked
@@ -150,13 +168,13 @@ table.addEventListener('click', function (e) {
   if (!e.target.classList.contains('text-danger')) return;
   const btn = e.target;
   btn.closest('tr').remove();
-  updateSubTotal(table, 4, 'input', totalsInput);
+  updateSubTotal(table, GROSS_CELL, 'input', totalsInput);
   calculateVat();
 });
 
 invoiceForm.addEventListener('submit', async function (e) {
   e.preventDefault();
-  if (validation() > 0) return;
+  if (validateRequired() > 0) return;
   const tbodyRow = table.getElementsByTagName('tbody')[0];
   if (+tbodyRow.rows.length === 0) {
     displayAlert(alertBox, 'Enter products');
@@ -167,10 +185,25 @@ invoiceForm.addEventListener('submit', async function (e) {
   const res = await saveForm(formData);
   if (res && res?.success) {
     window.location.replace(`${HOST_URL}/supplierinvoices`);
+    return;
   }
   resetLoadingState(saveBtn, 'Save');
 });
 
-clearOnChange(mandatoryFields);
+clearOnChange(document.querySelectorAll('.mandatory'));
 clearOnChange(addInputControls);
-vatSelect.value = '';
+if (+vatTypeSelect.value <= 1) vatSelect.value = '';
+
+// an invoice that has payments: only the due date and the invoice number may change (the server enforces it)
+if (invoiceForm.dataset.locked) {
+  [supplierSelect, invoiceDateInput, vatTypeSelect, vatSelect, payableSelect, productSelect, qtyInput, rateInput, addBtn].forEach(
+    field => (field.disabled = true)
+  );
+  table.querySelectorAll('.btnremove').forEach(btn => (btn.style.display = 'none'));
+}
+
+// edit page: show the totals of the lines already on the invoice
+if (table.getElementsByTagName('tbody')[0].rows.length > 0) {
+  updateSubTotal(table, GROSS_CELL, 'input', totalsInput);
+  calculateVat();
+}

@@ -1,4 +1,4 @@
-<?php require APPROOT . '/views/inc/header.php';?>
+<?php $h=function($v){return htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');};require APPROOT . '/views/inc/header.php';?>
 <?php require APPROOT . '/views/inc/topNav.php';?>
 <?php require APPROOT . '/views/inc/sideNav.php';?>
 <!-- Modal -->
@@ -6,7 +6,7 @@
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="exampleModalLongTitle">Delete Contribution</h5>
+        <h5 class="modal-title" id="exampleModalLongTitle">Delete Pledge</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -15,7 +15,7 @@
           <form action="<?php echo URLROOT;?>/pledges/delete" method="post">
               <div class="row">
                 <div class="col-md-9">
-                  <label for="">Delete Selected Contribution?</label>
+                  <label>Delete selected pledge and void all its ledger entries?</label>
                   <input type="hidden" name="id" id="id">
                   <input type="hidden" name="pledger" id="pledger">
                 </div>
@@ -89,25 +89,14 @@
                     <tbody>
                         <?php foreach($data['pledges'] as $pledge) :?>
                             <tr>
-                                <td><?php echo $pledge->ID;?></td>
-                                <td><?php echo $pledge->pledger;?></td>
-                                <td><?php echo $pledge->contact;?></td>
-                                <td><?php echo $pledge->category;?></td>
-                                <td><?php echo $pledge->amountPledged;?></td>
-                                <td><?php echo $pledge->amountPaid;?></td>
-                                <td><?php echo $pledge->balance;?></td>
-                                <?php if($_SESSION['userType'] <=2 || (int)$_SESSION['userType'] > 4) : ?>
-                                    <td>
-                                        <div class="btn-group">
-                                            <a href="<?php echo URLROOT;?>/pledges/pay/<?php echo $pledge->ID;?>" class="btn btn-sm bg-olive custom-font">Pay</a>
-                                            <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
-                                        </div>
-                                    </td>
-                                <?php elseif($_SESSION['userType'] <=5) :?>
-                                    <td>
-                                        <a href="<?php echo URLROOT;?>/pledges/pay/<?php echo $pledge->ID;?>" class="btn btn-sm bg-olive custom-font">Pay</a>
-                                    </td>    
-                                <?php endif; ?>
+                                <td><?php echo (int)$pledge->ID;?></td>
+                                <td><?php echo $h($pledge->pledger);?></td>
+                                <td><?php echo $h($pledge->contact);?></td>
+                                <td><?php echo $h($pledge->category);?></td>
+                                <td><?php echo $h($pledge->amountPledged);?></td>
+                                <td><?php echo $h($pledge->amountPaid);?></td>
+                                <td><?php echo $h($pledge->balance);?></td>
+                                <td><div class="btn-group"><a href="<?php echo URLROOT;?>/pledges/pay/<?php echo (int)$pledge->ID;?>" class="btn btn-sm bg-olive custom-font">Pay</a><?php if((int)$_SESSION['userType'] <= 2 || (int)$_SESSION['userType'] > 4) : ?><button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button><?php endif; ?></div></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

@@ -30,13 +30,13 @@
                     <tbody>
                        <?php foreach($data['payments'] as $payment): ?>
                           <tr>
-                            <td class="d-none"><?php echo $payment->ID;?></td>
-                            <td><?php echo $payment->paymentNo;?></td>
-                            <td><?php echo $payment->supplierName;?></td>
+                            <td class="d-none"><?php echo (int)$payment->ID;?></td>
+                            <td><?php echo (int)$payment->paymentNo;?></td>
+                            <td><?php echo htmlspecialchars((string)$payment->supplierName,ENT_QUOTES,'UTF-8');?></td>
                             <td><?php echo date('d-m-Y',strtotime($payment->paymentDate)) ;?></td>
                             <td><?php echo number_format($payment->AmountPaid,2);?></td>
                             <td>
-                               <a href="<?php echo URLROOT;?>/payments/print/<?php echo $payment->ID;?>" target="_blank" class="btn btn-sm bg-olive custom-font">Print Voucher</a>
+                               <a href="<?php echo URLROOT;?>/payments/print/<?php echo (int)$payment->ID;?>" target="_blank" class="btn btn-sm bg-olive custom-font">Print Voucher</a>
                             </td>
                           </tr>
                        <?php endforeach; ?>

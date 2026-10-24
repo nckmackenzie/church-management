@@ -74,6 +74,8 @@ class Products extends Controller
             }
             if(empty($data['glaccount']) && !$data['isedit']){
                 $data['glaccount_err'] = 'Select G/L account';
+            }elseif(!$data['isedit'] && ($problem = $this->productmodel->AccountProblem($data['glaccount'])) !== null){
+                $data['glaccount_err'] = $problem;
             }
 
             if(!empty($data['productname_err']) || !empty($data['rate_err']) || !empty($data['glaccount_err'])){
@@ -100,6 +102,11 @@ class Products extends Controller
     public function edit($id)
     {
         $product = $this->productmodel->GetProduct($id);
+        if(!$product){
+            flash('product_msg','Product not found for this congregation','alert custom-danger alert-dismissible fade show');
+            redirect('products');
+            exit;
+        }
         checkcenter($product->congregationId);
         $data = [
             'title' => 'Edit Product',

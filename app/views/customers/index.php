@@ -16,7 +16,6 @@
                 <div class="col-md-9">
                   <label for="">Are You Sure You Want To Delete Selected Customer?</label>
                   <input type="hidden" name="id" id="id">
-                  <input type="hidden" name="customername" id="customername">
                 </div>
               </div>
               <div class="modal-footer">
@@ -59,15 +58,15 @@
                     <tbody>
                         <?php foreach($data['customers'] as $customer) :?>
                             <tr>
-                                <td style="display: none;"><?php echo $customer->ID;?></td>
-                                <td><?php echo strtoupper($customer->customerName);?></td>
-                                <td><?php echo $customer->contact;?></td>
-                                <td><?php echo strtoupper($customer->pin);?></td>
-                                <td><?php echo strtoupper($customer->contactPerson);?></td>
+                                <td style="display: none;"><?php echo (int)$customer->ID;?></td>
+                                <td><?php echo htmlspecialchars(strtoupper((string)$customer->customerName),ENT_QUOTES,'UTF-8');?></td>
+                                <td><?php echo htmlspecialchars((string)$customer->contact,ENT_QUOTES,'UTF-8');?></td>
+                                <td><?php echo htmlspecialchars(strtoupper((string)$customer->pin),ENT_QUOTES,'UTF-8');?></td>
+                                <td><?php echo htmlspecialchars(strtoupper((string)$customer->contactPerson),ENT_QUOTES,'UTF-8');?></td>
                                 <?php if($_SESSION['userType'] <=2) : ?>
                                 <td>
                                     <div class="btn-group">
-                                        <a href="<?php echo URLROOT;?>/customers/edit/<?php echo $customer->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
+                                        <a href="<?php echo URLROOT;?>/customers/edit/<?php echo (int)$customer->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
                                         <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
                                     </div>
                                 </td>     
@@ -105,7 +104,6 @@
               return $(this).text();
           }).get();
           $('#id').val(data[0]);
-          $('#customername').val(data[1]);
       });
     });
 </script>

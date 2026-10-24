@@ -1,178 +1,101 @@
 <?php
-    class Customers extends Controller {
-        public function __construct()
-        {
-            if (!isset($_SESSION['userId'])) {
-                redirect('users');
-                exit;
-            }
-            $this->authmodel = $this->model('Auth');
-            checkrights($this->authmodel,'customers');
-            $this->customerModel = $this->model('Customer');
+
+class Customers extends Controller
+{
+    public function __construct()
+    {
+        if (!isset($_SESSION['userId'])) {
+            redirect('users');
+            exit;
         }
-        public function index()
-        {
-            $customers = $this->customerModel->index();
-            $data = [
-                'customers' => $customers
-            ];
-            $this->view('customers/index',$data);
-        }
-        public function add()
-        {
-            $data = [
-                'customername' => '',
-                'contact' => '',
-                'address' => '',
-                'pin' => '',
-                'email' => '',
-                'contactperson' => '',
-                'customername_err' => '',
-                'contactperson_err' => '',
-            ];
-            $this->view('customers/add',$data);
-        }
-        public function create()
-        {
-            //check method is post
-            if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-                //SANTIZE STRING
-                $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-                $data = [
-                    'customername' => trim(strtolower($_POST['customername'])),
-                    'contact' => trim($_POST['contact']),
-                    'address' => trim(strtolower($_POST['address'])),
-                    'pin' => trim(strtolower($_POST['pin'])),
-                    'email' => trim($_POST['email']),
-                    'contactperson' => trim(strtolower($_POST['contactperson'])),
-                    'customername_err' => '',
-                    'contactperson_err' => '',
-                ];
-                //validate
-                if (empty($data['customername'])) {
-                    $data['customername_err'] = 'Enter Customer Name';
-                }
-                else{
-                    if (!$this->customerModel->checkExists($data['customername'])) {
-                        $data['name_err'] ='District Exists';
-                    }
-                }
-                if (empty($data['contactperson'])) {
-                    $data['contactperson_err'] = 'Enter Contact Person';
-                }
-                if (empty($data['customername_err']) && empty($data['contactperson_err'])) {
-                    if ($this->customerModel->create($data)) {
-                        flash('customer_msg','Customer Added Successfully!');
-                        redirect('customers');
-                    }
-                    else{
-                        flash('customer_msg','Something Went Wrong!','alert alert-danger');
-                        redirect('customers');
-                    }
-                }
-                else{
-                    $this->view('customers/add',$data);
-                }
-            }
-        }
-        public function edit($id)
-        {
-            $customer = $this->customerModel->getCustomer($id);
-            $data = ['customer' => $customer];
-            //check if congregation is same
-            if ($data['customer']->congregationId != $_SESSION['congId']) {
-                redirect('customers');
-            }
-            elseif ($data['customer']->congregationId == $_SESSION['congId'] || $_SESSION['userType'] > 2) {
-                $this->view('customers/edit',$data);
-            }
-        }
-        public function update()
-        {
-            //check method is post
-            if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-                //SANTIZE STRING
-                $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-                $data = [
-                    'id' => $_POST['id'],
-                    'customername' => trim(strtolower($_POST['customername'])),
-                    'contact' => trim($_POST['contact']),
-                    'address' => trim(strtolower($_POST['address'])),
-                    'pin' => trim(strtolower($_POST['pin'])),
-                    'email' => trim($_POST['email']),
-                    'contactperson' => trim(strtolower($_POST['contactperson'])),
-                    'customername_err' => '',
-                    'contactperson_err' => '',
-                ];
-                //validate
-                if (empty($data['customername'])) {
-                    $data['customername_err'] = 'Enter Customer Name';
-                }
-               
-                if (empty($data['contactperson'])) {
-                    $data['contactperson_err'] = 'Enter Contact Person';
-                }
-                if (empty($data['customername_err']) && empty($data['contactperson_err'])) {
-                    if ($this->customerModel->update($data)) {
-                        flash('customer_msg','Customer Updated Successfully!');
-                        redirect('customers');
-                    }
-                    else{
-                        flash('customer_msg','Something Went Wrong!','alert alert-danger');
-                        redirect('customers');
-                    }
-                }
-                else{
-                    $this->view('customers/edit',$data);
-                }
-            }
-            else{
-                $data = [
-                    'id' => $_POST['id'],
-                    'customername' => trim(strtolower($_POST['customername'])),
-                    'contact' => trim($_POST['contact']),
-                    'address' => trim(strtolower($_POST['address'])),
-                    'pin' => trim(strtolower($_POST['pin'])),
-                    'email' => trim($_POST['email']),
-                    'contactperson' => trim(strtolower($_POST['contactperson'])),
-                    'customername_err' => '',
-                    'contactperson_err' => '',
-                ];
-                $this->view('customers/edit',$data);
-            }
-        }
-        public function delete()
-        {
-            //check method is post
-            if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-                //SANTIZE STRING
-                $_POST = filter_input_array(INPUT_POST,FILTER_UNSAFE_RAW);
-                $data = [
-                    'id' => $_POST['id'],
-                    'customername' => trim(strtolower($_POST['customername'])),
-                ];
-                //validate
-                if (isset($data['id'])) {
-                    if ($this->customerModel->delete($data)) {
-                        flash('customer_msg','Customer Deleted Successfully!');
-                        redirect('customers');
-                    }
-                    else{
-                        flash('customer_msg','Cannot Delete Selected Customer!',
-                              'alert custom-danger alert-dismissible fade show');
-                        redirect('customers');
-                    }
-                }
-                else{
-                    $this->view('customers/index',$data);
-                }
-            }
-            else{
-                $data = [
-                    'id' => $_POST['id'],
-                    'customername' => trim(strtolower($_POST['customername'])),
-                ];
-                $this->view('customers/index',$data);
-            }
-        }
+        $this->authmodel = $this->model('Auth');
+        checkrights($this->authmodel,'customers');
+        $this->customerModel = $this->model('Customer');
     }
+
+    private function json(int $status, array $body): void
+    {
+        http_response_code($status);
+        header('Content-Type: application/json');
+        echo json_encode($body);
+        exit;
+    }
+
+    private function formData(array $values = []): array
+    {
+        return array_merge([
+            'title' => 'Add Customer', 'id' => 0, 'isedit' => false,
+            'customername' => '', 'contact' => '', 'address' => '', 'pin' => '', 'email' => '', 'contactperson' => '',
+        ],$values);
+    }
+
+    public function index()
+    {
+        $this->view('customers/index',['customers' => $this->customerModel->index()]);
+        exit;
+    }
+
+    public function add()
+    {
+        $this->view('customers/add',$this->formData());
+        exit;
+    }
+
+    public function create()
+    {
+        $this->save(false);
+    }
+
+    public function update()
+    {
+        $this->save(true);
+    }
+
+    private function save(bool $edit): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->json(405,['message' => 'Method not allowed']); }
+        $fields = json_decode(file_get_contents('php://input'),true);
+        if (!is_array($fields)) { $this->json(400,['message' => 'Enter customer details']); }
+        $fields['isedit'] = $edit;
+        $result = $this->customerModel->save($fields);
+        if (!$result['success']) {
+            $this->json(422,['message' => htmlspecialchars(implode('; ',$result['errors']),ENT_QUOTES,'UTF-8'),'errors' => $result['errors']]);
+        }
+        $this->json(200,['success' => true,'id' => $result['id']]);
+    }
+
+    public function edit($id)
+    {
+        $customer = $this->customerModel->getCustomer(trim((string)$id));
+        if (!$customer) {
+            flash('customer_msg','Customer not found for this congregation',alerterrorclass());
+            redirect('customers');
+            exit;
+        }
+        $this->view('customers/add',$this->formData([
+            'title' => 'Edit Customer', 'id' => (int)$customer->ID, 'isedit' => true,
+            'customername' => strtoupper((string)$customer->customerName),
+            'contact' => (string)$customer->contact, 'address' => strtoupper((string)$customer->address),
+            'pin' => strtoupper((string)$customer->pin), 'email' => (string)$customer->email,
+            'contactperson' => strtoupper((string)$customer->contactPerson),
+        ]));
+        exit;
+    }
+
+    public function delete()
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            redirect('users/deniedaccess');
+            exit;
+        }
+        $result = $this->customerModel->delete(trim((string)($_POST['id'] ?? '')));
+        if (!$result['success']) {
+            flash('customer_msg',htmlspecialchars(implode(' ',$result['errors']),ENT_QUOTES,'UTF-8'),alerterrorclass());
+            redirect('customers');
+            exit;
+        }
+        flash('customer_msg','Customer Deleted Successfully!');
+        redirect('customers');
+        exit;
+    }
+}

@@ -19,7 +19,7 @@
         <div class="row">
             <div class="col-md-6 mx-auto">
                 <div class="card card-body bg-light mt-5">
-                    <h5><?php echo $data['title'];?></h5>
+                    <h5><?php echo htmlspecialchars((string)$data['title'],ENT_QUOTES,'UTF-8');?></h5>
                     <hr>
                     <form action="<?php echo URLROOT;?>/products/createupdate" method="post">
                         <div class="row">
@@ -29,8 +29,8 @@
                                     <input type="text" name="productname" id="productname"
                                     class="form-control form-control-sm mandatory
                                     <?php echo inputvalidation($data['productname'],$data['productname_err'],$data['touched']);?>"
-                                    value="<?php echo $data['productname'];?>" autocomplete="off">
-                                    <span class="invalid-feedback"><?php echo $data['productname_err'];?></span>
+                                    value="<?php echo htmlspecialchars((string)$data['productname'],ENT_QUOTES,'UTF-8');?>" autocomplete="off">
+                                    <span class="invalid-feedback"><?php echo htmlspecialchars((string)$data['productname_err'],ENT_QUOTES,'UTF-8');?></span>
                                 </div>
                             </div>
                         </div>    
@@ -40,7 +40,7 @@
                                     <label for="description">Description</label>
                                     <input type="text" name="description" id="description"
                                     class="form-control form-control-sm"
-                                    value="<?php echo $data['description'];?>" autocomplete="off">   
+                                    value="<?php echo htmlspecialchars((string)$data['description'],ENT_QUOTES,'UTF-8');?>" autocomplete="off">   
                                 </div>
                             </div>
                             <div class="<?php echo converttobool($data['isedit']) ? 'col-md-12' : 'col-md-6';?>">
@@ -49,9 +49,9 @@
                                     <input type="number" name="rate" id="rate"
                                     class="form-control form-control-sm mandatory
                                     <?php echo inputvalidation($data['rate'],$data['rate_err'],$data['touched']) ;?>"
-                                    value="<?php echo $data['rate'];?>"
+                                    value="<?php echo htmlspecialchars((string)$data['rate'],ENT_QUOTES,'UTF-8');?>"
                                     autocomplete="off">
-                                    <span class="invalid-feedback"><?php echo $data['rate_err'];?></span>
+                                    <span class="invalid-feedback"><?php echo htmlspecialchars((string)$data['rate_err'],ENT_QUOTES,'UTF-8');?></span>
                                 </div>
                             </div>
                             <?php if(!$data['isedit']) : ?>
@@ -62,10 +62,10 @@
                                                 <?php echo inputvalidation($data['glaccount'],$data['glaccount_err'],$data['touched']);?>" <?php echo converttobool($data['isedit']) ? 'disabled' : '';?>>
                                             <option value="">Select G/L Account</option>
                                             <?php foreach($data['glaccounts'] as $glaccount)  : ?>
-                                                <option value="<?php echo $glaccount->ID;?>" <?php selectdCheck($data['glaccount'],$glaccount->ID);?>><?php echo $glaccount->accountType;?></option>
+                                                <option value="<?php echo $glaccount->ID;?>" <?php selectdCheck($data['glaccount'],$glaccount->ID);?>><?php echo htmlspecialchars((string)$glaccount->accountType,ENT_QUOTES,'UTF-8');?></option>
                                             <?php endforeach; ?>
                                         </select>
-                                        <span class="invalid-feedback"><?php echo $data['glaccount_err'];?></span>
+                                        <span class="invalid-feedback"><?php echo htmlspecialchars((string)$data['glaccount_err'],ENT_QUOTES,'UTF-8');?></span>
                                     </div>
                                 </div>
                             <?php endif; ?>

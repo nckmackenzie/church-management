@@ -56,15 +56,15 @@
                     <tbody>
                         <?php foreach($data['suppliers'] as $supplier) :?>
                             <tr>
-                                <td class="d-none"><?php echo $supplier->ID;?></td>
-                                <td><?php echo strtoupper($supplier->supplierName);?></td>
-                                <td><?php echo $supplier->contact;?></td>
-                                <td><?php echo $supplier->contactPerson;?></td>
-                                <td><?php echo $supplier->balance;?></td>
+                                <td class="d-none"><?php echo (int)$supplier->ID;?></td>
+                                <td><?php echo htmlspecialchars(strtoupper((string)$supplier->supplierName),ENT_QUOTES,'UTF-8');?></td>
+                                <td><?php echo htmlspecialchars((string)$supplier->contact,ENT_QUOTES,'UTF-8');?></td>
+                                <td><?php echo htmlspecialchars((string)$supplier->contactPerson,ENT_QUOTES,'UTF-8');?></td>
+                                <td><?php echo number_format($supplier->balance,2);?></td>
                                 <td>
                                     <?php if($_SESSION['userType'] <=2) : ?>
                                         <div class="btn-group">
-                                            <a href="<?php echo URLROOT;?>/suppliers/edit/<?php echo $supplier->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
+                                            <a href="<?php echo URLROOT;?>/suppliers/edit/<?php echo (int)$supplier->ID;?>" class="btn btn-sm bg-olive custom-font">Edit</a>
                                             <button type="button" class="btn btn-sm btn-danger custom-font btndel">Delete</button>
                                         </div>
                                     <?php endif; ?>

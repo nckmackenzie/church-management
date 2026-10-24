@@ -1,18 +1,19 @@
-import { table } from './payment.js';
-const payIdInput = document.getElementById('payid');
+import { table } from './payment-v2.js';
 const payDateInput = document.getElementById('date');
 const paymethodSelect = document.getElementById('paymethod');
 const bankSelect = document.getElementById('bank');
+const cashSelect = document.getElementById('cashaccount');
 
 export const headerData = () => {
   return {
-    payid: payIdInput.value,
     paydate: payDateInput.value,
     paymethod: paymethodSelect.value,
-    bank: bankSelect.value,
+    bank: bankSelect.disabled ? '' : bankSelect.value,
+    cashaccount: cashSelect.disabled ? '' : cashSelect.value,
   };
 };
 
+// the server reads each invoice's balance and crediting account itself; only the invoice, reference and amount are sent
 export const tableData = () => {
   const tableData = [];
   const trs = table.getElementsByTagName('tbody')[0].querySelectorAll('tr');
@@ -20,11 +21,9 @@ export const tableData = () => {
     const chkbx = tr.querySelector('.chkbx');
     if (chkbx.checked) {
       const invoiceid = tr.querySelector('.invoiceid').value;
-      const sid = tr.querySelector('.sid').value;
       const cheque = tr.querySelector('.cheque').value;
-      const balance = parseFloat(tr.querySelector('.balance').innerText);
-      const payment = parseFloat(tr.querySelector('.payment').value);
-      tableData.push({ invoiceid, sid, cheque, payment, balance });
+      const payment = tr.querySelector('.payment').value;
+      tableData.push({ invoiceid, cheque, payment });
     }
   });
 

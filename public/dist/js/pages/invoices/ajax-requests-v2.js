@@ -1,5 +1,5 @@
 import { sendHttpRequest, HOST_URL, alertBox } from '../utils/utils.js';
-import { modalAlert } from './supplier.js';
+import { modalAlert } from './supplier-v2.js';
 
 export async function getSupplierDetails(supplier) {
   const data = await sendHttpRequest(
@@ -23,9 +23,10 @@ export async function saveProduct(data) {
   return res;
 }
 
-export async function getProductRate(pid) {
+// rate and debit account of a product of this congregation
+export async function getProduct(pid) {
   const res = await sendHttpRequest(
-    `${HOST_URL}/products/getrate?pid=${pid}`,
+    `${HOST_URL}/supplierinvoices/getproduct?pid=${pid}`,
     'GET',
     undefined,
     {},
