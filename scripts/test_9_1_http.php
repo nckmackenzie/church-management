@@ -85,7 +85,7 @@ try {
     ok('contributions: expense accounts not offered', !isset($inc[$expActive]));
     ok('expenses: deleted account WITH history listed and labelled "(deleted)"; deleted without history and foreign not listed', isset($expo[$expDeletedH]) && substr($expo[$expDeletedH][0], -9) === '(deleted)' && !isset($expo[$expDeletedN]) && !isset($expo[$expForeign]) && isset($expo[$expActive]));
     ok('ledger statement: inactive, deleted-with-history, shared and bank accounts listed; deleted-without-history and foreign not', isset($led[$incInactive], $led[$expDeletedH], $led[$bankA], $led[32]) && !isset($led[$expDeletedN]) && !isset($led[$incForeign]) && !isset($led[$expForeign]));
-    ok('ledger statement: labels show the path', $led[$incActive][0] === 'income > tithes and offering > zz t91h active income');
+    ok('ledger statement: labels show the path', $led[$incActive][0] === 'zz t91h active income');
     foreach (['reports/banking', 'parishreports/banking', 'bankbalances/add', 'bankreconcilliations', 'bankreconcilliations/cashflow_statement'] as $p) {
         $o = options($html[$p]);
         ok("$p: active bank, inactive bank with history (labelled) listed", isset($o[$bankA]) && isset($o[$bankH]) && strpos(end($o[$bankH]), '(inactive)') !== false);

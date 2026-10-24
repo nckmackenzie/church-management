@@ -628,260 +628,48 @@ class Reports extends Controller {
         $data = [];
         $this->view('reports/incomestatement',$data);
     }
+    /**
+     * Income statement data (task 9.2): everything comes from FinancialReport; JSON, rendered by
+     * dist/js/pages/reports/is/income-statement-v1.js with textContent.
+     */
     public function incomestatementrpt()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [
-                'start' => isset($_GET['start']) && !empty(trim($_GET['start'])) ? date('Y-m-d',strtotime(trim($_GET['start']))) : null,
-                'end' => isset($_GET['end']) && !empty(trim($_GET['end'])) ? date('Y-m-d',strtotime(trim($_GET['end']))) : null
-            ];
-
-            //validation
-            if(is_null($data['start']) || is_null($data['end'])) :
-                http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'Please provide all required fields']);
-                exit;
-            endif;
-
-            //values 
-            $revenues = $this->reportModel->GetRevenues($data);
-            $revenue_total = 0;
-            //expenses
-            $expenses = $this->reportModel->GetExpensesPL($data);
-
-            // $expenses_total = floatval($admincost) + floatval($hosptcost) + floatval($optcost) + floatval($staffcost);
-            $expenses_total = 0;
-            
-            $output = '';
-            $output .='
-                <table id="table" class="table table-striped table-bordered table-sm">
-                    <thead>
-                        <tr>
-                            <th>Income Statement</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr class="bg-olive">
-                            <td colspan="2">Income</td>
-                        </tr>';
-                        foreach($revenues as $revenue){
-                            $revenue_total += floatval($revenue->credit);
-                            $output .='
-                            <tr>
-                                <td>'.ucwords($revenue->parentaccount).'</td>
-                                <td><a target="_blank" href="'.URLROOT.'/reports/plchildaccount?account='.$revenue->parentaccount.'&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($revenue->credit,2).'</a></td>
-                            </tr>';
-                        }
-                    $output .='
-                        <tr>
-                            <th>Revenue Total</th>
-                            <th>'.number_format($revenue_total,2).'</th>
-                        </tr>
-                        <tr style="background-color: #ed6b6b">
-                            <td colspan="2">Expenses</td>
-                        </tr>';
-                    foreach($expenses as $expense){
-                        $expenses_total += floatval($expense->debit);
-                        $output .='
-                        <tr>
-                            <td>'.ucwords($expense->parentaccount).'</td>
-                            <td><a target="_blank" href="'.URLROOT.'/reports/plchildaccount?account='.$expense->parentaccount.'&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($expense->debit,2).'</a></td>
-                        </tr>';
-                    }
-                    $profit_loss = ($revenue_total - $expenses_total);    
-                    $output .='
-                        <tr>
-                            <th>Expense Total</th>
-                            <th>'.number_format($expenses_total,2).'</th>
-                        </tr>
-                        <tr style="background-color: #7a998b">
-                            <th>Profit/Loss</th>
-                            <th>'.number_format($profit_loss,2).'</th>
-                        </tr>
-                    </tbody>
-                </table>';
-            echo $output;
-        }else {
-            redirect('users');
-        }
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') { IncomeStatementReport::fail('Method not allowed', 405); }
+        [$start, $end] = IncomeStatementReport::dates($_GET);
+        $db = (new Database)->pdo();
+        $cong = (int)$_SESSION['congId'];
+        IncomeStatementReport::send(IncomeStatementReport::report($db,[$cong],IncomeStatementReport::congregationName($db,$cong),$start,$end));
     }
 
+    /** One drill level (account ID): the next level of accounts or the journal lines; the rows add up to the figure clicked. */
     public function plchildaccount()
     {
-        $data = [];
-        $this->view('reports/plchildaccount',$data);
+        $this->view('reports/plchildaccount',[]);
         exit;
     }
 
     public function plchildaccountrpt()
     {
-        if($_SERVER['REQUEST_METHOD'] === 'GET')
-        {
-            $data = [
-                'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
-                'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
-                'account' => isset($_GET['account']) && !empty(trim($_GET['account'])) ? strtolower(trim($_GET['account'])) : null,
-                'totalamount' => 0,
-                'results' => []
-            ];
-            //validate
-            if(is_null($data['sdate']) || is_null($data['edate']) || is_null($data['account']))
-            {
-                http_response_code(400);
-                echo json_encode(['success' => false,'message' => 'Unable to get all fields']);
-                exit;
-            }
-
-            $details = $this->reportModel->GetChildAccounts($data);
-
-            if(empty($details))
-            {
-                http_response_code(400);
-                echo json_encode(['success' => false,'message' => 'No details found for this account for specified period']);
-                exit;
-            }
-
-            foreach($details as $detail)
-            {
-                $data['totalamount'] += floatval($detail->amount);
-                array_push($data['results'],[
-                    'account' => ucwords($detail->account),
-                    'amount' => $detail->amount,
-                ]);
-            }
-
-            echo json_encode(['success' => true,'results' => $data['results'],"total" => $data['totalamount']]);
-            exit;
-        }
-        else
-        {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') { IncomeStatementReport::fail('Method not allowed', 405); }
+        [$start, $end] = IncomeStatementReport::dates($_GET);
+        $account = IncomeStatementReport::accountId($_GET['account'] ?? null);
+        $mode = ($_GET['view'] ?? '') === 'lines' ? 'lines' : 'children';
+        $direct = ($_GET['direct'] ?? '') === '1';
+        $db = (new Database)->pdo();
+        IncomeStatementReport::send(IncomeStatementReport::drill($db,[(int)$_SESSION['congId']],$account,$start,$end,$mode,$direct));
     }
 
+    /** Old name-based drill URLs: nothing is queried any more. */
     public function plchildaccountdetailed()
     {
-        $data = [];
-        $this->view('reports/plchildaccountdetailed',$data);
+        redirect('reports/incomestatement');
         exit;
     }
 
     public function plchildaccountdetailedrpt()
     {
-        if($_SERVER['REQUEST_METHOD'] === 'GET')
-        {
-            $data = [
-                'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
-                'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
-                'account' => isset($_GET['account']) && !empty(trim($_GET['account'])) ? strtolower(trim($_GET['account'])) : null,
-                'accounttype' => '',
-                'totalamount' => 0,
-                'results' => []
-            ];
-            //validate
-            if(is_null($data['sdate']) || is_null($data['edate']) || is_null($data['account']))
-            {
-                http_response_code(400);
-                echo json_encode(['success' => false,'message' => 'Unable to get all fields']);
-                exit;
-            }
-
-            $data['accounttype'] = $this->reportModel->GetAccountType($data['account']);
-            $details = $this->reportModel->GetPlChildAccountDetailed($data);
-
-            if(empty($details))
-            {
-                http_response_code(400);
-                echo json_encode(['success' => false,'message' => 'No details found for this account for specified period']);
-                exit;
-            }
-
-            foreach($details as $detail)
-            {
-                $data['totalamount'] += floatval($detail->amount);
-                array_push($data['results'],[
-                    'transactionDate' => date('d-m-Y',strtotime($detail->transactionDate)),
-                    'account' => ucwords($detail->account),
-                    'amount' => $detail->amount,
-                    'narration' => is_null($detail->narration) ? '' : ucfirst($detail->narration),
-                    'transaction' => ucfirst($detail->TransactionType),
-                    'parentAccount' => ucfirst($detail->parentaccount),
-                ]);
-            }
-
-            echo json_encode(['success' => true,'results' => $data['results'],"total" => $data['totalamount']]);
-            exit;
-        }
-        else
-        {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        IncomeStatementReport::fail('This link is no longer supported; open the income statement again');
     }
-
-
-    // public function pldetailed()
-    // {
-    //     $data = [];
-    //     $this->view('reports/pldetailed',$data);
-    //     exit;
-    // }
-
-    // public function pldetailedrpt()
-    // {
-    //     if($_SERVER['REQUEST_METHOD'] === 'GET')
-    //     {
-    //         $data = [
-    //             'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
-    //             'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
-    //             'account' => isset($_GET['account']) && !empty(trim($_GET['account'])) ? strtolower(trim($_GET['account'])) : null,
-    //             'accounttype' => '',
-    //             'totalamount' => 0,
-    //             'results' => []
-    //         ];
-    //         //validate
-    //         if(is_null($data['sdate']) || is_null($data['edate']) || is_null($data['account']))
-    //         {
-    //             http_response_code(400);
-    //             echo json_encode(['success' => false,'message' => 'Unable to get all fields']);
-    //             exit;
-    //         }
-
-    //         $data['accounttype'] = $this->reportModel->GetAccountType($data['account']);
-    //         $details = $this->reportModel->GetPlDetailed($data);
-
-    //         if(empty($details))
-    //         {
-    //             http_response_code(400);
-    //             echo json_encode(['success' => false,'message' => 'No details found for this account for specified period']);
-    //             exit;
-    //         }
-
-    //         foreach($details as $detail)
-    //         {
-    //             $data['totalamount'] += floatval($detail->amount);
-    //             array_push($data['results'],[
-    //                 'transactionDate' => date('d-m-Y',strtotime($detail->transactionDate)),
-    //                 'account' => ucwords($detail->account),
-    //                 'amount' => $detail->amount,
-    //                 'narration' => is_null($detail->narration) ? '' : ucfirst($detail->narration),
-    //                 'transaction' => ucfirst($detail->TransactionType),
-    //                 'parentAccount' => ucfirst($detail->parentaccount),
-    //             ]);
-    //         }
-
-    //         echo json_encode(['success' => true,'results' => $data['results'],"total" => $data['totalamount']]);
-    //         exit;
-    //     }
-    //     else
-    //     {
-    //         redirect('users/deniedaccess');
-    //         exit();
-    //     }
-    // }
-
 
     public function groupsincomestatement()
     {

@@ -353,12 +353,12 @@ try {
     ok('accounts: inactive account listed, labelled "(inactive)"', isset($byId[$EIn]) && substr($byId[$EIn]['label'], -10) === '(inactive)');
     ok('accounts: other congregation\'s account never listed', !isset($byId[$Foreign]));
     ok('accounts: shared accounts listed', isset($byId[$sharedExp]) && isset($byId[$sharedExpTop]));
-    ok('accounts: path label without the root when one root is asked for', $byId[$E3]['label'] === 'zz t91 expense L2 > zz t91 expense leaf');
+    ok('accounts: the label is the account name only (decision 139)', $byId[$E3]['label'] === 'zz t91 expense leaf');
     ok('accounts: roots themselves are not offered', !isset($byId[2]));
     $all = FinancialReport::accountOptions($pdo, [$T]);
     $allIds = array_column($all, 'id');
     ok('accounts: deleted account WITH history listed, labelled "(deleted)"; WITHOUT history left out', in_array($DelH, $allIds, true) && !in_array($DelN, $allIds, true) && substr(array_values(array_filter($all, function ($o) use ($DelH) { return $o['id'] === $DelH; }))[0]['label'], -9) === '(deleted)');
-    ok('accounts: all roots by default, label starts with the root name', strpos(array_values(array_filter($all, function ($o) use ($A5a) { return $o['id'] === $A5a; }))[0]['label'], 'Asset > ') === 0);
+    ok('accounts: all roots by default, still the name only', array_values(array_filter($all, function ($o) use ($A5a) { return $o['id'] === $A5a; }))[0]['label'] === 'zz t91 asset leaf a');
     ok('accounts: banks included by default and left out on request', in_array($bankA, $allIds, true) && !in_array($bankA, array_column(FinancialReport::accountOptions($pdo, [$T], ['banks' => false]), 'id'), true));
     ok('accounts: posting-only filter', !in_array($A4, array_column(FinancialReport::accountOptions($pdo, [$T], ['reporting' => false]), 'id'), true) && in_array($A5a, array_column(FinancialReport::accountOptions($pdo, [$T], ['reporting' => false]), 'id'), true));
     ok('accounts: accountAllowed matches the list', FinancialReport::accountAllowed($pdo, [$T], $EIn, ['roots' => [2]]) && !FinancialReport::accountAllowed($pdo, [$T], $EIn, ['roots' => [1]]) && !FinancialReport::accountAllowed($pdo, [$T], $Foreign) && !FinancialReport::accountAllowed($pdo, [$T], $DelN));

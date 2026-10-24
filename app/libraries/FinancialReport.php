@@ -1037,8 +1037,13 @@ class FinancialReport
         $roots = isset($opts['roots']) ? array_map('intval', (array) $opts['roots']) : null;
         $allowBanks = $opts['banks'] ?? true;
         $allowReporting = $opts['reporting'] ?? true;
-        $withRoot = $roots === null || count($roots) > 1;
         $visibleCong = array_merge([0], $chart['scope']);
+        // decision 139: the label is the account name only; two visible accounts with the same name are told apart by the parent's name
+        $seen = [];
+        foreach ($chart['nodes'] as $n) {
+            if (!$n['classified'] || $n['depth'] < 2 || !in_array($n['congregationId'], $visibleCong, true)) { continue; }
+            $seen[strtolower(trim($n['name']))][] = $n['id'];
+        }
         $out = [];
         foreach ($chart['nodes'] as $n) {
             if (!$n['classified'] || $n['depth'] < 2) { continue; }
@@ -1046,9 +1051,17 @@ class FinancialReport
             if ($roots !== null && !in_array($n['root'], $roots, true)) { continue; }
             if (!$allowBanks && $n['isBank']) { continue; }
             if (!$allowReporting && !$n['posting']) { continue; }
-            $names = $withRoot ? $n['pathNames'] : array_slice($n['pathNames'], 1);
+            $label = $n['name'];
+            if (count($seen[strtolower(trim($n['name']))]) > 1) {
+                $parent = $chart['nodes'][$n['parentId']]['name'] ?? '';
+                $label .= ' (' . $parent . ')';
+                // same name under same-named parents: the ID is the last resort
+                $twins = 0;
+                foreach ($seen[strtolower(trim($n['name']))] as $tid) { if (strtolower($chart['nodes'][$chart['nodes'][$tid]['parentId']]['name'] ?? '') === strtolower($parent)) { $twins++; } }
+                if ($twins > 1) { $label .= ' [' . $n['id'] . ']'; }
+            }
             $suffix = ($n['deleted'] ? ' (deleted)' : '') . (!$n['active'] ? ' (inactive)' : '');
-            $out[] = ['id' => $n['id'], 'label' => implode(' > ', $names) . $suffix, 'name' => $n['name'], 'path' => $n['path'], 'root' => $n['root'],
+            $out[] = ['id' => $n['id'], 'label' => $label . $suffix, 'name' => $n['name'], 'path' => $n['path'], 'root' => $n['root'],
                       'depth' => $n['depth'], 'posting' => $n['posting'], 'active' => $n['active'], 'deleted' => $n['deleted'], 'isBank' => $n['isBank']];
         }
         usort($out, function ($a, $b) { return strnatcasecmp($a['label'], $b['label']) ?: $a['id'] <=> $b['id']; });

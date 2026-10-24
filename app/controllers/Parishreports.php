@@ -456,73 +456,50 @@ class Parishreports extends Controller
         ];
         $this->view('parishreports/incomestatement',$data);
     }
+    /**
+     * Income statement data (task 9.2): everything comes from FinancialReport; JSON, rendered by
+     * dist/js/pages/reports/is/income-statement-v1.js with textContent.
+     */
     public function incomestatementrpt()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [
-                'cong' => trim($_GET['cong']),
-                'start' => trim($_GET['start']),
-                'end' => trim($_GET['end']),
-            ];
-            // print_r($data);
-            $revenues = $this->parishReportModel->GetRevenues($data);
-            $revenue_total = $this->parishReportModel->GetRevenuesTotal($data);
-            $expenses = $this->parishReportModel->GetExpensesPL($data);
-            $expenses_total = $this->parishReportModel->GetExpensesTotal($data);
-            $profit_loss = ($revenue_total - $expenses_total);
-            $output = '';
-            $output .='
-                <table id="table" class="table table-striped table-bordered table-sm">
-                    <thead>
-                        <tr>
-                            <th>Income Statement</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr class="bg-olive">
-                            <td colspan="2">Income</td>
-                        </tr>';
-                    foreach ($revenues as $revenue ) {
-                        $output .='
-                        <tr>
-                            <td>'.$revenue->account.'</td>
-                            <td>'.number_format($revenue->SumOfTotal,2).'</td>
-                        </tr>';
-                    }
-                    $output .='
-                        <tr>
-                            <th>Revenue Total</th>
-                            <th>'.number_format($revenue_total,2).'</th>
-                        </tr>
-                        <tr style="background-color: #ed6b6b">
-                            <td colspan="2">Expenses</td>
-                        </tr>';
-                    foreach ($expenses as $expense ) {
-                        $output .='
-                        <tr>
-                            <td>'.$expense->account.'</td>
-                            <td>'.number_format($expense->SumOfTotal,2).'</td>
-                        </tr>';
-                    }
-                    $output .='
-                        <tr>
-                            <th>Expense Total</th>
-                            <th>'.number_format($expenses_total,2).'</th>
-                        </tr>
-                        <tr style="background-color: #7a998b">
-                            <th>Profit/Loss</th>
-                            <th>'.number_format($profit_loss,2).'</th>
-                        </tr>
-                    </tbody>
-                </table>';
-                   
-                
-            echo $output;
-        }else {
-            redirect('users');
-        }
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') { IncomeStatementReport::fail('Method not allowed', 405); }
+        [$start, $end] = IncomeStatementReport::dates($_GET);
+        $db = (new Database)->pdo();
+        [$scope,$entity] = IncomeStatementReport::parishScope($db,$_GET['cong'] ?? null);
+        IncomeStatementReport::send(IncomeStatementReport::report($db,$scope,$entity,$start,$end));
     }
+
+    /** One drill level (account ID): the next level of accounts or the journal lines; the rows add up to the figure clicked. */
+    public function plchildaccount()
+    {
+        $this->view('parishreports/plchildaccount',[]);
+        exit;
+    }
+
+    public function plchildaccountrpt()
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') { IncomeStatementReport::fail('Method not allowed', 405); }
+        [$start, $end] = IncomeStatementReport::dates($_GET);
+        $account = IncomeStatementReport::accountId($_GET['account'] ?? null);
+        $mode = ($_GET['view'] ?? '') === 'lines' ? 'lines' : 'children';
+        $direct = ($_GET['direct'] ?? '') === '1';
+        $db = (new Database)->pdo();
+        [$scope] = IncomeStatementReport::parishScope($db,$_GET['cong'] ?? null);
+        IncomeStatementReport::send(IncomeStatementReport::drill($db,$scope,$account,$start,$end,$mode,$direct));
+    }
+
+    /** Old name-based drill URLs: nothing is queried any more. */
+    public function plchildaccountdetailed()
+    {
+        redirect('parishreports/incomestatement');
+        exit;
+    }
+
+    public function plchildaccountdetailedrpt()
+    {
+        IncomeStatementReport::fail('This link is no longer supported; open the income statement again');
+    }
+
     public function trialbalance()
     {
         checkrights($this->authmodel,'trial balance');

@@ -329,70 +329,6 @@ class Report {
         return $this->db->resultSet();
     }
 
-    public function GetRevenues($data)
-    {
-        // before changes
-        $sql = 'SELECT parentaccount,(IFNULL(SUM(credit),0) - IFNULL(SUM(debit),0)) AS credit FROM tblledger 
-                WHERE (deleted = 0) AND (congregationId = ?) AND (transactionDate BETWEEN ? AND ?) AND (accountId=1)
-                GROUP BY parentaccount';
-        return loadresultset($this->db->dbh,$sql,[(int)$_SESSION['congId'],$data['start'],$data['end']]);
-       
-    }
-
-    public function GetRevenuesTotal($data)
-    {
-        // $this->db->query('SELECT IFNULL(SUM(credit),0) AS SumOfTotal 
-        //                   FROM   tblledger
-        //                   WHERE  (transactionDate BETWEEN :startd AND :endd) AND (accountId = 1)
-        //                          AND (deleted = 0) AND (congregationId = :cid)');
-        $this->db->query('SELECT (IFNULL(SUM(credit),0) - IFNULL(SUM(debit),0)) AS SumOfTotal 
-                          FROM   tblledger
-                          WHERE  (transactionDate BETWEEN :startd AND :endd) AND (accountId = 1)
-                                 AND (deleted = 0) AND (congregationId = :cid)');
-        $this->db->bind(':startd',$data['start']);
-        $this->db->bind(':endd',$data['end']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->getValue();
-    }
-    public function GetExpensesPL($data)
-    {
-        $sql = 'SELECT parentaccount,(IFNULL(SUM(debit),0) - IFNULL(SUM(credit),0)) AS debit FROM tblledger 
-                WHERE (deleted = 0) AND (congregationId = ?) AND (transactionDate BETWEEN ? AND ?) AND (accountId=2)
-                GROUP BY parentaccount';
-        return loadresultset($this->db->dbh,$sql,[(int)$_SESSION['congId'],$data['start'],$data['end']]);
-    }
-    
-    public function GetExpensesTotal($data)
-    {
-        $this->db->query('SELECT (IFNULL(SUM(credit),0) + IFNULL(SUM(debit),0)) AS SumOfTotal 
-                          FROM   tblledger
-                          WHERE  (transactionDate BETWEEN :startd AND :endd) AND (accountId = 2)
-                                 AND (deleted = 0) AND (congregationId = :cid)');
-        $this->db->bind(':startd',$data['start']);
-        $this->db->bind(':endd',$data['end']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->getValue();
-    }
-    public function GetChildAccounts($data)
-    {
-        // $sql = '';
-        $accountType = getdbvalue($this->db->dbh,'SELECT accountTypeId FROM tblaccounttypes WHERE LOWER(accountType) = ?',[strtolower($data['account'])]);
-        if((int)$accountType === 1){
-            $sql = 'SELECT account,(IFNULL(SUM(credit),0) - IFNULL(SUM(debit),0)) AS amount FROM tblledger 
-                    WHERE (deleted = 0) AND (congregationId = ?) AND (transactionDate BETWEEN ? AND ?) AND (parentaccount=?)
-                    GROUP BY account';
-        }elseif ((int)$accountType === 2) {
-            $sql = 'SELECT account,(IFNULL(SUM(debit),0) - IFNULL(SUM(credit),0)) AS amount FROM tblledger 
-                    WHERE (deleted = 0) AND (congregationId = ?) AND (transactionDate BETWEEN ? AND ?) AND (parentaccount=?)
-                    GROUP BY account';
-        }
-
-        // $sql = 'SELECT account,(IFNULL(SUM(credit),0) + IFNULL(SUM(debit),0)) AS amount FROM tblledger 
-        //         WHERE (deleted = 0) AND (congregationId = ?) AND (transactionDate BETWEEN ? AND ?) AND (parentaccount=?)
-        //         GROUP BY account';
-        return loadresultset($this->db->dbh,$sql,[(int)$_SESSION['congId'],$data['sdate'],$data['edate'],$data['account']]);
-       
-    }
     public function GetTrialBalance($data)
     {
         $this->db->query('CALL sp_trialbalance(:startdate,:enddate,:cong)');
@@ -608,42 +544,6 @@ class Report {
     public function GetAccountType($account)
     {
         return getdbvalue($this->db->dbh,'SELECT accountTypeId FROM tblaccounttypes WHERE (accountType = ?)',[$account]);
-    }
-    public function GetPlDetailed($data)
-    {
-        if((int)$data['accounttype'] === 1)
-        {
-            $sql = 'SELECT transactionDate,account,(IFNULL(credit,0) - IFNULL(debit,0)) as amount,narration,t.TransactionType,l.parentaccount
-                    FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID
-                    WHERE (parentaccount = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
-                    ORDER BY transactionDate';
-            return loadresultset($this->db->dbh,$sql,[$data['account'],$data['sdate'],$data['edate']]);
-        }elseif ((int)$data['accounttype'] === 2) {
-            $sql = 'SELECT transactionDate,account,(IFNULL(debit,0) - IFNULL(credit,0)) as amount,narration,t.TransactionType,l.parentaccount
-                    FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID
-                    WHERE (parentaccount = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
-                    ORDER BY transactionDate';
-            return loadresultset($this->db->dbh,$sql,[$data['account'],$data['sdate'],$data['edate']]);
-        }
-        
-    }
-    public function GetPlChildAccountDetailed($data)
-    {
-        if((int)$data['accounttype'] === 1)
-        {
-            $sql = 'SELECT transactionDate,account,(IFNULL(credit,0) - IFNULL(debit,0)) as amount,narration,t.TransactionType,l.parentaccount
-                    FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID
-                    WHERE (account = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
-                    ORDER BY transactionDate';
-            return loadresultset($this->db->dbh,$sql,[$data['account'],$data['sdate'],$data['edate']]);
-        }elseif ((int)$data['accounttype'] === 2) {
-            $sql = 'SELECT transactionDate,account,(IFNULL(debit,0) - IFNULL(credit,0)) as amount,narration,t.TransactionType,l.parentaccount
-                    FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID
-                    WHERE (account = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
-                    ORDER BY transactionDate';
-            return loadresultset($this->db->dbh,$sql,[$data['account'],$data['sdate'],$data['edate']]);
-        }
-        
     }
     public function GetGroupRevenues($data)
     {
