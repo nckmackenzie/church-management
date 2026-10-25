@@ -592,10 +592,11 @@ class Parishreports extends Controller
             $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
             $data = [
                 'bank' => $this->reportBank($_GET['bank'] ?? null),
-                'from' => trim($_GET['from']),
-                'to' => trim($_GET['to']),
-                'status' => trim($_GET['status']),
+                'from' => strictDateParam($_GET['from'] ?? null,'from'),
+                'to' => strictDateParam($_GET['to'] ?? null,'to'),
+                'status' => in_array($_GET['status'] ?? null,['0','1'],true) ? $_GET['status'] : badRequest('Invalid status.'),
             ];
+            if ($data['from'] > $data['to']) { badRequest('Invalid dates: from is after to.'); }
 
             $bankings = $this->parishReportModel->bankingrpt($data);
             $output = '';
@@ -614,9 +615,9 @@ class Parishreports extends Controller
                         $output .= '
                             <tr>
                                 <td>'.date('d-m-Y',strtotime($banking->transactionDate)).'</td>
-                                <td>'.$banking->methodName.'</td>
+                                <td>'.htmlspecialchars((string)$banking->methodName,ENT_QUOTES,'UTF-8').'</td>
                                 <td>'.number_format($banking->Amount,2).'</td>
-                                <td>'.$banking->reference.'</td>
+                                <td>'.htmlspecialchars((string)$banking->reference,ENT_QUOTES,'UTF-8').'</td>
                             </tr>
                         ';
                     }
@@ -624,7 +625,7 @@ class Parishreports extends Controller
                     </tbody>
                     <tfoot>
                             <tr>
-                                <th colspan="2" style="text-align:right">Total:</th>
+                                <th colspan="2" style="text-align:right">Total (cashbook rows listed):</th>
                                 <th id="total"></th>
                                 <th></th>
                             </tr>

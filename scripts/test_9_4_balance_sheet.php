@@ -74,21 +74,24 @@ try {
     ok('total assets 6,555.00 (cumulative, contra netted, postings on a reporting account included)', $r['assets']['total'] === '6,555.00', $r['assets']['total']);
     ok('liabilities 500.00', $r['liabilities']['total'] === '500.00');
     $eqNames = $names($r['equity']['rows']);
-    ok('equity block: type 6 account, then accumulated fund b/f, surplus to date, dividends', $eqNames === ['Zz T94 Equity Top', 'Accumulated fund b/f', 'Surplus / (deficit) for the year to date', 'Dividends'], json_encode($eqNames));
-    $row = []; foreach ($r['equity']['rows'] as $x) { $row[$x['name']] = $x; }
+    $fundNames = $names($r['fund']['rows']);
+    ok('equity: the other type 6 account only; the accumulated fund account (214) is inside the block (decision 150)', $eqNames === ['Zz T94 Equity Top'], json_encode($eqNames));
+    ok('accumulated fund block: b/f, surplus to date, dividends (no movement line when zero)', $fundNames === ['Accumulated fund b/f', 'Surplus / (deficit) for the year to date', 'Dividends'], json_encode($fundNames));
+    $row = []; foreach (array_merge($r['equity']['rows'], $r['fund']['rows']) as $x) { $row[$x['name']] = $x; }
     ok('type 6 account 5,085.00 (5,000 + 60 + 25)', $row['Zz T94 Equity Top']['amount'] === '5,085.00');
     ok('accumulated fund b/f = types 1, 2, 5 before the year start (income 360 - expense 100 = 260.00)', $row['Accumulated fund b/f']['amount'] === '260.00', $row['Accumulated fund b/f']['amount']);
     ok('surplus to date = income 950 (1000 - 50) - expense 200 = 750.00', $row['Surplus / (deficit) for the year to date']['amount'] === '750.00', $row['Surplus / (deficit) for the year to date']['amount']);
     ok('dividends (type 5, to date) shown because non-zero: a deduction (40.00)', $row['Dividends']['amount'] === '(40.00)');
-    ok('total equity and accumulated fund 6,055.00; total liabilities, equity and fund 6,555.00', $r['equity']['total'] === '6,055.00' && $r['liabilitiesEquityFund']['total'] === '6,555.00');
+    ok('accumulated fund c/f = b/f + surplus + dividends = 260 + 750 - 40 = 970.00 (the block total)', $r['fund']['total'] === '970.00', $r['fund']['total']);
+    ok('total equity and accumulated fund 6,055.00; total liabilities, equity and fund 6,555.00', $r['equityTotal']['total'] === '6,055.00' && $r['liabilitiesEquityFund']['total'] === '6,555.00');
     ok('assets = liabilities + equity + fund: balanced, no difference line', $r['balanced'] === true && $r['difference']['amount'] === '0.00');
     $r0 = BalanceSheetReport::report($pdo, [$T], '', '2026-02-28');
-    $names0 = array_column($r0['equity']['rows'], 'name');
+    $names0 = array_column($r0['fund']['rows'], 'name');
     ok('dividends only when non-zero: absent before the dividend date (no comparative either)', !in_array('Dividends', $names0, true));
     $rz = BalanceSheetReport::report($pdo, [$T], '', '2025-09-30');
-    ok('first year: contra and zero: no dividends line, b/f 0 hidden when zero', !in_array('Dividends', array_column($rz['equity']['rows'], 'name'), true));
-    ok('comparative column = the balance sheet at the last year-end (2025-09-30)', $r['cmpAsOf'] === '2025-09-30' && $r['assets']['cmpTotal'] === $rz['assets']['total'] && $r['liabilities']['cmpTotal'] === $rz['liabilities']['total'] && $r['equity']['cmpTotal'] === $rz['equity']['total']);
-    $rzr = []; foreach ($rz['equity']['rows'] as $x) { $rzr[$x['name']] = $x['amount']; }
+    ok('first year: contra and zero: no dividends line, b/f 0 hidden when zero', !in_array('Dividends', array_column($rz['fund']['rows'], 'name'), true));
+    ok('comparative column = the balance sheet at the last year-end (2025-09-30)', $r['cmpAsOf'] === '2025-09-30' && $r['assets']['cmpTotal'] === $rz['assets']['total'] && $r['liabilities']['cmpTotal'] === $rz['liabilities']['total'] && $r['equityTotal']['cmpTotal'] === $rz['equityTotal']['total'] && $r['fund']['cmpTotal'] === $rz['fund']['total']);
+    $rzr = []; foreach ($rz['fund']['rows'] as $x) { $rzr[$x['name']] = $x['amount']; }
     ok('comparative of the fund lines = the same lines at the last year-end', $row['Accumulated fund b/f']['cmp'] === ($rzr['Accumulated fund b/f'] ?? '0.00') && $row['Surplus / (deficit) for the year to date']['cmp'] === $rzr['Surplus / (deficit) for the year to date']);
 
     echo "== imbalance and unclassified are shown, never forced\n";
@@ -116,14 +119,16 @@ try {
         }
     };
     foreach (array_merge($r['assets']['rows'], $r['liabilities']['rows']) as $row) { $walk($row['id'], $row['amount'], $row['name'], ''); }
-    foreach ($r['equity']['rows'] as $row) {
+    foreach ($r['equity']['rows'] as $row) { $walk($row['id'], $row['amount'], $row['name'], ''); }
+    foreach ($r['fund']['rows'] as $row) {
         if ($row['fund'] && $row['next'] === 'children') { $walk($row['id'], $row['amount'], $row['name'], $row['id']); }
-        elseif (!$row['fund']) { $walk($row['id'], $row['amount'], $row['name'], ''); }
     }
     ok("drill: all $levels levels (assets, liabilities, equity, b/f, dividends) add up and the $lines line lists close at the figure clicked", $levels >= 10 && $lines >= 5 && !$bad, implode('; ', $bad));
-    ok('the surplus line has no drill of its own: it points at the income statement of the year to date', $row['next'] !== null && $r['equity']['rows'][2]['next'] === 'incomestatement');
+    ok('the surplus line has no drill of its own: it points at the income statement of the year to date', $r['fund']['rows'][1]['id'] === 'cy' && $r['fund']['rows'][1]['next'] === 'incomestatement');
     $dbf = BalanceSheetReport::drill($pdo, [$T], 'bf', $asOf, 'children', false, '');
-    ok('b/f opens into the income / expense accounts of the earlier years (credit direction) and adds up to 260.00', $dbf['amount'] === '260.00' && $dbf['sumsExactly'] && count($dbf['rows']) >= 2);
+    ok('b/f opens into the prior years\' surplus (the fund account holds nothing in this congregation) and adds up to 260.00', $dbf['amount'] === '260.00' && $dbf['sumsExactly'] && count($dbf['rows']) === 1 && $dbf['rows'][0]['id'] === 'pys');
+    $dpys = BalanceSheetReport::drill($pdo, [$T], 'pys', $asOf, 'children', false, '');
+    ok('prior years\' surplus opens into the income / expense accounts of the earlier years (credit direction) and adds up to 260.00', $dpys['amount'] === '260.00' && $dpys['sumsExactly'] && count($dpys['rows']) >= 2 && $dpys['fund'] === 'bf');
     $dl = BalanceSheetReport::drill($pdo, [$T], $I4, $asOf, 'lines', false, 'bf');
     ok('an income account under b/f lists only the earlier years, cumulative, no restart', $dl['mode'] === 'lines' && $dl['matching'] === 2 && $dl['closing'] === '360.00' && $dl['rows'][1]['balance'] === '360.00');
     $dd = BalanceSheetReport::drill($pdo, [$T], 'div', $asOf, 'children', false, '');
@@ -154,13 +159,23 @@ try {
             // b/f = TB b/f line = all earlier years' surpluses
             $tb = FinancialReport::trialBalance($pdo, [$cong], $d);
             $bf = 0; foreach ($tb['rows'] as $row) { if ($row['id'] === 'bf') { $bf = -$row['net']; } }
-            if ($fund['bf']['cur'] !== $bf) { $bad[] = "$d b/f {$fund['bf']['cur']} vs TB $bf"; }
+            if ($fund['prior']['cur'] !== $bf) { $bad[] = "$d prior years' surplus {$fund['prior']['cur']} vs TB $bf"; }
+            // decision 150: the block adds up, and b/f = fund account at the year start + the prior years' surplus
+            if ($fund['bf']['cur'] !== $fund['acctBf']['cur'] + $fund['prior']['cur']) { $bad[] = "$d b/f is not the account + prior years"; }
+            if ($fund['bf']['cur'] + $fund['surplus']['cur'] + $fund['dividends']['cur'] + $fund['acctMove']['cur'] !== $fund['total']) { $bad[] = "$d b/f + surplus + dividends + movement != c/f"; }
+            if ($bs['fund']['totalRaw'] !== $fund['total']) { $bad[] = "$d screen c/f != block total"; }
+            // c/f at the year-end before = this year's b/f
+            $pe = date('Y-m-d', strtotime($fy['start'] . ' -1 day'));
+            if (FinancialReport::financialYear($pdo, $pe) !== null) {
+                $pf = FinancialReport::balanceSheet($pdo, [$cong], $pe, false)['sections']['fund'];
+                if ($pf['total'] !== $fund['bf']['cur']) { $bad[] = "$d c/f at $pe {$pf['total']} != b/f {$fund['bf']['cur']}"; }
+            }
             $sum = 0;
             foreach (q('SELECT startDate, endDate FROM tblfiscalyears WHERE endDate < ? ORDER BY startDate', [$fy['start']]) as $y) {
                 $yi = FinancialReport::incomeStatement($pdo, [$cong], $y['startDate'], $y['endDate'], false);
                 $sum += $yi['surplus']['amount'] - ($yi['dividends'] === null ? 0 : $yi['dividends']['total']);
             }
-            if ($fund['bf']['cur'] !== $sum) { $bad[] = "$d b/f {$fund['bf']['cur']} vs the sum of the earlier years' result $sum"; }
+            if ($fund['prior']['cur'] !== $sum) { $bad[] = "$d prior years' surplus {$fund['prior']['cur']} vs the sum of the earlier years' result $sum"; }
             // each top-level figure = the trial balance's figure
             $tbNet = []; foreach ($tb['rows'] as $row) { if (is_int($row['id'])) { $tbNet[$row['id']] = $row['net']; } }
             foreach (['assets' => 1, 'liabilities' => -1] as $sec => $sign) {
@@ -169,7 +184,7 @@ try {
             foreach ($bs['equity']['rows'] as $row) { if (!$row['fund'] && !$row['direct'] && $row['amountRaw'] !== -($tbNet[$row['id']] ?? 0)) { $bad[] = "$d equity {$row['name']} vs TB"; } }
             // comparative = the balance sheet at the last year-end
             $prior = BalanceSheetReport::report($pdo, [$cong], '', date('Y-m-d', strtotime($fy['start'] . ' -1 day')));
-            if ($bs['assets']['cmpTotalRaw'] !== $prior['assets']['totalRaw'] || $bs['equity']['cmpTotalRaw'] !== $prior['equity']['totalRaw'] || $bs['liabilitiesEquityFund']['cmpTotalRaw'] !== $prior['liabilitiesEquityFund']['totalRaw']) { $bad[] = "$d comparative differs from the balance sheet at the last year-end"; }
+            if ($bs['assets']['cmpTotalRaw'] !== $prior['assets']['totalRaw'] || $bs['equityTotal']['cmpTotalRaw'] !== $prior['equityTotal']['totalRaw'] || $bs['fund']['cmpTotalRaw'] !== $prior['fund']['totalRaw'] || $bs['liabilitiesEquityFund']['cmpTotalRaw'] !== $prior['liabilitiesEquityFund']['totalRaw']) { $bad[] = "$d comparative differs from the balance sheet at the last year-end"; }
         }
         return [$n, $bad];
     };
@@ -190,6 +205,34 @@ try {
         echo "INFO $d: of which banks " . FinancialReport::money($banks) . "\n";
     }
 
+    echo "== accumulated fund block (decision 150), real chart\n";
+    $realChart = FinancialReport::chart($pdo, [11]);
+    $faId = FinancialReport::fundAccountId($realChart);
+    ok('the accumulated fund account is found through account 20 (its top-level type 6 parent), not by name', $faId !== null && $realChart['nodes'][20]['chain'][count($realChart['nodes'][20]['chain']) - 2] === $faId, (string) $faId);
+    foreach (['2025-09-30', '2026-10-24'] as $d) {
+        $parts = FinancialReport::accumulatedFundParts($pdo, [11], $d);
+        $bsr = BalanceSheetReport::report($pdo, [11], '', $d);
+        ok("$d block: b/f = account at the year start + prior years' surplus; c/f = b/f + surplus + dividends + movement", $parts['bf'] === $parts['acctBf'] + $parts['prior'] && $parts['cf'] === $parts['bf'] + $parts['surplus'] + $parts['dividends'] + $parts['acctMove'] && $bsr['fund']['totalRaw'] === $parts['cf']);
+        ok("$d the fund account is no longer a separate type 6 line", !in_array($faId, array_column($bsr['equity']['rows'], 'id'), true) && $bsr['balanced'] === true && $bsr['fund']['diagnostic'] === null);
+        $dbf = BalanceSheetReport::drill($pdo, [11], 'bf', $d, 'children', false, '');
+        $ids = array_column($dbf['rows'], 'id');
+        ok("$d b/f opens two rows (the fund account at the year start, prior years' surplus) that add up to b/f", $dbf['sumsExactly'] && $dbf['rowsTotalRaw'] === $parts['bf'] && $ids === [(string) $faId, 'pys'], json_encode($ids));
+        $dfa = BalanceSheetReport::drill($pdo, [11], $faId, $d, 'children', false, 'fa');
+        ok("$d the fund account at the year start opens its accounts and adds up", $dfa['mode'] === 'children' && $dfa['sumsExactly'] && $dfa['amount'] === IncomeStatementReport::bracket($parts['acctBf']), $dfa['amount']);
+        $dp = BalanceSheetReport::drill($pdo, [11], 'pys', $d, 'children', false, '');
+        ok("$d prior years' surplus opens the earlier years' accounts and adds up", $dp['sumsExactly'] && $dp['rowsTotalRaw'] === $parts['prior']);
+        $dm = BalanceSheetReport::drill($pdo, [11], $faId, $d, 'children', false, 'fm');
+        ok("$d the in-year movement view of the fund account answers (movement " . FinancialReport::money($parts['acctMove']) . ')', $dm['mode'] === 'children' || $dm['mode'] === 'lines');
+    }
+    // the account cannot be identified: separate presentation and a diagnostic, never a guess
+    $fake = $realChart; unset($fake['nodes'][20]);
+    ok('without account 20 the fund account is not identified', FinancialReport::fundAccountId($fake) === null);
+    $fake2 = $realChart; $fake2['nodes'][20]['classified'] = false;
+    ok('an unclassified account 20 does not identify it either', FinancialReport::fundAccountId($fake2) === null);
+    $fake3 = $realChart; $fake3['nodes'][20]['root'] = 3;
+    ok('account 20 outside the type 6 tree does not identify it', FinancialReport::fundAccountId($fake3) === null);
+    $np = FinancialReport::accumulatedFundParts($pdo, [11], '2026-10-24', $fake);
+    ok('not identified: acctBf and acctMove are 0, b/f = the prior years\' surplus only', $np['fundAccountId'] === null && $np['acctBf'] === 0 && $np['acctMove'] === 0 && $np['bf'] === $np['prior']);
     echo "== parity with the old balance sheet on real dev data (read-only)\n";
     foreach (['2025-09-30', '2026-10-24'] as $d) {
         $chart = FinancialReport::chart($pdo, [11]);
@@ -203,7 +246,9 @@ try {
         $oldLE = []; $oldRE = 0; foreach (q('CALL sp_BalanceSheet_LiabilitiesEquity(11, ?)', [$d]) as $o) { if ($o['account'] === 'Retained Earnings') { $oldRE = C($o['amount']); continue; } $t = $top($o['account']); $oldLE[$t ?? $o['account']] = ($oldLE[$t ?? $o['account']] ?? 0) + C($o['amount']); }
         $new = BalanceSheetReport::report($pdo, [11], '', $d);
         $newA = []; foreach ($new['assets']['rows'] as $row) { $newA[$row['id']] = $row['amountRaw']; }
-        $newLE = []; foreach (array_merge($new['liabilities']['rows'], array_filter($new['equity']['rows'], function ($r) { return !$r['fund']; })) as $row) { $newLE[$row['id']] = $row['amountRaw']; }
+        $newLE = []; foreach (array_merge($new['liabilities']['rows'], $new['equity']['rows']) as $row) { $newLE[$row['id']] = $row['amountRaw']; }
+        $fund = FinancialReport::balanceSheet($pdo, [11], $d, false)['sections']['fund'];
+        if ($fund['fundAccountId'] !== null) { $newLE[$fund['fundAccountId']] = $fund['acctBf']['cur'] + $fund['acctMove']['cur']; }   // the old 'opening balance equity' line
         $b188 = FinancialReport::balances($pdo, [11], null, $d)[188] ?? ['idr' => 0, 'icr' => 0];
         $d188 = $b188['idr'] - $b188['icr'];
         $diffA = []; foreach (array_unique(array_merge(array_keys($oldA), array_keys($newA))) as $k) { $df = ($newA[$k] ?? 0) - ($oldA[$k] ?? 0); if ($df !== 0) { $diffA[$k] = $df; } }
@@ -212,8 +257,7 @@ try {
         ok("$d assets, line by line: the only difference is account 188 (old 'due to parish', new expense): " . json_encode($diffA), $diffA === $expA, json_encode($diffA) . ' vs ' . json_encode($expA));
         $diffLE = []; foreach (array_unique(array_merge(array_keys($oldLE), array_keys($newLE))) as $k) { $df = ($newLE[$k] ?? 0) - ($oldLE[$k] ?? 0); if ($df !== 0) { $diffLE[$k] = $df; } }
         ok("$d liabilities and equity, line by line: no difference (old 'opening balance equity' = new accumulated fund account)", !$diffLE, json_encode($diffLE));
-        $fund = FinancialReport::balanceSheet($pdo, [11], $d, false)['sections']['fund'];
-        $newRE = $fund['bf']['cur'] + $fund['surplus']['cur'] + $fund['dividends']['cur'];
+        $newRE = $fund['prior']['cur'] + $fund['surplus']['cur'] + $fund['dividends']['cur'];
         ok("$d old 'Retained Earnings' = new b/f + surplus + dividends, plus account 188 (" . FinancialReport::money($d188) . ')', $oldRE === $newRE + $d188, FinancialReport::money($oldRE) . ' vs ' . FinancialReport::money($newRE));
         echo "INFO $d: old assets 188 effect " . FinancialReport::money($d188) . '; new total assets ' . $new['assets']['total'] . "\n";
     }

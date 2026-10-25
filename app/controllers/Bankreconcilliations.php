@@ -19,6 +19,41 @@ class Bankreconcilliations extends Controller
         if (!$this->bankreconModel->isReportBank($id)) { badRequest('Invalid bank.'); }
         return $id;
     }
+    /** Strict Y-m-d dates with from <= to (task 9.5): 400 otherwise. Returns [from, to]. */
+    private function reportDates($from,$to,$fromName = 'from',$toName = 'to')
+    {
+        $from = strictDateParam($from,$fromName);
+        $to = strictDateParam($to,$toName);
+        if ($from > $to) { badRequest('Invalid dates: ' . $fromName . ' is after ' . $toName . '.'); }
+        return [$from,$to];
+    }
+    /** The statement balance typed by the user, as a decimal with at most two places: cents, 400 otherwise. */
+    private function statementCents($value)
+    {
+        $v = is_string($value) ? trim($value) : '';
+        if (!preg_match('/^-?\d{1,13}(\.\d{1,2})?$/D',$v)) { badRequest('Invalid balance: expected an amount with at most two decimal places.'); }
+        return FinancialReport::cents($v);
+    }
+    private static function e($s)
+    {
+        return htmlspecialchars((string)$s,ENT_QUOTES,'UTF-8');
+    }
+    private static function m($cents)
+    {
+        return FinancialReport::money((int)$cents);
+    }
+    /** An amount cell: a link to the cashbook rows behind it when it is not zero. */
+    private function amountCell($cents,$page,$type,$data)
+    {
+        if ((int)$cents === 0) { return '<td>' . self::m($cents) . '</td>'; }
+        $route = URLROOT . '/bankreconcilliations/' . $page . '?type=' . $type . '&bank=' . (int)$data['bank']
+               . '&sdate=' . self::e($data['from']) . '&edate=' . self::e($data['to']);
+        return '<td><a href="' . $route . '" target="_blank">' . self::m($cents) . '</a></td>';
+    }
+    private function row($label,$cell)
+    {
+        return '<tr><td>' . self::e($label) . '</td>' . $cell . '</tr>';
+    }
     public function index()
     {
         $banks = $this->bankreconModel->getBanks();
@@ -28,73 +63,26 @@ class Bankreconcilliations extends Controller
     public function bankrecon()
     {
         if($_SERVER['REQUEST_METHOD'] === 'GET'){
-           $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW) ;
-           $data = [
-                'bank' => $this->reportBank($_GET['bank'] ?? null),
-                'from' => isset($_GET['from']) && !empty(trim($_GET['from'])) ? date('Y-m-d',strtotime(trim($_GET['from']))) : null,
-                'to' => isset($_GET['to']) && !empty(trim($_GET['to'])) ? date('Y-m-d',strtotime(trim($_GET['to']))) : null,
-                // 'to' => trim($_GET['to']),
-                'balance' => trim($_GET['balance']),
-           ];
+           $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW) ?: [];
+           $data = ['bank' => $this->reportBank($_GET['bank'] ?? null)];
+           [$data['from'],$data['to']] = $this->reportDates($_GET['from'] ?? null,$_GET['to'] ?? null);
+           $statement = $this->statementCents($_GET['balance'] ?? null);
 
-           $openingBalance = floatval($this->bankreconModel->getAmountsrecon($data)[4]);
-        //    $clearedDeposits = floatval($this->bankreconModel->getAmounts($data)[0]);
-        //    $clearedWithdrawals = floatval($this->bankreconModel->getAmounts($data)[1]);
-           $unclearedDeposits = floatval($this->bankreconModel->getAmountsrecon($data)[2]);
-           $unclearedWithdrawals = floatval($this->bankreconModel->getAmountsrecon($data)[3]);
-        //    $variance =  (floatval($data['balance']) - ($clearedDeposits - $clearedWithdrawals));
-        //    $expectedBalance = (($openingBalance + $clearedDeposits) - $clearedWithdrawals) - $unclearedDeposits + $unclearedWithdrawals;
-           $expectedBalance = ($openingBalance - $unclearedDeposits) + $unclearedWithdrawals;
-           $variance =  floatval($data['balance']) - $expectedBalance;
+           // one read per request: the bank's journal balance at `to` and the cashbook totals of the period
+           $a = $this->bankreconModel->getAmountsrecon($data);
+           $book = $a['book'];
+           $expected = $book - $a['unclearedDeposits'] + $a['unclearedWithdrawals'];
+           $variance = $statement - $expected;
 
-           $output = '';
-           $output .='
-                <table id="table" class="table table-striped table-bordered table-sm">
-                    <thead>
-                        <th>Bank Reconcilliation '.date('d-m-Y',strtotime($data['from'])).' - '.date('d-m-Y',strtotime($data['to'])).'</th>
-                        <th></th>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Balance per Cashbook</td>
-                            <td>'.number_format($openingBalance,2).'</td>
-                        </tr>
-                        <tr>
-                            <td>Less:uncleared deposits</td>';
-                            if(floatval($unclearedDeposits) != 0){
-                                $route = URLROOT .'/bankreconcilliations/uncleared?type=deposit&bank='.$data['bank'].'&sdate='.$data['from'].'&edate='.$data['to'].'';
-                                $output .= '<td><a href="'.$route.'" class="" target="_blank">'.number_format($unclearedDeposits,2).'</a></td>';
-                            }else{
-                                $output .= '<td>'.number_format($unclearedDeposits,2).'</td>';
-                            }
-                        $output .='    
-                        </tr>
-                        <tr>
-                            <td>Add:uncleared withdrawals</td>';
-                            if(floatval($unclearedWithdrawals) != 0){
-                                $route = URLROOT .'/bankreconcilliations/uncleared?type=withdraw&bank='.$data['bank'].'&sdate='.$data['from'].'&edate='.$data['to'].'';
-                                $output .= '<td><a href="'.$route.'" class="" target="_blank">'.number_format($unclearedWithdrawals,2).'</a></td>';
-                            }else{
-                                $output .= '<td>'.number_format($unclearedWithdrawals,2).'</td>';
-                            }
-                        $output .='    
-                        </tr>
-                        <tr>
-                            <td>Expected Balance</td>
-                            <td>'.number_format($expectedBalance,2).'</td>
-                        </tr>
-                        <tr>
-                            <td>Actual/Bank Balance</td>
-                            <td>'.number_format($data['balance'],2).'</td>
-                        </tr>
-                        <tr>
-                            <td>Variance</td>
-                            <td>'.number_format($variance,2).'</td>
-                        </tr>
-                    </tbody>
-                </table>           
-           ';
-
+           $output = '<table id="table" class="table table-striped table-bordered table-sm">'
+                   . '<thead><th>Bank Reconcilliation ' . date('d-m-Y',strtotime($data['from'])) . ' - ' . date('d-m-Y',strtotime($data['to'])) . '</th><th></th></thead><tbody>'
+                   . $this->row('Book balance at ' . date('d-m-Y',strtotime($data['to'])) . ' (per the ledger journal)','<td>' . self::m($book) . '</td>')
+                   . $this->row('Less:uncleared deposits (per cashbook)',$this->amountCell($a['unclearedDeposits'],'uncleared','deposit',$data))
+                   . $this->row('Add:uncleared withdrawals (per cashbook)',$this->amountCell($a['unclearedWithdrawals'],'uncleared','withdraw',$data))
+                   . $this->row('Expected Balance','<td>' . self::m($expected) . '</td>')
+                   . $this->row('Actual/Bank Balance','<td>' . self::m($statement) . '</td>')
+                   . $this->row('Variance','<td>' . self::m($variance) . '</td>')
+                   . '</tbody></table>';
            echo $output;
 
         }else{
@@ -111,99 +99,34 @@ class Bankreconcilliations extends Controller
     public function cashflow_report()
     {
         if($_SERVER['REQUEST_METHOD'] === 'GET'){
-           $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW) ;
-           $data = [
-                'bank' => $this->reportBank($_GET['bank'] ?? null),
-                'from' => isset($_GET['from']) && !empty(trim($_GET['from'])) ? date('Y-m-d',strtotime(trim($_GET['from']))) : null,
-                'to' => isset($_GET['from']) && !empty(trim($_GET['to'])) ? date('Y-m-d',strtotime(trim($_GET['to']))) : null,
-                // 'to' => trim($_GET['to']),
-                'balance' => trim($_GET['balance']),
-           ];
+           $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW) ?: [];
+           $data = ['bank' => $this->reportBank($_GET['bank'] ?? null)];
+           [$data['from'],$data['to']] = $this->reportDates($_GET['from'] ?? null,$_GET['to'] ?? null);
+           $statement = $this->statementCents($_GET['balance'] ?? null);
 
-           $openingBalance = floatval($this->bankreconModel->getAmounts($data)[4]);
-           $clearedDeposits = floatval($this->bankreconModel->getAmounts($data)[0]);
-           $clearedWithdrawals = floatval($this->bankreconModel->getAmounts($data)[1]);
-           $unclearedDeposits = floatval($this->bankreconModel->getAmounts($data)[2]);
-           $unclearedWithdrawals = floatval($this->bankreconModel->getAmounts($data)[3]);
-        //    $variance =  (floatval($data['balance']) - ($clearedDeposits - $clearedWithdrawals));
-           $expectedBalance = (($openingBalance + $clearedDeposits) - $clearedWithdrawals) - $unclearedDeposits + $unclearedWithdrawals;
-           $variance =  floatval($data['balance']) - $expectedBalance;
+           // one read per request: the bank's journal balance before `from` and the cashbook totals of the period
+           $a = $this->bankreconModel->getAmounts($data);
+           $expected = $a['opening'] + $a['clearedDeposits'] - $a['clearedWithdrawals'] - $a['unclearedDeposits'] + $a['unclearedWithdrawals'];
+           $variance = $statement - $expected;
 
-           $output = '';
-           $output .='
-                <table id="table" class="table table-striped table-bordered table-sm">
-                    <thead>
-                        <th>Cashflow Statement</th>
-                        <th></th>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Opening Balance</td>
-                            <td>'.number_format($openingBalance,2).'</td>
-                        </tr>
-                        <tr>
-                            <td>Cleared Deposits</td>';
-                            if(floatval($clearedDeposits) != 0){
-                                $route = URLROOT .'/bankreconcilliations/cleared?type=deposit&bank='.$data['bank'].'&sdate='.$data['from'].'&edate='.$data['to'].'';
-                                $output .= '<td><a href="'.$route.'" class="" target="_blank">'.number_format($clearedDeposits,2).'</a></td>';
-                            }else{
-                                $output .= '<td>'.number_format($clearedDeposits,2).'</td>';
-                            }
-                        $output .='                            
-                        </tr>
-                        <tr>
-                            <td>Cleared Withdrawals</td>';
-                            if(floatval($clearedWithdrawals) != 0){
-                                $route = URLROOT .'/bankreconcilliations/cleared?type=withdraw&bank='.$data['bank'].'&sdate='.$data['from'].'&edate='.$data['to'].'';
-                                $output .= '<td><a href="'.$route.'" class="" target="_blank">'.number_format($clearedWithdrawals,2).'</a></td>';
-                            }else{
-                                $output .= '<td>'.number_format($clearedWithdrawals,2).'</td>';
-                            }
-                        $output .='
-                        </tr>
-                        <tr>
-                            <td>Uncleared Deposits</td>';
-                            if(floatval($unclearedDeposits) != 0){
-                                $route = URLROOT .'/bankreconcilliations/uncleared?type=deposit&bank='.$data['bank'].'&sdate='.$data['from'].'&edate='.$data['to'].'';
-                                $output .= '<td><a href="'.$route.'" class="" target="_blank">'.number_format($unclearedDeposits,2).'</a></td>';
-                            }else{
-                                $output .= '<td>'.number_format($unclearedDeposits,2).'</td>';
-                            }
-                        $output .='    
-                        </tr>
-                        <tr>
-                            <td>Uncleared Withdrawals</td>';
-                            if(floatval($unclearedWithdrawals) != 0){
-                                $route = URLROOT .'/bankreconcilliations/uncleared?type=withdraw&bank='.$data['bank'].'&sdate='.$data['from'].'&edate='.$data['to'].'';
-                                $output .= '<td><a href="'.$route.'" class="" target="_blank">'.number_format($unclearedWithdrawals,2).'</a></td>';
-                            }else{
-                                $output .= '<td>'.number_format($unclearedWithdrawals,2).'</td>';
-                            }
-                        $output .='    
-                        </tr>
-                        <tr>
-                            <td>Expected Balance</td>
-                            <td>'.number_format($expectedBalance,2).'</td>
-                        </tr>
-                        <tr>
-                            <td>Actual/Bank Balance</td>
-                            <td>'.number_format($data['balance'],2).'</td>
-                        </tr>
-                        <tr>
-                            <td>Variance</td>
-                            <td>'.number_format($variance,2).'</td>
-                        </tr>
-                    </tbody>
-                </table>           
-           ';
-
+           $output = '<table id="table" class="table table-striped table-bordered table-sm">'
+                   . '<thead><th>Cashflow Statement ' . date('d-m-Y',strtotime($data['from'])) . ' - ' . date('d-m-Y',strtotime($data['to'])) . '</th><th></th></thead><tbody>'
+                   . $this->row('Opening Balance (book balance per the ledger journal)','<td>' . self::m($a['opening']) . '</td>')
+                   . $this->row('Cleared Deposits (per cashbook)',$this->amountCell($a['clearedDeposits'],'cleared','deposit',$data))
+                   . $this->row('Cleared Withdrawals (per cashbook)',$this->amountCell($a['clearedWithdrawals'],'cleared','withdraw',$data))
+                   . $this->row('Uncleared Deposits (per cashbook)',$this->amountCell($a['unclearedDeposits'],'uncleared','deposit',$data))
+                   . $this->row('Uncleared Withdrawals (per cashbook)',$this->amountCell($a['unclearedWithdrawals'],'uncleared','withdraw',$data))
+                   . $this->row('Expected Balance (opening book balance and the cashbook movements above)','<td>' . self::m($expected) . '</td>')
+                   . $this->row('Actual/Bank Balance','<td>' . self::m($statement) . '</td>')
+                   . $this->row('Variance','<td>' . self::m($variance) . '</td>')
+                   . '</tbody></table>';
            echo $output;
 
         }else{
             redirect('users/deniedaccess');
             exit();
         }
-    }   
+    }
 
     public function uncleared()
     {
@@ -219,35 +142,35 @@ class Bankreconcilliations extends Controller
         exit;
     }
 
+    /** the cashbook rows behind a total: bank, strict dates and a deposit / withdraw type, else 400 */
+    private function listData()
+    {
+        $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW) ?: [];
+        $type = $_GET['type'] ?? null;
+        if (!in_array($type,['deposit','withdraw'],true)) { badRequest('Invalid type.'); }
+        $data = ['type' => $type,'bankid' => $this->reportBank($_GET['bank'] ?? null)];
+        [$data['sdate'],$data['edate']] = $this->reportDates($_GET['sdate'] ?? null,$_GET['edate'] ?? null,'sdate','edate');
+        return $data;
+    }
+
+    private function listResponse($items)
+    {
+        $results = [];
+        foreach($items as $item){
+            $results[] = [
+                'transactionDate' => date('d-m-Y',strtotime($item->transactionDate)),
+                'amount' => $item->amount,
+                'reference' => $item->reference,
+            ];
+        }
+        echo json_encode(['success' => true,'results' => $results]);
+        exit;
+    }
+
     public function unclearedreport()
     {
         if($_SERVER['REQUEST_METHOD'] === 'GET'){
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [
-                'type' => isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : null,
-                'bankid' => isset($_GET['bank']) && !empty(trim($_GET['bank'])) ? $this->reportBank($_GET['bank']) : null,
-                'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
-                'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
-                'results' => []
-            ];
-
-            if(is_null($data['bankid']) || is_null($data['sdate']) || is_null($data['edate']) || is_null($data['type'])){
-                http_response_code(400);
-                echo json_encode(['message' => 'Invalid parameters provided for this report']);
-                exit;
-            }
-
-            foreach($this->bankreconModel->UnclearedReport($data) as $item){
-                array_push($data['results'],[
-                    'transactionDate' => date('d-m-Y',strtotime($item->transactionDate)),
-                    'amount' => $item->amount,
-                    'reference' => $item->reference,
-                ]);
-            }
-
-            echo json_encode(['success' => true,'results' => $data['results']]);
-            exit;
-
+            $this->listResponse($this->bankreconModel->UnclearedReport($this->listData()));
         }else{
             redirect('users/deniedaccess');
             exit;
@@ -257,32 +180,7 @@ class Bankreconcilliations extends Controller
     public function clearedreport()
     {
         if($_SERVER['REQUEST_METHOD'] === 'GET'){
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [
-                'type' => isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : null,
-                'bankid' => isset($_GET['bank']) && !empty(trim($_GET['bank'])) ? $this->reportBank($_GET['bank']) : null,
-                'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
-                'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
-                'results' => []
-            ];
-
-            if(is_null($data['bankid']) || is_null($data['sdate']) || is_null($data['edate']) || is_null($data['type'])){
-                http_response_code(400);
-                echo json_encode(['message' => 'Invalid parameters provided for this report']);
-                exit;
-            }
-
-            foreach($this->bankreconModel->ClearedReport($data) as $item){
-                array_push($data['results'],[
-                    'transactionDate' => date('d-m-Y',strtotime($item->transactionDate)),
-                    'amount' => $item->amount,
-                    'reference' => $item->reference,
-                ]);
-            }
-
-            echo json_encode(['success' => true,'results' => $data['results']]);
-            exit;
-
+            $this->listResponse($this->bankreconModel->ClearedReport($this->listData()));
         }else{
             redirect('users/deniedaccess');
             exit;

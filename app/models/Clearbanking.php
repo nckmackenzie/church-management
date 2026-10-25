@@ -120,18 +120,18 @@ class Clearbanking
         $deposits = 0;
         $withdrawals = 0;
 
-        $depositssql ='SELECT IFNULL(SUM(debit),0) As SumOfDebits
+        $depositssql ='SELECT IFNULL(ROUND(SUM(debit),2),0) As SumOfDebits
                        FROM   tblbankpostings
                        WHERE  (transactionDate BETWEEN ? AND ?) AND (cleared=1) 
                               AND (deleted=0) AND (bankId= ?) AND (congregationId = ?)';
-        $deposits = floatval(getdbvalue($this->db->dbh,$depositssql,[$data['from'],$data['to'],$data['bank'],$_SESSION['congId']]));
+        $deposits = FinancialReport::decimal(FinancialReport::cents(getdbvalue($this->db->dbh,$depositssql,[$data['from'],$data['to'],$data['bank'],$_SESSION['congId']])));
         array_push($amounts,$deposits);
 
-        $withdrawalsql ='SELECT IFNULL(SUM(credit),0) As SumOfCredits
+        $withdrawalsql ='SELECT IFNULL(ROUND(SUM(credit),2),0) As SumOfCredits
                          FROM   tblbankpostings
                          WHERE  (transactionDate BETWEEN ? AND ?) AND (cleared=1) 
                                 AND (deleted=0) AND (bankId= ?) AND (congregationId = ?)';
-        $withdrawals = floatval(getdbvalue($this->db->dbh,$withdrawalsql,[$data['from'],$data['to'],$data['bank'],$_SESSION['congId']]));
+        $withdrawals = FinancialReport::decimal(FinancialReport::cents(getdbvalue($this->db->dbh,$withdrawalsql,[$data['from'],$data['to'],$data['bank'],$_SESSION['congId']])));
         array_push($amounts,$withdrawals);
 
         return $amounts;

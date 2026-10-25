@@ -1,4 +1,4 @@
-// Balance sheet (congregation and parish) and its drill-down, task 9.4 (decisions 141-142, 144, 147-149).
+// Balance sheet (congregation and parish) and its drill-down, tasks 9.4 / 9.5 (decisions 141-142, 144, 147-150).
 // As Of Date only. Every server string goes on the page with textContent; URLs carry account IDs only.
 import { el, show, ddmmyyyy, getJson, query, amountCell, printButton, excelLink, childrenPanel, linesPanel } from './report-ui-v1.js';
 
@@ -51,21 +51,25 @@ function renderReport(d, ctx) {
     tb.appendChild(tr);
   };
   const section = (title, s, totalLabel) => {
-    header(title);
+    if (title) header(title);
     s.rows.forEach(r => {
       const tr = el('tr');
       tr.appendChild(el('td', r.name, 'pl-4'));
       let href;
       if (r.fund && r.next === 'incomestatement') href = d0.isurl + '?' + query({ start: d.yearStart, end: d.asOf, cong: ctx.cong });
+      else if (r.id === 'mv' && d.fund.fundAccountId) href = drillUrl(ctx, { id: d.fund.fundAccountId, next: 'children' }, 'fm');
       else href = drillUrl(ctx, r, '');
       tr.appendChild(amountCell(r.amount, href)); tr.appendChild(amountCell(r.cmp, r.cmp === null ? null : href));
       tb.appendChild(tr);
     });
-    total(totalLabel, s.total, s.cmpTotal);
+    if (totalLabel) total(totalLabel, s.total, s.cmpTotal);
   };
   section('Assets', d.assets, 'Total assets');
   section('Liabilities', d.liabilities, 'Total liabilities');
-  section('Equity and accumulated fund', d.equity, 'Total equity and accumulated fund');
+  // the other type 6 accounts, then the one accumulated fund block with its c/f total (decision 150)
+  section('Equity and accumulated fund', d.equity, null);
+  section(null, d.fund, 'Accumulated fund c/f');
+  total('Total equity and accumulated fund', d.equityTotal.total, d.equityTotal.cmpTotal);
   total('Total liabilities, equity and accumulated fund', d.liabilitiesEquityFund.total, d.liabilitiesEquityFund.cmpTotal, 'font-weight-bold table-active');
   const chk = el('tr');
   if (d.balanced) {
@@ -74,6 +78,11 @@ function renderReport(d, ctx) {
     chk.appendChild(el('td', 'DIFFERENCE (assets - liabilities - equity - fund): ' + d.difference.amount + (d.difference.cmp !== null ? ' (last year-end ' + d.difference.cmp + ')' : ''), 'text-danger font-weight-bold', { colspan: '3' }));
   }
   tb.appendChild(chk);
+  if (d.fund.diagnostic) {
+    const dg = el('tr');
+    dg.appendChild(el('td', d.fund.diagnostic, 'text-warning font-weight-bold', { colspan: '3' }));
+    tb.appendChild(dg);
+  }
   table.appendChild(tb);
   const tw = el('div', null, 'table-responsive');
   tw.appendChild(table);
@@ -107,12 +116,15 @@ function renderDrill(d, ctx, account) {
   const fund = d.fund || '';
   const nav = el('nav', null, 'mb-2');
   nav.appendChild(el('a', 'Balance sheet', '', { href: topUrl(ctx) }));
-  const fundName = fund === 'bf' ? 'Accumulated fund b/f' : (fund === 'div' ? 'Dividends' : '');
-  if (fund && account !== fund) {
-    nav.appendChild(document.createTextNode(' > '));
-    nav.appendChild(el('a', fundName, '', { href: base + '/balancesheetdrill?' + query({ account: fund, asof: ctx.asof, cong: ctx.cong }) }));
-  }
-  if (account === 'bf' || account === 'div') { nav.appendChild(document.createTextNode(' > ')); nav.appendChild(el('span', fundName)); }
+  // trail for the accumulated fund lines: b/f (two parts), prior years' surplus, the fund account, dividends, in-year movement
+  const link = (t, p) => { nav.appendChild(document.createTextNode(' > ')); nav.appendChild(p ? el('a', t, '', { href: base + '/balancesheetdrill?' + query(Object.assign({ asof: ctx.asof, cong: ctx.cong }, p)) }) : el('span', t)); };
+  if (account === 'bf') link('Accumulated fund b/f');
+  else if (account === 'pys') { if (d.fund === 'bf' && d.name === "Prior years' surplus") link('Accumulated fund b/f', { account: 'bf' }); link("Prior years' surplus"); }
+  else if (account === 'div') link('Dividends');
+  else if (fund === 'fa') link('Accumulated fund b/f', { account: 'bf' });
+  else if (fund === 'fm') link('Movement on the accumulated fund account during the year');
+  else if (fund === 'div') link('Dividends', { account: 'div' });
+  else if (fund === 'bf') { link('Accumulated fund b/f', { account: 'bf' }); link("Prior years' surplus", { account: 'pys' }); }
   (d.crumbs || []).forEach((c, i) => {
     nav.appendChild(document.createTextNode(' > '));
     const last = i === d.crumbs.length - 1 && d.mode === 'children';
@@ -121,14 +133,14 @@ function renderDrill(d, ctx, account) {
   });
   if (d.mode === 'lines') { nav.appendChild(document.createTextNode(' > ')); nav.appendChild(el('span', d.direct ? 'Postings on this account' : 'Journal lines')); }
   wrap.appendChild(nav);
-  wrap.appendChild(el('div', 'As at ' + ddmmyyyy(d.asOf) + (fund === 'bf' ? ' - result of the financial years before the current one (credit = surplus)' : ''), 'mb-2'));
+  wrap.appendChild(el('div', 'As at ' + ddmmyyyy(d.asOf) + (fund === 'bf' && account !== 'bf' ? ' - result of the financial years before the current one (credit = surplus)' : ''), 'mb-2'));
   const xlParams = { account, asof: ctx.asof, cong: ctx.cong, fund, direct: ctx.direct ? '1' : '', view: ctx.view };
   area.appendChild(printButton());
   if (d.mode === 'children') {
     area.appendChild(excelLink(base + '/balancesheetdrillrpt?' + query(Object.assign({}, xlParams, { format: 'xlsx' }))));
     wrap.appendChild(el('h5', d.name + ': ' + d.amount + (d.cmp ? '  (last year-end ' + d.cmp + ')' : '')));
     const rows = d.rows.map(r => {
-      const href = drillUrl(ctx, r, fund);
+      const href = drillUrl(ctx, r, r.fund === 'fa' ? 'fa' : (r.fund === true ? '' : fund));
       return { text: r.name, cells: [el('td', r.name), amountCell(r.amount, href), amountCell(r.cmp, r.cmp === null ? null : href)] };
     });
     const footer = [el('td', 'Total of the rows (' + (d.sumsExactly ? 'adds up to the figure above' : 'DOES NOT add up') + ')'), amountCell(d.rowsTotal), amountCell('')];

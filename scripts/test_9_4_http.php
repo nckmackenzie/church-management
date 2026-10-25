@@ -98,8 +98,8 @@ try {
     ok('report: success, no congregation heading (decision 147), no explanatory text fields (decision 148)', $code === 200 && $r['success'] && $r['entity'] === '' && !isset($r['basis']) && !preg_match('/cumulative to the date/i', $body));
     $names = array_column($r['assets']['rows'], 'name');
     ok('assets: fixture accounts by name, the markup in a name comes back as data', in_array('Zz T94h Asset Top', $names, true) && in_array('Zz <script>alert(1)</script> T94h', $names, true));
-    ok('equity block: the type 6 account, then b/f, surplus to date, dividends (non-zero)', array_column($r['equity']['rows'], 'name') === ['Zz T94h Equity Top', 'Accumulated fund b/f', 'Surplus / (deficit) for the year to date', 'Dividends']);
-    $eq = []; foreach ($r['equity']['rows'] as $x) { $eq[$x['name']] = $x; }
+    ok('equity block: the type 6 account, then b/f, surplus to date, dividends (non-zero)', array_column($r['equity']['rows'], 'name') === ['Zz T94h Equity Top'] && array_column($r['fund']['rows'], 'name') === ['Accumulated fund b/f', 'Surplus / (deficit) for the year to date', 'Dividends']);
+    $eq = []; foreach (array_merge($r['equity']['rows'], $r['fund']['rows']) as $x) { $eq[$x['name']] = $x; }
     ok('b/f = 15.00 (earlier year), surplus 7 - 3 = 4.00, dividends (2.00); total assets = 15 + 1 + ... balanced', $eq['Accumulated fund b/f']['amount'] === '15.00' && $eq['Surplus / (deficit) for the year to date']['amount'] === '4.00' && $eq['Dividends']['amount'] === '(2.00)' && $r['balanced'] === true && $r['difference']['amount'] === '0.00');
     ok('comparative = the last financial year-end (2025-09-30)', $r['cmpAsOf'] === '2025-09-30' && $r['assets']['cmpTotal'] !== null);
     ok('no "type > parent > name" path anywhere in the JSON (decision 149)', !hasPath($r));

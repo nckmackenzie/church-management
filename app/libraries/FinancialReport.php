@@ -37,6 +37,12 @@ class FinancialReport
 {
     const MAX_DEPTH = AccountChart::MAX_DEPTH;
 
+    /**
+     * The fixed system account 'opening balance equity' (confirmed by the owner, like Ledger's account 20). Its top-level type-6
+     * ancestor is the 'accumulated fund' account F6 created (decision 150); it is found through this ID, never by name.
+     */
+    const OPENING_BALANCE_EQUITY = 20;
+
     /** largest page linesPage() returns */
     const MAX_PAGE_SIZE = 200;
 
@@ -385,6 +391,21 @@ class FinancialReport
         return $out;
     }
 
+    /**
+     * Debit minus credit, in cents, of the lines posted ON ONE account (not its sub-accounts) by active entries of the scope, dated up
+     * to and including $to (9.5: the book balance of a bank). Inception when $to is the only bound.
+     */
+    public static function accountNet(PDO $db, array $scope, int $accountId, string $to): int
+    {
+        $scope = self::normalizeScope($scope);
+        self::checkDate($to, 'to date');
+        $st = $db->prepare("SELECT SUM(CASE WHEN l.dc = 'DEBIT' THEN l.amount ELSE 0 END) AS dr, SUM(CASE WHEN l.dc = 'CREDIT' THEN l.amount ELSE 0 END) AS cr
+                            FROM journal_lines l JOIN journal_entries e ON e.ID = l.journalEntryId
+                            WHERE l.accountId = ? AND e.deleted = 0 AND e.congregationId IN (" . self::marks($scope) . ") AND e.entryDate <= ?");
+        $st->execute(array_merge([$accountId], $scope, [$to]));
+        $r = $st->fetch(PDO::FETCH_ASSOC);
+        return self::cents($r['dr']) - self::cents($r['cr']);
+    }
     private static function zeroBuckets(): array
     {
         return ['bdr' => 0, 'bcr' => 0, 'idr' => 0, 'icr' => 0];
@@ -729,6 +750,16 @@ class FinancialReport
         $liab   = self::section($ctx, 4);
         $equity = self::section($ctx, 6);
         $fund   = self::bsFund($ctx);
+        if ($fund['fundAccountId'] !== null) {
+            // decision 150: the accumulated fund account is part of the accumulated fund block, not a type 6 line of its own
+            $fa = $fund['fundAccountId'];
+            $f = self::figs($ctx, $fa);
+            $equity['rows'] = array_values(array_filter($equity['rows'], function ($r) use ($fa) { return $r['id'] !== $fa; }));
+            $equity['total'] -= (int) $f['cur'];
+            if ($equity['comparativeTotal'] !== null) { $equity['comparativeTotal'] -= (int) $f['cmp']; }
+            $equity['sumsExactly'] = self::sum($equity['rows']) === $equity['total'];
+            // the block holds the fund account's balance at the year start and its movement; its direct postings, if any, are inside
+        }
         $unc    = self::unclassifiedReport($ctx);
         $cmp    = isset($ctx['sets']['cmp']);
 
@@ -765,35 +796,77 @@ class FinancialReport
         ];
     }
 
-    /** The fund block of a balance sheet: b/f, current year surplus, dividends (only when non-zero). */
+    /**
+     * The 'accumulated fund' account of the balance sheet (decision 150): the top-level (directly under the root) type-6 account
+     * that contains OPENING_BALANCE_EQUITY. null when that cannot be established unambiguously (account 20 missing, not under a
+     * type-6 root, directly under the root itself, or not reachable); the balance sheet then keeps the separate presentation and
+     * says so. Nothing is guessed.
+     */
+    public static function fundAccountId(array $chart): ?int
+    {
+        $n = $chart['nodes'][self::OPENING_BALANCE_EQUITY] ?? null;
+        if ($n === null || !$n['classified'] || $n['root'] !== 6 || $n['depth'] < 3) { return null; }
+        $top = $n['chain'][count($n['chain']) - 2] ?? null;
+        $t = $top === null ? null : ($chart['nodes'][$top] ?? null);
+        return ($t !== null && $t['classified'] && $t['root'] === 6 && $t['depth'] === 2 && !$t['deleted']) ? (int) $top : null;
+    }
+
+    /**
+     * The parts of the accumulated fund block at a date (decision 150), in cents, credit positive: the fund account's balance at the
+     * financial-year start (`acctBf`) and its movement since (`acctMove`), the prior years' surplus of types 1, 2, 5 (`prior`), the
+     * surplus of types 1, 2 (`surplus`) and the type 5 result (`dividends`, a deduction), b/f = acctBf + prior, c/f = b/f + surplus +
+     * dividends + acctMove. `fundAccountId` null = separate presentation (acctBf, acctMove = 0).
+     * @return array<string,mixed>
+     */
+    public static function accumulatedFundParts(PDO $db, array $scope, string $asOf, ?array $chart = null): array
+    {
+        $ctx = self::context($db, $scope, ['kind' => 'bs', 'asOf' => $asOf, 'comparative' => false], $chart);
+        return self::fundParts($ctx, 'cur');
+    }
+
+    private static function fundParts(array $ctx, string $k): array
+    {
+        $fa = self::fundAccountId($ctx['chart']);
+        $t = $ctx['sets'][$k]['total'];
+        $b = ($fa !== null ? ($t[$fa] ?? null) : null) ?? self::zeroBuckets();
+        $acctBf = $fa === null ? 0 : $b['bcr'] - $b['bdr'];
+        $acctMove = $fa === null ? 0 : $b['icr'] - $b['idr'];
+        $prior = self::fundOf($t, [1, 2, 5], 'b');
+        $surplus = self::fundOf($t, [1, 2], 'i');
+        $div = self::fundOf($t, [5], 'i');
+        $bf = $acctBf + $prior;
+        return ['fundAccountId' => $fa, 'acctBf' => $acctBf, 'acctMove' => $acctMove, 'prior' => $prior, 'surplus' => $surplus, 'dividends' => $div,
+                'bf' => $bf, 'cf' => $bf + $surplus + $div + $acctMove];
+    }
+    /** The fund block of a balance sheet: b/f, current year surplus, dividends (only when non-zero), movement on the fund account (only when non-zero). */
     private static function bsFund(array $ctx): array
     {
+        $parts = ['cur' => self::fundParts($ctx, 'cur'), 'cmp' => isset($ctx['sets']['cmp']) ? self::fundParts($ctx, 'cmp') : null];
+        $fa = $parts['cur']['fundAccountId'];
+        $val = function (string $key, string $k) use ($parts) { return $parts[$k] === null ? null : $parts[$k][$key]; };
+        $def = ['bf' => 'Accumulated fund b/f', 'cy' => 'Surplus / (deficit) for the year to date', 'div' => 'Dividends', 'mv' => 'Movement on the accumulated fund account during the year'];
+        $src = ['bf' => 'bf', 'cy' => 'surplus', 'div' => 'dividends', 'mv' => 'acctMove'];
         $rows = [];
-        $keys = ['cur' => 'amount', 'cmp' => 'comparative'];
-        $vals = ['bf' => [], 'cy' => [], 'div' => []];
-        foreach ($keys as $k => $_) {
-            if (!isset($ctx['sets'][$k])) { $vals['bf'][$k] = $vals['cy'][$k] = $vals['div'][$k] = null; continue; }
-            $t = $ctx['sets'][$k]['total'];
-            $vals['bf'][$k]  = self::fundOf($t, [1, 2, 5], 'b');
-            $vals['cy'][$k]  = self::fundOf($t, [1, 2], 'i');
-            $vals['div'][$k] = self::fundOf($t, [5], 'i');
-        }
-        $def = [
-            'bf'  => 'Accumulated fund b/f',
-            'cy'  => 'Current year surplus',
-            'div' => 'Dividends',
-        ];
         foreach ($def as $code => $label) {
-            // zero rule (119): a zero line is left out (type 5 therefore shows only when non-zero, decision 120); the fund TOTAL always shows
-            if (self::hideZero([$vals[$code]['cur'], $vals[$code]['cmp']])) { continue; }
+            $cur = $val($src[$code], 'cur'); $cmp = $val($src[$code], 'cmp');
+            // zero rule (119): a zero line is left out (type 5 therefore shows only when non-zero, decision 120); the block TOTAL always shows
+            if (self::hideZero([$cur, $cmp])) { continue; }
             $rows[] = ['id' => $code, 'synthetic' => true, 'direct' => false, 'name' => $label, 'path' => $label, 'depth' => 2, 'root' => null,
-                       'posting' => false, 'amount' => $vals[$code]['cur'], 'comparative' => $vals[$code]['cmp'],
-                       'hasChildren' => true, 'hasLines' => false, 'period' => $ctx['period']];
+                       'posting' => false, 'amount' => $cur, 'comparative' => $cmp, 'hasChildren' => true, 'hasLines' => false, 'period' => $ctx['period']];
         }
-        $total  = $vals['bf']['cur'] + $vals['cy']['cur'] + $vals['div']['cur'];
-        $totalC = isset($ctx['sets']['cmp']) ? $vals['bf']['cmp'] + $vals['cy']['cmp'] + $vals['div']['cmp'] : null;
-        return ['root' => null, 'title' => 'Fund', 'rows' => $rows, 'total' => $total, 'comparativeTotal' => $totalC,
-                'sumsExactly' => self::sum($rows) === $total, 'surplus' => $vals['cy'], 'dividends' => $vals['div'], 'bf' => $vals['bf']];
+        $total = $parts['cur']['cf'];
+        $totalC = $parts['cmp'] === null ? null : $parts['cmp']['cf'];
+        // the surplus of the year to date is shown apart from the prior years' surplus, which is part of b/f
+        return ['root' => null, 'title' => 'Accumulated fund', 'rows' => $rows, 'total' => $total, 'comparativeTotal' => $totalC,
+                'sumsExactly' => self::sum($rows) === $total,
+                'fundAccountId' => $fa,
+                'diagnostic' => $fa === null ? "The accumulated fund account (the type 6 account that contains account " . self::OPENING_BALANCE_EQUITY . ") could not be identified unambiguously; the type 6 accounts are shown separately and the accumulated fund holds only the result of the financial years." : null,
+                'surplus' => ['cur' => $parts['cur']['surplus'], 'cmp' => $val('surplus', 'cmp')],
+                'dividends' => ['cur' => $parts['cur']['dividends'], 'cmp' => $val('dividends', 'cmp')],
+                'bf' => ['cur' => $parts['cur']['bf'], 'cmp' => $val('bf', 'cmp')],
+                'prior' => ['cur' => $parts['cur']['prior'], 'cmp' => $val('prior', 'cmp')],
+                'acctBf' => ['cur' => $parts['cur']['acctBf'], 'cmp' => $val('acctBf', 'cmp')],
+                'acctMove' => ['cur' => $parts['cur']['acctMove'], 'cmp' => $val('acctMove', 'cmp')]];
     }
 
     /**
@@ -836,7 +909,7 @@ class FinancialReport
         $t = $ctx['sets']['cur']['total'];
         $bfNet = -self::fundOf($t, [1, 2, 5], 'b');
         if (!self::hideZero([$bfNet])) {
-            $rows[] = array_merge(['id' => 'bf', 'synthetic' => true, 'direct' => false, 'name' => 'Accumulated fund b/f', 'path' => 'Accumulated fund b/f', 'depth' => 2,
+            $rows[] = array_merge(['id' => 'bf', 'synthetic' => true, 'direct' => false, 'name' => "Prior years' surplus b/f", 'path' => "Prior years' surplus b/f", 'depth' => 2,
                                    'root' => null, 'posting' => false, 'amount' => $bfNet, 'comparative' => null, 'net' => $bfNet,
                                    'hasChildren' => true, 'hasLines' => false, 'period' => $ctx['period'], 'section' => 'Fund'],
                                   self::trialBalanceColumns($bfNet));
@@ -916,7 +989,7 @@ class FinancialReport
         $start = self::yearStart($db, $asOf);
         $prev  = DateTime::createFromFormat('!Y-m-d', $start);
         $prev->modify('-1 day');
-        if ($code === 'bf')     { $range = ['kind' => 'range', 'from' => null,   'to' => $prev->format('Y-m-d'), 'direction' => 'credit', 'fy' => false]; $roots = [1, 2, 5]; $label = 'Accumulated fund b/f'; }
+        if ($code === 'bf')     { $range = ['kind' => 'range', 'from' => null,   'to' => $prev->format('Y-m-d'), 'direction' => 'credit', 'fy' => false]; $roots = [1, 2, 5]; $label = "Prior years' surplus b/f"; }
         elseif ($code === 'cy') { $range = ['kind' => 'range', 'from' => $start, 'to' => $asOf,                  'direction' => 'credit']; $roots = [1, 2];    $label = 'Current year surplus'; }
         else                    { $range = ['kind' => 'range', 'from' => $start, 'to' => $asOf,                  'direction' => 'credit']; $roots = [5];       $label = 'Dividends'; }
         $ctx = self::context($db, $scope, $range);

@@ -238,7 +238,7 @@ try {
         $m188 = $jp['idr'] - $jp['icr'];                       // account 188 in the period, journal
         $diff = [];
         foreach (array_unique(array_merge(array_keys($old), array_keys($newNet))) as $name) {
-            if ($name === 'Accumulated Fund B/f') { continue; }
+            if ($name === "Prior years' surplus b/f") { continue; }
             $expected = ($old[$name] ?? 0) + ($open[$name] ?? 0);
             if (($newNet[$name] ?? 0) !== $expected) { $diff[$name] = ($newNet[$name] ?? 0) - $expected; }
         }

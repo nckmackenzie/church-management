@@ -5,7 +5,7 @@
  * (Parishreports) controllers; only the scope differs. URLs carry account IDs only.
  *
  * Basis (decision 129): types 3, 4, 6 cumulative to the as-of date; types 1, 2, 5 from the start of the financial year containing
- * it; one "Accumulated fund b/f" line (types 1, 2, 5 before that start). The same basis applies at every drill level; the
+ * it; one "Prior years' surplus b/f" line (types 1, 2, 5 before that start). The same basis applies at every drill level; the
  * accumulated fund b/f drills (with bf=1) into the prior years' totals of the type 1, 2, 5 accounts.
  */
 class TrialBalanceReport
@@ -49,7 +49,7 @@ class TrialBalanceReport
             $synthetic = !empty($x['synthetic']);
             $rows[] = [
                 'id'        => $x['id'],
-                'name'      => self::name((string) $x['name']),
+                'name'      => $synthetic ? (string) $x['name'] : self::name((string) $x['name']),   // the computed line keeps its own wording (decision 151)
                 'section'   => $x['section'] ?? '',
                 'debit'     => $c['debit'], 'credit' => $c['credit'], 'debitRaw' => $c['debitRaw'], 'creditRaw' => $c['creditRaw'],
                 'direct'    => !empty($x['direct']) || $detailed,
@@ -91,7 +91,7 @@ class TrialBalanceReport
         $out = ['asOf' => $asOf, 'bf' => $bf, 'direct' => $direct];
         if ($account === 'bf') {
             $c = FinancialReport::children($db, $scope, 'bf', ['kind' => 'tb', 'asOf' => $asOf]);
-            return $out + ['mode' => 'children', 'crumbs' => [], 'name' => 'Accumulated fund b/f', 'root' => null] + self::childrenShape($c, true, $bf = true);
+            return $out + ['mode' => 'children', 'crumbs' => [], 'name' => "Prior years' surplus b/f", 'root' => null] + self::childrenShape($c, true, $bf = true);
         }
         $node = $chart['nodes'][$account] ?? null;
         if ($node === null || !$node['classified'] || $node['depth'] < 2) { IncomeStatementReport::fail('Invalid account'); }
@@ -155,7 +155,7 @@ class TrialBalanceReport
         [$page, $size, $search] = LinesView::params($q);
         if (!IncomeStatementReport::wantsXlsx()) { IncomeStatementReport::send(self::drill($db, $scope, $account, $asOf, $mode, $direct, $bf, $page, $size, $search)); }
         $d = self::drill($db, $scope, $account, $asOf, $mode, $direct, $bf, 1, 1, '');
-        $heading = array_values(array_filter([$entity, 'Trial balance drill-down: ' . $d['name'] . ($bf ? ' (accumulated fund b/f)' : ''), 'As at ' . self::ddmmyyyy($asOf)], 'strlen'));
+        $heading = array_values(array_filter([$entity, 'Trial balance drill-down: ' . $d['name'] . ($bf ? " (prior years' surplus b/f)" : ''), 'As at ' . self::ddmmyyyy($asOf)], 'strlen'));
         if ($d['mode'] === 'lines') {
             $L = FinancialReport::linesPage($db, $scope, (int) $account, self::period($db, $asOf, $bf), !$direct, 1, 0, $search);
             XlsxWriter::download('trial-balance-lines-' . $account . '.xlsx', 'Journal lines', LinesView::sheetRows($L, $heading), LinesView::widths());

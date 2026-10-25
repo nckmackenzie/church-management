@@ -397,7 +397,7 @@ try {
         $oldAssets = $oa[0] - $oa[1]; $oldLE = ($olq[0][1] - $olq[0][0]) + ($olq[1][1] - $olq[1][0]);
         $b188 = FinancialReport::balances($pdo, [11], null, $d); $a188 = isset($b188[188]) ? $b188[188]['idr'] - $b188[188]['icr'] : 0;
         $diff = $oldAssets - $svc['sections']['assets']['total'];
-        $svcLE = $svc['sections']['liabilities']['total'] + $svc['sections']['equity']['total'];
+        $svcLE = $svc['sections']['liabilities']['total'] + $svc['sections']['equity']['total'] + $svc['sections']['fund']['acctBf']['cur'] + $svc['sections']['fund']['acctMove']['cur'];   // the old type 6 total includes the accumulated fund account, now inside the fund block (decision 150)
         ok("parity BS $lab: liabilities + equity equal the old report", $svcLE === $oldLE, m($svcLE) . ' vs ' . m($oldLE));
         ok("parity BS $lab: assets differ from the old report only by account 188 (accepted reclassification, handover 6)", $diff === $a188, 'difference ' . m($diff) . ' account 188 ' . m($a188));
         ok("parity BS $lab: the service balances (assets = liabilities + equity + fund)", $svc['totals']['current']['difference'] === 0 && !$svc['unclassified']['present']);

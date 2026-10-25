@@ -99,9 +99,9 @@ function renderDrill(d, ctx, account) {
   nav.appendChild(el('a', 'Trial balance', '', { href: topUrl(ctx) }));
   if (bf && account !== 'bf') {
     nav.appendChild(document.createTextNode(' > '));
-    nav.appendChild(el('a', 'Accumulated fund b/f', '', { href: endpoint(d0.drillpage) + '?' + query({ account: 'bf', asof: ctx.asof, cong: ctx.cong }) }));
+    nav.appendChild(el('a', "Prior years' surplus b/f", '', { href: endpoint(d0.drillpage) + '?' + query({ account: 'bf', asof: ctx.asof, cong: ctx.cong }) }));
   }
-  if (account === 'bf') { nav.appendChild(document.createTextNode(' > ')); nav.appendChild(el('span', 'Accumulated fund b/f')); }
+  if (account === 'bf') { nav.appendChild(document.createTextNode(' > ')); nav.appendChild(el('span', "Prior years' surplus b/f")); }
   (d.crumbs || []).forEach((c, i) => {
     nav.appendChild(document.createTextNode(' > '));
     const last = i === d.crumbs.length - 1 && d.mode === 'children';
