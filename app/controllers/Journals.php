@@ -60,7 +60,8 @@ class Journals extends Controller{
             $data = [
                 // new journals get their number from Ledger inside the save transaction
                 'journalno' => $isEdit ?
-                               (isset($fields->editId) && trim((string)$fields->editId) !== '' ? (int)$fields->editId : null)
+                               (isset($fields->editId) && is_scalar($fields->editId) && preg_match('/^[0-9]{1,10}$/',trim((string)$fields->editId)) && (int)trim((string)$fields->editId) >= 1
+                                    ? (int)trim((string)$fields->editId) : null)
                                : 0,
                 'isedit' => $isEdit,
                 'date' => $dateObj && $dateObj->format('Y-m-d') === $dateRaw ? $dateRaw : null,
@@ -75,11 +76,6 @@ class Journals extends Controller{
             if(empty($data['entries'])){
                 http_response_code(400);
                 echo json_encode(['message' => 'No entries made']);
-                exit;
-            }
-            if($data['isedit'] && is_null($data['journalno'])){
-                http_response_code(400);
-                echo json_encode(['message' => 'Unable to update. Please try again']);
                 exit;
             }
             //if error on create/update
@@ -138,7 +134,8 @@ class Journals extends Controller{
                     'accountname' => ucwords(trim($line['accountName'])),
                     'debit' => $isdebit ? $amount : '',
                     'credit' => $isdebit ? '' : $amount,
-                    'narration' => ucwords((string)$line['memo'])
+                    // narrations are shown exactly as typed (decision 166)
+                    'narration' => (string)$line['memo']
                 ]);
             }
             echo json_encode(['success' => true,'journalDate' => $date,'entries' => $data,"totals" => [$totaldebits,$totalcredits]]);
@@ -270,7 +267,7 @@ class Journals extends Controller{
             $debit = floatval($detail->debit) > 0 ? number_format(floatval($detail->debit),2) : '';
             $credit = floatval($detail->credit) > 0 ? number_format(floatval($detail->credit),2) : '';
             $account = htmlspecialchars(ucwords((string)$detail->account),ENT_QUOTES,'UTF-8');
-            $narration = htmlspecialchars(ucwords((string)$detail->narration),ENT_QUOTES,'UTF-8');
+            $narration = htmlspecialchars((string)$detail->narration,ENT_QUOTES,'UTF-8');
             $output .= 
             '<tr>
                 <td>'.date('d/m/Y', strtotime($detail->transactionDate)).'</td>

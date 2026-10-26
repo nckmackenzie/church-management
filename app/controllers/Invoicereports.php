@@ -95,7 +95,6 @@ class Invoicereports extends Controller
             if($type === 'invoiceno'){
                 $output = '<option value="" selected disabled>Select Invoice No</option>';
                 foreach($this->reportmodel->GetInvoiceNos() as $invoiceno) {
-                    $label = (string)$invoiceno->supplierName.' — '.(string)$invoiceno->invoiceNo;
                     $output .= '<option value="'.(int)$invoiceno->ID.'">'.htmlspecialchars($invoiceno->invoiceNo.' – '.$invoiceno->supplierName,ENT_QUOTES,'UTF-8').'</option>';
                 }
             }elseif($type === 'supplier'){

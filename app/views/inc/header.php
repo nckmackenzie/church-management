@@ -30,6 +30,7 @@
             color: #fca5a5;
         }
     </style>
+    <script>window.APP_URLROOT = <?php echo json_encode(URLROOT, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP); ?>;</script>
 </head>
 
     
