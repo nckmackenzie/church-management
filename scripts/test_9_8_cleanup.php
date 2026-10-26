@@ -218,7 +218,7 @@ try {
     $book($sG, '2097-12-31', '1000.00', 'zz t98 opening <i>x</i>'); $book($sG, '2098-02-01', '500.00', 'zz t98 collection'); $book($sG, '2098-12-01', '9999.00', 'zz t98 after');
     $book($sGO, '2098-02-01', '77.00', 'zz t98 foreign');
     $exp($G, null, '300.00', '2098-03-01', 1, 1, 0, 11, 'zz t98 paid from requisition');
-    $exp($G, null, '40.00', '2098-03-02', 1, 0, 0);          // not approved: in the balance (decision 14, as before), not in the statement
+    $exp($G, null, '40.00', '2098-03-02', 1, 0, 0);          // not approved: in neither the balance nor the statement (decision 161)
     $exp($G, null, '50.00', '2098-03-03', null, 1, 0);       // not funded by a requisition
     $exp($G, null, '60.00', '2098-03-04', 1, 1, 1);          // deleted
     $exp($G, null, '70.00', '2098-03-05', 1, 1, 0, $other);  // another congregation's row on our group id
@@ -229,18 +229,18 @@ try {
     ok98('owned(): another congregation sees none of them', !array_intersect([$sG, $sD], array_keys(SubAccountReport::owned($pdo, $other))));
     $asOf = '2098-06-30';
     $bal = SubAccountReport::balances($pdo, 11, $asOf);
-    ok98('group balance = book (1,000 + 500) - requisition expenses (300 + 40) = 1,160.00; after-date, unfunded, deleted and foreign rows are out', $bal[$sG] === 116000, (string) $bal[$sG]);
+    ok98('group balance = book (1,000 + 500) - approved requisition expenses (300) = 1,200.00; the unapproved 40, after-date, unfunded, deleted and foreign rows are out (decision 161)', $bal[$sG] === 120000, (string) $bal[$sG]);
     ok98('district balance = 2,000 - 500 = 1,500.00', $bal[$sD] === 150000);
     $bg = SubAccountReport::breakdown($pdo, 11, $owned[$sG], $asOf);
-    ok98('GROUP breakdown: 4 rows (book 1,000 and 500, expenses -300 and -40), total equals the balance', count($bg) === 4 && array_sum(array_column($bg, 'amount')) === $bal[$sG] && array_column($bg, 'amount') === [100000, 50000, -30000, -4000], json_encode(array_column($bg, 'amount')));
+    ok98('GROUP breakdown: 3 rows (book 1,000 and 500, approved expense -300), total equals the balance', count($bg) === 3 && array_sum(array_column($bg, 'amount')) === $bal[$sG] && array_column($bg, 'amount') === [100000, 50000, -30000], json_encode(array_column($bg, 'amount')));
     $bd = SubAccountReport::breakdown($pdo, 11, $owned[$sD], $asOf);
     ok98('DISTRICT breakdown: book 2,000 and expense -500, total equals the balance', array_column($bd, 'amount') === [200000, -50000] && array_sum(array_column($bd, 'amount')) === $bal[$sD]);
     ok98('breakdown rows carry date, narration and reference as data', $bg[0]['narr'] === 'zz t98 opening <i>x</i>' && $bg[0]['reference'] === 'zz t98 ref' && $bg[0]['date'] === '2097-12-31');
     $st = SubAccountReport::statement($pdo, 11, $owned[$sG], '2098-01-01', '2098-12-31');
     ok98('statement: opening 1,000 then the book 500, the approved expense -300 (the unapproved 40 is not listed) and the after-date rows; running balance continues', $st[0]['narr'] === 'Opening balance' && $st[0]['balance'] === 100000 && $st[1]['in'] === 50000 && $st[2]['out'] === 30000 && array_column($st, 'balance') === [100000, 150000, 120000, 1119900, 1111900], json_encode(array_column($st, 'balance')));
     $spec = ['title' => 't', 'lines' => [], 'columns' => [['key' => 'date', 'label' => 'D', 'type' => 'date'], ['key' => 'amount', 'label' => 'A', 'type' => 'money'], ['key' => 'narr', 'label' => 'N', 'type' => 'text']], 'total' => 'amount', 'file' => 'x'];
-    $sl = ReportList::slice($spec, $bg, 1, 3, '');
-    ok98('paging and search work on the breakdown (page size 3 -> 2 pages; search "paid" -> the expense)', $sl['pages'] === 2 && count($sl['rows']) === 3 && ReportList::slice($spec, $bg, 1, 50, 'requisition')['matching'] === 1);
+    $sl = ReportList::slice($spec, $bg, 1, 2, '');
+    ok98('paging and search work on the breakdown (page size 2 -> 2 pages; search "paid" -> the expense)', $sl['pages'] === 2 && count($sl['rows']) === 2 && ReportList::slice($spec, $bg, 1, 50, 'requisition')['matching'] === 1);
     ok98('no sub account report calls a stored routine any more', !preg_match('/CALL\s+sp_get_subaccount|get_subaccount_/i', file_get_contents(__DIR__ . '/../app/libraries/SubAccountReport.php') . file_get_contents(__DIR__ . '/../app/models/Report.php')));
 } catch (Throwable $e) {
     $fail++; echo 'FAIL unexpected exception ' . get_class($e) . ': ' . $e->getMessage() . ' at ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";

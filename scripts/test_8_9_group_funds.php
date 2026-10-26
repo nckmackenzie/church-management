@@ -17,7 +17,7 @@ $_SESSION['userType'] = 1;
 $_SESSION['userId'] = (int)$pdo->query('SELECT ID FROM tblusers ORDER BY ID LIMIT 1')->fetchColumn();
 
 $tables = ['tblmmf' => 'ID', 'tblfundrequisition' => 'ID', 'tblexpenses' => 'ID', 'journal_entries' => 'ID', 'journal_lines' => 'ID',
-           'tblledger' => 'ID', 'tblbankpostings' => 'ID', 'tbllogs' => 'ID', 'tblbanksubaccounts' => 'ID', 'tblchurchrequisitioncategories' => 'id', 'tblaccounttypes' => 'ID'];
+           'tblbankpostings' => 'ID', 'tbllogs' => 'ID', 'tblbanksubaccounts' => 'ID', 'tblchurchrequisitioncategories' => 'id', 'tblaccounttypes' => 'ID'];
 $max = [];
 foreach ($tables as $t => $k) { $max[$t] = (int)$pdo->query("SELECT IFNULL(MAX($k),0) FROM $t")->fetchColumn(); }
 $yearSnapshot = $pdo->query('SELECT ID,closed,deleted FROM tblfiscalyears')->fetchAll(PDO::FETCH_ASSOC);

@@ -220,39 +220,21 @@ try {
     $src = file_get_contents('E:/xampp/htdocs/cms/app/models/Year.php');
     ok('Year no longer reads tblledger', strpos($src, 'tblledger') === false);
 
-    echo "== parity with the old trial balance on real dev data (read-only)\n";
-    foreach (['2025-09-30', '2026-10-24'] as $asOf) {
-        $fy = FinancialReport::financialYear($pdo, $asOf);
-        $prevDay = date('Y-m-d', strtotime($fy['start'] . ' -1 day'));
-        $norm = function ($name) { $n = ucwords(strtolower(trim($name))); return $n === 'Cash At Bank' ? 'Cash And Cash Equivalents' : $n; };   // the mirror calls every bank line 'cash at bank'
-        $new = TrialBalanceReport::report($pdo, [11], 'x', $asOf, false);
-        $newNet = []; foreach ($new['rows'] as $row) { $newNet[$row['name']] = rowNet($row); }
-        // old trial balance: movement from the year start, by parent account name
-        $old = []; $oldRoot = [];
-        foreach (q('SELECT parentaccount p, accountId a, SUM(debit-credit) n FROM tblledger WHERE deleted=0 AND congregationId=11 AND transactionDate BETWEEN ? AND ? GROUP BY parentaccount, accountId', [$fy['start'], $asOf]) as $o) { $k = $norm($o['p']); $old[$k] = ($old[$k] ?? 0) + C($o['n']); $oldRoot[$k] = (int) $o['a']; }
-        // opening balances of types 3, 4, 6 in the journal (the old screen has none) by top-level account
-        $chart = FinancialReport::chart($pdo, [11]);
-        $roll = FinancialReport::rollup($chart, FinancialReport::balances($pdo, [11], null, $prevDay))['total'];
-        $open = []; foreach ($chart['nodes'] as $nd) { if ($nd['depth'] === 2 && in_array($nd['root'], [3, 4, 6], true)) { $b = $roll[$nd['id']] ?? ['idr' => 0, 'icr' => 0]; $open[ucwords($nd['name'])] = $b['idr'] - $b['icr']; } }
-        $jp = FinancialReport::balances($pdo, [11], $fy['start'], $asOf)[188] ?? ['idr' => 0, 'icr' => 0];
-        $m188 = $jp['idr'] - $jp['icr'];                       // account 188 in the period, journal
-        $diff = [];
-        foreach (array_unique(array_merge(array_keys($old), array_keys($newNet))) as $name) {
-            if ($name === "Prior years' surplus b/f") { continue; }
-            $expected = ($old[$name] ?? 0) + ($open[$name] ?? 0);
-            if (($newNet[$name] ?? 0) !== $expected) { $diff[$name] = ($newNet[$name] ?? 0) - $expected; }
-        }
-        $expectDiff = $m188 === 0 ? [] : ['Administrative Costs' => $m188, 'Due To Parish' => -$m188];
-        ksort($diff); ksort($expectDiff);
-        ok("$asOf: new figure = old period movement + opening balance (types 3, 4, 6) for every top-level line; the only difference is account 188 (stamped 'due to parish' by the mirror, an expense in the chart): " . json_encode($diff), $diff === $expectDiff, json_encode($diff) . ' vs ' . json_encode($expectDiff));
-        $sumOld = array_sum($old);
-        ok("$asOf: the old movements add up to nil and the new trial balance balances with the b/f line and no unclassified postings", $sumOld === 0 && $new['totals']['balanced'] && !$new['unclassified']['present'], "old sum $sumOld");
-        // where account 188 shows: the opening balance (cumulative before the year start): mirror vs journal for 'due to parish'
-        $mo = (int) 0; foreach (q("SELECT SUM(debit-credit) n FROM tblledger WHERE deleted=0 AND congregationId=11 AND accountId IN (3,4,6) AND LOWER(parentaccount)='due to parish' AND transactionDate < ?", [$fy['start']]) as $o) { $mo = C($o['n']); }
-        $j188 = FinancialReport::balances($pdo, [11], null, $prevDay)[188] ?? ['idr' => 0, 'icr' => 0];
-        ok("$asOf: opening balance of 'due to parish': mirror minus journal equals account 188's own balance before the year start (" . FinancialReport::money($j188['idr'] - $j188['icr']) . ')', $mo - ($open['Due To Parish'] ?? 0) === $j188['idr'] - $j188['icr'], FinancialReport::money($mo) . ' / ' . FinancialReport::money($open['Due To Parish'] ?? 0));
-        echo "INFO $asOf: new totals debit " . $new['totals']['debit'] . ' credit ' . $new['totals']['credit'] . '; period movement of 188 ' . FinancialReport::money($m188) . "\n";
-    }
+    echo "== recorded figures of the old trial balance (real dev data, read-only; recorded in 9.3 before the mirror was removed in 9.9)\n";
+    // closed year-end 2025-09-30, congregation 11: new figure = old period movement + opening balance of types 3, 4, 6, per top-level line (the old screen's account 188 difference included: it sits in Administrative Costs / Due To Parish by the chart)
+    $expected = ['Accounts Receivable' => 1231000, 'Cash And Cash Equivalents' => 791259403, 'Due To Parish' => 8959500, 'Investments' => 320000000, 'Land And Buildings' => 460426000,
+        'Property And Equipment' => 259530500, 'District Funds Held' => 0, 'Group Funds' => -20430000, 'Payables And Accruals' => -800000, 'Accumulated Fund' => -939636200,
+        'Groups Collections' => -100358400, 'Interest Income' => -69703355, 'Other Collections' => -410000, 'Tithes And Offering' => -845554350,
+        'Administrative Costs' => 111402300, 'Donations' => 7050000, "Groups' Expenses" => 73627600, 'Hospitality And Appreciation Costs' => 40886300,
+        'Operation Costs' => 68937500, "Self Funded Groups' Expenses" => 26850000, 'Session/lcc Funded Group Expense' => 163165500, 'Staff Expenses' => 22545000,
+        "Prior years' surplus b/f" => -378978298];
+    $new = TrialBalanceReport::report($pdo, [11], 'x', '2025-09-30', false);
+    $newNet = []; foreach ($new['rows'] as $row) { $newNet[$row['name']] = rowNet($row); }
+    ksort($newNet); ksort($expected);
+    ok('2025-09-30: every top-level line equals the recorded figure (' . count($expected) . ' lines)', $newNet === $expected, json_encode(array_diff_assoc($newNet, $expected)));
+    ok('2025-09-30: totals 23,558,706.03 debits = credits, balanced, no unclassified postings', $new['totals']['debit'] === '23,558,706.03' && $new['totals']['credit'] === '23,558,706.03' && $new['totals']['balanced'] && !$new['unclassified']['present'], $new['totals']['debit'] . ' / ' . $new['totals']['credit']);
+    $now = TrialBalanceReport::report($pdo, [11], 'x', '2026-10-24', false);
+    ok('2026-10-24: the trial balance balances and has no unclassified postings', $now['totals']['balanced'] && !$now['unclassified']['present']);
 } catch (Throwable $e) {
     $fail++; echo 'FAIL unexpected exception ' . get_class($e) . ': ' . $e->getMessage() . ' at ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
 } finally {

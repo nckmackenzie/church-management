@@ -2,7 +2,7 @@
 /**
  * Task 9.1: FinancialReport (app/libraries/FinancialReport.php). Self-cleaning: two test congregations, their accounts and
  * journal entries are created with direct SQL (so the closed-year lock does not get in the way) and deleted at the end.
- * Part 2 compares the service with the old mirror (tblledger) on the real dev data, read-only.
+ * Part 2 checks the service against figures recorded from the old reports (the mirror was removed in 9.9), real dev data, read-only.
  * CLI only. Needs the dev DB with its financial years (any state of the closed flags).
  */
 if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
@@ -370,38 +370,21 @@ try {
     $ps = FinancialReport::parishScope($pdo);
     ok('parish scope: non-deleted congregations plus deleted ones with history', in_array(11, $ps, true) && in_array($T, $ps, true) && !in_array(4, $ps, true));
 
-    // ------------------------------------------------------------------ 10. parity with the old mirror on real dev data (read-only)
-    echo "== parity with the old reports (real dev data, read-only)\n";
-    $mir = function ($sql, $p) { return q($sql, $p)[0]; };
-    $mirror = function ($root, $from, $to) use ($mir) {   // stamped root in tblledger.accountId, congregation 11
-        $r = $mir('SELECT COALESCE(SUM(debit),0) dr, COALESCE(SUM(credit),0) cr FROM tblledger WHERE deleted = 0 AND congregationId = 11 AND accountId = ? AND transactionDate ' . ($from ? '>= ? AND transactionDate <= ?' : '<= ?'), $from ? [$root, $from, $to] : [$root, $to]);
-        return [c($r['dr']), c($r['cr'])];
-    };
-    foreach ([['closed year 2024-25', '2024-10-01', '2025-09-30'], ['current period', '2026-10-01', '2026-10-24']] as [$lab, $f, $t]) {
-        $svc = FinancialReport::incomeStatement($pdo, [11], $f, $t, false);
-        [$id_, $ic] = $mirror(1, $f, $t); [$ed, $ec] = $mirror(2, $f, $t);
-        ok("parity $lab: income equals the old report ($lab)", $svc['sections']['income']['total'] === $ic - $id_, m($svc['sections']['income']['total']) . ' vs ' . m($ic - $id_));
-        ok("parity $lab: expense equals the old report", $svc['sections']['expense']['total'] === $ed - $ec, m($svc['sections']['expense']['total']) . ' vs ' . m($ed - $ec));
-        ok("parity $lab: surplus equals the old report", $svc['surplus']['amount'] === ($ic - $id_) - ($ed - $ec));
-        $raw = FinancialReport::balances($pdo, [11], $f, $t); $sd = 0; $sc = 0; foreach ($raw as $a) { $sd += $a['idr']; $sc += $a['icr']; }
-        $od = $mir('SELECT COALESCE(SUM(debit),0) dr, COALESCE(SUM(credit),0) cr FROM tblledger WHERE deleted = 0 AND congregationId = 11 AND transactionDate >= ? AND transactionDate <= ?', [$f, $t]);
-        ok("parity $lab: trial balance totals (raw debits / credits of the period) equal the old report", $sd === c($od['dr']) && $sc === c($od['cr']) && $sd === $sc, m($sd) . '/' . m($sc) . ' vs ' . $od['dr'] . '/' . $od['cr']);
-    }
+    // ------------------------------------------------------------------ 10. fixed figures on real dev data (read-only; recorded from the old mirror in 9.1 / 9.2 before it was removed in 9.9)
+    echo "== recorded figures of the old reports (real dev data, read-only)\n";
     $svc = FinancialReport::incomeStatement($pdo, [11], '2024-10-01', '2025-09-30', false);
     ok('inventory 5.2: closed year income 10,160,261.05, expense 5,144,642.00, surplus 5,015,619.05', $svc['sections']['income']['total'] === 1016026105 && $svc['sections']['expense']['total'] === 514464200 && $svc['surplus']['amount'] === 501561905);
-    $raw = FinancialReport::balances($pdo, [11], '2024-10-01', '2025-09-30'); $sd = 0; foreach ($raw as $a) { $sd += $a['idr']; }
-    ok('inventory 5.2: closed year trial balance raw totals 29,570,136.19 / 29,570,136.19', $sd === 2957013619);
-    foreach ([['2025-09-30', 'closed year-end'], ['2026-10-24', 'today']] as [$d, $lab]) {
-        $svc = FinancialReport::balanceSheet($pdo, [11], $d, false);
-        $oa = $mirror(3, null, $d); $olq = [$mirror(4, null, $d), $mirror(6, null, $d)];
-        $oldAssets = $oa[0] - $oa[1]; $oldLE = ($olq[0][1] - $olq[0][0]) + ($olq[1][1] - $olq[1][0]);
-        $b188 = FinancialReport::balances($pdo, [11], null, $d); $a188 = isset($b188[188]) ? $b188[188]['idr'] - $b188[188]['icr'] : 0;
-        $diff = $oldAssets - $svc['sections']['assets']['total'];
-        $svcLE = $svc['sections']['liabilities']['total'] + $svc['sections']['equity']['total'] + $svc['sections']['fund']['acctBf']['cur'] + $svc['sections']['fund']['acctMove']['cur'];   // the old type 6 total includes the accumulated fund account, now inside the fund block (decision 150)
-        ok("parity BS $lab: liabilities + equity equal the old report", $svcLE === $oldLE, m($svcLE) . ' vs ' . m($oldLE));
-        ok("parity BS $lab: assets differ from the old report only by account 188 (accepted reclassification, handover 6)", $diff === $a188, 'difference ' . m($diff) . ' account 188 ' . m($a188));
-        ok("parity BS $lab: the service balances (assets = liabilities + equity + fund)", $svc['totals']['current']['difference'] === 0 && !$svc['unclassified']['present']);
-    }
+    $raw = FinancialReport::balances($pdo, [11], '2024-10-01', '2025-09-30'); $sd = 0; $sc = 0; foreach ($raw as $a) { $sd += $a['idr']; $sc += $a['icr']; }
+    ok('inventory 5.2: closed year trial balance raw totals 29,570,136.19 debits = credits', $sd === 2957013619 && $sc === 2957013619, m($sd) . '/' . m($sc));
+    $svc = FinancialReport::balanceSheet($pdo, [11], '2025-09-30', false);
+    $le = $svc['sections']['liabilities']['total'] + $svc['sections']['equity']['total'] + $svc['sections']['fund']['acctBf']['cur'] + $svc['sections']['fund']['acctMove']['cur'];   // the old type 6 total includes the accumulated fund account, now inside the fund block (decision 150)
+    ok('recorded BS 2025-09-30 (closed year-end): assets 18,414,064.03, liabilities + equity + accumulated fund 9,608,662.00', $svc['sections']['assets']['total'] === 1841406403 && $le === 960866200, m($svc['sections']['assets']['total']) . ' / ' . m($le));
+    ok('recorded BS 2025-09-30: the service balances', $svc['totals']['current']['difference'] === 0 && !$svc['unclassified']['present']);
+    $svc = FinancialReport::balanceSheet($pdo, [11], '2026-10-24', false);
+    $le = $svc['sections']['liabilities']['total'] + $svc['sections']['equity']['total'] + $svc['sections']['fund']['acctBf']['cur'] + $svc['sections']['fund']['acctMove']['cur'];
+    $b188 = FinancialReport::balances($pdo, [11], null, '2026-10-24');
+    ok('recorded BS 2026-10-24: liabilities + equity 9,595,162.00, account 188 (accepted reclassification, handover 6) 63,367.00 of the old assets 24,800,246.71', $le === 959516200 && isset($b188[188]) && $b188[188]['idr'] - $b188[188]['icr'] === 6336700 && $svc['sections']['assets']['total'] + 6336700 === 2480024671, m($le));
+    ok('recorded BS 2026-10-24: the service balances (assets = liabilities + equity + fund)', $svc['totals']['current']['difference'] === 0 && !$svc['unclassified']['present']);
     $bsToday = FinancialReport::balanceSheet($pdo, [11], '2026-10-24', false);
     ok('inventory 5.2: today\'s journal assets 24,736,879.71 (old mirror 24,800,246.71, the 63,367.00 is account 188)', $bsToday['sections']['assets']['total'] === 2473687971, m($bsToday['sections']['assets']['total']));
     $svcTB = FinancialReport::trialBalance($pdo, [11], '2026-10-24');

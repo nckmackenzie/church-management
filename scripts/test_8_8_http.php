@@ -10,7 +10,7 @@ require 'boostrap.php';
 $pdo = (new Database)->pdo();
 $base = URLROOT;
 $tables = ['tblcustomers' => 'ID', 'tblinvoice_header' => 'ID', 'tblinvoice_details' => 'ID', 'tblinvoice_payments' => 'ID', 'tblproducts' => 'ID',
-           'journal_entries' => 'ID', 'journal_lines' => 'ID', 'tblledger' => 'ID', 'tblbankpostings' => 'ID', 'tbllogs' => 'ID', 'tbluserrights' => 'ID', 'tblaccounttypes' => 'ID'];
+           'journal_entries' => 'ID', 'journal_lines' => 'ID', 'tblbankpostings' => 'ID', 'tbllogs' => 'ID', 'tbluserrights' => 'ID', 'tblaccounttypes' => 'ID'];
 $max = [];
 foreach ($tables as $t => $k) { $max[$t] = (int)$pdo->query("SELECT COALESCE(MAX($k),0) FROM $t")->fetchColumn(); }
 $seqs = $pdo->query('SELECT * FROM receipt_number_seq')->fetchAll(PDO::FETCH_ASSOC);

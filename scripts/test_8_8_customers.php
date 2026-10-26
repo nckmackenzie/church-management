@@ -14,7 +14,7 @@ $_SESSION['congId'] = 11; $_SESSION['userId'] = 64; $_SESSION['userType'] = 1; $
 
 $tables = ['tblcustomers' => 'ID', 'tblinvoice_header' => 'ID', 'tblinvoice_details' => 'ID', 'tblinvoice_payments' => 'ID', 'tblproducts' => 'ID',
            'tblsuppliers' => 'ID', 'tblinvoice_header_suppliers' => 'ID', 'tblinvoice_details_suppliers' => 'ID',
-           'journal_entries' => 'ID', 'journal_lines' => 'ID', 'tblledger' => 'ID', 'tblbankpostings' => 'ID', 'tbllogs' => 'ID', 'tblaccounttypes' => 'ID'];
+           'journal_entries' => 'ID', 'journal_lines' => 'ID', 'tblbankpostings' => 'ID', 'tbllogs' => 'ID', 'tblaccounttypes' => 'ID'];
 $max = [];
 foreach ($tables as $t => $k) { $max[$t] = (int)$pdo->query("SELECT COALESCE(MAX($k),0) FROM $t")->fetchColumn(); }
 $years = $pdo->query('SELECT ID,closed,deleted FROM tblfiscalyears')->fetchAll(PDO::FETCH_ASSOC);
@@ -43,7 +43,7 @@ function newAccount($name, $parent, $posting = 1, $active = 1, $cong = 11, $dele
 function dbstate() {
     global $max;
     $t = [];
-    foreach (['tblinvoice_header' => 0, 'tblinvoice_details' => 0, 'tblinvoice_payments' => 0, 'tblcustomers' => 0, 'journal_entries' => 1, 'journal_lines' => 1, 'tblbankpostings' => 1, 'tblledger' => 1] as $tb => $from) {
+    foreach (['tblinvoice_header' => 0, 'tblinvoice_details' => 0, 'tblinvoice_payments' => 0, 'tblcustomers' => 0, 'journal_entries' => 1, 'journal_lines' => 1, 'tblbankpostings' => 1] as $tb => $from) {
         $t[] = $tb . ':' . md5(json_encode(rows("SELECT * FROM $tb" . ($from ? ' WHERE ID > ' . $max[$tb] : '') . ' ORDER BY 1')));
     }
     return implode(',', $t);
@@ -168,7 +168,7 @@ try {
     ok('create: type 14 entry keyed on the header: Dr the receivable (total) / Cr each line account', lines(14, $i1) === ["$ra|DEBIT|2500.50", "$incA|CREDIT|2000.00", "$incB|CREDIT|500.50"], json_encode(lines(14, $i1)));
     $e = one('SELECT * FROM journal_entries WHERE transactionTypeId=14 AND transactionId=? AND deleted=0', [$i1]);
     ok('create: entry date, congregation and reference', $e['entryDate'] === $today && (int)$e['congregationId'] === 11 && $e['reference'] === 'invoice-' . $seq0);
-    ok('create: no bank row; legacy mirror has 3 balanced rows', cnt('SELECT COUNT(*) FROM tblbankpostings WHERE transactionType=14 AND transactionId=?', [$i1]) === 0 && cnt('SELECT COUNT(*) FROM tblledger WHERE transactionType=14 AND transactionId=? AND deleted=0', [$i1]) === 3 && cnt('SELECT SUM(debit)=SUM(credit) FROM tblledger WHERE transactionType=14 AND transactionId=? AND deleted=0', [$i1]) === 1);
+    ok('create: no bank row; the entry has 3 balanced journal lines', cnt('SELECT COUNT(*) FROM tblbankpostings WHERE transactionType=14 AND transactionId=?', [$i1]) === 0 && cnt('SELECT COUNT(*) FROM journal_lines jl JOIN journal_entries je ON je.ID=jl.journalEntryId WHERE je.transactionTypeId=14 AND je.transactionId=? AND je.deleted=0', [$i1]) === 3 && cnt('SELECT SUM(IF(jl.dc=\'DEBIT\',jl.amount,0))=SUM(IF(jl.dc=\'CREDIT\',jl.amount,0)) FROM journal_lines jl JOIN journal_entries je ON je.ID=jl.journalEntryId WHERE je.transactionTypeId=14 AND je.transactionId=? AND je.deleted=0', [$i1]) === 1);
     $r = $customerModel->delete((string)$ca);
     ok('customer delete is refused when any invoice exists, leaving the customer active', has($r,'have invoices') && cnt('SELECT deleted FROM tblcustomers WHERE ID=?',[$ca]) === 0, errs($r));
 
@@ -287,12 +287,12 @@ try {
     Ledger::post($pdo, ['congregationId' => 11, 'entryDate' => $today, 'transactionTypeId' => 6, 'transactionId' => $ireg, 'reference' => 'zz-supplier'], [Ledger::debit(51, '7.00'), Ledger::credit(38, '7.00')]);
     $pdo->commit();
     $supEntry = one('SELECT ID,reference FROM journal_entries WHERE transactionTypeId=6 AND transactionId=? AND deleted=0', [$ireg]);
-    $supMirror = cnt('SELECT COUNT(*) FROM tblledger WHERE transactionType=6 AND transactionId=? AND deleted=0', [$ireg]);
+    $supMirror = cnt('SELECT COUNT(*) FROM journal_lines jl JOIN journal_entries je ON je.ID=jl.journalEntryId WHERE je.transactionTypeId=6 AND je.transactionId=? AND je.deleted=0', [$ireg]);
     $r = $model->save(base(['id' => $ireg, 'isedit' => true, 'table' => [['pid' => $p1, 'qty' => '1', 'rate' => '33.00']]]));
     ok('Invoice.php:193 regression: updating customer invoice N leaves the SUPPLIER entry of the same numeric ID untouched', $r['success']
         && one('SELECT ID,reference FROM journal_entries WHERE transactionTypeId=6 AND transactionId=? AND deleted=0', [$ireg]) == $supEntry
-        && cnt('SELECT COUNT(*) FROM tblledger WHERE transactionType=6 AND transactionId=? AND deleted=0', [$ireg]) === $supMirror && $supMirror === 2
-        && lines(14, $ireg) === ["$ra|DEBIT|33.00", "$incA|CREDIT|33.00"] && cnt('SELECT COUNT(*) FROM tblledger WHERE transactionType=14 AND transactionId=? AND deleted=0', [$ireg]) === 2, errs($r));
+        && cnt('SELECT COUNT(*) FROM journal_lines jl JOIN journal_entries je ON je.ID=jl.journalEntryId WHERE je.transactionTypeId=6 AND je.transactionId=? AND je.deleted=0', [$ireg]) === $supMirror && $supMirror === 2
+        && lines(14, $ireg) === ["$ra|DEBIT|33.00", "$incA|CREDIT|33.00"] && cnt('SELECT COUNT(*) FROM journal_lines jl JOIN journal_entries je ON je.ID=jl.journalEntryId WHERE je.transactionTypeId=14 AND je.transactionId=? AND je.deleted=0', [$ireg]) === 2, errs($r));
 
     // ------------------------------------------------------------ payments (type 16)
     $r = $model->save(base(['table' => [['pid' => $p1, 'qty' => '1', 'rate' => '1000.00']]])); $pi = (int)$r['id'];
@@ -400,11 +400,11 @@ try {
     ok('sp_getinvoice_fullypaid and sp_getinvoice_due use the congregation', in_array($pi, array_column(rows('CALL sp_getinvoice_fullypaid(?,?,?)', [11, '2000-01-01', '2999-12-31']), 'ID')) && !in_array($pi, array_column(rows('CALL sp_getinvoice_fullypaid(?,?,?)', [2, '2000-01-01', '2999-12-31']), 'ID')) && !in_array($foreignInv, array_column(rows('CALL sp_getinvoice_due(?)', [11]), 'ID')));
     ok('sp_getcustomerpayments takes the congregation', count(rows('CALL sp_getcustomerpayments(?,?,?,?)', [$ca, '2000-01-01', '2999-12-31', 11])) >= 5 && count(rows('CALL sp_getcustomerpayments(?,?,?,?)', [$ca, '2000-01-01', '2999-12-31', 2])) === 0);
 
-    // dev legacy mirror
-    $bad = cnt("SELECT COUNT(*) FROM journal_entries e WHERE e.deleted=0 AND e.transactionTypeId IN (14,16) AND e.ID>? AND NOT EXISTS (SELECT 1 FROM tblledger l WHERE l.transactionType=e.transactionTypeId AND l.transactionId=e.transactionId AND l.congregationId=e.congregationId AND l.deleted=0)", [$max['journal_entries']]);
-    ok('dev legacy mirror: every type 14 / 16 entry made here has its tblledger rows', $bad === 0);
-    $unb = cnt("SELECT COUNT(*) FROM (SELECT transactionType,transactionId FROM tblledger WHERE deleted=0 AND transactionType IN (14,16) AND ID>? GROUP BY transactionType,transactionId HAVING ROUND(SUM(debit)-SUM(credit),2)<>0) x", [$max['tblledger']]);
-    ok('dev legacy mirror: every mirrored transaction balances', $unb === 0);
+    // every entry made here has lines and balances
+    $bad = cnt("SELECT COUNT(*) FROM journal_entries e WHERE e.deleted=0 AND e.transactionTypeId IN (14,16) AND e.ID>? AND NOT EXISTS (SELECT 1 FROM journal_lines l WHERE l.journalEntryId=e.ID)", [$max['journal_entries']]);
+    ok('every type 14 / 16 entry made here has journal lines', $bad === 0);
+    $unb = cnt("SELECT COUNT(*) FROM (SELECT e.ID FROM journal_entries e JOIN journal_lines l ON l.journalEntryId=e.ID WHERE e.deleted=0 AND e.transactionTypeId IN (14,16) AND e.ID>? GROUP BY e.ID HAVING ROUND(SUM(IF(l.dc='DEBIT',l.amount,0))-SUM(IF(l.dc='CREDIT',l.amount,0)),2)<>0) x", [$max['journal_entries']]);
+    ok('every type 14 / 16 entry made here balances', $unb === 0);
     ok('no journal line made here has a zero or negative amount', cnt('SELECT COUNT(*) FROM journal_lines WHERE ID>? AND amount<=0', [$max['journal_lines']]) === 0);
 } finally {
     $pdo->exec('SET FOREIGN_KEY_CHECKS=0');

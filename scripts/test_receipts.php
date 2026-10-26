@@ -14,7 +14,7 @@ $_SESSION['congId'] = 11;
 $_SESSION['isParish'] = 0;
 $_SESSION['userId'] = (int)$pdo->query('SELECT ID FROM tblusers ORDER BY ID LIMIT 1')->fetchColumn();
 
-$tables = ['journal_entries' => 'ID', 'tblledger' => 'ID', 'tblbankpostings' => 'ID', 'tblcontributions_header' => 'ID',
+$tables = ['journal_entries' => 'ID', 'tblbankpostings' => 'ID', 'tblcontributions_header' => 'ID',
            'tblcontributions_details' => 'ID', 'tblmmf' => 'ID', 'tblbanktransactions_subaccounts' => 'ID', 'tblpettycash' => 'ID',
            'tbllogs' => 'ID', 'tblbanktransactions' => 'ID', 'tblbanksubaccounts' => 'ID'];
 $max = [];

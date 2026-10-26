@@ -93,8 +93,7 @@ try {
     ok97('group 45 in 2023-2024 shows the three old expenses without a journal entry (vouchers 228, 231, 233): 35,426.00', $exp10['exp']['count'] === 3 && $exp10['exp']['amount'] === 3542600, json_encode([$exp10['exp']['count'], $exp10['exp']['amount']]));
     $s40 = GroupIncomeStatement::statement($db, $cong, 'group', 40, '2024-10-01', '2025-09-30');
     ok97('group 40, 2024-2025: collections 220,975.00 and expenses 99,300.00 equal the old report', $s40['revenue']['total'] === 22097500 && $s40['expenses']['total'] === 9930000 && $s40['result'] === 22097500 - 9930000);
-    $tbl = q97('SELECT COUNT(*) n FROM tblledger')[0]['n'];
-    ok97('the statement does not read tblledger (it holds ' . $tbl . ' rows; the sources are the document tables and the journal)', strpos(file_get_contents(__DIR__ . '/../app/libraries/GroupIncomeStatement.php'), 'tblledger') === false);
+    ok97('the statement does not read tblledger (the sources are the document tables and the journal)', strpos(file_get_contents(__DIR__ . '/../app/libraries/GroupIncomeStatement.php'), 'tblledger') === false);
 
     // =====================================================================================================================
     echo "== B. group income statement: fixtures (2098)\n";
@@ -231,11 +230,8 @@ try {
     $all5 = q97("SELECT COUNT(*) n FROM journal_entries WHERE transactionTypeId=5 AND deleted=0 AND congregationId=? AND entryDate BETWEEN '2023-09-01' AND '2026-12-31' AND transactionId<>0", [$cong])[0]['n'];
     $devJ = JournalReport::journals($db, $cong, '2023-09-01', '2026-12-31'); $ba = 0; foreach ($devJ as $j) { if ($j['debits'] !== $j['credits']) { $ba++; } }
     ok97('dev data: every journal of the congregation is listed once and balances (' . count($devJ) . ' journals)', count($devJ) === (int) q97("SELECT COUNT(*) n FROM journal_entries e WHERE e.transactionTypeId=5 AND e.deleted=0 AND e.congregationId=? AND e.entryDate BETWEEN '2023-09-01' AND '2026-12-31' AND EXISTS (SELECT 1 FROM journal_lines l WHERE l.journalEntryId=e.ID)", [$cong])[0]['n'] && $ba === 0);
-    $oldRows = q97("SELECT COUNT(*) n, SUM(debit) d, SUM(credit) c FROM tblledger WHERE isJournal=1 AND congregationId=? AND transactionDate BETWEEN '2023-09-01' AND '2026-12-31'", [$cong])[0];
-    $oldActive = q97("SELECT COUNT(*) n FROM tblledger WHERE isJournal=1 AND deleted=0 AND congregationId=? AND transactionDate BETWEEN '2023-09-01' AND '2026-12-31'", [$cong])[0]['n'];
     $newLines = 0; $newDr = 0; foreach ($devJ as $j) { $newLines += count($j['lines']); $newDr += $j['debits']; }
-    info97("journal report parity: old mirror rows (voided included) {$oldRows['n']}, old mirror active rows $oldActive, new lines $newLines; old debit total " . $oldRows['d'] . ', new debit total ' . m97($newDr));
-    ok97('dev data: the new line count equals the old mirror\'s ACTIVE rows (the old query also listed the deleted ones)', $newLines === (int) $oldActive, "new $newLines old active $oldActive");
+    ok97('dev data (recorded from the old mirror before it was removed in 9.9): 176 journals, 398 lines (the old mirror\'s active rows), debits 24,815,986.85', count($devJ) === 176 && $newLines === 398 && $newDr === 2481598685, count($devJ) . ' / ' . $newLines . ' / ' . m97($newDr));
 
     // =====================================================================================================================
     echo "== D. contribution and expense reports\n";
@@ -337,22 +333,7 @@ try {
         ok97("$label parish expenses: old (no approval filter) minus new equals the unapproved expenses", $peOld - $peNew === $peUn, m97($peOld - $peNew) . ' vs ' . m97($peUn));
         info97("$label parish contributions: old " . m97($po) . ' new ' . m97($pn) . '; parish expenses: old ' . m97($peOld) . ' new ' . m97($peNew));
     }
-    $lines = 0; foreach (['app/models/Report.php', 'app/models/Parishreport.php', 'app/models/Bankreconcilliation.php', 'app/models/Year.php'] as $f) { if (preg_match('/FROM\s+tblledger|JOIN\s+tblledger/i', file_get_contents(__DIR__ . '/../' . $f))) { $lines++; } }
-    ok97('no report model reads tblledger any more (Report, Parishreport, Bankreconcilliation, Year)', $lines === 0);
-    $readers = []; $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(__DIR__ . '/../app', FilesystemIterator::SKIP_DOTS));
-    foreach ($it as $f) {
-        if ($f->getExtension() !== 'php') { continue; }
-        $text = file_get_contents($f->getPathname());
-        if (!preg_match_all('/tblledger\b/i', $text, $mt, PREG_OFFSET_CAPTURE)) { continue; }
-        foreach ($mt[0] as [$word, $pos]) {
-            $before = substr($text, max(0, $pos - 16), min(16, $pos));
-            $lineStart = strrpos(substr($text, 0, $pos), "\n"); $from0 = $lineStart === false ? 0 : $lineStart + 1;
-            $line = ltrim(substr($text, $from0, $pos - $from0));
-            if (preg_match('/(INSERT INTO|UPDATE|DELETE FROM)\s+$/i', $before) || preg_match('~^(//|\*|/\*)~', $line)) { continue; }   // a write of the dev mirror, or a comment
-            $readers[] = str_replace(DIRECTORY_SEPARATOR, '/', substr($f->getPathname(), strlen(realpath(__DIR__ . '/../app')) + 1)) . ' near "' . trim($before) . '"';
-        }
-    }
-    ok97('application code that SELECTs from tblledger: none', !$readers, implode(', ', $readers));
+    // (no application file mentions tblledger: test_9_9_no_mirror.php)
 
     // =====================================================================================================================
     echo "== E. payment reports: order by the real date, then the ID; the script\n";

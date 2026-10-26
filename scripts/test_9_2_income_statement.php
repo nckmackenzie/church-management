@@ -1,7 +1,7 @@
 <?php
 /**
  * Task 9.2: income statement (IncomeStatementReport on FinancialReport). Self-cleaning fixtures (three test congregations, one of
- * them deleted but with history) plus read-only parity with the old mirror on the real dev data. CLI only.
+ * them deleted but with history) plus read-only checks against figures recorded from the old reports (mirror removed in 9.9). CLI only.
  */
 if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 chdir('E:/xampp/htdocs/cms/app');
@@ -152,32 +152,18 @@ try {
     ok('postings on an unreachable account are reported, never dropped', $u['unclassified']['present'] === true && count($u['unclassified']['rows']) >= 1 && $u['checksOk'] === false);
     ok('no diagnostic when the chart is sound', $r['unclassified']['present'] === false);
 
-    echo "== parity with the old reports on real dev data (read-only)\n";
-    $mir = function ($sql, $p) { return q($sql, $p)[0]; };
-    foreach ([['closed year 2024-25', '2024-10-01', '2025-09-30'], ['current period', '2026-10-01', '2026-10-24']] as [$lab, $f, $t]) {
-        $svc = IncomeStatementReport::report($pdo, [11], 'x', $f, $t);
-        $oi = $mir('SELECT COALESCE(SUM(credit-debit),0) v FROM tblledger WHERE deleted=0 AND congregationId=11 AND accountId=1 AND transactionDate BETWEEN ? AND ?', [$f, $t])['v'];
-        $oe = $mir('SELECT COALESCE(SUM(debit-credit),0) v FROM tblledger WHERE deleted=0 AND congregationId=11 AND accountId=2 AND transactionDate BETWEEN ? AND ?', [$f, $t])['v'];
-        ok("congregation $lab: income / expenditure / surplus equal the old report", tc($svc['income']['total']) === C($oi) && tc($svc['expense']['total']) === C($oe) && tc($svc['surplus']['amount']) === C($oi) - C($oe), $svc['income']['total'] . ' vs ' . $oi);
-        // per top-level line against the old grouping by parent account name
-        $old = [];
-        foreach (q('SELECT parentaccount p, accountId a, SUM(credit-debit) c, SUM(debit-credit) d FROM tblledger WHERE deleted=0 AND congregationId=11 AND accountId IN (1,2) AND transactionDate BETWEEN ? AND ? GROUP BY parentaccount, accountId', [$f, $t]) as $o) { $old[(int) $o['a'] === 1 ? 'i' : 'e'][ucwords($o['p'])] = C($o['a'] == 1 ? $o['c'] : $o['d']); }
-        $diff = [];
-        foreach (['i' => 'income', 'e' => 'expense'] as $k => $sec) {
-            $new = []; foreach ($svc[$sec]['rows'] as $row) { $new[$row['name']] = tc($row['amount']); }
-            foreach (array_unique(array_merge(array_keys($old[$k] ?? []), array_keys($new))) as $name) { if (($old[$k][$name] ?? 0) !== ($new[$name] ?? 0)) { $diff[] = "$sec $name old " . ($old[$k][$name] ?? 0) . ' new ' . ($new[$name] ?? 0); } }
-        }
-        ok("congregation $lab: every top-level line equals the old report's parent-account line", !$diff, implode('; ', $diff));
-    }
+    echo "== recorded figures of the old reports (real dev data, read-only; recorded in 9.2 before the mirror was removed in 9.9)\n";
+    $rows = function ($rep, $sec) { $o = []; foreach ($rep[$sec]['rows'] as $row) { $o[$row['name']] = $row['amount']; } return $o; };
+    $cl0 = IncomeStatementReport::report($pdo, [11], 'x', '2024-10-01', '2025-09-30');
+    ok('closed year 2024-25: every top-level income line equals the recorded old report line', $rows($cl0, 'income') === ['Groups Collections' => '1,003,584.00', 'Interest Income' => '697,033.55', 'Other Collections' => '4,100.00', 'Tithes And Offering' => '8,455,543.50'], json_encode($rows($cl0, 'income')));
+    ok('closed year 2024-25: every top-level expense line equals the recorded old report line', $rows($cl0, 'expense') === ['Administrative Costs' => '1,114,023.00', 'Donations' => '70,500.00', "Groups' Expenses" => '736,276.00', 'Hospitality And Appreciation Costs' => '408,863.00', 'Operation Costs' => '689,375.00', "Self Funded Groups' Expenses" => '268,500.00', "Session/lcc Funded Group Expense" => '1,631,655.00', 'Staff Expenses' => '225,450.00'], json_encode($rows($cl0, 'expense')));
     $cl = IncomeStatementReport::report($pdo, [11], 'x', '2024-10-01', '2025-09-30');
     ok('inventory 5.2: closed year 10,160,261.05 / 5,144,642.00 / 5,015,619.05', $cl['income']['total'] === '10,160,261.05' && $cl['expense']['total'] === '5,144,642.00' && $cl['surplus']['amount'] === '5,015,619.05');
     $parishCl = IncomeStatementReport::report($pdo, array_values(array_diff(FinancialReport::parishScope($pdo), [$T, $T2, $T3])), 'All congregations', '2024-10-01', '2025-09-30');   // without the fixtures
     ok('parish closed year now equals the NET figures (not the old gross 10,209,215.12 / 5,378,637.00)', $parishCl['income']['total'] === '10,160,261.05' && $parishCl['expense']['total'] === '5,144,642.00' && $parishCl['income']['total'] !== '10,209,215.12');
-    $gI = $mir("SELECT COALESCE(SUM(credit),0) v FROM tblledger WHERE deleted=0 AND accountId=1 AND transactionDate BETWEEN '2024-10-01' AND '2025-09-30'", [])['v'];
-    $gE = $mir("SELECT COALESCE(SUM(debit),0) v FROM tblledger WHERE deleted=0 AND accountId=2 AND transactionDate BETWEEN '2024-10-01' AND '2025-09-30'", [])['v'];
-    ok('the old parish report added credits only / debits only: 10,209,215.12 and 5,378,637.00 (the difference to net is contra postings)', C($gI) === 1020921512 && C($gE) === 537863700, "$gI / $gE");
-    $contraI = C($gI) - tc($parishCl['income']['total']); $contraE = C($gE) - tc($parishCl['expense']['total']);
-    ok('gross - net: income 48,954.07 of debits on income accounts, expense 233,995.00 of credits on expense accounts', $contraI === 4895407 && $contraE === 23399500, "$contraI / $contraE");
+    $realCongs = array_values(array_diff(FinancialReport::parishScope($pdo), [$T, $T2, $T3]));   // without the fixtures
+    $g = q("SELECT a.accountTypeId r, SUM(IF(l.dc='CREDIT',l.amount,0)) cr, SUM(IF(l.dc='DEBIT',l.amount,0)) dr FROM journal_lines l JOIN journal_entries e ON e.ID=l.journalEntryId JOIN tblaccounttypes a ON a.ID=l.accountId WHERE e.deleted=0 AND e.congregationId IN (" . implode(',', array_map('intval', $realCongs)) . ") AND e.entryDate BETWEEN '2024-10-01' AND '2025-09-30' AND a.accountTypeId IN (1,2) GROUP BY a.accountTypeId ORDER BY a.accountTypeId");
+    ok('journal gross of the closed year: income credits 10,209,215.12 less debits 48,954.07 (contra postings) = the net 10,160,261.05; expense debits 5,388,137.00 less credits 243,495.00 = the net 5,144,642.00', C($g[0]['cr']) === 1020921512 && C($g[0]['dr']) === 4895407 && C($g[1]['dr']) === 538813700 && C($g[1]['cr']) === 24349500 && C($g[0]['cr']) - C($g[0]['dr']) === tc($parishCl['income']['total']) && C($g[1]['dr']) - C($g[1]['cr']) === tc($parishCl['expense']['total']), json_encode($g));
 } catch (Throwable $e) {
     $fail++; echo 'FAIL unexpected exception ' . get_class($e) . ': ' . $e->getMessage() . ' at ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
 } finally {

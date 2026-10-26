@@ -12,7 +12,7 @@ $pdo = (new Database)->pdo();
 $_SESSION['congId'] = 11;
 $_SESSION['userId'] = 1;
 $base = URLROOT;
-$tables = ['tblaccounttypes' => 'ID', 'tblbanksubaccounts' => 'ID', 'journal_entries' => 'ID', 'journal_lines' => 'ID', 'tblledger' => 'ID', 'tblbankpostings' => 'ID', 'tbllogs' => 'ID', 'tbluserrights' => 'ID'];
+$tables = ['tblaccounttypes' => 'ID', 'tblbanksubaccounts' => 'ID', 'journal_entries' => 'ID', 'journal_lines' => 'ID', 'tblbankpostings' => 'ID', 'tbllogs' => 'ID', 'tbluserrights' => 'ID'];
 $max = [];
 foreach ($tables as $t => $k) { $max[$t] = (int)$pdo->query("SELECT IFNULL(MAX($k),0) FROM $t")->fetchColumn(); }
 $acctSnapshot = $pdo->query('SELECT * FROM tblaccounttypes WHERE ID <= ' . $max['tblaccounttypes'] . ' ORDER BY ID')->fetchAll(PDO::FETCH_ASSOC);
@@ -383,7 +383,7 @@ try {
 } finally {
     $pdo->exec('DELETE FROM tblbanksubaccounts WHERE ID > ' . $max['tblbanksubaccounts']);
     $pdo->exec('DELETE FROM journal_lines WHERE journalEntryId > ' . $max['journal_entries'] . ' OR ID > ' . $max['journal_lines']);
-    foreach (['journal_entries', 'tblledger', 'tblbankpostings', 'tbllogs', 'tbluserrights', 'tblaccounttypes'] as $t) {
+    foreach (['journal_entries', 'tblbankpostings', 'tbllogs', 'tbluserrights', 'tblaccounttypes'] as $t) {
         $pdo->exec("DELETE FROM $t WHERE {$tables[$t]} > {$max[$t]}");
     }
     $now = $pdo->query('SELECT * FROM tblaccounttypes WHERE ID <= ' . $max['tblaccounttypes'] . ' ORDER BY ID')->fetchAll(PDO::FETCH_ASSOC);

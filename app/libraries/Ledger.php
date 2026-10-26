@@ -47,10 +47,6 @@
  * in place (edit). After void(), post() creates a new entry (re-approval);
  * for journals that is refused, because the number has been used.
  *
- * Dev only: if LEDGER_LEGACY_WRITE is defined and true (config.php), every
- * post()/void() is mirrored into tblledger so old and new reports can be
- * compared. Must be false/undefined on production.
- *
  * PHP 7.4+.
  */
 
@@ -244,10 +240,6 @@ class Ledger
             $ins->execute([$entryId, $l['accountId'], $l['dc'], $l['amount'], $l['memo'], ++$n]);
         }
 
-        if (self::legacyEnabled()) {
-            self::mirrorLegacy($db, $cong, $type, $txn, $date, $ref, $journalNo, $clean);
-        }
-
         return $entryId;
     }
 
@@ -271,12 +263,6 @@ class Ledger
                             WHERE congregationId = ? AND transactionTypeId = ? AND transactionId = ? AND deleted = 0');
         $st->execute([$cong, $type, $txn]);
         $voided = $st->rowCount() > 0;
-
-        if (self::legacyEnabled()) {
-            $db->prepare('UPDATE tblledger SET deleted = 1
-                          WHERE congregationId = ? AND transactionType = ? AND transactionId = ? AND deleted = 0')
-               ->execute([$cong, $type, $txn]);
-        }
 
         return $voided;
     }
@@ -988,11 +974,6 @@ class Ledger
         }
     }
 
-    private static function legacyEnabled(): bool
-    {
-        return defined('LEDGER_LEGACY_WRITE') && LEDGER_LEGACY_WRITE === true;
-    }
-
     private static function blankToNull($v): ?string
     {
         if ($v === null) { return null; }
@@ -1136,35 +1117,5 @@ class Ledger
             return null;
         }
         return "unknown payment kind '$kind'";
-    }
-
-    /** DEV ONLY: mirror the entry into tblledger so old reports keep working. */
-    private static function mirrorLegacy(PDO $db, int $cong, int $type, int $txn, string $date,
-                                         ?string $ref, ?int $journalNo, array $lines): void
-    {
-        $db->prepare('DELETE FROM tblledger
-                      WHERE congregationId = ? AND transactionType = ? AND transactionId = ? AND deleted = 0')
-           ->execute([$cong, $type, $txn]);
-
-        $info = self::accountInfo($db, array_column($lines, 'accountId'));
-        $ins  = $db->prepare('INSERT INTO tblledger
-                (transactionDate, account, parentaccount, debit, credit, narration, reference, accountId,
-                 transactionType, transactionId, isJournal, journalNo, congregationId, deleted)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)');
-
-        foreach ($lines as $l) {
-            $a = $info[$l['accountId']];
-            // The old app posted every bank line as 'cash at bank'.
-            $name   = (int) $a['isBank'] === 1 ? 'cash at bank' : $a['accountType'];
-            $parent = (int) $a['isBank'] === 1 ? 'cash at bank' : $a['parentName'];
-            // tblledger.narration / reference are NOT NULL in the old schema.
-            $ins->execute([
-                $date, $name, $parent,
-                $l['dc'] === self::DEBIT ? $l['amount'] : '0.00',
-                $l['dc'] === self::CREDIT ? $l['amount'] : '0.00',
-                mb_substr((string) $l['memo'], 0, 255), (string) $ref, (int) $a['accountTypeId'],
-                $type, $txn, $type === self::TYPE_JOURNAL ? 1 : 0, $journalNo, $cong,
-            ]);
-        }
     }
 }

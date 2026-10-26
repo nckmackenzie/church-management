@@ -285,15 +285,6 @@ class Account {
                            WHERE ID = ?')
                 ->execute([$name,$parent,$newRoot,self::description($data['description']),(int)$data['forgroup'] === 1 ? 1 : 0,$active,$id]);
 
-            if ($renamed && defined('LEDGER_LEGACY_WRITE') && LEDGER_LEGACY_WRITE === true) {
-                // dev mirror only (old reports still match tblledger text until task 9): keyed on the STORED old name and the account's scope
-                foreach (['account','parentaccount'] as $col) {
-                    $sql = "UPDATE tblledger SET $col = ? WHERE TRIM(LOWER($col)) = ?" . ((int)$a['congregationId'] === 0 ? '' : ' AND congregationId = ?');
-                    $args = [$name,$oldName];
-                    if ((int)$a['congregationId'] !== 0) { $args[] = (int)$a['congregationId']; }
-                    $pdo->prepare($sql)->execute($args);
-                }
-            }
             AccountChart::recomputeFlags($pdo,$touched);
 
             if ($active === 0 && (int)$a['active'] === 1) {

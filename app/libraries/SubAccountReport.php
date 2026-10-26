@@ -5,8 +5,9 @@
  * group / district they are held for, are this congregation's); a foreign or unknown sub account is HTTP 400. Money is integer cents.
  *
  * These reports still read the sub account book (tblbanktransactions_subaccounts) and the requisition-funded expenses, as before:
- *   balance   = sum of the book up to the date - requisition expenses (deleted = 0) of the group / district up to the date
- *   statement = opening + book rows + approved (status = 1) requisition expenses of the period
+ *   balance   = sum of the book up to the date - approved (status = 1) requisition expenses of the group / district up to the date
+ *   statement = opening + book rows + approved (status = 1) requisition expenses of the period (decision 161: the three agree; the
+ *               spending checks keep counting drafts as spent, decision 14, and are not touched here)
  * The breakdown behind a balance lists exactly the rows that make it (book rows positive, expenses negative), so its total equals
  * the balance clicked. The group breakdown is the same query as the district one with the group column.
  */
@@ -43,7 +44,7 @@ class SubAccountReport
         $book = $db->prepare('SELECT IFNULL(SUM(Amount),0) FROM tblbanktransactions_subaccounts WHERE SubAccountId = ? AND TransactionDate <= ?');
         foreach (self::owned($db, $cong) as $id => $s) {
             $col = self::expenseColumn($s['kind']);
-            $exp = $db->prepare("SELECT IFNULL(SUM(amount),0) FROM tblexpenses WHERE deleted = 0 AND expenseDate <= ? AND $col = ? AND requisitionId IS NOT NULL AND congregationId = ?");
+            $exp = $db->prepare("SELECT IFNULL(SUM(amount),0) FROM tblexpenses WHERE deleted = 0 AND status = 1 AND expenseDate <= ? AND $col = ? AND requisitionId IS NOT NULL AND congregationId = ?");
             $book->execute([$id, $asOf]); $b = FinancialReport::cents($book->fetchColumn());
             $exp->execute([$asOf, $s['ownerId'], $cong]); $e = FinancialReport::cents($exp->fetchColumn());
             $out[$id] = $b - $e;
@@ -63,7 +64,7 @@ class SubAccountReport
                             UNION ALL
                             SELECT e.expenseDate, e.narration, e.paymentReference, e.amount * -1, 1, e.ID
                             FROM tblexpenses e
-                            WHERE e.deleted = 0 AND e.requisitionId IS NOT NULL AND e.expenseDate <= ? AND e.$col = ? AND e.congregationId = ?
+                            WHERE e.deleted = 0 AND e.status = 1 AND e.requisitionId IS NOT NULL AND e.expenseDate <= ? AND e.$col = ? AND e.congregationId = ?
                             ORDER BY d, ord, id");
         $st->execute([$sub['id'], $asOf, $asOf, $sub['ownerId'], $cong]);
         return array_map(function ($r) {
@@ -77,7 +78,7 @@ class SubAccountReport
         $col = self::expenseColumn($sub['kind']);
         $open = $db->prepare('SELECT IFNULL(SUM(Amount),0) FROM tblbanktransactions_subaccounts WHERE SubAccountId = ? AND TransactionDate < ?');
         $open->execute([$sub['id'], $from]);
-        $oe = $db->prepare("SELECT IFNULL(SUM(amount),0) FROM tblexpenses WHERE deleted = 0 AND expenseDate < ? AND $col = ? AND requisitionId IS NOT NULL AND congregationId = ?");
+        $oe = $db->prepare("SELECT IFNULL(SUM(amount),0) FROM tblexpenses WHERE deleted = 0 AND status = 1 AND expenseDate < ? AND $col = ? AND requisitionId IS NOT NULL AND congregationId = ?");
         $oe->execute([$from, $sub['ownerId'], $cong]);
         $balance = FinancialReport::cents($open->fetchColumn()) - FinancialReport::cents($oe->fetchColumn());
         $rows = [['date' => $from, 'reference' => '', 'narr' => 'Opening balance', 'in' => null, 'out' => null, 'balance' => $balance]];

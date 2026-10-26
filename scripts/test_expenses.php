@@ -13,7 +13,7 @@ $_SESSION['isParish'] = 0;
 $_SESSION['userType'] = 1;
 $_SESSION['userId'] = (int)$pdo->query('SELECT ID FROM tblusers ORDER BY ID LIMIT 1')->fetchColumn();
 
-$tables = ['tblexpenses' => 'ID', 'journal_entries' => 'ID', 'tblledger' => 'ID', 'tblbankpostings' => 'ID', 'tblpettycash' => 'ID',
+$tables = ['tblexpenses' => 'ID', 'journal_entries' => 'ID', 'tblbankpostings' => 'ID', 'tblpettycash' => 'ID',
            'tbllogs' => 'ID', 'tblfundrequisition' => 'ID'];
 $max = [];
 foreach ($tables as $t => $k) { $max[$t] = (int)$pdo->query("SELECT IFNULL(MAX($k),0) FROM $t")->fetchColumn(); }
@@ -41,7 +41,7 @@ function setYear($id, $closed, $deleted) { q('UPDATE tblfiscalyears SET closed=?
 function snap($table, $key, $upto) { return md5(json_encode(q("SELECT * FROM $table WHERE $key <= ? ORDER BY $key", [$upto]))); }
 
 $real = [];
-foreach (['tblexpenses' => 'ID', 'journal_entries' => 'ID', 'tblpettycash' => 'ID', 'tblbankpostings' => 'ID', 'tblledger' => 'ID'] as $t => $k) { $real[$t] = snap($t, $k, $max[$t]); }
+foreach (['tblexpenses' => 'ID', 'journal_entries' => 'ID', 'tblpettycash' => 'ID', 'tblbankpostings' => 'ID'] as $t => $k) { $real[$t] = snap($t, $k, $max[$t]); }
 $real['journal_lines'] = snap('journal_lines', 'journalEntryId', $max['journal_entries']);
 
 try {
@@ -505,7 +505,7 @@ try {
         && (int)q('SELECT COUNT(*) c FROM tblbankpostings WHERE ID > ? AND deleted=0 AND transactionType=2', [$max['tblbankpostings']])[0]['c'] === 0
         && (int)q('SELECT COUNT(*) c FROM tblpettycash WHERE ID > ? AND Deleted=0', [$max['tblpettycash']])[0]['c'] === 0);
     $now = [];
-    foreach (['tblexpenses' => 'ID', 'journal_entries' => 'ID', 'tblpettycash' => 'ID', 'tblbankpostings' => 'ID', 'tblledger' => 'ID'] as $t => $k) { $now[$t] = snap($t, $k, $max[$t]); }
+    foreach (['tblexpenses' => 'ID', 'journal_entries' => 'ID', 'tblpettycash' => 'ID', 'tblbankpostings' => 'ID'] as $t => $k) { $now[$t] = snap($t, $k, $max[$t]); }
     $now['journal_lines'] = snap('journal_lines', 'journalEntryId', $max['journal_entries']);
     chk('real data untouched: every pre-existing expense, entry, line, bank row, petty cash row and ledger row is identical', $now == $real, json_encode(array_keys(array_diff_assoc($now, $real))));
 } catch (Throwable $e) {

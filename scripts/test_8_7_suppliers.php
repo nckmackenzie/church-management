@@ -13,7 +13,7 @@ $pdo = (new Database)->pdo();
 $_SESSION['congId'] = 11; $_SESSION['userId'] = 64; $_SESSION['userType'] = 1; $_SESSION['isParish'] = 0; $_SESSION['zero'] = 0; $_SESSION['one'] = 1;
 
 $tables = ['tblsuppliers' => 'ID', 'tblinvoice_header_suppliers' => 'ID', 'tblinvoice_details_suppliers' => 'ID', 'tblinvoice_payments_suppliers' => 'ID',
-           'tblproducts' => 'ID', 'journal_entries' => 'ID', 'journal_lines' => 'ID', 'tblledger' => 'ID', 'tblbankpostings' => 'ID', 'tbllogs' => 'ID', 'tblaccounttypes' => 'ID'];
+           'tblproducts' => 'ID', 'journal_entries' => 'ID', 'journal_lines' => 'ID', 'tblbankpostings' => 'ID', 'tbllogs' => 'ID', 'tblaccounttypes' => 'ID'];
 $max = [];
 foreach ($tables as $t => $k) { $max[$t] = (int)$pdo->query("SELECT COALESCE(MAX($k),0) FROM $t")->fetchColumn(); }
 $years = $pdo->query('SELECT ID,closed,deleted FROM tblfiscalyears')->fetchAll(PDO::FETCH_ASSOC);
@@ -46,7 +46,7 @@ function dbstate() {
     $t = [];
     global $max;
     // the big tables only from the rows this run created (a refusal must not touch those either)
-    foreach (['tblinvoice_header_suppliers' => 0, 'tblinvoice_details_suppliers' => 0, 'tblinvoice_payments_suppliers' => 0, 'tblsuppliers' => 0, 'journal_entries' => 1, 'journal_lines' => 1, 'tblbankpostings' => 1, 'tblledger' => 1] as $tb => $from) {
+    foreach (['tblinvoice_header_suppliers' => 0, 'tblinvoice_details_suppliers' => 0, 'tblinvoice_payments_suppliers' => 0, 'tblsuppliers' => 0, 'journal_entries' => 1, 'journal_lines' => 1, 'tblbankpostings' => 1] as $tb => $from) {
         $t[] = $tb . ':' . md5(json_encode(rows("SELECT * FROM $tb" . ($from ? ' WHERE ID > ' . $max[$tb] : '') . ' ORDER BY 1')));
     }
     return implode(',', $t);
@@ -163,7 +163,7 @@ try {
     $e = one('SELECT * FROM journal_entries WHERE transactionTypeId=6 AND transactionId=? AND deleted=0', [$i1]);
     ok('create: entry date, congregation and reference', $e['entryDate'] === $today && (int)$e['congregationId'] === 11 && $e['reference'] === 'supplier invoice-' . $h['invoiceNo']);
     ok('create: no bank row for an invoice', cnt('SELECT COUNT(*) FROM tblbankpostings WHERE transactionType=6 AND transactionId=?', [$i1]) === 0);
-    ok('create: legacy mirror has the 3 rows and balances', cnt('SELECT COUNT(*) FROM tblledger WHERE transactionType=6 AND transactionId=? AND deleted=0', [$i1]) === 3 && cnt('SELECT SUM(debit)=SUM(credit) FROM tblledger WHERE transactionType=6 AND transactionId=? AND deleted=0', [$i1]) === 1);
+    ok('create: the entry has 3 journal lines and balances', cnt('SELECT COUNT(*) FROM journal_lines jl JOIN journal_entries je ON je.ID=jl.journalEntryId WHERE je.transactionTypeId=6 AND je.transactionId=? AND je.deleted=0', [$i1]) === 3 && cnt('SELECT SUM(IF(jl.dc=\'DEBIT\',jl.amount,0))=SUM(IF(jl.dc=\'CREDIT\',jl.amount,0)) FROM journal_lines jl JOIN journal_entries je ON je.ID=jl.journalEntryId WHERE je.transactionTypeId=6 AND je.transactionId=? AND je.deleted=0', [$i1]) === 1);
 
     // VAT: inclusive and exclusive, balanced to the cent
     $r = $model->save(base(['vattype' => 2, 'vat' => '16', 'table' => [['pid' => $p1, 'qty' => '1', 'rate' => '1160.00']]]));
@@ -270,7 +270,7 @@ try {
     ok('edit: the same header and the SAME entry are updated in place', $r['success'] && $newEntry === $oldEntry && cnt('SELECT COUNT(*) FROM journal_entries WHERE transactionTypeId=6 AND transactionId=?', [$i1]) === 1 && cnt('SELECT COUNT(*) FROM tblinvoice_header_suppliers WHERE ID=?', [$i1]) === 1, errs($r));
     ok('edit: changed line (new account snapshot), VAT, payable and totals', lines(6, $i1) === ["$expB|DEBIT|348.00", "$expB|DEBIT|58.00", "$pDeep|CREDIT|406.00"] && $h['inclusiveVat'] === '406.00' && $h['vat'] === '56.00' && (int)$h['PayableAccountId'] === $pDeep, json_encode(lines(6, $i1)));
     ok('edit: old detail rows replaced, not added', cnt('SELECT COUNT(*) FROM tblinvoice_details_suppliers WHERE header_id=?', [$i1]) === 2);
-    ok('edit: mirror follows (3 rows, balanced)', cnt('SELECT COUNT(*) FROM tblledger WHERE transactionType=6 AND transactionId=? AND deleted=0', [$i1]) === 3);
+    ok('edit: the entry follows (3 journal lines)', cnt('SELECT COUNT(*) FROM journal_lines jl JOIN journal_entries je ON je.ID=jl.journalEntryId WHERE je.transactionTypeId=6 AND je.transactionId=? AND je.deleted=0', [$i1]) === 3);
     $pdo->prepare('UPDATE tblproducts SET accountId=? WHERE ID=?')->execute([$expA, $p1]);
     $before = dbstate();
     $bad = [
@@ -322,7 +322,7 @@ try {
     // ------------------------------------------------------------ delete
     $r = $model->save(base(['invoiceno' => nextno(), 'payable' => $pDeep])); $id = (int)$r['id'];
     $r = $model->Delete($id);
-    ok('delete voids the entry, the mirror and soft-deletes the header', $r['success'] && cnt('SELECT COUNT(*) FROM journal_entries WHERE transactionTypeId=6 AND transactionId=? AND deleted=0', [$id]) === 0 && cnt('SELECT COUNT(*) FROM tblledger WHERE transactionType=6 AND transactionId=? AND deleted=0', [$id]) === 0 && (int)header_row($id)['deleted'] === 1 && cnt('SELECT COUNT(*) FROM tblinvoice_details_suppliers WHERE header_id=?', [$id]) === 1);
+    ok('delete voids the entry and soft-deletes the header', $r['success'] && cnt('SELECT COUNT(*) FROM journal_entries WHERE transactionTypeId=6 AND transactionId=? AND deleted=0', [$id]) === 0 && cnt('SELECT COUNT(*) FROM journal_lines jl JOIN journal_entries je ON je.ID=jl.journalEntryId WHERE je.transactionTypeId=6 AND je.transactionId=? AND je.deleted=0', [$id]) === 0 && (int)header_row($id)['deleted'] === 1 && cnt('SELECT COUNT(*) FROM tblinvoice_details_suppliers WHERE header_id=?', [$id]) === 1);
     $r = $model->Delete($id);
     ok('delete of an already deleted invoice is refused', has($r, 'not found'));
     $r = $model->save(base(['id' => $id, 'isedit' => true]));
@@ -461,13 +461,13 @@ try {
     ok('opening balance +1000: row stores the payable and the signed balance', $r['success'] && (int)$oh['PayableAccountId'] === $pa && $oh['inclusiveVat'] === '1000.00' && $oh['invoiceDate'] === $today && (int)$oh['fiscalYearId'] > 0, errs($r));
     ok('opening balance +1000: Dr 20 opening balance equity / Cr the payable, keyed on the SUPPLIER id', lines(15, $s1) === ['20|DEBIT|1000.00', "$pa|CREDIT|1000.00"], json_encode(lines(15, $s1)));
     $e1 = one('SELECT ID FROM journal_entries WHERE transactionTypeId=15 AND transactionId=? AND deleted=0', [$s1])['ID'];
-    ok('opening balance: no bank row, mirror has 2 rows', cnt('SELECT COUNT(*) FROM tblbankpostings WHERE transactionType=15 AND transactionId=?', [$s1]) === 0 && cnt('SELECT COUNT(*) FROM tblledger WHERE transactionType=15 AND transactionId=? AND deleted=0', [$s1]) === 2);
+    ok('opening balance: no bank row, the entry has 2 journal lines', cnt('SELECT COUNT(*) FROM tblbankpostings WHERE transactionType=15 AND transactionId=?', [$s1]) === 0 && cnt('SELECT COUNT(*) FROM journal_lines jl JOIN journal_entries je ON je.ID=jl.journalEntryId WHERE je.transactionTypeId=15 AND je.transactionId=? AND je.deleted=0', [$s1]) === 2);
     ok('the supplier list shows the balance', (float)one('SELECT balance FROM vw_suppliers WHERE ID=?', [$s1])['balance'] === 1000.0);
     $r = $sup->CreateUpdate($so(['id' => $s1, 'isedit' => true, 'suppliername' => (string)one('SELECT supplierName FROM tblsuppliers WHERE ID=?', [$s1])['supplierName'], 'balance' => '-250.50', 'payable' => $pDeep]));
     ok('opening balance changed to -250.50 flips the sides with positive amounts, in the SAME entry', $r['success'] && lines(15, $s1) === ["$pDeep|DEBIT|250.50", '20|CREDIT|250.50'] && one('SELECT ID FROM journal_entries WHERE transactionTypeId=15 AND transactionId=? AND deleted=0', [$s1])['ID'] === $e1 && cnt('SELECT COUNT(*) FROM tblinvoice_header_suppliers WHERE supplierId=? AND invoiceNo IS NULL AND deleted=0', [$s1]) === 1, errs($r));
     ok('opening balance row follows (signed balance and new payable)', one('SELECT inclusiveVat,PayableAccountId FROM tblinvoice_header_suppliers WHERE supplierId=? AND invoiceNo IS NULL AND deleted=0', [$s1])['inclusiveVat'] === '-250.50');
     $r = $sup->CreateUpdate($so(['id' => $s1, 'isedit' => true, 'suppliername' => (string)one('SELECT supplierName FROM tblsuppliers WHERE ID=?', [$s1])['supplierName'], 'balance' => '0', 'asof' => '', 'payable' => '']));
-    ok('opening balance changed to zero voids the entry and retires the row', $r['success'] && lines(15, $s1) === null && cnt('SELECT COUNT(*) FROM tblinvoice_header_suppliers WHERE supplierId=? AND invoiceNo IS NULL AND deleted=0', [$s1]) === 0 && cnt('SELECT COUNT(*) FROM tblledger WHERE transactionType=15 AND transactionId=? AND deleted=0', [$s1]) === 0, errs($r));
+    ok('opening balance changed to zero voids the entry and retires the row', $r['success'] && lines(15, $s1) === null && cnt('SELECT COUNT(*) FROM tblinvoice_header_suppliers WHERE supplierId=? AND invoiceNo IS NULL AND deleted=0', [$s1]) === 0 && cnt('SELECT COUNT(*) FROM journal_lines jl JOIN journal_entries je ON je.ID=jl.journalEntryId WHERE je.transactionTypeId=15 AND je.transactionId=? AND je.deleted=0', [$s1]) === 0, errs($r));
     $r = $sup->CreateUpdate($so(['id' => $s1, 'isedit' => true, 'suppliername' => (string)one('SELECT supplierName FROM tblsuppliers WHERE ID=?', [$s1])['supplierName'], 'balance' => '75.10']));
     ok('zero -> positive posts a fresh entry', $r['success'] && lines(15, $s1) === ['20|DEBIT|75.10', "$pa|CREDIT|75.10"], errs($r));
     $r = $sup->CreateUpdate($so(['balance' => '-10', 'payable' => $pa])); $s2 = (int)$r['id'];
@@ -529,7 +529,7 @@ try {
     $r = $sup->Delete($s1);
     ok('supplier whose opening balance has a payment cannot be deleted', has($r, 'payments') && lines(15, $s1) !== null);
     $r = $sup->Delete($s2);
-    ok('supplier with only an opening balance: type 15 voided, row and supplier soft-deleted', $r['success'] && lines(15, $s2) === null && (int)one('SELECT deleted FROM tblsuppliers WHERE ID=?', [$s2])['deleted'] === 1 && cnt('SELECT COUNT(*) FROM tblinvoice_header_suppliers WHERE supplierId=? AND deleted=0', [$s2]) === 0 && cnt('SELECT COUNT(*) FROM tblledger WHERE transactionType=15 AND transactionId=? AND deleted=0', [$s2]) === 0, errs($r));
+    ok('supplier with only an opening balance: type 15 voided, row and supplier soft-deleted', $r['success'] && lines(15, $s2) === null && (int)one('SELECT deleted FROM tblsuppliers WHERE ID=?', [$s2])['deleted'] === 1 && cnt('SELECT COUNT(*) FROM tblinvoice_header_suppliers WHERE supplierId=? AND deleted=0', [$s2]) === 0 && cnt('SELECT COUNT(*) FROM journal_lines jl JOIN journal_entries je ON je.ID=jl.journalEntryId WHERE je.transactionTypeId=15 AND je.transactionId=? AND je.deleted=0', [$s2]) === 0, errs($r));
     $r = $sup->Delete($s2);
     ok('deleting a deleted supplier is refused', has($r, 'not found'));
     foreach (['', 'x', '0', '1 OR 1=1'] as $junk) { $r = $sup->Delete($junk); ok("supplier delete junk id '$junk' refused", !$r['success']); }
@@ -551,11 +551,11 @@ try {
     ok('a closed-year opening balance cannot be deleted', has($r, 'closed'));
     $pdo->prepare('UPDATE tblinvoice_header_suppliers SET deleted=1 WHERE supplierId=?')->execute([$s4]);
 
-    // dev mirror for the three types: every active entry is mirrored and balances
-    $bad = cnt("SELECT COUNT(*) FROM (SELECT e.transactionTypeId,e.transactionId FROM journal_entries e WHERE e.deleted=0 AND e.transactionTypeId IN (6,7,15) AND e.ID>? AND NOT EXISTS (SELECT 1 FROM tblledger l WHERE l.transactionType=e.transactionTypeId AND l.transactionId=e.transactionId AND l.congregationId=e.congregationId AND l.deleted=0)) x", [$max['journal_entries']]);
-    ok('dev legacy mirror: every entry made here has its tblledger rows', $bad === 0);
-    $bal = cnt("SELECT COUNT(*) FROM (SELECT transactionType,transactionId FROM tblledger WHERE deleted=0 AND transactionType IN (6,7,15) AND ID>? GROUP BY transactionType,transactionId HAVING ROUND(SUM(debit)-SUM(credit),2)<>0) x", [$max['tblledger']]);
-    ok('dev legacy mirror: every mirrored transaction balances', $bal === 0);
+    // the three types: every active entry made here has lines and balances
+    $bad = cnt("SELECT COUNT(*) FROM journal_entries e WHERE e.deleted=0 AND e.transactionTypeId IN (6,7,15) AND e.ID>? AND NOT EXISTS (SELECT 1 FROM journal_lines l WHERE l.journalEntryId=e.ID)", [$max['journal_entries']]);
+    ok('every entry made here has journal lines', $bad === 0);
+    $bal = cnt("SELECT COUNT(*) FROM (SELECT e.ID FROM journal_entries e JOIN journal_lines l ON l.journalEntryId=e.ID WHERE e.deleted=0 AND e.transactionTypeId IN (6,7,15) AND e.ID>? GROUP BY e.ID HAVING ROUND(SUM(IF(l.dc='DEBIT',l.amount,0))-SUM(IF(l.dc='CREDIT',l.amount,0)),2)<>0) x", [$max['journal_entries']]);
+    ok('every entry made here balances', $bal === 0);
     ok('nothing in the new code posts a negative amount (journal_lines)', cnt('SELECT COUNT(*) FROM journal_lines WHERE ID>? AND amount<=0', [$max['journal_lines']]) === 0);
 
     // payment number sequence is per congregation and never count+1
