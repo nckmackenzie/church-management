@@ -417,7 +417,7 @@ try {
     $r = $cr->CreateUpdate($pm()); $pn2 = $newpc();
     chk('petty cash number of a deleted receipt is not reused', (int)q('SELECT ReceiptNo FROM tblpettycash WHERE ID=?', [$pn2])[0]['ReceiptNo'] === $pno + 1, json_encode([$pno]));
 
-    // ---------------- petty cash report routines ignore deleted rows and filter by account
+    // ---------------- legacy petty cash routines retained for the 9.8 removal decision
     $from = '2026-01-01'; $to = '2026-01-31';
     $rows = function ($acc) use ($pdo, $from, $to) { $st = $pdo->prepare('CALL sp_pettycashutilization(?,?,11,?)'); $st->execute([$from, $to, $acc]); $x = $st->fetchAll(PDO::FETCH_ASSOC); $st->closeCursor(); return $x; };
     $r98 = $rows(98); $r194 = $rows(194);
@@ -430,9 +430,9 @@ try {
     $manual = (float)q('SELECT IFNULL(SUM(Debit)-SUM(Credit),0) b FROM tblpettycash WHERE CongregationId=11 AND Deleted=0 AND PettyCashAccountId=98 AND TransactionDate < ?', [$from])[0]['b'];
     chk('getopeningbal(…, 98) = live debits - credits before the date', abs($open98 - $manual) < 0.005, json_encode([$open98, $manual]));
     chk('getopeningbal for 194 is separate from 98', abs((float)q('SELECT getopeningbal(?,11,194) b', ['2027-01-01'])[0]['b'] - (float)q('SELECT IFNULL(SUM(Debit)-SUM(Credit),0) b FROM tblpettycash WHERE CongregationId=11 AND Deleted=0 AND PettyCashAccountId=194')[0]['b']) < 0.005);
-    $dc = (new Report)->debitcredittotal(['start' => $from, 'end' => $to, 'account' => 194]);
     $manualDc = q('SELECT IFNULL(SUM(Debit),0) d, IFNULL(SUM(Credit),0) c FROM tblpettycash WHERE CongregationId=11 AND Deleted=0 AND PettyCashAccountId=194 AND TransactionDate BETWEEN ? AND ?', [$from, $to])[0];
-    chk('Report::debitcredittotal (194) matches live rows', abs((float)$dc[0] - (float)$manualDc['d']) < 0.005 && abs((float)$dc[1] - (float)$manualDc['c']) < 0.005, json_encode([$dc, $manualDc]));
+    $procDc = ['d' => 0.0, 'c' => 0.0]; foreach (array_slice($r194, 1) as $row) { $procDc['d'] += (float)$row['Debit']; $procDc['c'] += (float)$row['Credit']; }
+    chk('retained sp_pettycashutilization (194) movement matches live rows', abs($procDc['d'] - (float)$manualDc['d']) < 0.005 && abs($procDc['c'] - (float)$manualDc['c']) < 0.005, json_encode([$procDc, $manualDc]));
     q('SET @x = 1');
 
     // ---------------- cleanup of remaining test receipts via the app paths (also exercises delete)

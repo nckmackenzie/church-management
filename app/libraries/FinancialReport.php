@@ -1186,6 +1186,39 @@ class FinancialReport
             'closing' => $creditNormal ? -$closingNet : $closingNet, 'closingNet' => $closingNet,
         ];
     }
+
+    /**
+     * Source-document numbers for journal entries, keyed by entry ID. This is metadata only: financial figures still come solely
+     * from journal_entries / journal_lines. Every lookup is scoped to the entry's congregation. A type without a document number
+     * returns null. Type 10 deliberately uses tblpettycash only for its receipt number (decision 126).
+     * @return array<int,?string>
+     */
+    public static function sourceNumbers(PDO $db, array $scope, array $entryIds): array
+    {
+        $scope = self::normalizeScope($scope);
+        $ids = [];
+        foreach ($entryIds as $id) { $id = (int) $id; if ($id > 0) { $ids[$id] = $id; } }
+        if (!$ids) { return []; }
+        $ids = array_values($ids);
+        $sql = "SELECT e.ID,
+                       CASE e.transactionTypeId
+                         WHEN 1  THEN (SELECT CAST(h.receiptNo AS CHAR) FROM tblcontributions_header h WHERE h.ID=e.transactionId AND h.congregationId=e.congregationId LIMIT 1)
+                         WHEN 2  THEN (SELECT CAST(x.voucherNo AS CHAR) FROM tblexpenses x WHERE x.ID=e.transactionId AND x.congregationId=e.congregationId LIMIT 1)
+                         WHEN 5  THEN CAST(e.journalNo AS CHAR)
+                         WHEN 10 THEN (SELECT CAST(p.ReceiptNo AS CHAR) FROM tblpettycash p WHERE p.ID=e.transactionId AND p.CongregationId=e.congregationId LIMIT 1)
+                         WHEN 12 THEN (SELECT CAST(r.ReqNo AS CHAR) FROM tblfundrequisition r WHERE r.ID=e.transactionId AND r.CongregationId=e.congregationId LIMIT 1)
+                         WHEN 13 THEN (SELECT b.Reference FROM tblbanktransactions b WHERE b.ID=e.transactionId AND b.CongregationId=e.congregationId LIMIT 1)
+                         ELSE NULL
+                       END AS sourceNo
+                FROM journal_entries e
+                WHERE e.ID IN (" . self::marks($ids) . ") AND e.congregationId IN (" . self::marks($scope) . ')';
+        $st = $db->prepare($sql);
+        $st->execute(array_merge($ids, $scope));
+        $out = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) { $out[(int) $r['ID']] = $r['sourceNo'] === null ? null : trim((string) $r['sourceNo']); }
+        return $out;
+    }
+
     /** Route (relative to URLROOT) of the source document of an entry, or null where no safe route exists. */
     public static function sourceLink(int $transactionTypeId, int $transactionId): ?string
     {

@@ -996,71 +996,19 @@ class Reports extends Controller {
     }
     public function pettycash()
     {
-        $data = ['accounts' => $this->reportModel->pettycashaccounts()];
+        $db = (new Database)->pdo();
+        $data = ['accounts' => PettyCashReport::accounts($db,(int)$_SESSION['congId'])];
         $this->view('reports/pettycash',$data);
     }
 
     public function pettycashrpt()
     {
-        if($_SERVER['REQUEST_METHOD'] === 'GET'){
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [
-                'start' => date('Y-m-d',strtotime($_GET['start'])),
-                'end' => date('Y-m-d',strtotime($_GET['end'])),
-                'account' => (int)($_GET['account'] ?? 0),
-            ];
-
-            // only the congregation's petty cash accounts (98 'petty cash' unless another is chosen)
-            $allowed = array_map(function($a){ return (int)$a->ID; },$this->reportModel->pettycashaccounts());
-            if(!in_array($data['account'],$allowed,true)){
-                $data['account'] = in_array(98,$allowed,true) ? 98 : (int)($allowed[0] ?? 0);
-            }
-
-            $pettycashutils = $this->reportModel->pettycashutil($data);
-            $debitstotal = floatval($this->reportModel->debitcredittotal($data)[0]);
-            $creditstotal = floatval($this->reportModel->debitcredittotal($data)[1]);
-            $openingbal = floatval($this->reportModel->debitcredittotal($data)[2]);
-            $balance = ($debitstotal + $openingbal) - $creditstotal;
-            $output = '';
-            $output .= '
-                <table class="table table-bordered table-sm" id="table">
-                    <thead class="bg-lightblue">
-                        <tr>
-                            <th>Date</th>
-                            <th>Narration</th>
-                            <th>Debit</th>
-                            <th>Credit</th>
-                            <th>Reference</th>
-                        </tr>
-                    </thead>
-                    <tbody>';
-                    foreach($pettycashutils as $util) {
-                        $output .= '
-                            <tr>
-                                <td>'.date('d-m-Y',strtotime($util->TransactionDate)).'</td>
-                                <td>'.$util->Narration.'</td>
-                                <td>'.$util->Debit.'</td>
-                                <td>'.$util->Credit.'</td>
-                                <td>'.$util->Reference.'</td>
-                            </tr>
-                        ';
-                    }
-                    $output .= '
-                    </tbody>
-                    <tfoot>
-                            <tr>
-                                <th colspan="2" style="text-align:right">Total:</th>
-                                <th id="debittotal"></th>
-                                <th id="credittotal"></th>
-                                <th id="balance">'.number_format($balance,2).'</th>
-                            </tr>
-                    </tfoot>
-                </table>';
-            echo $output;        
-        }else{
-            redirect('users/deniedaccess');
-            exit();
-        }
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') { IncomeStatementReport::fail('Method not allowed',405); }
+        $account = positiveIntParam($_GET['account'] ?? null,'account');
+        $db = (new Database)->pdo();
+        $cong = (int)$_SESSION['congId'];
+        if (!PettyCashReport::accountAllowed($db,$cong,$account)) { IncomeStatementReport::fail('Invalid petty cash account'); }
+        PettyCashReport::serve($db,[$cong],$account);
     }
     public function invoicepayment()
     {
