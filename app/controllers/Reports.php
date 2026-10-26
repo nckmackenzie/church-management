@@ -287,90 +287,41 @@ class Reports extends Controller {
         $data = ['accounts' => $accounts];
         $this->view('reports/contributions',$data);
     }
+    /**
+     * Contributions as JSON (one page, server-side search) or Excel (every matching row), task 9.7. The hotfix validation
+     * (decision 118) is unchanged; start must not be after end (400). Only approved, not deleted receipts are counted.
+     */
     public function contributionsrpt()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $type = positiveIntParam($_GET['type'] ?? null,'type',[1,2,3]);
-            $accounts = $this->reportAccountsIn(positiveIntListParam($_GET['account'] ?? null,'account',$type !== 2),1);
-            $data = [
-                'type' => $type,
-                'start' => strictDateParam($_GET['start'] ?? null,'start date'),
-                'end' => strictDateParam($_GET['end'] ?? null,'end date'),
-                'account' => $accounts
-            ];
-        //    echo join(",",$data['account']);
-            $contributions = $this->reportModel->GetContributions($data);
-            // print_r($contributions);
-            $output = '';
-            if((int)$data['type'] !== 3) {
-                $output .= '
-                    <table id="table" class="table table-striped table-bordered table-sm">
-                        <thead class="bg-lightblue">
-                            <tr>
-                                <th>Date</th>
-                                <th>Contribution Account</th>
-                                <th>Contributed By</th>
-                                <th>Amount</th>
-                                <th>Pay Method</th>
-                                <th>Reference</th>
-                            </tr>
-                        </thead>
-                        <tbody>';
-                    foreach ($contributions as $contribution) {
-                        $output .='
-                            <tr>
-                                <td>'.$contribution->contdate.'</td>
-                                <td>'.$contribution->conttype.'</td>
-                                <td>'.$contribution->cont.'</td>
-                                <td>'.number_format($contribution->amount,2).'</td>
-                                <td>'.$contribution->paymethod.'</td>
-                                <td>'.$contribution->paymentReference.'</td>
-                            </tr>';
-                    }
-                    $output .= '
-                        </tbody>
-                        <tfoot>
-                                <tr>
-                                    <th colspan="3" style="text-align:right">Total:</th>
-                                    <th id="total"></th>
-                                    <th colspan="2"></th>
-                                </tr>
-                        </tfoot>
-                    </table>';
-            }else{
-                $output .= '
-                    <table id="table" class="table table-striped table-bordered table-sm">
-                        <thead class="bg-lightblue">
-                            <tr>
-                                <th>District</th>
-                                <th>Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>';
-                        foreach ($contributions as $contribution) {
-                            $output .='
-                                <tr>
-                                    <td>'.strtoupper($contribution->districtName).'</td>
-                                    <td>'.number_format($contribution->total_amount,2).'</td>
-                                </tr>';
-                        }
-                        $output .= '
-                            </tbody>
-                            <tfoot>
-                                    <tr>
-                                        <th>Total:</th>
-                                        <th id="total"></th>
-                                    </tr>
-                            </tfoot>
-                    </table>';
-            }
-            
-            echo $output;
-        }else{
-            redirect('users');
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') { IncomeStatementReport::fail('Method not allowed',405); }
+        $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW) ?: [];
+        $type = positiveIntParam($_GET['type'] ?? null,'type',[1,2,3]);
+        $accounts = $this->reportAccountsIn(positiveIntListParam($_GET['account'] ?? null,'account',$type !== 2),1);
+        $data = [
+            'type' => $type,
+            'start' => strictDateParam($_GET['start'] ?? null,'start date'),
+            'end' => strictDateParam($_GET['end'] ?? null,'end date'),
+            'account' => $accounts
+        ];
+        if ($data['start'] > $data['end']) { badRequest('The start date cannot be after the end date.'); }
+        $rows = $this->reportModel->GetContributions($data);
+        $period = 'Period ' . date('d-m-Y',strtotime($data['start'])) . ' to ' . date('d-m-Y',strtotime($data['end']));
+        $file = 'contributions-' . $type . '-' . $data['start'] . '-to-' . $data['end'];
+        if ($type === 3) {
+            $spec = ['title' => 'Contributions by district','lines' => [$period],
+                     'columns' => [['key' => 'district','label' => 'District','type' => 'text'],['key' => 'amount','label' => 'Amount','type' => 'money']],
+                     'total' => 'amount','file' => $file,'sheet' => 'Contributions','widths' => [40,18]];
+        } else {
+            $spec = ['title' => 'Contributions','lines' => [$period],
+                     'columns' => [['key' => 'date','label' => 'Date','type' => 'date'],['key' => 'receipt','label' => 'Receipt No','type' => 'link'],
+                                   ['key' => 'account','label' => 'Contribution Account','type' => 'text'],['key' => 'cont','label' => 'Contributed By','type' => 'text'],
+                                   ['key' => 'amount','label' => 'Amount','type' => 'money'],['key' => 'method','label' => 'Pay Method','type' => 'text'],
+                                   ['key' => 'reference','label' => 'Reference','type' => 'text']],
+                     'total' => 'amount','file' => $file,'sheet' => 'Contributions','widths' => [12,16,30,30,16,16,24]];
         }
+        ReportList::respond($spec,$rows,$_GET);
     }
+
     public function expenses()
     {
         checkrights($this->authmodel,'expenses reports');
@@ -378,63 +329,30 @@ class Reports extends Controller {
         $data = ['accounts' => $accounts];
         $this->view('reports/expenses',$data);
     }
+    /** Expenses as JSON (one page, server-side search) or Excel (every matching row), task 9.7. Approved, not deleted only. */
     public function expensesrpt()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $type = positiveIntParam($_GET['type'] ?? null,'type',[1,2]);
-            $accounts = $this->reportAccountsIn(positiveIntListParam($_GET['account'] ?? null,'account',$type !== 2),2);
-            $data = [
-                'type' => $type,
-                'start' => strictDateParam($_GET['start'] ?? null,'start date'),
-                'end' => strictDateParam($_GET['end'] ?? null,'end date'),
-                'account' => $accounts
-            ];
-        
-            $expenses = $this->reportModel->GetExpenses($data);
-           
-            $output = '';
-            $output .= '
-                <table id="table" class="table table-striped table-bordered table-sm">
-                    <thead class="bg-lightblue">
-                        <tr>
-                            <th>Date</th>
-                            <th>Voucher No</th>
-                            <th>Expense Account</th>
-                            <th>Cost Center</th>
-                            <th>Amount</th>
-                            <th>Pay Method</th>
-                            <th>Reference</th>
-                        </tr>
-                    </thead>
-                    <tbody>';
-                foreach ($expenses as $expense) {
-                    $output .='
-                        <tr>
-                            <td>'.$expense->expenseDate.'</td>
-                            <td>'.$expense->voucherNo.'</td>
-                            <td>'.$expense->accountType.'</td>
-                            <td>'.$expense->costcenter.'</td>
-                            <td>'.number_format($expense->amount,2).'</td>
-                            <td>'.$expense->paymethod.'</td>
-                            <td>'.$expense->payref.'</td>
-                        </tr>';
-                }
-                $output .= '
-                    </tbody>
-                    <tfoot>
-                            <tr>
-                                <th colspan="4" style="text-align:right">Total:</th>
-                                <th id="total"></th>
-                                <th colspan="2"></th>
-                            </tr>
-                    </tfoot>
-                </table>';
-            echo $output;
-        }else{
-            redirect('users');
-        }
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') { IncomeStatementReport::fail('Method not allowed',405); }
+        $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW) ?: [];
+        $type = positiveIntParam($_GET['type'] ?? null,'type',[1,2]);
+        $accounts = $this->reportAccountsIn(positiveIntListParam($_GET['account'] ?? null,'account',$type !== 2),2);
+        $data = [
+            'type' => $type,
+            'start' => strictDateParam($_GET['start'] ?? null,'start date'),
+            'end' => strictDateParam($_GET['end'] ?? null,'end date'),
+            'account' => $accounts
+        ];
+        if ($data['start'] > $data['end']) { badRequest('The start date cannot be after the end date.'); }
+        $rows = $this->reportModel->GetExpenses($data);
+        $spec = ['title' => 'Expenses','lines' => ['Period ' . date('d-m-Y',strtotime($data['start'])) . ' to ' . date('d-m-Y',strtotime($data['end']))],
+                 'columns' => [['key' => 'date','label' => 'Date','type' => 'date'],['key' => 'voucher','label' => 'Voucher No','type' => 'link'],
+                               ['key' => 'account','label' => 'Expense Account','type' => 'text'],['key' => 'costcenter','label' => 'Cost Center','type' => 'text'],
+                               ['key' => 'amount','label' => 'Amount','type' => 'money'],['key' => 'method','label' => 'Pay Method','type' => 'text'],
+                               ['key' => 'reference','label' => 'Reference','type' => 'text']],
+                 'total' => 'amount','file' => 'expenses-' . $type . '-' . $data['start'] . '-to-' . $data['end'],'sheet' => 'Expenses','widths' => [12,14,30,26,16,16,24]];
+        ReportList::respond($spec,$rows,$_GET);
     }
+
     public function pledges()
     {
         checkrights($this->authmodel,'pledge reports');
@@ -675,95 +593,14 @@ class Reports extends Controller {
     public function groupsincomestatement()
     {
         checkrights($this->authmodel,'groups income statement');
-        $data = ['groups' => $this->reportModel->GetGroups()];
-        $this->view('reports/groupsincomestatement',$data);
+        $this->view('reports/groupsincomestatement',GroupIncomeStatement::choices((new Database)->pdo(),(int)$_SESSION['congId']));
     }
 
+    /** Group / district income statement from the journal (task 9.7, decision 155): JSON, or Excel with format=xlsx. */
     public function groupincomestatementrpt()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [
-                'group' => isset($_GET['group']) && !empty(trim($_GET['group'])) ? (int)trim($_GET['group']) : null,
-                'start' => isset($_GET['start']) && !empty(trim($_GET['start'])) ? date('Y-m-d',strtotime(trim($_GET['start']))) : null,
-                'end' => isset($_GET['end']) && !empty(trim($_GET['end'])) ? date('Y-m-d',strtotime(trim($_GET['end']))) : null
-            ];
-
-            //validation
-            if(is_null($data['group']) || is_null($data['start']) || is_null($data['end'])) :
-                http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'Please provide all required fields']);
-                exit;
-            endif;
-
-            //values 
-            $revenue = $this->reportModel->GetGroupRevenues($data);
-            $collections = $this->reportModel->GetGroupCollections($data);
-            $revenue_total = floatval($revenue) + floatval($collections);
-            //expenses
-            $expenses = $this->reportModel->GetGroupExpensesPL($data);
-            $expenses_total = 0;
-            
-            $output = '';
-            $output .='
-                <table id="table" class="table table-striped table-bordered table-sm">
-                    <thead>
-                        <tr>
-                            <th>Income Statement</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr class="bg-olive">
-                            <td colspan="2">Income</td>
-                        </tr>';
-                    if($revenue > 0):
-                        $output .='
-                            <tr>
-                                <td>Group Requisitions</td>
-                                <td><a target="_blank" href="'.URLROOT.'/reports/groupplrevenuedetailed?type=requisitions&group='.$data['group'].'&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($revenue,2).'</a></td>
-                            </tr>
-                        ';
-                    endif;
-                    if($collections > 0):
-                        $output .='
-                            <tr>
-                                <td>Group Collections</td>
-                                <td><a target="_blank" href="'.URLROOT.'/reports/groupplrevenuedetailed?type=collections&group='.$data['group'].'&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($collections,2).'</a></td>
-                            </tr>
-                        ';
-                    endif;
-                    $output .='
-                        <tr>
-                            <th>Revenue Total</th>
-                            <th>'.number_format($revenue_total,2).'</th>
-                        </tr>
-                        <tr style="background-color: #ed6b6b">
-                            <td colspan="2">Expenses</td>
-                        </tr>';
-                    foreach($expenses as $expense){
-                        $expenses_total += floatval($expense->Amount);
-                        $output .='
-                        <tr>
-                            <td>'.ucwords($expense->accountType).'</td>
-                            <td><a target="_blank" href="'.URLROOT.'/reports/groupplexpensedetailed?account='.$expense->ID.'&group='.$data['group'].'&sdate='.$data['start'].'&edate='.$data['end'].'">'.number_format($expense->Amount,2).'</a></td>
-                        </tr>';
-                    }
-                    $profit_loss = ($revenue_total - $expenses_total);    
-                    $output .='
-                        <tr>
-                            <th>Expense Total</th>
-                            <th>'.number_format($expenses_total,2).'</th>
-                        </tr>
-                        <tr style="background-color: #7a998b">
-                            <th>Profit/Loss</th>
-                            <th>'.number_format($profit_loss,2).'</th>
-                        </tr>
-                    </tbody>
-                </table>';
-            echo $output;
-        }else {
-            redirect('users');
-        }
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') { IncomeStatementReport::fail('Method not allowed',405); }
+        GroupIncomeStatement::respondStatement((new Database)->pdo(),(int)$_SESSION['congId'],$_GET);
     }
 
     public function groupplrevenuedetailed()
@@ -778,103 +615,19 @@ class Reports extends Controller {
         exit;
     }
 
+    /** The requisitions / collections behind a revenue figure (type = requisitions | collections): JSON page or Excel. */
     public function groupplrevenuedetailedrpt()
     {
-        if($_SERVER['REQUEST_METHOD'] === 'GET')
-        {
-            $data = [
-                'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
-                'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
-                'type' => isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim($_GET['type']) : null,
-                'group' => isset($_GET['group']) && !empty(trim($_GET['group'])) ? (int)trim($_GET['group']) : null,
-                'totalamount' => 0,
-                'results' => []
-            ];
-            //validate
-            if(is_null($data['sdate']) || is_null($data['edate']) || is_null($data['type']) || is_null($data['group']))
-            {
-                http_response_code(400);
-                echo json_encode(['success' => false,'message' => 'Unable to get all fields']);
-                exit;
-            }
-
-            $details = $this->reportModel->GetGroupPlRevenueDetailed($data);
-
-            if(empty($details))
-            {
-                http_response_code(400);
-                echo json_encode(['success' => false,'message' => 'No details found for this account for specified period']);
-                exit;
-            }
-
-            foreach($details as $detail)
-            {
-                $data['totalamount'] += floatval($detail->Amount);
-                array_push($data['results'],[
-                    'transactionDate' => date('d-m-Y',strtotime($detail->TransactionDate)),
-                    'amount' => $detail->Amount,
-                    'narration' => is_null($detail->Narration) ? '' : ucfirst($detail->Narration),
-                ]);
-            }
-
-            echo json_encode(['success' => true,'results' => $data['results'],"total" => $data['totalamount']]);
-            exit;
-        }
-        else
-        {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') { IncomeStatementReport::fail('Method not allowed',405); }
+        $type = is_string($_GET['type'] ?? null) ? $_GET['type'] : '';
+        GroupIncomeStatement::respondDetail((new Database)->pdo(),(int)$_SESSION['congId'],$_GET,$type);
     }
 
+    /** The expenses behind an expense figure (account = account ID): JSON page or Excel. */
     public function groupplexpensedetailedrpt()
     {
-        if($_SERVER['REQUEST_METHOD'] === 'GET')
-        {
-            $data = [
-                'sdate' => isset($_GET['sdate']) && !empty(trim($_GET['sdate'])) ? date('Y-m-d',strtotime(trim($_GET['sdate']))) : null,
-                'edate' => isset($_GET['edate']) && !empty(trim($_GET['edate'])) ? date('Y-m-d',strtotime(trim($_GET['edate']))) : null,
-                'account' => isset($_GET['account']) && !empty(trim($_GET['account'])) ? trim($_GET['account']) : null,
-                'group' => isset($_GET['group']) && !empty(trim($_GET['group'])) ? trim($_GET['group']) : null,
-                'totalamount' => 0,
-                'results' => []
-            ];
-            //validate
-            if(is_null($data['sdate']) || is_null($data['edate']) || is_null($data['account']) || is_null($data['group']))
-            {
-                http_response_code(400);
-                echo json_encode(['success' => false,'message' => 'Unable to get all fields']);
-                exit;
-            }
-
-            $details = $this->reportModel->GetGroupPlExpenseDetailed($data);
-
-            if(empty($details))
-            {
-                http_response_code(400);
-                echo json_encode(['success' => false,'message' => 'No details found for this account for specified period']);
-                exit;
-            }
-
-            foreach($details as $detail)
-            {
-                $data['totalamount'] += floatval($detail->amount);
-                array_push($data['results'],[
-                    'transactionDate' => date('d-m-Y',strtotime($detail->expenseDate)),
-                    'amount' => $detail->amount,
-                    'reference' => is_null($detail->paymentReference) ? '' : ucfirst($detail->paymentReference),
-                    'narration' => is_null($detail->narration) ? '' : ucfirst($detail->narration),
-                ]);
-            }
-
-            echo json_encode(['success' => true,'results' => $data['results'],"total" => $data['totalamount']]);
-            exit;
-        }
-        else
-        {
-            redirect('users/deniedaccess');
-            exit();
-        }
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') { IncomeStatementReport::fail('Method not allowed',405); }
+        GroupIncomeStatement::respondDetail((new Database)->pdo(),(int)$_SESSION['congId'],$_GET,'expenses');
     }
 
     /** The old period trial balance is gone (task 9.3): the trial balance has one screen, with an As Of Date. */
@@ -1004,7 +757,9 @@ class Reports extends Controller {
     public function pettycashrpt()
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'GET') { IncomeStatementReport::fail('Method not allowed',405); }
-        $account = positiveIntParam($_GET['account'] ?? null,'account');
+        $a = $_GET['account'] ?? null;
+        if (!is_string($a) || !ctype_digit($a) || strlen($a) > 9 || (int)$a < 1) { IncomeStatementReport::fail('Invalid petty cash account'); }
+        $account = (int)$a;
         $db = (new Database)->pdo();
         $cong = (int)$_SESSION['congId'];
         if (!PettyCashReport::accountAllowed($db,$cong,$account)) { IncomeStatementReport::fail('Invalid petty cash account'); }
@@ -1149,60 +904,11 @@ class Reports extends Controller {
         exit;
     }
 
+    /** Journal report from the journal (task 9.7): JSON (whole journals, search, paging) or Excel with format=xlsx. */
     public function journalsrpt()
     {
-        if($_SERVER['REQUEST_METHOD'] === 'GET'){
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-           $data = [
-                'from' => !empty(trim($_GET['from'])) ? date('Y-m-d',strtotime($_GET['from'])) : NULL,
-                'to' => !empty(trim($_GET['to'])) ? date('Y-m-d',strtotime($_GET['to'])) :NULL,
-            ];
-
-            $reports = $this->reportModel->GetJournalReport($data);
-            $output = '';
-            $output .= '
-                <table class="table table-bordered table-sm" id="table">
-                    <thead class="bg-lightblue">
-                        <tr>
-                            <th>Journal No</th>
-                            <th>Transaction Date</th>
-                            <th>Account</th>
-                            <th>Debit</th>
-                            <th>Credit</th>
-                            <th>Description</th>
-                        </tr>
-                    </thead>
-                    <tbody>';
-                    foreach($reports as $report) {
-                        $output .= '
-                            <tr>
-                                <td>'.$report->journalNo.'</td>
-                                <td>'.date('d-M-Y',strtotime($report->transactionDate)).'</td>
-                                <td>'.ucwords($report->account).'</td>
-                                <td>'.number_format($report->debit,2).'</td>
-                                <td>'.number_format($report->credit,2).'</td>
-                                <td>'.ucwords($report->narration).'</td>
-                            </tr>
-                        ';
-                    }
-                    $output .= '
-                    </tbody>
-                    <tfoot>
-                            <tr>
-                                <th colspan="3" style="text-align:center">Total:</th>
-                                <th id="debits"></th>
-                                <th id="credits"></th>
-                                <th></th>
-                            </tr>
-                    </tfoot>
-                </table>';
-            echo $output; 
-        }else{
-            redirect('users/deniedaccess');
-            exit();
-        }
+        JournalReport::serve((new Database)->pdo(),(int)$_SESSION['congId']);
     }
-
     public function subaccounts()
     {
         $data = [

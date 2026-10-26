@@ -33,54 +33,42 @@ class Parishreports extends Controller
         ];
         $this->view('parishreports/contributions',$data);
     }
+    /** Selected congregations must be congregations of the parish scope (task 9.7): 400 otherwise. */
+    private function parishCongregations(array $ids)
+    {
+        if (array_diff($ids,FinancialReport::parishScope((new Database)->pdo()))) { badRequest('Invalid congregation.'); }
+        return $ids;
+    }
+    /** The validated request of the three parish endpoints (hotfix validation, decision 118, plus the range check and the scope check). */
+    private function parishRequest($root)
+    {
+        $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW) ?: [];
+        $data = [
+            'congregations' => $this->parishCongregations(positiveIntListParam($_GET['congregations'] ?? null,'congregations')),
+            'accounts' => $this->reportAccountsIn(positiveIntListParam($_GET['accounts'] ?? null,'accounts'),$root),
+            'start' => strictDateParam($_GET['start'] ?? null,'start date'),
+            'end' => strictDateParam($_GET['end'] ?? null,'end date'),
+        ];
+        if ($data['start'] > $data['end']) { badRequest('The start date cannot be after the end date.'); }
+        return $data;
+    }
+    private function parishPeriod($data)
+    {
+        return 'Period ' . date('d-m-Y',strtotime($data['start'])) . ' to ' . date('d-m-Y',strtotime($data['end']));
+    }
+    /** Parish contributions: JSON (one page, search) or Excel (every matching row). Approved, not deleted receipts only. */
     public function contributionsrpt()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [
-                'congregations' => positiveIntListParam($_GET['congregations'] ?? null,'congregations'),
-                'accounts' => $this->reportAccountsIn(positiveIntListParam($_GET['accounts'] ?? null,'accounts'),1),
-                'start' => strictDateParam($_GET['start'] ?? null,'start date'),
-                'end' => strictDateParam($_GET['end'] ?? null,'end date'),
-            ];
-            // print_r($data);
-            $contributions = $this->parishReportModel->GetContributions($data);
-            $output = '';
-            $output .= '
-                <table id="table" class="table table-striped table-bordered table-sm">
-                    <thead class="bg-lightblue">
-                        <tr>
-                            <th>Date</th>
-                            <th>Congregation</th>
-                            <th>Contribution Account</th>
-                            <th>Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>';
-                foreach ($contributions as $contribution) {
-                    $output .='
-                        <tr>
-                            <td>'.date('d-m-Y',strtotime($contribution->contributionDate)).'</td>
-                            <td>'.$contribution->congregation.'</td>
-                            <td>'.$contribution->account.'</td>
-                            <td>'.number_format($contribution->sumofamount,2).'</td>
-                        </tr>';
-                }
-                $output .= '
-                    </tbody>
-                    <tfoot>
-                            <tr>
-                                <th colspan="3" style="text-align:right">Total:</th>
-                                <th id="total"></th>
-                            </tr>
-                    </tfoot>
-                </table>';
-            echo $output;
-
-        }else{
-            redirect('users');
-        }
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') { IncomeStatementReport::fail('Method not allowed',405); }
+        $data = $this->parishRequest(1);
+        $rows = $this->parishReportModel->GetContributions($data);
+        $spec = ['title' => 'Contributions','lines' => [$this->parishPeriod($data)],
+                 'columns' => [['key' => 'date','label' => 'Date','type' => 'date'],['key' => 'congregation','label' => 'Congregation','type' => 'text'],
+                               ['key' => 'account','label' => 'Contribution Account','type' => 'text'],['key' => 'amount','label' => 'Amount','type' => 'money']],
+                 'total' => 'amount','file' => 'parish-contributions-' . $data['start'] . '-to-' . $data['end'],'sheet' => 'Contributions','widths' => [12,34,32,16]];
+        ReportList::respond($spec,$rows,$_GET);
     }
+
     public function bycontributor()
     {
         checkrights($this->authmodel,'receipts by contributor');
@@ -92,54 +80,19 @@ class Parishreports extends Controller
         ];
         $this->view('parishreports/bycontributor',$data);
     }
+    /** Parish receipts by contributor: one total per contributor (decision 137). JSON page or Excel. */
     public function bycontributorrpt()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [
-                'congregations' => positiveIntListParam($_GET['congregations'] ?? null,'congregations'),
-                'accounts' => $this->reportAccountsIn(positiveIntListParam($_GET['accounts'] ?? null,'accounts'),1),
-                'start' => strictDateParam($_GET['start'] ?? null,'start date'),
-                'end' => strictDateParam($_GET['end'] ?? null,'end date'),
-            ];
-            // print_r($data);
-            $contributions = $this->parishReportModel->GetContributionsByContributor($data);
-            $output = '';
-            $output .= '
-                <table id="table" class="table table-striped table-bordered table-sm">
-                    <thead class="bg-lightblue">
-                        <tr>
-                            <th>Date</th>
-                            <th>Congregation</th>
-                            <th>Contribution Account</th>
-                            <th>Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>';
-                foreach ($contributions as $contribution) {
-                    $output .='
-                        <tr>
-                            <td>'.date('d-m-Y',strtotime($contribution->contributionDate)).'</td>
-                            <td>'.$contribution->congregation.'</td>
-                            <td>'.$contribution->account.'</td>
-                            <td>'.number_format($contribution->sumofamount,2).'</td>
-                        </tr>';
-                }
-                $output .= '
-                    </tbody>
-                    <tfoot>
-                            <tr>
-                                <th colspan="3" style="text-align:right">Total:</th>
-                                <th id="total"></th>
-                            </tr>
-                    </tfoot>
-                </table>';
-            echo $output;
-
-        }else{
-            redirect('users');
-        }
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') { IncomeStatementReport::fail('Method not allowed',405); }
+        $data = $this->parishRequest(1);
+        $rows = $this->parishReportModel->GetContributionsByContributor($data);
+        $spec = ['title' => 'Receipts by contributor','lines' => [$this->parishPeriod($data)],
+                 'columns' => [['key' => 'congregation','label' => 'Congregation','type' => 'text'],['key' => 'contributor','label' => 'Contributor','type' => 'text'],
+                               ['key' => 'amount','label' => 'Amount','type' => 'money']],
+                 'total' => 'amount','file' => 'parish-by-contributor-' . $data['start'] . '-to-' . $data['end'],'sheet' => 'By contributor','widths' => [34,40,16]];
+        ReportList::respond($spec,$rows,$_GET);
     }
+
     public function expenses()
     {
         checkrights($this->authmodel,'expenses reports');
@@ -151,51 +104,19 @@ class Parishreports extends Controller
         ];
         $this->view('parishreports/expenses',$data);
     }
+    /** Parish expenses totalled per congregation and account: JSON page or Excel. Approved, not deleted only. */
     public function expensesrpt()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [
-                'congregations' => positiveIntListParam($_GET['congregations'] ?? null,'congregations'),
-                'accounts' => $this->reportAccountsIn(positiveIntListParam($_GET['accounts'] ?? null,'accounts'),2),
-                'start' => strictDateParam($_GET['start'] ?? null,'start date'),
-                'end' => strictDateParam($_GET['end'] ?? null,'end date'),
-            ];
-            // print_r($data);
-            $expenses = $this->parishReportModel->GetExpenses($data);
-            $output = '';
-            $output .= '
-                <table id="table" class="table table-striped table-bordered table-sm">
-                    <thead class="bg-lightblue">
-                        <tr>
-                            <th>Congregation</th>
-                            <th>Expense Account</th>
-                            <th>Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>';
-                foreach ($expenses as $expense) {
-                    $output .='
-                        <tr>
-                            <td>'.$expense->congregation.'</td>
-                            <td>'.$expense->account.'</td>
-                            <td>'.number_format($expense->sumofamount,2).'</td>
-                        </tr>';
-                }
-                $output .= '
-                    </tbody>
-                    <tfoot>
-                            <tr>
-                                <th colspan="2" style="text-align:right">Total:</th>
-                                <th id="total"></th>
-                            </tr>
-                    </tfoot>
-                </table>';
-            echo $output;
-        }else {
-            redirect('users');
-        }
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') { IncomeStatementReport::fail('Method not allowed',405); }
+        $data = $this->parishRequest(2);
+        $rows = $this->parishReportModel->GetExpenses($data);
+        $spec = ['title' => 'Expenses','lines' => [$this->parishPeriod($data)],
+                 'columns' => [['key' => 'congregation','label' => 'Congregation','type' => 'text'],['key' => 'account','label' => 'Expense Account','type' => 'text'],
+                               ['key' => 'amount','label' => 'Amount','type' => 'money']],
+                 'total' => 'amount','file' => 'parish-expenses-' . $data['start'] . '-to-' . $data['end'],'sheet' => 'Expenses','widths' => [34,40,16]];
+        ReportList::respond($spec,$rows,$_GET);
     }
+
     public function budgetvsexpense()
     {
         checkrights($this->authmodel,'budget vs expense reports');

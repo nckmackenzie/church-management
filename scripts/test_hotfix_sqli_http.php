@@ -1,6 +1,8 @@
 <?php
 // SQL-injection hotfix HTTP regression suite. Apache must be running and
 // scripts/dev_session_helper.php must exist. This file itself is CLI-only.
+// Task 9.7: the five report endpoints now answer JSON (the HTML bodies the 16 valid requests were once hashed against are gone),
+// so a valid request must answer 200 + {success, columns, rows}; the 204 rejected-input cases are unchanged.
 if(PHP_SAPI!=='cli'){http_response_code(403);exit("CLI only.\n");}
 chdir('E:/xampp/htdocs/cms/app');
 require 'boostrap.php';
@@ -35,7 +37,7 @@ $cases=[
 $tables=['tblcontributions_header','tblcontributions_details','tblaccounttypes','tblmember','tblgroups','tbldistricts','tblservices','tblpaymentmethods','tblexpenses','tblcongregation'];
 $before=tableSnapshotSqli($tables);$apacheErrorLog='E:/xampp/apache/logs/error.log';$errorOffset=is_file($apacheErrorLog)?filesize($apacheErrorLog):0;
 try{
- foreach($cases as $name=>[$path,$params,$sid,$hash]){[$code,$body]=httpSqli($path,$params,$sid);chkSqli("valid baseline $name",$code===200&&hash('sha256',$body)===$hash&&!preg_match('/SQLSTATE|Warning:|Fatal error:/i',$body),"status $code hash ".hash('sha256',$body));}
+ foreach($cases as $name=>[$path,$params,$sid,$hash]){[$code,$body]=httpSqli($path,$params,$sid);$j=json_decode($body,true);chkSqli("valid request $name",$code===200&&is_array($j)&&($j['success']??false)===true&&!empty($j['columns'])&&is_array($j['rows']??null)&&!preg_match('/SQLSTATE|Warning:|Fatal error:/i',$body),"status $code body ".substr($body,0,200));}
  $payloads=['1) OR 1=1 -- ','1 OR 1=1',"'",'1;SELECT SLEEP(3)','0x31','1e1','-1',''];
  $inputs=[
   ['/reports/contributionsrpt',['type'=>'2','start'=>'2024-01-01','end'=>'2026-10-24','account'=>['30']],$congregationSession,['type','start','end'],['account']],
