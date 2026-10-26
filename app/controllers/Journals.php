@@ -12,6 +12,19 @@ class Journals extends Controller{
         checkrights($this->authmodel,'journal entry');
         $this->journalModel = $this->model('Journal');
     }
+    /** A request value as a positive int (optionally one of $allowed), or null when missing/invalid. Output is escaped where it is printed. */
+    private function requestInt($input,$name,array $allowed = [])
+    {
+        $raw = filter_input($input,$name,FILTER_UNSAFE_RAW,FILTER_REQUIRE_SCALAR);
+        if(!is_string($raw) || !preg_match('/^[0-9]{1,10}$/',trim($raw))){
+            return null;
+        }
+        $value = (int)trim($raw);
+        if($value < 1 || ($allowed && !in_array($value,$allowed,true))){
+            return null;
+        }
+        return $value;
+    }
     public function index()
     {
         $data= ['accounts' => $this->journalModel->getAccounts(),'date' => date('Y-m-d')];
@@ -96,16 +109,12 @@ class Journals extends Controller{
     {
         if($_SERVER['REQUEST_METHOD'] === 'GET')
         {
-            $journalno = isset($_GET['journalno']) && !empty(trim($_GET['journalno'])) ? trim(htmlentities($_GET['journalno'])) : null;
+            // journal numbers are positive integers (journal_number_seq); anything else counts as not given
+            $journalno = $this->requestInt(INPUT_GET,'journalno');
             //validation
             if(is_null($journalno)){
                 http_response_code(400);
                 echo json_encode(['message' => 'No journal no provided',"success" => false]);
-                exit;
-            }
-            if(!is_numeric($journalno)){
-                http_response_code(400);
-                echo json_encode(['message' => 'Journal Number has to be numeric',"success" => false]);
                 exit;
             }
             $journal = $this->journalModel->getjournal($journalno);
@@ -145,7 +154,7 @@ class Journals extends Controller{
     {
         if($_SERVER['REQUEST_METHOD'] === 'POST')
         {
-            $id = isset($_POST['id']) && !empty(trim($_POST['id'])) ? (int)trim(htmlentities($_POST['id'])) : null;
+            $id = $this->requestInt(INPUT_POST,'id');
             if(is_null($id)){
                 flash('journal_msg','Unable to get selected journal',alerterrorclass());
                 redirect('journals');
@@ -215,8 +224,9 @@ class Journals extends Controller{
         }
 
         $data = [
-            'id' => isset($_GET['id']) && !empty(trim($_GET['id'])) ? (int)trim(htmlentities($_GET['id'])) : null,
-            'type' => isset($_GET['type']) && !empty(trim($_GET['type'])) ? trim(htmlentities($_GET['type'])) : null
+            'id' => $this->requestInt(INPUT_GET,'id'),
+            // 2 = expense, the only transaction type with journal details
+            'type' => $this->requestInt(INPUT_GET,'type',[2])
         ];
 
         if(is_null($data['id']) || is_null($data['type'])){
