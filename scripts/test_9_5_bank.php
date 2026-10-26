@@ -62,7 +62,9 @@ try {
     $post($B1, '2025-09-22', '111.00', '0.00', 0, null, 1);               // deleted
     $post($B1, '2025-09-23', '444.00', '0.00', 0, null, 0, $T2);          // another congregation
     $post($B2, '2025-09-24', '555.00', '0.00', 0, null);                  // another bank
+    $post($B1, '2025-09-25', '25.00', '0.00', 1, null);                   // cleared flag without date = uncleared
     $post($B1, '2025-08-31', '55.00', '0.00', 0, null);                   // before the range
+    $post($B1, '2025-10-01', '65.00', '0.00', 0, null);                   // after the range
 
     $m = new Bankreconcilliation;
     $d = ['bank' => $B1, 'from' => '2025-09-01', 'to' => '2025-09-30'];
@@ -79,10 +81,10 @@ try {
     echo "== cleared / uncleared from the cashbook\n";
     ok('cleared deposits 1,000.00 (cleared on or before the end date)', $r['clearedDeposits'] === 100000, (string) $r['clearedDeposits']);
     ok('cleared withdrawals 80.00', $r['clearedWithdrawals'] === 8000);
-    ok('uncleared deposits 300.00 (the deposit cleared after the end date counts as uncleared; deleted, other bank, other congregation, out of range excluded)', $r['unclearedDeposits'] === 30000, (string) $r['unclearedDeposits']);
+    ok('uncleared deposits 325.00 (late clear and NULL clear date included; deleted, other bank, other congregation, before/after range excluded)', $r['unclearedDeposits'] === 32500, (string) $r['unclearedDeposits']);
     ok('uncleared withdrawals 200.00', $r['unclearedWithdrawals'] === 20000);
     $up = $m->UnclearedReport(['type' => 'deposit', 'bankid' => $B1, 'sdate' => '2025-09-01', 'edate' => '2025-09-30']);
-    ok('uncleared deposit list = the 300.00 row only (no zero-amount row, amount as a decimal string)', count($up) === 1 && $up[0]->amount === '300.00', json_encode($up));
+    ok('uncleared deposit list = 300.00 late-clear + 25.00 NULL-clear-date rows only (no boundary or zero row)', count($up) === 2 && array_column($up, 'amount') === ['300.00', '25.00'], json_encode($up));
     $uw = $m->UnclearedReport(['type' => 'withdraw', 'bankid' => $B1, 'sdate' => '2025-09-01', 'edate' => '2025-09-30']);
     ok('uncleared withdrawal list = the 200.00 row only (the zero-amount row is not a withdrawal)', count($uw) === 1 && $uw[0]->amount === '200.00');
     $cd = $m->ClearedReport(['type' => 'deposit', 'bankid' => $B1, 'sdate' => '2025-09-01', 'edate' => '2025-09-30']);
@@ -90,8 +92,9 @@ try {
     ok('cleared lists: the 1,000.00 deposit and the 80.00 withdrawal', count($cd) === 1 && $cd[0]->amount === '1000.00' && count($cw) === 1 && $cw[0]->amount === '80.00');
     $sumList = function ($rows) { $t = 0; foreach ($rows as $x) { $t += FinancialReport::cents($x->amount); } return $t; };
     ok('every list adds up to its total on the screen', $sumList($up) === $r['unclearedDeposits'] && $sumList($uw) === $r['unclearedWithdrawals'] && $sumList($cd) === $r['clearedDeposits'] && $sumList($cw) === $r['clearedWithdrawals']);
+    ok('the selected range excludes the day before and day after from both totals and detail', $r['unclearedDeposits'] === 32500 && !in_array('55.00', array_column($up, 'amount'), true) && !in_array('65.00', array_column($up, 'amount'), true));
     $wide = $m->getAmountsrecon(['bank' => $B1, 'from' => '2025-01-01', 'to' => '2025-12-31']);
-    ok('a wider range picks up the August row (55.00) and clears the 300.00 deposit (cleared 15-10-2025)', $wide['unclearedDeposits'] === 5500 && $wide['clearedDeposits'] === 130000, json_encode($wide));
+    ok('a wider range picks up both boundary rows and the NULL-clear row (145.00) and clears the late 300.00 deposit', $wide['unclearedDeposits'] === 14500 && $wide['clearedDeposits'] === 130000, json_encode($wide));
     $stray = $m->getAmountsrecon(['bank' => $B2, 'from' => '2025-09-01', 'to' => '2025-09-30']);
     ok('bank two: its own cashbook row only (555.00 uncleared) and its own journal balance', $stray['unclearedDeposits'] === 55500 && $stray['book'] === 77700);
     $cnt = $pdo->query("SELECT COUNT(*) FROM tblbankpostings WHERE bankId = $B1 AND debit = 0 AND credit = 0")->fetchColumn();
@@ -101,7 +104,11 @@ try {
     $cf = $m->getAmounts(['bank' => $B1, 'from' => '2025-10-01', 'to' => '2025-10-31']);
     ok('opening balance on 01-10-2025 = the journal balance at 30-09-2025 (800.00)', $cf['opening'] === 80000);
     $cf0 = $m->getAmounts(['bank' => $B1, 'from' => '2025-09-01', 'to' => '2025-09-30']);
-    ok('opening balance on 01-09-2025 = 0 (the journal has nothing before); movements are the cashbook totals', $cf0['opening'] === 0 && $cf0['clearedDeposits'] === 100000);
+    ok('opening balance on 01-09-2025 = 0, closing book balance = 800.00; movements are the range cashbook totals', $cf0['opening'] === 0 && $cf0['closing'] === 80000 && $cf0['clearedDeposits'] === 100000);
+    $reconExpected = $r['book'] - $r['unclearedDeposits'] + $r['unclearedWithdrawals'];
+    $cashflowExpected = $cf0['closing'] - $cf0['unclearedDeposits'] + $cf0['unclearedWithdrawals'];
+    $oldCashflowExpected = $cf0['opening'] + $cf0['clearedDeposits'] - $cf0['clearedWithdrawals'] - $cf0['unclearedDeposits'] + $cf0['unclearedWithdrawals'];
+    ok('cashflow expected statement balance equals reconciliation (675.00) and no longer uses the mixed opening/movements formula', $cashflowExpected === 67500 && $cashflowExpected === $reconExpected && $cashflowExpected !== $oldCashflowExpected);
     ok('a bank with no journal lines before the start opens at 0 (no undefined index)', $m->getAmounts(['bank' => $B2, 'from' => '2025-09-01', 'to' => '2025-09-30'])['opening'] === 0 && $m->getAmounts(['bank' => $B2, 'from' => '2025-09-06', 'to' => '2025-09-30'])['opening'] === 77700);
 
     echo "== exact cents (Ledger)\n";

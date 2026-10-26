@@ -56,13 +56,14 @@ class Bankreconcilliation
     }
 
     /**
-     * Cashflow statement figures (cents). `opening` = the book balance (journal) the day before `from`; the movements are the cashbook
-     * totals of tblbankpostings, as before.
+     * Cashflow statement figures (cents). `opening` = the book balance entering `from` (journal through the previous day), `closing`
+     * = the journal balance at `to`; the movements are the cashbook totals of tblbankpostings for the selected range.
      */
     public function getAmounts($data)
     {
         return $this->postingTotals($data['bank'], $data['from'], $data['to'])
-             + ['opening' => $this->bookBalance($data['bank'], subtractDay($data['from']))];
+             + ['opening' => $this->bookBalance($data['bank'], subtractDay($data['from'])),
+                'closing' => $this->bookBalance($data['bank'], $data['to'])];
     }
 
     /** Reconciliation figures (cents): the cashbook totals plus `book` = the bank's journal balance at `to`. */

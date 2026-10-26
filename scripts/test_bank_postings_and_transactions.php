@@ -164,4 +164,6 @@ foreach ($tables as $t => $k) { $pdo->prepare("DELETE FROM $t WHERE $k > ?")->ex
 $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
 $left = 0;
 foreach ($tables as $t => $k) { $left += (int)$pdo->query("SELECT COUNT(*) FROM $t WHERE $k > {$max[$t]}")->fetchColumn(); }
-echo "\nPASSED $pass FAILED $fail ; leftover rows after cleanup: $left\n";
+echo "\nleftover rows after cleanup: $left\n";
+echo "$pass passed, $fail failed\n";
+exit($fail ? 1 : 0);

@@ -175,4 +175,6 @@ $ins = $pdo->prepare('INSERT INTO receipt_number_seq (congregationId,kind,fiscal
 foreach ($seqSnapshot as $s) { $ins->execute([$s['congregationId'], $s['kind'], $s['fiscalYearId'], $s['lastNo']]); }
 $left = 0;
 foreach ($tables as $t => $k) { $left += (int)$pdo->query("SELECT COUNT(*) FROM $t WHERE $k > {$max[$t]}")->fetchColumn(); }
-echo "\nPASSED $pass FAILED $fail ; leftover rows after cleanup: $left ; fiscal years restored: " . (yearsAreRestored() ? 'yes' : 'NO') . "\n";
+echo "\nleftover rows after cleanup: $left ; fiscal years restored: " . (yearsAreRestored() ? 'yes' : 'NO') . "\n";
+echo "$pass passed, $fail failed\n";
+exit($fail ? 1 : 0);

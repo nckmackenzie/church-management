@@ -19,6 +19,12 @@ class Clearbanking
             ORDER BY a.accountType",[(int)$_SESSION['congId']]);
     }
 
+    /** Report-safe bank of the session congregation (decision 114 / task 9.1). */
+    public function isReportBank($id)
+    {
+        return FinancialReport::bankAllowed($this->db->pdo(), [(int) $_SESSION['congId']], (int) $id);
+    }
+
     public function getBankings($data)
     {
         $sql = 'SELECT b.ID,

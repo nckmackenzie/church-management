@@ -457,4 +457,6 @@ foreach ($seqSnapshot as $s) { $ins->execute([$s['congregationId'], $s['kind'], 
 $left = 0;
 foreach ($tables as $t => $k) { $left += (int)$pdo->query("SELECT COUNT(*) FROM $t WHERE $k > {$max[$t]}")->fetchColumn(); }
 $seqNow = $pdo->query('SELECT * FROM receipt_number_seq')->fetchAll(PDO::FETCH_ASSOC);
-echo "\nPASSED $pass FAILED $fail ; leftover rows after cleanup: $left ; sequences restored: " . ($seqNow == $seqSnapshot ? 'yes' : 'NO') . ' ; fiscal years restored: ' . (yearsAreRestored() ? 'yes' : 'NO') . "\n";
+echo "\nleftover rows after cleanup: $left ; sequences restored: " . ($seqNow == $seqSnapshot ? 'yes' : 'NO') . ' ; fiscal years restored: ' . (yearsAreRestored() ? 'yes' : 'NO') . "\n";
+echo "$pass passed, $fail failed\n";
+exit($fail ? 1 : 0);

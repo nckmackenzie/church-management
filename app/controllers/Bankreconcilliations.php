@@ -104,19 +104,20 @@ class Bankreconcilliations extends Controller
            [$data['from'],$data['to']] = $this->reportDates($_GET['from'] ?? null,$_GET['to'] ?? null);
            $statement = $this->statementCents($_GET['balance'] ?? null);
 
-           // one read per request: the bank's journal balance before `from` and the cashbook totals of the period
+           // cashbook movements are shown for context; expected statement balance starts from the journal closing balance
            $a = $this->bankreconModel->getAmounts($data);
-           $expected = $a['opening'] + $a['clearedDeposits'] - $a['clearedWithdrawals'] - $a['unclearedDeposits'] + $a['unclearedWithdrawals'];
+           $expected = $a['closing'] - $a['unclearedDeposits'] + $a['unclearedWithdrawals'];
            $variance = $statement - $expected;
 
            $output = '<table id="table" class="table table-striped table-bordered table-sm">'
                    . '<thead><th>Cashflow Statement ' . date('d-m-Y',strtotime($data['from'])) . ' - ' . date('d-m-Y',strtotime($data['to'])) . '</th><th></th></thead><tbody>'
-                   . $this->row('Opening Balance (book balance per the ledger journal)','<td>' . self::m($a['opening']) . '</td>')
+                   . $this->row('Opening Balance at ' . date('d-m-Y',strtotime($data['from'])) . ' (per the ledger journal)','<td>' . self::m($a['opening']) . '</td>')
                    . $this->row('Cleared Deposits (per cashbook)',$this->amountCell($a['clearedDeposits'],'cleared','deposit',$data))
                    . $this->row('Cleared Withdrawals (per cashbook)',$this->amountCell($a['clearedWithdrawals'],'cleared','withdraw',$data))
                    . $this->row('Uncleared Deposits (per cashbook)',$this->amountCell($a['unclearedDeposits'],'uncleared','deposit',$data))
                    . $this->row('Uncleared Withdrawals (per cashbook)',$this->amountCell($a['unclearedWithdrawals'],'uncleared','withdraw',$data))
-                   . $this->row('Expected Balance (opening book balance and the cashbook movements above)','<td>' . self::m($expected) . '</td>')
+                   . $this->row('Closing book balance at ' . date('d-m-Y',strtotime($data['to'])) . ' (per the ledger journal)','<td>' . self::m($a['closing']) . '</td>')
+                   . $this->row('Expected statement balance','<td>' . self::m($expected) . '</td>')
                    . $this->row('Actual/Bank Balance','<td>' . self::m($statement) . '</td>')
                    . $this->row('Variance','<td>' . self::m($variance) . '</td>')
                    . '</tbody></table>';

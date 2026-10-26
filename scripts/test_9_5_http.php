@@ -85,7 +85,10 @@ try {
     $post('2025-09-01', '1000.00', '0.00', 1, '2025-09-05', 'zz t95h dep cleared');
     $post('2025-09-10', '0.00', '200.00', 0, null, 'zz t95h <script>alert(1)</script> wd');
     $post('2025-09-20', '300.00', '0.00', 1, '2025-10-15', 'zz t95h dep late');
+    $post('2025-09-25', '25.00', '0.00', 1, null, 'zz t95h dep null clear date');
     $post('2025-09-21', '0.00', '0.00', 0, null, 'zz t95h zero');
+    $post('2025-08-31', '55.00', '0.00', 0, null, 'zz t95h before range');
+    $post('2025-10-01', '65.00', '0.00', 0, null, 'zz t95h after range');
 
     echo "== bank reconciliation\n";
     $rq = "bankreconcilliations/bankrecon?bank=$B1&from=2025-09-01&to=2025-09-30&balance=800.00";
@@ -93,8 +96,8 @@ try {
     $book = FinancialReport::money(FinancialReport::accountNet($pdo, [$T], $B1, '2025-09-30'));
     ok('reconciliation renders (200) with the bank selected', $code === 200 && strpos($body, 'Bank Reconcilliation 01-09-2025 - 30-09-2025') !== false, "status $code");
     ok('book balance = the bank\'s journal balance (800.00), labelled as the ledger journal', rowCells($body, 'Book balance at 30-09-2025 (per the ledger journal)') === [$book] && $book === '800.00', json_encode(rowCells($body, 'Book balance at 30-09-2025 (per the ledger journal)')));
-    ok('uncleared deposits 300.00 and withdrawals 200.00 from the cashbook, labelled', rowCells($body, 'Less:uncleared deposits (per cashbook)') === ['300.00'] && rowCells($body, 'Add:uncleared withdrawals (per cashbook)') === ['200.00']);
-    ok('expected 700.00 = 800 - 300 + 200; statement 800.00; variance 100.00', rowCells($body, 'Expected Balance') === ['700.00'] && rowCells($body, 'Actual/Bank Balance') === ['800.00'] && rowCells($body, 'Variance') === ['100.00']);
+    ok('uncleared deposits 325.00 (including NULL clear date) and withdrawals 200.00 from the range cashbook, labelled', rowCells($body, 'Less:uncleared deposits (per cashbook)') === ['325.00'] && rowCells($body, 'Add:uncleared withdrawals (per cashbook)') === ['200.00']);
+    ok('expected 675.00 = 800 - 325 + 200; statement 800.00; variance 125.00', rowCells($body, 'Expected Balance') === ['675.00'] && rowCells($body, 'Actual/Bank Balance') === ['800.00'] && rowCells($body, 'Variance') === ['125.00']);
     ok('the totals link to the uncleared list for the same bank and dates', preg_match('~uncleared\?type=deposit&bank=' . $B1 . '&sdate=2025-09-01&edate=2025-09-30~', $body) === 1 && preg_match('~uncleared\?type=withdraw&bank=~', $body) === 1);
     [$code, $body2] = http("bankreconcilliations/bankrecon?bank=$B1&from=2025-09-01&to=2025-10-31&balance=-12.5", $s1);
     ok('a later date moves the journal balance (850.00) and a negative statement balance is accepted', $code === 200 && rowCells($body2, 'Book balance at 31-10-2025 (per the ledger journal)') === ['850.00'] && rowCells($body2, 'Actual/Bank Balance') === ['-12.50']);
@@ -123,7 +126,7 @@ try {
 
     echo "== uncleared and cleared detail\n";
     [$c, $b] = http("bankreconcilliations/unclearedreport?type=deposit&bank=$B1&sdate=2025-09-01&edate=2025-09-30", $s1); $j = J($b);
-    ok('uncleared deposits: the 300.00 row only (cleared after the end date); the zero-amount row is not listed', $c === 200 && $j['success'] && count($j['results']) === 1 && $j['results'][0]['amount'] === '300.00' && $j['results'][0]['transactionDate'] === '20-09-2025', $b);
+    ok('uncleared deposits: late-clear and NULL-clear-date rows only; day before/after and zero row are not listed', $c === 200 && $j['success'] && count($j['results']) === 2 && array_column($j['results'], 'amount') === ['300.00', '25.00'] && array_column($j['results'], 'transactionDate') === ['20-09-2025', '25-09-2025'], $b);
     [$c, $b] = http("bankreconcilliations/unclearedreport?type=withdraw&bank=$B1&sdate=2025-09-01&edate=2025-09-30", $s1); $j = J($b);
     ok('uncleared withdrawals: the 200.00 row; the reference comes back as data (upper-cased), never as markup in the page', $c === 200 && count($j['results']) === 1 && $j['results'][0]['amount'] === '200.00' && strpos($j['results'][0]['reference'], '<SCRIPT>') !== false);
     [$c, $b] = http("bankreconcilliations/clearedreport?type=deposit&bank=$B1&sdate=2025-09-01&edate=2025-09-30", $s1); $j = J($b);
@@ -138,12 +141,25 @@ try {
 
     echo "== cashflow\n";
     [$code, $body] = http("bankreconcilliations/cashflow_report?bank=$B1&from=2025-10-01&to=2025-10-31&balance=850.00", $s1);
-    ok('cashflow renders; opening balance = the journal balance before the start date (800.00), labelled', $code === 200 && rowCells($body, 'Opening Balance (book balance per the ledger journal)') === ['800.00'], json_encode(rowCells($body, 'Opening Balance (book balance per the ledger journal)')));
+    ok('cashflow renders; opening balance entering 01-10-2025 = 800.00 and closing book balance = 850.00, both journal-labelled', $code === 200 && rowCells($body, 'Opening Balance at 01-10-2025 (per the ledger journal)') === ['800.00'] && rowCells($body, 'Closing book balance at 31-10-2025 (per the ledger journal)') === ['850.00']);
     ok('movements are cashbook figures and labelled so: nothing was banked in October', rowCells($body, 'Cleared Deposits (per cashbook)') === ['0.00'] && rowCells($body, 'Uncleared Withdrawals (per cashbook)') === ['0.00']);
     [$code, $bodyW] = http("bankreconcilliations/cashflow_report?bank=$B1&from=2025-09-01&to=2025-10-31&balance=0", $s1);
     ok('over September and October the 300.00 deposit is cleared (cleared 15-10-2025): cleared deposits 1,300.00, uncleared withdrawals 200.00', rowCells($bodyW, 'Cleared Deposits (per cashbook)') === ['1,300.00'] && rowCells($bodyW, 'Uncleared Withdrawals (per cashbook)') === ['200.00']);
     [$code, $body] = http("bankreconcilliations/cashflow_report?bank=$B1&from=2025-09-01&to=2025-09-30&balance=0", $s1);
-    ok('cashflow from the first posting: opening 0.00, cleared deposits 1,000.00', $code === 200 && rowCells($body, 'Opening Balance (book balance per the ledger journal)') === ['0.00'] && rowCells($body, 'Cleared Deposits (per cashbook)') === ['1,000.00']);
+    ok('cashflow from first posting: opening 0.00, closing book 800.00, cashbook deposits shown', $code === 200 && rowCells($body, 'Opening Balance at 01-09-2025 (per the ledger journal)') === ['0.00'] && rowCells($body, 'Closing book balance at 30-09-2025 (per the ledger journal)') === ['800.00'] && rowCells($body, 'Cleared Deposits (per cashbook)') === ['1,000.00']);
+    ok('cashflow expected statement balance equals reconciliation 675.00, not old mixed-source 875.00', rowCells($body, 'Expected statement balance') === ['675.00'] && rowCells($body, 'Expected statement balance') !== ['875.00']);
+
+    echo "== Clear Banking summary inputs\n";
+    [$c, $b] = http("clearbankings/getbankings?bank=$B1&from=2025-09-01&to=2025-09-30", $s1); $cb = J($b);
+    ok('Clear Banking valid range returns cleared cashbook summary with no warning', $c === 200 && $cb['values'] === ['debits' => '1325.00', 'credits' => '0.00'] && is_array($cb['bankings']), $b);
+    [$c, $b] = http("clearbankings/getValues?bank=$B1&from=2025-09-01&to=2025-09-30", $s1); $cv = J($b);
+    ok('Clear Banking getValues uses its two real fields in one summary (no nonexistent index)', $c === 200 && $cv['debits'] === '1325.00' && $cv['credits'] === '0.00' && !array_key_exists('balance', $cv), $b);
+    $bad = [];
+    foreach (["bank=$B1&from=2025-02-30&to=2025-09-30", "bank=$B1&from=2025-10-01&to=2025-09-30", "bank=$BF&from=2025-09-01&to=2025-09-30", "from=2025-09-01&to=2025-09-30", "bank%5B%5D=$B1&from=2025-09-01&to=2025-09-30"] as $qs) {
+        foreach (['getbankings', 'getValues'] as $ep) { [$bc] = http("clearbankings/$ep?$qs", $s1); if ($bc !== 400) { $bad[] = "$ep $qs=$bc"; } }
+    }
+    [$bc] = http("clearbankings/getbankings?bank=$B1&from=2025-09-01&to=2025-09-30&status=bad", $s1); if ($bc !== 400) { $bad[] = "bad status=$bc"; }
+    ok('Clear Banking summaries refuse malformed/reversed dates, missing/array/foreign banks and bad status with 400', !$bad, implode(', ', $bad));
 
     echo "== screens and the banking report\n";
     foreach (['bankreconcilliations', 'bankreconcilliations/cashflow_statement'] as $p) { [$c, $b] = http($p, $s1); ok("renders $p with the bank in the list", $c === 200 && stripos($b, 'zz t95h bank one') !== false); }
