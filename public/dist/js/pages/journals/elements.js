@@ -15,6 +15,7 @@ export const amountInput = document.querySelector('#amount');
 export const descInput = document.querySelector('#description');
 export const debitsInput = document.querySelector('#debits');
 export const creditsInput = document.querySelector('#credits');
+export const differenceInput = document.querySelector('#difference');
 export const dateInput = document.querySelector('#date');
 export const currJouralInput = document.querySelector('#currentJournalNo');
 export const firstJouralInput = document.querySelector('#firstJournalNo');

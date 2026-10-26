@@ -1,171 +1,24 @@
-//prettier-ignore
-import { getSelectedText, getColumnTotal,alertBox,displayAlert, numberFormatter,clearValues } from '../utils/utils.js';
+import { getSelectedText, numberFormatter, clearValues } from '../utils/utils.js';
 import { getJournalEntry } from './ajax.js';
-//prettier-ignore
-import { table,tbody,accountSlct,typeSlct,amountInput,descInput,
-         debitsInput,creditsInput,dateInput, isEditInput, journalNoInput,
-         entries,spinnerContainer, searchInput,userTypeInput, deleteBtn,resetBtn,
-         currJouralInput } from './elements.js';
-export function addToTable() {
-  if (!validateAdd()) return;
-  const accountid = +accountSlct.value;
-  const accountName = getSelectedText(accountSlct);
-  const type = typeSlct.value;
-  const amount = amountInput.value;
-  const desc = descInput.value || '';
+import { tbody,accountSlct,typeSlct,amountInput,descInput,debitsInput,creditsInput,differenceInput,dateInput,isEditInput,journalNoInput,entries,spinnerContainer,searchInput,userTypeInput,deleteBtn,resetBtn,currJouralInput,saveBtn } from './elements.js';
 
-  let html = `
-     <tr>
-        <td class="d-none accountid">${accountid}</td>
-        <td class="accountname">${accountName}</td>
-        <td class="debit">${type === 'debit' ? amount : ''}</td>
-        <td class="credit">${type === 'credit' ? amount : ''}</td>
-        <td class="desc">${desc}</td>
-        <td><button style="outline:0; border: none; background-color:transparent;" type="button" class="text-danger btndel">Remove</button></td>
-     </tr>
-  `;
-  let newRow = tbody.insertRow(tbody.rows.length);
-  newRow.innerHTML = html;
-  typeSlct.value = amountInput.value = descInput.value = '';
-  $('.select2').val('').trigger('change');
-  debitsInput.value = getColumnTotal(table, 2);
-  creditsInput.value = getColumnTotal(table, 3);
+function cell(row,className,text=''){const td=document.createElement('td');td.className=className;td.textContent=String(text);row.appendChild(td);return td;}
+function removeButton(row){const td=document.createElement('td'),b=document.createElement('button');b.type='button';b.className='text-danger btndel';b.textContent='Remove';b.style.cssText='outline:0;border:none;background-color:transparent';td.appendChild(b);row.appendChild(td);}
+export function appendEntry(entry,importOptions=null){
+  const row=document.createElement('tr');if(entry.reason)row.classList.add('table-warning');
+  const id=cell(row,'d-none accountid',entry.accountid??entry.accountId??''),accountCell=cell(row,'accountname','');
+  if(importOptions){const select=document.createElement('select');select.className='form-control form-control-sm row-account';const empty=document.createElement('option');empty.value='';empty.textContent='Select Account';select.appendChild(empty);importOptions.forEach(a=>{const o=document.createElement('option');o.value=String(a.id);o.textContent=a.label;o.selected=+a.id===+(entry.accountId||0);select.appendChild(o);});select.addEventListener('change',()=>{id.textContent=select.value;const reason=row.querySelector('.import-reason');reason.textContent=select.value?(entry.otherReason||''):(entry.reason||'Choose an account');row.classList.toggle('table-warning',reason.textContent!=='');updateTotals();});accountCell.appendChild(select);}else{accountCell.textContent=entry.accountname??entry.account??'';}
+  cell(row,'debit',entry.debit??'');cell(row,'credit',entry.credit??'');cell(row,'desc',entry.desc??entry.narration??'');cell(row,'import-reason',entry.reason??'');removeButton(row);tbody.appendChild(row);
 }
-
-function validateAdd() {
-  let errorCount = 0;
-  const requiredFields = document.querySelectorAll('.table-required');
-  alertBox.innerHTML = '';
-  requiredFields.forEach(field => {
-    if (field.value === '') {
-      errorCount++;
-    }
-  });
-  if (errorCount > 0) {
-    displayAlert(alertBox, 'Provide all required fields');
-    return false;
-  }
-  return true;
-}
-
-export function validate() {
-  if (new Date(dateInput.value).getTime() > new Date().getTime()) {
-    dateInput.classList.add('is-invalid');
-    dateInput.nextSibling.nextSibling.textContent = 'Invalid date selected';
-    return false;
-  }
-  if (tbody.rows.length === 0) {
-    displayAlert(alertBox, 'No entries done');
-    return false;
-  }
-  const totalDebits = parseFloat(numberFormatter(debitsInput.value));
-  const totalCredits = parseFloat(numberFormatter(creditsInput.value));
-  if (totalDebits !== totalCredits) {
-    displayAlert(alertBox, "Debits and Credits total doesn't match");
-    return false;
-  }
-  return true;
-}
-
-export function formData() {
-  const tableData = [];
-  const trs = tbody.querySelectorAll('tr');
-  trs.forEach(tr => {
-    const accountid = tr.querySelector('.accountid').innerText;
-    const accountname = tr.querySelector('.accountname').innerText;
-    const debit = tr.querySelector('.debit').innerText;
-    const credit = tr.querySelector('.credit').innerText;
-    const desc = tr.querySelector('.desc').innerText;
-    tableData.push({ accountid, accountname, debit, credit, desc });
-  });
-
-  return {
-    date: dateInput.value || new Date(),
-    isEdit: isEditInput.value || false,
-    journalNo: journalNoInput.value,
-    entries: tableData,
-    editId:
-      isEditInput.value && +isEditInput.value === 1
-        ? +currJouralInput.value
-        : '',
-  };
-}
-
-export function removeSelected(e) {
-  if (!e.target.classList.contains('btndel')) return;
-  const btn = e.target;
-  btn.closest('tr').remove();
-  debitsInput.value = getColumnTotal(table, 2);
-  creditsInput.value = getColumnTotal(table, 3);
-}
-
-export function clear() {
-  clearValues();
-  dateInput.value = setTodaysDate(new Date());
-  tbody.innerHTML = '';
-}
-
-export function setTodaysDate(date) {
-  // const now = new Date();
-  const day = ('0' + date.getDate()).slice(-2);
-  const month = ('0' + (date.getMonth() + 1)).slice(-2);
-  const today = date.getFullYear() + '-' + month + '-' + day;
-  return today;
-}
-
-//search entered journal no
-export async function getJournal(journalNo) {
-  if (isNaN(journalNo)) {
-    displayAlert(alertBox, 'Journal No has to be a number');
-    return;
-  }
-
-  setLoadingSpinner();
-  const res = await getJournalEntry(journalNo);
-  removeLoadingSpinner();
-  if (res && res.success) {
-    bindData(res.journalDate, res.entries);
-    journalNoInput.value = searchInput.value;
-    currJouralInput.value = searchInput.value;
-    isEditInput.value = 1;
-    searchInput.value = '';
-    debitsInput.value = res.totals[0];
-    creditsInput.value = res.totals[1];
-    resetBtn.classList.remove('d-none');
-    if (userTypeInput.value && +userTypeInput.value < 3) {
-      deleteBtn.classList.remove('d-none');
-    }
-  }
-}
-
-function bindData(date, entries) {
-  dateInput.value = setTodaysDate(new Date(date));
-  let html = '';
-  entries.forEach(entry => {
-    html += `
-    <tr>
-      <td class="d-none accountid">${entry.accountid}</td>
-      <td class="accountname">${entry.accountname}</td>
-      <td class="debit">${
-        parseFloat(entry.debit) === 0 ? '' : parseFloat(entry.debit)
-      }</td>
-      <td class="credit">${
-        parseFloat(entry.credit) === 0 ? '' : parseFloat(entry.credit)
-      }</td>
-      <td class="desc">${entry.narration}</td>
-      <td><button style="outline:0; border: none; background-color:transparent;" type="button" class="text-danger btndel">Remove</button></td>
-    </tr>
-    `;
-  });
-  tbody.innerHTML = html;
-}
-
-function setLoadingSpinner() {
-  entries.classList.add('d-none');
-  spinnerContainer.innerHTML = `<div class="spinner md"></div>`;
-}
-
-function removeLoadingSpinner() {
-  spinnerContainer.innerHTML = ``;
-  entries.classList.remove('d-none');
-}
+export function addToTable(){if(!validateAdd())return;const type=typeSlct.value;appendEntry({accountid:+accountSlct.value,accountname:getSelectedText(accountSlct),debit:type==='debit'?amountInput.value:'',credit:type==='credit'?amountInput.value:'',desc:descInput.value||''});typeSlct.value=amountInput.value=descInput.value='';$('.select2').val('').trigger('change');updateTotals();}
+function validateAdd(){let n=0;document.querySelectorAll('.table-required').forEach(f=>{if(f.value==='')n++;});if(n){showAlert('Provide all required fields');return false;}return true;}
+export function showAlert(message,status='danger'){const box=document.getElementById('alertBox'),div=document.createElement('div');div.className=`alert custom-${status}`;div.setAttribute('role','alert');div.textContent=String(message);box.replaceChildren(div);setTimeout(()=>box.replaceChildren(),5000);}
+export function validate(){const feedback=dateInput.parentElement.querySelector('.invalid-feedback');if(!dateInput.value){dateInput.classList.add('is-invalid');feedback.textContent='Field is required';return false;}if(new Date(`${dateInput.value}T00:00:00`).getTime()>Date.now()){dateInput.classList.add('is-invalid');feedback.textContent='Invalid date selected';return false;}if(!tbody.rows.length){showAlert('No entries done');return false;}if(Array.from(tbody.querySelectorAll('.accountid')).some(x=>!x.textContent.trim())){showAlert('Choose an account for every line');return false;}const d=parseFloat(numberFormatter(debitsInput.value||'0')),c=parseFloat(numberFormatter(creditsInput.value||'0'));if(d!==c){showAlert('Debits and credits do not match');return false;}return true;}
+export function updateTotals(){let d=0,c=0;tbody.querySelectorAll('tr').forEach(r=>{d+=parseFloat(r.querySelector('.debit').textContent)||0;c+=parseFloat(r.querySelector('.credit').textContent)||0;});debitsInput.value=d.toFixed(2);creditsInput.value=c.toFixed(2);differenceInput.value=(d-c).toFixed(2);saveBtn.disabled=!tbody.rows.length||Math.abs(d-c)>0.0001||Array.from(tbody.querySelectorAll('.accountid')).some(x=>!x.textContent.trim())||Array.from(tbody.querySelectorAll('.import-reason')).some(x=>x.textContent.trim());}
+export function formData(){return {date:dateInput.value||'',isEdit:isEditInput.value||false,journalNo:journalNoInput.value,editId:isEditInput.value&&+isEditInput.value===1?+currJouralInput.value:'',entries:Array.from(tbody.querySelectorAll('tr')).map(tr=>({accountid:tr.querySelector('.accountid').textContent,debit:tr.querySelector('.debit').textContent,credit:tr.querySelector('.credit').textContent,desc:tr.querySelector('.desc').textContent}))};}
+export function removeSelected(e){if(!e.target.classList.contains('btndel'))return;e.target.closest('tr').remove();updateTotals();}
+export function clear(){clearValues();dateInput.value=setTodaysDate(new Date());tbody.replaceChildren();updateTotals();}
+export function setTodaysDate(date){const day=String(date.getDate()).padStart(2,'0'),month=String(date.getMonth()+1).padStart(2,'0');return `${date.getFullYear()}-${month}-${day}`;}
+export async function getJournal(journalNo){if(isNaN(journalNo)){showAlert('Journal No has to be a number');return;}setLoadingSpinner();const res=await getJournalEntry(journalNo);removeLoadingSpinner();if(res&&res.success){tbody.replaceChildren();res.entries.forEach(appendEntry);dateInput.value=res.journalDate;journalNoInput.value=searchInput.value;currJouralInput.value=searchInput.value;isEditInput.value=1;searchInput.value='';updateTotals();resetBtn.classList.remove('d-none');if(userTypeInput.value&&+userTypeInput.value<3)deleteBtn.classList.remove('d-none');}}
+function setLoadingSpinner(){entries.classList.add('d-none');const s=document.createElement('div');s.className='spinner md';spinnerContainer.replaceChildren(s);}
+function removeLoadingSpinner(){spinnerContainer.replaceChildren();entries.classList.remove('d-none');}
