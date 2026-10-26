@@ -161,11 +161,11 @@ BEGIN
  ORDER BY paymentDate;
 END$$
 DROP PROCEDURE IF EXISTS sp_get_payments_by_invoiceno$$
-CREATE PROCEDURE sp_get_payments_by_invoiceno(IN invoiceno VARCHAR(50), IN congid INT)
+CREATE PROCEDURE sp_get_payments_by_invoiceno(IN invoiceid INT, IN congid INT)
 BEGIN
  SELECT DATE_FORMAT(p.paymentDate,'%d-%m-%y') AS paymentDate,p.paymentNo,p.amount,UCASE(m.paymentMethod) AS payMethod,UCASE(p.paymentReference) AS paymentReference
  FROM tblinvoice_payments_suppliers p JOIN tblinvoice_header_suppliers h ON p.invoice_Id=h.ID LEFT JOIN tblpaymentmethods m ON p.paymentId=m.ID
- WHERE h.invoiceNo=invoiceno AND h.congregationId=congid AND h.deleted=0 AND p.Deleted=0
+ WHERE h.ID=invoiceid AND h.congregationId=congid AND h.deleted=0 AND p.Deleted=0
  ORDER BY paymentDate;
 END$$
 DROP PROCEDURE IF EXISTS sp_get_payments_by_supplier$$

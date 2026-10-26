@@ -41,6 +41,6 @@ class Pledges extends Controller
     }
     public function delete()
     {
-        if($_SERVER['REQUEST_METHOD']!=='POST'){redirect('pledges');exit;}$r=$this->pledgeModel->delete(['id'=>$_POST['id']??'']);flash('pledge_msg',$r['success']?'Pledge Deleted Successfully':implode(' ',$r['errors']),$r['success']?'alert alert-success':'alert alert-danger');redirect('pledges');exit;
+        if($_SERVER['REQUEST_METHOD']!=='POST'){redirect('pledges');exit;}if(in_array((int)$_SESSION['userType'],[3,4],true)){flash('pledge_msg','You are not allowed to delete pledges','alert alert-danger');redirect('pledges');exit;}$r=$this->pledgeModel->delete(['id'=>$_POST['id']??'']);flash('pledge_msg',$r['success']?'Pledge Deleted Successfully':implode(' ',$r['errors']),$r['success']?'alert alert-success':'alert alert-danger');redirect('pledges');exit;
     }
 }
