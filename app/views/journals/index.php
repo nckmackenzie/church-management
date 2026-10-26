@@ -39,9 +39,9 @@
             <div class="col-12"><?php flash('journal_msg');?></div>
           </div>
           <div class="mt-2 mb-4 border p-2">
-            <div class="mb-2"><strong>Import from Excel</strong></div>
+            <div class="mb-2"><strong>Import journal (.csv or .xlsx)</strong></div>
             <div class="custom-file">
-              <input type="file" class="custom-file-input" id="fileInput">
+              <input type="file" class="custom-file-input" id="fileInput" accept=".csv,.xlsx">
               <label class="custom-file-label" for="fileInput">Choose file</label>
             </div>
              <button class="btn btn-secondary btn-sm custom-font mt-2" id="validate">Validate</button> 
@@ -94,6 +94,10 @@
                       <label for="credits">Total Credits</label>
                       <input type="text" name="credits" id="credits" class="form-control form-control-sm" readonly>
                   </div>
+                  <div class="col-sm-3">
+                      <label for="difference">Difference</label>
+                      <input type="text" name="difference" id="difference" class="form-control form-control-sm" readonly>
+                  </div>
                 </div>
                 <hr>
                 <div class="row">
@@ -102,7 +106,7 @@
                     <select name="account" id="account" class="form-control form-control-sm select2 table-required">
                         <option value="" selected disabled>Select Account</option>
                         <?php foreach($data['accounts'] as $account) : ?>
-                          <option value="<?php echo $account->ID;?>"><?php echo $account->accountType;?></option>
+                          <option value="<?php echo (int)$account->ID;?>"><?php echo htmlspecialchars($account->label,ENT_QUOTES,'UTF-8');?></option>
                         <?php endforeach; ?>
                     </select>
                     <span class="invalid-feedback"></span>
@@ -118,7 +122,7 @@
                   </div>
                   <div class="col-md-2 mb-2">
                     <label for="amount">Amount</label>
-                    <input type="number" class="form-control form-control-sm table-required" id="amount" name="amount" placeholder="eg 2,000">
+                    <input type="number" min="0.01" step="0.01" class="form-control form-control-sm table-required" id="amount" name="amount" placeholder="eg 2,000">
                     <span class="invalid-feedback"></span>
                   </div>
                   <div class="col-md-3 mb-2">
@@ -143,6 +147,7 @@
                         <th style="width: 10%;">Debit</th>
                         <th style="width: 10%;">Credit</th>
                         <th>Desciption</th>
+                        <th>Import check</th>
                         <th style="width: 10%;">Remove</th>
                       </tr>
                     </thead>
@@ -162,7 +167,6 @@
     $('.select2').select2();
   })
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" integrity="sha512-dfX5uYVXzyU8+KHqj8bjo7UkOdg18PaOtpa48djpNbZHwExddghZ+ZmzWT06R5v6NSk3ZUfsH6FNEDepLx9hPQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script type="module" src="<?php echo URLROOT;?>/dist/js/pages/journals/index-v1.js"></script>
 </body>
 </html>

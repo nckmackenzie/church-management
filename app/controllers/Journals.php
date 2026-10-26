@@ -38,14 +38,20 @@ class Journals extends Controller{
         if($_SERVER['REQUEST_METHOD'] === 'POST')
         {
             $fields = json_decode(file_get_contents('php://input')); //extract fields;
+            if(!is_object($fields)){
+                http_response_code(400); echo json_encode(['message'=>'Invalid request','success'=>false]); exit;
+            }
+            $dateRaw = isset($fields->date) ? trim((string)$fields->date) : '';
+            $dateObj = DateTime::createFromFormat('!Y-m-d',$dateRaw);
+            $isEdit = isset($fields->isEdit) ? converttobool($fields->isEdit) : false;
             $data = [
                 // new journals get their number from Ledger inside the save transaction
-                'journalno' => converttobool($fields->isEdit) ? 
-                               (isset($fields->editId) && !empty(trim($fields->editId)) ? (int)$fields->editId : null) 
+                'journalno' => $isEdit ?
+                               (isset($fields->editId) && trim((string)$fields->editId) !== '' ? (int)$fields->editId : null)
                                : 0,
-                'isedit' => converttobool($fields->isEdit),
-                'date' => isset($fields->date) && !empty(trim($fields->date)) ? date('Y-m-d',strtotime($fields->date)) : null,
-                'entries' => $fields->entries
+                'isedit' => $isEdit,
+                'date' => $dateObj && $dateObj->format('Y-m-d') === $dateRaw ? $dateRaw : null,
+                'entries' => isset($fields->entries) && is_array($fields->entries) ? $fields->entries : []
             ];
             //validation
             if(is_null($data['date']) || ($data['isedit'] && is_null($data['journalno']))){
@@ -68,7 +74,7 @@ class Journals extends Controller{
             if(!$result['success']){
                 if($result['errors']){
                     http_response_code(422);
-                    echo json_encode(['message' => implode('<br>',array_map('htmlspecialchars',$result['errors'])),'success' => false]);
+                    echo json_encode(['message' => implode('; ',$result['errors']),'success' => false]);
                     exit;
                 }
                 http_response_code(500);
@@ -166,38 +172,38 @@ class Journals extends Controller{
 
     public function validateimport()
     {
-        $fields = json_decode(file_get_contents('php://input')); //extract fields;
-        $data = [
-            'entries' => $fields->data
-        ];
-
-        $validated = [];
-        $errorCount = 0;
-
-        foreach($data['entries'] as $entry){
-            $accid = $this->journalModel->getaccount($entry->account);
-            if($accid === false){
-                $errorCount++;
-                continue;
-            }
-            array_push($validated,[
-                'accountId' => $accid,
-                'account' => $entry->account,
-                'debit' => floatval($entry->debit),
-                'credit' => floatval($entry->credit),
-                'narration' => $entry->description
-            ]);
+        header('Content-Type: application/json');
+        if($_SERVER['REQUEST_METHOD'] !== 'POST'){
+            http_response_code(405); echo json_encode(['message'=>'POST a .csv or .xlsx file','success'=>false]); exit;
         }
-
-        if($errorCount > 0){
-            http_response_code(400);
-            echo json_encode(['message' => 'Entries not found','success' => false]);
-            exit;
+        if(!isset($_FILES['file']) || !is_array($_FILES['file'])){
+            http_response_code(400); echo json_encode(['message'=>'Choose a .csv or .xlsx file','success'=>false]); exit;
         }
-        else
-        {
-            echo json_encode(['message' => 'Entries found','success' => true,'data' => $validated]);
-            exit;
+        $file=$_FILES['file'];
+        $uploadError=(int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+        if($uploadError!==UPLOAD_ERR_OK){
+            $tooLarge=in_array($uploadError,[UPLOAD_ERR_INI_SIZE,UPLOAD_ERR_FORM_SIZE],true);
+            http_response_code($tooLarge?413:400); echo json_encode(['message'=>$tooLarge?'The file is larger than the server upload limit':'The upload failed','success'=>false]); exit;
+        }
+        if((int)($file['size'] ?? 0)>JournalImport::MAX_BYTES){
+            http_response_code(413); echo json_encode(['message'=>'The file is larger than 2 MiB','success'=>false]); exit;
+        }
+        $ext=strtolower(pathinfo((string)($file['name'] ?? ''),PATHINFO_EXTENSION));
+        if(!in_array($ext,['csv','xlsx'],true)){
+            http_response_code(415); echo json_encode(['message'=>'Only .csv and .xlsx files are supported','success'=>false]); exit;
+        }
+        try{
+            $rows=JournalImport::read((string)$file['tmp_name'],$ext);
+            $result=$this->journalModel->validateImportRows($rows,isset($_POST['date'])?(string)$_POST['date']:null);
+            if(!$result['entries']){throw new InvalidArgumentException('The file has no nonblank journal rows');}
+            echo json_encode(['message'=>'Import checked','success'=>true]+$result); exit;
+        }catch(LengthException $e){
+            http_response_code(413); echo json_encode(['message'=>$e->getMessage(),'success'=>false]); exit;
+        }catch(InvalidArgumentException $e){
+            http_response_code(422); echo json_encode(['message'=>$e->getMessage(),'success'=>false]); exit;
+        }catch(Throwable $e){
+            error_log($e->getMessage(),0); http_response_code(500);
+            echo json_encode(['message'=>'The import could not be read','success'=>false]); exit;
         }
     }
 
@@ -253,13 +259,15 @@ class Journals extends Controller{
         foreach($details as $detail){
             $debit = floatval($detail->debit) > 0 ? number_format(floatval($detail->debit),2) : '';
             $credit = floatval($detail->credit) > 0 ? number_format(floatval($detail->credit),2) : '';
+            $account = htmlspecialchars(ucwords((string)$detail->account),ENT_QUOTES,'UTF-8');
+            $narration = htmlspecialchars(ucwords((string)$detail->narration),ENT_QUOTES,'UTF-8');
             $output .= 
             '<tr>
                 <td>'.date('d/m/Y', strtotime($detail->transactionDate)).'</td>
-                <td>'.ucwords($detail->account).'</td>
+                <td>'.$account.'</td>
                 <td>'.$debit.'</td>
                 <td>'.$credit.'</td>
-                <td>'.ucwords($detail->narration).'</td>
+                <td>'.$narration.'</td>
             </tr>';
         }
         $output .= 

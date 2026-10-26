@@ -1,4 +1,4 @@
-import { alertBox, HOST_URL, sendHttpRequest } from '../utils/utils.js';
+import { HOST_URL, sendHttpRequest } from '../utils/utils.js';
 import { getRequest } from '../reports/utils.js';
 
 export async function getJournalNo() {
@@ -14,7 +14,6 @@ export async function saveEntries(formData) {
     {
       'Content-Type': 'application/json',
     },
-    alertBox
   );
   return res;
 }
