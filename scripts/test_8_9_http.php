@@ -15,8 +15,7 @@ $pdo = (new Database)->pdo();
 $_SESSION['congId'] = 11;     // for the model objects used here to compute the expected figures
 $_SESSION['userId'] = 1;
 $base = URLROOT;
-$tables = ['tblmmf' => 'ID', 'tblfundrequisition' => 'ID', 'journal_entries' => 'ID', 'journal_lines' => 'ID', 'tblledger' => 'ID',
-           'tblbankpostings' => 'ID', 'tbllogs' => 'ID'];
+$tables = ['tblmmf' => 'ID', 'tblfundrequisition' => 'ID', 'journal_entries' => 'ID', 'journal_lines' => 'ID', 'tblbankpostings' => 'ID', 'tbllogs' => 'ID'];
 $max = [];
 foreach ($tables as $t => $k) { $max[$t] = (int)$pdo->query("SELECT IFNULL(MAX($k),0) FROM $t")->fetchColumn(); }
 $balBefore = json_encode($pdo->query('SELECT g.ID, getmmfopeningbalbydate(g.ID,CURDATE()) b FROM tblgroups g ORDER BY g.ID')->fetchAll(PDO::FETCH_ASSOC));

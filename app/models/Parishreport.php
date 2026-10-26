@@ -22,61 +22,111 @@ class Parishreport
                           WHERE  (deleted = 0)');
         return $this->db->resultSet();
     }
+    /**
+     * Report-safe account list for one root type over the parish scope (every congregation with a non-deleted record or history,
+     * decision 127): by ID with a path label, no `active` filter, deleted ones only with history (task 9.1).
+     */
     public function GetAccounts($id)
     {
-        $this->db->query('SELECT ID,
-                                 UCASE(accountType) AS accountType 
-                          FROM   tblaccounttypes 
-                          WHERE  (accountTypeId = :id) AND (deleted = 0)
-                          ORDER BY accountType');
-        $this->db->bind(':id',$id);
-        return $this->db->resultSet();
+        return array_map(function($a){ return (object)['ID' => $a['id'],'accountType' => $a['label']]; },
+            FinancialReport::accountOptions($this->db->pdo(),FinancialReport::parishScope($this->db->pdo()),['roots' => [(int)$id]]));
     }
+    /** IDs of GetAccounts($root): a posted account must be one of them. @return int[] */
+    public function reportAccountIds($root)
+    {
+        return array_map(function($a){ return $a['id']; },
+            FinancialReport::accountOptions($this->db->pdo(),FinancialReport::parishScope($this->db->pdo()),['roots' => [(int)$root]]));
+    }
+    private function marks(array $ids)
+    {
+        return implode(',',array_fill(0,count($ids),'?'));
+    }
+    /** Account names (decision 149) from the report-safe chart of the parish scope, by account ID. */
+    private function accountLabels(array $scope)
+    {
+        $labels = [];
+        foreach (FinancialReport::chart($this->db->pdo(),$scope)['nodes'] as $id => $n) {
+            $labels[(int)$id] = FinancialReport::title($n['label']);
+        }
+        return $labels;
+    }
+    private function congregationNames(array $ids)
+    {
+        $st = $this->db->pdo()->prepare('SELECT ID, CongregationName FROM tblcongregation WHERE ID IN (' . $this->marks($ids) . ')');
+        $st->execute($ids);
+        $names = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) { $names[(int)$r['ID']] = strtoupper(trim((string)$r['CongregationName'])); }
+        return $names;
+    }
+    /**
+     * Contributions of the selected congregations (the receipt's congregation) and accounts (task 9.7, decision 135): approved
+     * (status = 1), not deleted headers only; one row per detail line, amounts in integer cents (FLOAT column, rounded to the cent).
+     * @return array[]
+     */
     public function GetContributions($data)
     {
-        $this->db->query("SELECT d.contributionDate,
-                                 ucase(c.CongregationName) as congregation,
-                                 ucase(a.accountType) as account,
-                                 ifnull(amount,0) as sumofamount
-                          FROM   tblcontributions_details d inner join tblcontributions_header h on 
-                                 d.HeaderId = h.ID inner join tblaccounttypes a 
-                                 on d.contributionTypeId = a.ID inner join tblcongregation c on 
-                                 h.congregationId = c.ID
-                          WHERE  (h.Deleted = 0) AND (d.contributionDate BETWEEN :startd AND :endd) 
-                                 AND d.contributionTypeId IN (".$data['accounts'].") AND h.congregationId IN (".$data['congregations'].")");
-        $this->db->bind(':startd',$data['start']);
-        $this->db->bind(':endd',$data['end']);
-        return $this->db->resultSet();
+        $st = $this->db->pdo()->prepare('SELECT d.ID, d.contributionDate AS cdate, h.congregationId, d.contributionTypeId AS accountId,
+                                                CAST(ROUND(d.amount * 100) AS SIGNED) AS cents
+                                         FROM   tblcontributions_details d JOIN tblcontributions_header h ON h.ID = d.HeaderId
+                                         WHERE  h.Deleted = 0 AND h.status = 1 AND d.contributionDate BETWEEN ? AND ?
+                                                AND d.contributionTypeId IN (' . $this->marks($data['accounts']) . ') AND h.congregationId IN (' . $this->marks($data['congregations']) . ')
+                                         ORDER BY d.contributionDate, d.ID');
+        $st->execute(array_merge([$data['start'],$data['end']],$data['accounts'],$data['congregations']));
+        $names = $this->congregationNames($data['congregations']);
+        $labels = $this->accountLabels($data['congregations']);
+        return array_map(function($r) use ($names,$labels){
+            return ['date' => $r['cdate'],'congregation' => $names[(int)$r['congregationId']] ?? '','account' => $labels[(int)$r['accountId']] ?? '','amount' => (int)$r['cents']];
+        },$st->fetchAll(PDO::FETCH_ASSOC));
     }
+    /**
+     * One total per contributor (decision 137), for the congregations selected as the RECEIPT's (header) congregation: grouped by the
+     * header congregation and the contributor's category and ID (names are for display only), approved, not deleted headers only.
+     * The contributor is the member / group / district / service of the line, or the contributing congregation for the parish
+     * categories (mmf, donations, others).
+     * @return array[]
+     */
     public function GetContributionsByContributor($data)
     {
-        $this->db->query("SELECT d.contributionDate,
-                                 ucase(c.CongregationName) as congregation,
-                                 ucase(a.accountType) as account,
-                                 ifnull(amount,0) as sumofamount
-                          FROM   tblcontributions_details d inner join tblcontributions_header h on 
-                                 d.HeaderId = h.ID inner join tblaccounttypes a 
-                                 on d.contributionTypeId = a.ID left join tblcongregation c on 
-                                 d.contributotCong = c.ID
-                          WHERE  (h.Deleted = 0) AND (d.contributionDate BETWEEN :startd AND :endd) 
-                                 AND d.contributionTypeId IN (".$data['accounts'].") AND d.contributotCong IN (".$data['congregations'].")");
-        $this->db->bind(':startd',$data['start']);
-        $this->db->bind(':endd',$data['end']);
-        return $this->db->resultSet();
+        $who = 'CASE d.category WHEN 1 THEN d.contributor WHEN 2 THEN d.contributotGroup WHEN 3 THEN d.contributotDistrict WHEN 4 THEN d.contributotService ELSE d.contributotCong END';
+        $name = 'CASE d.category WHEN 1 THEN m.memberName WHEN 2 THEN g.groupName WHEN 3 THEN t.districtName WHEN 4 THEN s.serviceName ELSE cc.CongregationName END';
+        $st = $this->db->pdo()->prepare("SELECT h.congregationId, d.category, $who AS whoId, MAX($name) AS contributor,
+                                                SUM(CAST(ROUND(d.amount * 100) AS SIGNED)) AS cents
+                                         FROM   tblcontributions_details d JOIN tblcontributions_header h ON h.ID = d.HeaderId
+                                                LEFT JOIN tblmember m ON d.contributor = m.ID LEFT JOIN tblgroups g ON d.contributotGroup = g.ID
+                                                LEFT JOIN tbldistricts t ON d.contributotDistrict = t.ID LEFT JOIN tblservices s ON d.contributotService = s.ID
+                                                LEFT JOIN tblcongregation cc ON d.contributotCong = cc.ID
+                                         WHERE  h.Deleted = 0 AND h.status = 1 AND d.contributionDate BETWEEN ? AND ?
+                                                AND d.contributionTypeId IN (" . $this->marks($data['accounts']) . ') AND h.congregationId IN (' . $this->marks($data['congregations']) . ")
+                                         GROUP BY h.congregationId, d.category, $who");
+        $st->execute(array_merge([$data['start'],$data['end']],$data['accounts'],$data['congregations']));
+        $names = $this->congregationNames($data['congregations']);
+        $rows = array_map(function($r) use ($names){
+            return ['congregation' => $names[(int)$r['congregationId']] ?? '','contributor' => $r['contributor'] === null ? 'UNKNOWN CONTRIBUTOR' : strtoupper(trim((string)$r['contributor'])),
+                    'amount' => (int)$r['cents'],'key' => $r['congregationId'] . ':' . $r['category'] . ':' . $r['whoId']];
+        },$st->fetchAll(PDO::FETCH_ASSOC));
+        usort($rows,function($a,$b){ return strcmp($a['congregation'],$b['congregation']) ?: strcmp($a['contributor'],$b['contributor']) ?: strcmp($a['key'],$b['key']); });
+        return $rows;
     }
+    /**
+     * Expenses of the selected congregations and accounts, approved (status = 1) and not deleted, totalled per congregation and
+     * account by ID (names are for display only).
+     * @return array[]
+     */
     public function GetExpenses($data)
     {
-        $this->db->query("SELECT ucase(c.CongregationName) as congregation,
-                                 ucase(a.accountType) as account,
-                                 IFNULL(SUM(amount),0) as sumofamount
-                          FROM   tblexpenses e inner join tblaccounttypes a on e.accountId = a.ID
-                                 inner join tblcongregation c on e.congregationId = c.ID
-                          WHERE  (e.expenseDate BETWEEN :startd AND :endd) AND (e.deleted = 0)
-                                 AND e.accountId IN (".$data['accounts'].") AND e.congregationId IN (".$data['congregations'].")
-                          GROUP BY c.CongregationName,a.accountType;");
-        $this->db->bind(':startd',$data['start']);
-        $this->db->bind(':endd',$data['end']);
-        return $this->db->resultSet();
+        $st = $this->db->pdo()->prepare('SELECT e.congregationId, e.accountId, SUM(CAST(ROUND(e.amount * 100) AS SIGNED)) AS cents
+                                         FROM   tblexpenses e
+                                         WHERE  e.expenseDate BETWEEN ? AND ? AND e.status = 1 AND e.deleted = 0
+                                                AND e.accountId IN (' . $this->marks($data['accounts']) . ') AND e.congregationId IN (' . $this->marks($data['congregations']) . ')
+                                         GROUP BY e.congregationId, e.accountId');
+        $st->execute(array_merge([$data['start'],$data['end']],$data['accounts'],$data['congregations']));
+        $names = $this->congregationNames($data['congregations']);
+        $labels = $this->accountLabels($data['congregations']);
+        $rows = array_map(function($r) use ($names,$labels){
+            return ['congregation' => $names[(int)$r['congregationId']] ?? '','account' => $labels[(int)$r['accountId']] ?? '','amount' => (int)$r['cents']];
+        },$st->fetchAll(PDO::FETCH_ASSOC));
+        usort($rows,function($a,$b){ return strcmp($a['congregation'],$b['congregation']) ?: strcmp($a['account'],$b['account']); });
+        return $rows;
     }
     public function GetGroups($cong)
     {
@@ -134,266 +184,14 @@ class Parishreport
         }
         return $this->db->resultSet();
     }
-    public function GetRevenues($data)
-    {
-        $sql = 'SELECT UCASE(account) as account,
-                       SUM(credit) as SumOfTotal
-                FROM   tblledger 
-                WHERE  (transactionDate BETWEEN :startd AND :endd) AND (accountId = 1)
-                       AND (deleted = 0) ';
-        if ($data['cong'] != 0) {
-            $sql .='AND (congregationId = :cid) ';
-        }
-        $sql .=' GROUP BY account';
-        $this->db->query($sql);
-        $this->db->bind(':startd',$data['start']);
-        $this->db->bind(':endd',$data['end']);
-        if ($data['cong'] != 0) {
-            $this->db->bind(':cid',$data['cong']);
-        }
-        return $this->db->resultSet();
-    }
-    public function GetRevenuesTotal($data)
-    {
-        $sql = 'SELECT IFNULL(SUM(credit),0) AS SumOfTotal
-                FROM   tblledger
-                WHERE  (transactionDate BETWEEN :startd AND :endd) AND (accountId = 1)
-                       AND (deleted = 0) ';
-        if ($data['cong'] != 0) {
-            $sql .='AND (congregationId = :cid) ';
-        }
-        $this->db->query($sql);
-        $this->db->bind(':startd',$data['start']);
-        $this->db->bind(':endd',$data['end']);
-        if ($data['cong'] != 0) {
-            $this->db->bind(':cid',$data['cong']);
-        }
-        return $this->db->getValue();
-    }
-    public function GetExpensesPL($data)
-    {
-        $sql = 'SELECT UCASE(account) as account,
-                       SUM(debit) as SumOfTotal
-                FROM   tblledger
-                WHERE  (transactionDate BETWEEN :startd AND :endd) AND (accountId = 2)
-                       AND (deleted = 0) ';
-        if ($data['cong'] != 0) {
-            $sql .='AND (congregationId = :cid) ';
-        }
-        $sql .='GROUP BY account';
-        $this->db->query($sql);
-        $this->db->bind(':startd',$data['start']);
-        $this->db->bind(':endd',$data['end']);
-        if ($data['cong'] != 0) {
-            $this->db->bind(':cid',$data['cong']);
-        }
-        return $this->db->resultSet();
-    }
-    public function GetExpensesTotal($data)
-    {
-        $sql = 'SELECT IFNULL(SUM(debit),0) AS SumOfTotal 
-                FROM   tblledger
-                WHERE  (transactionDate BETWEEN :startd AND :endd) AND (accountId = 2)
-                       AND (deleted = 0) ';
-        if ($data['cong'] != 0) {
-            $sql .= 'AND (congregationId = :cid)';
-        }
-        $this->db->query($sql);
-        $this->db->bind(':startd',$data['start']);
-        $this->db->bind(':endd',$data['end']);
-        if ($data['cong'] != 0) {
-            $this->db->bind(':cid',$data['cong']);
-        }
-        return $this->db->getValue();
-    }
-    public function GetTrialBalance($data)
-    {
-        if ($data['cong'] != 0) {
-            $this->db->query('CALL sp_trialbalance(:startdate,:enddate,:cong)');
-        }else {
-            $this->db->query('CALL sp_trialbalance_parish(:startdate,:enddate)');
-        }
-        $this->db->bind(':startdate',$data['start']);
-        $this->db->bind(':enddate',$data['end']);
-        if ($data['cong'] != 0) {
-            $this->db->bind(':cong',$data['cong']);
-        }
-        return $this->db->resultSet();
-    }
-    public function GetAssets($data)
-    {
-        if ($data['cong'] != 0) {
-            $this->db->query('CALL sp_balancesheet_assets(:startd,:cong)');
-            $this->db->bind(':startd',$data['todate']);
-            $this->db->bind(':cong',$data['cong']);
-        }else {
-            $this->db->query('CALL sp_balancesheet_assets_parish(:startd)');
-            $this->db->bind(':startd',$data['todate']);
-        }
-        return $this->db->resultSet();            
-    }
-    public function GetLiablityEquity($data)
-    {
-        if ($data['cong'] != 0) {
-            $this->db->query('CALL sp_balancesheet_liablityequity(:startd,:cong)');
-            $this->db->bind(':startd',$data['todate']);
-            $this->db->bind(':cong',$data['cong']);
-        }else {
-            $this->db->query('CALL sp_balancesheet_liablityequity_parish(:startd)');
-            $this->db->bind(':startd',$data['todate']);
-        }
-        return $this->db->resultSet();            
-    }
-    public function GetAssetsTotal($data)
-    {
-        if ($data['cong'] != 0) {
-            $this->db->query('SELECT IFNULL(SUM(debit),0) as sumofdebits 
-                              FROM   tblledger 
-                              WHERE  (accountId=3) AND (transactionDate <= :sdate)
-                                     AND (congregationId = :cong) AND (deleted = 0)');
-            $this->db->bind(':sdate',$data['todate']);
-            $this->db->bind(':cong',$data['cong']);
-        }else{
-            $this->db->query('SELECT IFNULL(SUM(debit),0) as sumofdebits 
-                              FROM   tblledger 
-                              WHERE  (accountId=3) AND (transactionDate <= :sdate)
-                                     AND (deleted = 0)');
-            $this->db->bind(':sdate',$data['todate']);
-        }
-        $debits = $this->db->getValue();
-
-        if ($data['cong'] != 0) {
-            $this->db->query('SELECT IFNULL(SUM(credit),0) as sumofcredits 
-                              FROM   tblledger 
-                              WHERE  (accountId=3) AND (transactionDate <= :sdate)
-                                     AND (congregationId = :cong) AND (deleted = 0)');
-            $this->db->bind(':sdate',$data['todate']);
-            $this->db->bind(':cong',$data['cong']);
-        }else {
-            $this->db->query('SELECT IFNULL(SUM(credit),0) as sumofcredits 
-                              FROM   tblledger 
-                              WHERE  (accountId=3) AND (transactionDate <= :sdate)
-                                     AND (deleted = 0)');
-            $this->db->bind(':sdate',$data['todate']);
-        }
-        $credits = $this->db->getValue();
-        return floatval($debits) - floatval($credits);
-    }
-    public function GetLiabilityEquityTotal($data)
-    {
-        if ($data['cong'] != 0) {
-            $this->db->query('SELECT IFNULL(SUM(debit),0) as sumofdebits 
-                              FROM   tblledger 
-                              WHERE  (accountId=4 OR accountId = 6) AND (transactionDate <= :sdate)
-                                      AND (congregationId = :cong) AND (deleted = 0)');
-            $this->db->bind(':sdate',$data['todate']);
-            $this->db->bind(':cong',$data['cong']);
-        }else {
-            $this->db->query('SELECT IFNULL(SUM(debit),0) as sumofdebits 
-                              FROM   tblledger 
-                              WHERE  (accountId=4 OR accountId = 6) AND (transactionDate <= :sdate)
-                                      AND (deleted = 0)');
-            $this->db->bind(':sdate',$data['todate']);
-        }
-        $debits = $this->db->getValue();
-
-        if ($data['cong'] != 0) {
-            $this->db->query('SELECT IFNULL(SUM(credit),0) as sumofcredits 
-                              FROM   tblledger 
-                              WHERE  (accountId=4 OR accountId = 6) AND (transactionDate <= :sdate)
-                                     AND (congregationId = :cong) AND (deleted = 0)');
-            $this->db->bind(':sdate',$data['todate']);
-            $this->db->bind(':cong',$data['cong']);
-        }else{
-            $this->db->query('SELECT IFNULL(SUM(credit),0) as sumofcredits 
-                              FROM   tblledger 
-                              WHERE  (accountId=4 OR accountId = 6) AND (transactionDate <= :sdate)
-                                      AND (deleted = 0)');
-            $this->db->bind(':sdate',$data['todate']);
-        }
-        $credits = $this->db->getValue();
-        return (floatval($debits) * -1) - (floatval($credits) * -1);
-    }
-    public function GetNetIncome($data)
-    {
-        if ($data['cong'] != 0) {
-            $this->db->query('SELECT IFNULL(SUM(debit),0) 
-                              FROM   tblledger 
-                              WHERE  (accountId=1) AND transactionDate <= :sdate
-                                     AND congregationId = :cong AND deleted = 0');
-            $this->db->bind(':sdate',$data['todate']);
-            $this->db->bind(':cong',$data['cong']);
-        }else{
-            $this->db->query('SELECT IFNULL(SUM(debit),0) 
-                              FROM   tblledger 
-                              WHERE  (accountId=1) AND transactionDate <= :sdate
-                                     AND deleted = 0');
-            $this->db->bind(':sdate',$data['todate']);
-        }
-        $revenueDebit = $this->db->getValue();  
-        //===========================
-        if ($data['cong'] != 0) {
-            $this->db->query('SELECT IFNULL(SUM(credit),0) 
-                              FROM   tblledger 
-                              WHERE  (accountId=1) AND transactionDate <= :sdate
-                                     AND (congregationId = :cong) AND (deleted = 0)');
-            $this->db->bind(':sdate',$data['todate']);
-            $this->db->bind(':cong',$data['cong']);
-        }else {
-            $this->db->query('SELECT IFNULL(SUM(credit),0) 
-                              FROM   tblledger 
-                              WHERE  (accountId=1) AND transactionDate <= :sdate
-                                     AND (deleted = 0)');
-            $this->db->bind(':sdate',$data['todate']);
-        }
-        $revenueCredit = $this->db->getValue();    
-        //================================================
-        $revenueBalance = (floatval($revenueDebit) - floatval($revenueCredit)) *-1;
-        //=========================================================
-        if ($data['cong'] != 0) {
-            $this->db->query('SELECT IFNULL(SUM(debit),0) 
-                              FROM   tblledger 
-                              WHERE  (accountId=2) AND transactionDate <= :sdate 
-                                     AND (congregationId = :cong) AND (deleted = 0)');
-            $this->db->bind(':sdate',$data['todate']);
-            $this->db->bind(':cong',$data['cong']);
-        }else {
-            $this->db->query('SELECT IFNULL(SUM(debit),0) 
-                              FROM   tblledger 
-                              WHERE  (accountId=2) AND transactionDate <= :sdate 
-                                     AND (deleted = 0)');
-            $this->db->bind(':sdate',$data['todate']);
-        }
-        $expensesDebit = $this->db->getValue();  
-        //===========================
-        if ($data['cong'] != 0) {
-            $this->db->query('SELECT IFNULL(SUM(credit),0) 
-                              FROM   tblledger 
-                              WHERE  (accountId=2) AND transactionDate <= :sdate 
-                                     AND (congregationId = :cong) AND (deleted = 0)');
-            $this->db->bind(':sdate',$data['todate']);
-            $this->db->bind(':cong',$data['cong']);
-        }else {
-            $this->db->query('SELECT IFNULL(SUM(credit),0) 
-                              FROM   tblledger 
-                              WHERE  (accountId=2) AND transactionDate <= :sdate 
-                                     AND (deleted = 0)');
-            $this->db->bind(':sdate',$data['todate']);
-        }
-        
-        $expensesCredit = $this->db->getValue();    
-        //================================================
-        $expensesBalance = floatval($expensesDebit) - floatval($expensesCredit);
-        return floatval($revenueBalance) - floatval($expensesBalance);
-    }
     public function getBanks()
     {
-        $this->db->query('SELECT   ID,
-                                   UCASE(accountType) As Bank
-                          FROM     tblaccounttypes 
-                          WHERE    (isBank=1) AND (Deleted=0) AND (congregationId=:cid)');
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();
+        return array_map(function($b){ return (object)['ID' => $b['id'],'Bank' => $b['label']]; },
+            FinancialReport::bankOptions($this->db->pdo(),[(int)$_SESSION['congId']]));
+    }
+    public function isReportBank($id)
+    {
+        return FinancialReport::bankAllowed($this->db->pdo(),[(int)$_SESSION['congId']],(int)$id);
     }
     public function bankingrpt($data)
     {

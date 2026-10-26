@@ -11,7 +11,7 @@ $uid = (int)$pdo->query('SELECT ID FROM tblusers ORDER BY ID LIMIT 1')->fetchCol
 $_SESSION['congId'] = $cong;
 $_SESSION['userId'] = $uid;
 
-$tables = ['journal_entries' => 'ID', 'tblledger' => 'ID', 'tblbankpostings' => 'ID', 'tblbanktransactions' => 'ID', 'tblpettycash' => 'ID', 'tbllogs' => 'ID'];
+$tables = ['journal_entries' => 'ID', 'tblbankpostings' => 'ID', 'tblbanktransactions' => 'ID', 'tblpettycash' => 'ID', 'tbllogs' => 'ID'];
 $max = [];
 foreach ($tables as $t => $k) { $max[$t] = (int)$pdo->query("SELECT IFNULL(MAX($k),0) FROM $t")->fetchColumn(); }
 
@@ -47,7 +47,7 @@ try {
     chk('t9 deposit Dr bank / Cr contra', count($l) == 2 && $l[0]['accountId'] == $b1 && $l[0]['dc'] == 'DEBIT' && $l[1]['accountId'] == $contra && $l[1]['dc'] == 'CREDIT', json_encode($l));
     $row = brows(9, $id9)[0] ?? null;
     chk('t9 row debit 100.5 method 1 uncleared', $row && abs($row['debit'] - 100.5) < 0.001 && $row['transactionMethod'] == 1 && $row['cleared'] == 0);
-    chk('t9 entry transactionId = row ID, mirror rows', count(q('SELECT 1 FROM tblledger WHERE transactionType=9 AND transactionId=? AND deleted=0', [$id9])) == 2);
+    chk('t9 entry transactionId = row ID, two journal lines', count(q('SELECT 1 FROM journal_lines jl JOIN journal_entries je ON je.ID=jl.journalEntryId WHERE je.transactionTypeId=9 AND je.transactionId=? AND je.deleted=0', [$id9])) == 2);
 
     q('UPDATE tblbankpostings SET cleared=1, clearedDare=? WHERE ID=?', ['2026-01-20', $id9]);
     $r = $bp->update(['id' => $id9, 'narration' => 'Changed narr'] + $base); chk('t9 edit narration', $r['success'], json_encode($r));
@@ -164,4 +164,6 @@ foreach ($tables as $t => $k) { $pdo->prepare("DELETE FROM $t WHERE $k > ?")->ex
 $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
 $left = 0;
 foreach ($tables as $t => $k) { $left += (int)$pdo->query("SELECT COUNT(*) FROM $t WHERE $k > {$max[$t]}")->fetchColumn(); }
-echo "\nPASSED $pass FAILED $fail ; leftover rows after cleanup: $left\n";
+echo "\nleftover rows after cleanup: $left\n";
+echo "$pass passed, $fail failed\n";
+exit($fail ? 1 : 0);

@@ -53,6 +53,24 @@ class Churchbudget {
         return $out;
     }
 
+    /** True when a budget amount is not a plain non-negative decimal with at most two decimal places (the column is DECIMAL(18,2)). */
+    public function amountsProblem(array $amounts)
+    {
+        foreach($amounts as $a){
+            $a = trim((string)$a);
+            if($a === ''){ continue; }
+            $c = Ledger::exactCents($a);
+            if($c === null || $c < 0){ return true; }
+        }
+        return false;
+    }
+
+    /** The amount as the exact decimal text stored in DECIMAL(18,2); a blank is 0.00. */
+    private function amountText($a)
+    {
+        $a = trim((string)$a);
+        return $a === '' ? '0.00' : FinancialReport::decimal(Ledger::exactCents($a) ?? 0);
+    }
     public function accountProblem(array $ids, array $legacyIds = [])
     {
         $valid = array_flip(array_map(fn($r)=>(int)$r->ID,$this->getAccounts()));
@@ -87,6 +105,7 @@ class Churchbudget {
     public function Save($data)
     {
         if($this->accountProblem((array)$data['accountsid'])){ return false; }
+        if($this->amountsProblem((array)($data['amounts'] ?? []))){ return false; }
         try {
             $this->db->dbh->beginTransaction();
             $id = $this->getnewid();
@@ -104,7 +123,7 @@ class Churchbudget {
                                   VALUES(:hid,:aid,:amount)');
                 $this->db->bind(':hid',$id);
                 $this->db->bind(':aid',$data['accountsid'][$i]);
-                $this->db->bind(':amount', !empty($data['amounts'][$i]) ? floatval($data['amounts'][$i]) : 0);
+                $this->db->bind(':amount',$this->amountText($data['amounts'][$i] ?? null));
                 $this->db->execute();
             }
 
@@ -128,6 +147,7 @@ class Churchbudget {
         if(!$header){ return false; }
         $legacy = array_map('intval',array_column(loadresultset($this->db->dbh,'SELECT accountId FROM tblchurchbudget_details WHERE ID=?',[(int)$data['id']]),'accountId'));
         if($this->accountProblem((array)$data['accountsid'],$legacy)){ return false; }
+        if($this->amountsProblem((array)($data['amounts'] ?? []))){ return false; }
         try {
             $this->db->dbh->beginTransaction();
             
@@ -140,7 +160,7 @@ class Churchbudget {
                                   VALUES(:hid,:aid,:amount)');
                 $this->db->bind(':hid',$data['id']);
                 $this->db->bind(':aid',$data['accountsid'][$i]);
-                $this->db->bind(':amount',$data['amounts'][$i]);
+                $this->db->bind(':amount',$this->amountText($data['amounts'][$i] ?? null));
                 $this->db->execute();
             }
 

@@ -7,9 +7,9 @@ export async function invoiceReports(type,criteria=null,sdate=null,edate=null) {
     if(type === 'balances' || type === 'supplierbalances'){
         url = `${HOST_URL}/invoicereports/getinvoicereport?type=${type}`
     }else if(type === 'byinvoice'){
-      url = `${HOST_URL}/invoicereports/getinvoicereport?type=${type}&criteria=${criteria}`
+      url = `${HOST_URL}/invoicereports/getinvoicereport?type=${type}&criteria=${encodeURIComponent(criteria)}`
     }else if(type === 'bysupplier'){
-      url = `${HOST_URL}/invoicereports/getinvoicereport?type=${type}&criteria=${criteria}&sdate=${sdate}&edate=${edate}`;
+      url = `${HOST_URL}/invoicereports/getinvoicereport?type=${type}&criteria=${encodeURIComponent(criteria)}&sdate=${sdate}&edate=${edate}`;
     }else if(type === 'all'){
       url = `${HOST_URL}/invoicereports/getinvoicereport?type=${type}&sdate=${sdate}&edate=${edate}`;
     }
@@ -26,47 +26,8 @@ export async function getSelectOptions(type) {
 }
 
 //fetch trail balance data
-export async function getTrialBalance(type, sdate, edate) {
-  const res = await getRequest(
-    `${HOST_URL}/trialbalance/getreport?type=${type}&sdate=${sdate}&edate=${edate}`
-  );
-
-  return res;
-}
-
-export async function getTrialBalanceReport(type, account, sdate, edate) {
-  const url = `${HOST_URL}/trialbalance/detailedreport?type=${type}&account=${account}&sdate=${sdate}&edate=${edate}`;
-  const res = await getRequest(url);
-
-  return res;
-}
-
-export async function getPlDetailed(account, sdate, edate) {
-  const url = `${HOST_URL}/reports/pldetailedrpt?account=${account}&sdate=${sdate}&edate=${edate}`;
-  return await getRequest(url);
-}
 
 export async function getRequisitions(group) {
   const url = `${HOST_URL}/expenses/getrequisitions?group=${group}`;
-  return await getRequest(url);
-}
-
-export async function getGroupPlExpenseDetailed(account, sdate, edate, group) {
-  const url = `${HOST_URL}/reports/groupplexpensedetailedrpt?account=${account}&sdate=${sdate}&edate=${edate}&group=${group}`;
-  return await getRequest(url);
-}
-
-export async function getGroupPlRevenueDetailed(type, sdate, edate, group) {
-  const url = `${HOST_URL}/reports/groupplrevenuedetailedrpt?type=${type}&sdate=${sdate}&edate=${edate}&group=${group}`;
-  return await getRequest(url);
-}
-
-export async function getAccountsReport(account, asdate) {
-  const url = `${HOST_URL}/reports/getbalancesheetdetailedrpt?asdate=${asdate}&account=${account}`;
-  return await getRequest(url);
-}
-
-export async function getSubaccountsReport(account, asdate) {
-  const url = `${HOST_URL}/reports/getsubaccountdetailedrpt?asdate=${asdate}&account=${account}`;
   return await getRequest(url);
 }

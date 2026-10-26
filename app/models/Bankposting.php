@@ -90,7 +90,7 @@ class Bankposting
     /** Dr bank / Cr contra for a deposit (method 1), Dr contra / Cr bank otherwise. */
     private function postLedger($pdo,$cong,$tid,$data,$bank,$account)
     {
-        $amount = round((float)$data['amount'],2);
+        $amount = FinancialReport::decimal((int)Ledger::exactCents($data['amount']));   // validated by Ledger::amountError(); exact cents, DECIMAL(18,2)
         $memo = !empty($data['narration']) ? strtolower($data['narration']) : $data['reference'];
         $bankline = (int)$data['type'] === 1 ? Ledger::debit($bank,$amount,$memo) : Ledger::credit($bank,$amount,$memo);
         $contra = (int)$data['type'] === 1 ? Ledger::credit($account,$amount,$memo) : Ledger::debit($account,$amount,$memo);
@@ -113,7 +113,7 @@ class Bankposting
         try {
             $pdo->beginTransaction();
             list($bank,$account) = $this->assertAccounts($pdo,$cong,$data);
-            $amount = round((float)$data['amount'],2);
+            $amount = FinancialReport::decimal((int)Ledger::exactCents($data['amount']));   // validated by Ledger::amountError(); exact cents, DECIMAL(18,2)
 
             // the bank posting row is the source record of this entry (no syncBankPostings)
             $this->db->query('INSERT INTO tblbankpostings (bankId,transactionDate,debit,credit,transactionMethod,reference,
@@ -184,13 +184,14 @@ class Bankposting
                 return ['success' => false,'errors' => [self::NOT_MINE]];
             }
             list($bank,$account) = $this->assertAccounts($pdo,$cong,$data);
-            $amount = round((float)$data['amount'],2);
+            $amount = FinancialReport::decimal((int)Ledger::exactCents($data['amount']));   // validated by Ledger::amountError(); exact cents, DECIMAL(18,2)
 
             // a cleared (reconciled) row keeps its bank, side and amount; date, reference and narration may change
-            $oldSide = (float)$old->debit > 0 ? 'D' : 'C';
+            $oldDebit = (int)Ledger::exactCents($old->debit);
+            $oldSide = $oldDebit > 0 ? 'D' : 'C';
             $newSide = $transtype === 1 ? 'D' : 'C';
-            $oldAmount = (float)$old->debit > 0 ? (float)$old->debit : (float)$old->credit;
-            $changed = (int)$old->bankId !== $bank || $oldSide !== $newSide || abs($oldAmount - $amount) >= 0.005;
+            $oldCents = $oldDebit > 0 ? $oldDebit : (int)Ledger::exactCents($old->credit);
+            $changed = (int)$old->bankId !== $bank || $oldSide !== $newSide || $oldCents !== (int)Ledger::exactCents($amount);
             if ($changed && (int)$old->cleared === 1) {
                 $pdo->rollBack();
                 return ['success' => false,'errors' => ['This bank posting has already been cleared in bank reconciliation' . ($old->clearedDare ? ' (on ' . $old->clearedDare . ')' : '') . ', so its bank, type or amount cannot be changed']];

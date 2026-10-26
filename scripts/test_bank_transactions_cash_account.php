@@ -9,7 +9,7 @@ $pdo = (new Database)->pdo();
 $_SESSION['congId'] = 11;
 $_SESSION['userId'] = (int)$pdo->query('SELECT ID FROM tblusers ORDER BY ID LIMIT 1')->fetchColumn();
 
-$tables = ['journal_entries' => 'ID', 'tblledger' => 'ID', 'tblbankpostings' => 'ID', 'tblbanktransactions' => 'ID', 'tblpettycash' => 'ID', 'tbllogs' => 'ID', 'tblbanktransactions_subaccounts' => 'ID'];
+$tables = ['journal_entries' => 'ID', 'tblbankpostings' => 'ID', 'tblbanktransactions' => 'ID', 'tblpettycash' => 'ID', 'tbllogs' => 'ID', 'tblbanktransactions_subaccounts' => 'ID'];
 $max = [];
 foreach ($tables as $t => $k) { $max[$t] = (int)$pdo->query("SELECT IFNULL(MAX($k),0) FROM $t")->fetchColumn(); }
 
@@ -165,4 +165,6 @@ foreach ($tables as $t => $k) { $pdo->prepare("DELETE FROM $t WHERE $k > ?")->ex
 $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
 $left = 0;
 foreach ($tables as $t => $k) { $left += (int)$pdo->query("SELECT COUNT(*) FROM $t WHERE $k > {$max[$t]}")->fetchColumn(); }
-echo "\nPASSED $pass FAILED $fail ; leftover rows after cleanup: $left\n";
+echo "\nleftover rows after cleanup: $left\n";
+echo "$pass passed, $fail failed\n";
+exit($fail ? 1 : 0);

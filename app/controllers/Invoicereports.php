@@ -42,6 +42,17 @@ class Invoicereports extends Controller
                 exit;
             }
 
+            $invoiceId = 0;
+            if($data['type'] === 'byinvoice'){
+                // decision 134: the criterion is a supplier invoice HEADER ID of this congregation's list
+                if(!ctype_digit($data['criteria']) || strlen($data['criteria']) > 10 || !$this->reportmodel->isReportInvoice((int)$data['criteria'])){
+                    http_response_code(400);
+                    echo json_encode(['message' => 'Invalid invoice']);
+                    exit;
+                }
+                $invoiceId = (int)$data['criteria'];
+            }
+
             if($data['type'] === 'bysupplier' && (is_null($data['criteria']) || is_null($data['sdate']) || is_null($data['edate'])) ){
                 http_response_code(400);
                 echo json_encode(['message' => 'Provide all required field(s)']);
@@ -58,7 +69,7 @@ class Invoicereports extends Controller
             if($data['type'] === 'balances'){
                 $results = $this->reportmodel->GetInvoicesWithBalance();
             }elseif($data['type'] === 'byinvoice'){
-                $results = $this->reportmodel->GetPaymentPayInvoice($data['criteria']);
+                $results = $this->reportmodel->GetPaymentPayInvoice($invoiceId);
             }elseif($data['type'] === 'bysupplier'){
                 $results = $this->reportmodel->GetPaymentPaySupplier($data);
             }elseif($data['type'] === 'all'){
@@ -78,18 +89,19 @@ class Invoicereports extends Controller
     public function fetchselectoptions()
     {
         if($_SERVER['REQUEST_METHOD'] === 'GET'){
-            $type = htmlentities(trim($_GET['type']));
+            $type = trim((string)($_GET['type'] ?? ''));
             $output = '';
 
             if($type === 'invoiceno'){
                 $output = '<option value="" selected disabled>Select Invoice No</option>';
                 foreach($this->reportmodel->GetInvoiceNos() as $invoiceno) {
+                    $label = (string)$invoiceno->supplierName.' — '.(string)$invoiceno->invoiceNo;
                     $output .= '<option value="'.(int)$invoiceno->ID.'">'.htmlspecialchars($invoiceno->invoiceNo.' – '.$invoiceno->supplierName,ENT_QUOTES,'UTF-8').'</option>';
                 }
             }elseif($type === 'supplier'){
                 $output = '<option value="" selected disabled>Select supplier</option>';
                 foreach($this->reportmodel->GetSuppliers() as $supplier) {
-                    $output .= '<option value="'.$supplier->ID.'">'.$supplier->supplierName.'</option>';
+                    $output .= '<option value="'.(int)$supplier->ID.'">'.htmlspecialchars((string)$supplier->supplierName,ENT_QUOTES,'UTF-8').'</option>';
                 }
             }
             

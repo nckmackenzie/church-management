@@ -59,9 +59,9 @@ function otherValidation() {
     return;
   }
 
-  // AUDIT-FLAG [LEDGER AUDIT / tblledger]: Over-request validation DISABLED on 2026-10-20 at the user's request.
+  // AUDIT-FLAG [LEDGER AUDIT]: Over-request validation DISABLED on 2026-10-20 at the user's request.
   // Requisitions where amount requested > available group/district balance can now be saved, so any
-  // ledger audit (tblledger) must check for groups/districts whose funds were overdrawn by these requests.
+  // ledger audit (journal / sub account reports) must check for groups/districts whose funds were overdrawn by these requests.
   // Backend counterpart also disabled: app/controllers/Groupfunds.php (createupdate).
   // if (
   //   parseFloat(amount.value) > parseFloat(amountAvailable.value) &&

@@ -47,10 +47,6 @@
  * in place (edit). After void(), post() creates a new entry (re-approval);
  * for journals that is refused, because the number has been used.
  *
- * Dev only: if LEDGER_LEGACY_WRITE is defined and true (config.php), every
- * post()/void() is mirrored into tblledger so old and new reports can be
- * compared. Must be false/undefined on production.
- *
  * PHP 7.4+.
  */
 
@@ -244,10 +240,6 @@ class Ledger
             $ins->execute([$entryId, $l['accountId'], $l['dc'], $l['amount'], $l['memo'], ++$n]);
         }
 
-        if (self::legacyEnabled()) {
-            self::mirrorLegacy($db, $cong, $type, $txn, $date, $ref, $journalNo, $clean);
-        }
-
         return $entryId;
     }
 
@@ -271,12 +263,6 @@ class Ledger
                             WHERE congregationId = ? AND transactionTypeId = ? AND transactionId = ? AND deleted = 0');
         $st->execute([$cong, $type, $txn]);
         $voided = $st->rowCount() > 0;
-
-        if (self::legacyEnabled()) {
-            $db->prepare('UPDATE tblledger SET deleted = 1
-                          WHERE congregationId = ? AND transactionType = ? AND transactionId = ? AND deleted = 0')
-               ->execute([$cong, $type, $txn]);
-        }
 
         return $voided;
     }
@@ -462,8 +448,8 @@ class Ledger
      * lines (isBank = 1) of its active entry. Returns the number of active
      * bank rows afterwards.
      *
-     * Matching is on bankId + side + amount (ROUND 2, tolerance 0.005, the
-     * columns are FLOAT): a matched row is updated in place and keeps
+     * Matching is on bankId + side + amount in exact cents (task 9.5: the columns are DECIMAL(18,2); a
+     * difference of one cent is a different row): a matched row is updated in place and keeps
      * cleared / clearedDare; an unmatched row is soft-deleted; an unmatched
      * line gets a new uncleared row. accountId is left NULL for compatibility.
      * Rows are never hard-deleted.
@@ -555,8 +541,9 @@ class Ledger
     {
         foreach ($existing as $i => $r) {
             if (isset($used[$i]) || (int) $r['bankId'] !== $w['bankId']) { continue; }
-            if (abs(round((float) $r['debit'], 2) - (float) $w['debit']) < 0.005
-                && abs(round((float) $r['credit'], 2) - (float) $w['credit']) < 0.005) {
+            $rd = self::exactCents($r['debit']);  $rc = self::exactCents($r['credit']);
+            $wd = self::exactCents($w['debit']);  $wc = self::exactCents($w['credit']);
+            if ($rd !== null && $rc !== null && $rd === $wd && $rc === $wc) {
                 return $i;
             }
         }
@@ -607,9 +594,9 @@ class Ledger
         $st->execute([$cong, $type, $txn]);
         if ($keep !== null && isset($keep['bankId'])) { $keep = [$keep]; }
         foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
-            $amount = max((float) $r['debit'], (float) $r['credit']);
+            $amount = max((int) self::exactCents($r['debit']), (int) self::exactCents($r['credit']));   // exact cents; a row is one-sided
             foreach ((array) $keep as $k) {
-                if ((int) $r['bankId'] === (int) $k['bankId'] && abs($amount - (float) $k['amount']) < 0.005) { continue 2; }
+                if ((int) $r['bankId'] === (int) $k['bankId'] && self::exactCents($k['amount']) === $amount) { continue 2; }
             }
             return self::clearedMessage($r['clearedDare'], $keep === null ? 'voided' : 'changed (bank or amount)');
         }
@@ -641,13 +628,38 @@ class Ledger
     public static function amountError($amount, string $label = 'Amount'): ?string
     {
         $s = is_scalar($amount) ? trim((string) $amount) : '';
-        if (!preg_match('/^(\d+\.?\d*|\.\d+)$/', $s) || (float) $s <= 0) {
+        if (!preg_match('/^(\d+\.?\d*|\.\d+)$/', $s) || !preg_match('/[1-9]/', $s)) {
             return "$label must be a number greater than zero";
         }
-        if (round((float) $s, 2) != (float) $s) {
+        if (strlen(explode('.', $s)[0]) > 16) {
+            return "$label is too large";   // DECIMAL(18,2) money columns
+        }
+        if (self::exactCents($s) === null) {
             return "$label cannot have more than 2 decimal places";
         }
         return null;
+    }
+
+    /**
+     * An amount as exact integer cents, or null when it is not a plain decimal with at most two significant decimal places
+     * (a float is read through its 8-place text, so 100.1 is 10010 and 0.015 is null). No tolerance: 12.34 and 12.35 differ.
+     * Accepts ints, floats, and decimal strings ("12", "12.5", ".5", "-3.10").
+     * @param mixed $v
+     */
+    public static function exactCents($v): ?int
+    {
+        if (is_int($v)) { return $v * 100; }
+        if (is_float($v)) {
+            if (!is_finite($v)) { return null; }
+            $v = sprintf('%.8F', $v);
+        }
+        if (!is_string($v)) { return null; }
+        if (!preg_match('/^(-)?(\d*)(?:\.(\d*))?$/D', trim($v), $m) || ($m[2] === '' && ($m[3] ?? '') === '')) { return null; }
+        $frac = $m[3] ?? '';
+        if (strlen($frac) > 2 && trim(substr($frac, 2), '0') !== '') { return null; }
+        if (strlen($m[2]) > 16) { return null; }
+        $c = (int) ($m[2] === '' ? '0' : $m[2]) * 100 + (int) str_pad(substr($frac, 0, 2), 2, '0');
+        return $m[1] === '-' ? -$c : $c;
     }
 
     // -----------------------------------------------------------------
@@ -962,11 +974,6 @@ class Ledger
         }
     }
 
-    private static function legacyEnabled(): bool
-    {
-        return defined('LEDGER_LEGACY_WRITE') && LEDGER_LEGACY_WRITE === true;
-    }
-
     private static function blankToNull($v): ?string
     {
         if ($v === null) { return null; }
@@ -995,9 +1002,8 @@ class Ledger
             if ($dc !== self::DEBIT && $dc !== self::CREDIT) { $errors[] = "line $n: dc must be DEBIT or CREDIT"; }
             if (!is_numeric($amt)) { $errors[] = "line $n: amount '" . (string) $amt . "' is not a number"; continue; }
 
-            $raw   = (float) $amt * 100;
-            $cents = (int) round($raw);
-            if (abs($raw - $cents) > 0.0001) { $errors[] = "line $n: amount $amt has more than 2 decimals"; }
+            $cents = self::exactCents($amt);
+            if ($cents === null) { $errors[] = "line $n: amount $amt has more than 2 decimals"; continue; }
             if ($cents <= 0) { $errors[] = "line $n: amount must be greater than 0"; }
 
             if ($dc === self::DEBIT) { $dr += $cents; } elseif ($dc === self::CREDIT) { $cr += $cents; }
@@ -1111,35 +1117,5 @@ class Ledger
             return null;
         }
         return "unknown payment kind '$kind'";
-    }
-
-    /** DEV ONLY: mirror the entry into tblledger so old reports keep working. */
-    private static function mirrorLegacy(PDO $db, int $cong, int $type, int $txn, string $date,
-                                         ?string $ref, ?int $journalNo, array $lines): void
-    {
-        $db->prepare('DELETE FROM tblledger
-                      WHERE congregationId = ? AND transactionType = ? AND transactionId = ? AND deleted = 0')
-           ->execute([$cong, $type, $txn]);
-
-        $info = self::accountInfo($db, array_column($lines, 'accountId'));
-        $ins  = $db->prepare('INSERT INTO tblledger
-                (transactionDate, account, parentaccount, debit, credit, narration, reference, accountId,
-                 transactionType, transactionId, isJournal, journalNo, congregationId, deleted)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)');
-
-        foreach ($lines as $l) {
-            $a = $info[$l['accountId']];
-            // The old app posted every bank line as 'cash at bank'.
-            $name   = (int) $a['isBank'] === 1 ? 'cash at bank' : $a['accountType'];
-            $parent = (int) $a['isBank'] === 1 ? 'cash at bank' : $a['parentName'];
-            // tblledger.narration / reference are NOT NULL in the old schema.
-            $ins->execute([
-                $date, $name, $parent,
-                $l['dc'] === self::DEBIT ? $l['amount'] : '0.00',
-                $l['dc'] === self::CREDIT ? $l['amount'] : '0.00',
-                mb_substr((string) $l['memo'], 0, 255), (string) $ref, (int) $a['accountTypeId'],
-                $type, $txn, $type === self::TYPE_JOURNAL ? 1 : 0, $journalNo, $cong,
-            ]);
-        }
     }
 }

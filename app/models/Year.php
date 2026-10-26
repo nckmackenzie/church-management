@@ -108,7 +108,6 @@ class Year{
         $range = [$year->startDate,$year->endDate];
         $checks = [
             ['ledger entries',             'SELECT COUNT(*) FROM journal_entries WHERE deleted = 0 AND entryDate BETWEEN ? AND ?', $range],
-            ['old ledger rows',            'SELECT COUNT(*) FROM tblledger WHERE deleted = 0 AND transactionDate BETWEEN ? AND ?', $range],
             ['receipts',                   'SELECT COUNT(*) FROM tblcontributions_header WHERE Deleted = 0 AND fiscalYearId = ?', [$id]],
             ['expenses',                   'SELECT COUNT(*) FROM tblexpenses WHERE deleted = 0 AND fiscalYearId = ?', [$id]],
             ['petty cash entries',         'SELECT COUNT(*) FROM tblpettycash WHERE Deleted = 0 AND TransactionDate BETWEEN ? AND ?', $range],

@@ -14,7 +14,7 @@ $_SESSION['congId'] = 11;
 $_SESSION['isParish'] = 0;
 $_SESSION['userId'] = (int)$pdo->query('SELECT ID FROM tblusers ORDER BY ID LIMIT 1')->fetchColumn();
 
-$tables = ['journal_entries' => 'ID', 'tblledger' => 'ID', 'tblbankpostings' => 'ID', 'tblcontributions_header' => 'ID',
+$tables = ['journal_entries' => 'ID', 'tblbankpostings' => 'ID', 'tblcontributions_header' => 'ID',
            'tblcontributions_details' => 'ID', 'tblmmf' => 'ID', 'tblbanktransactions_subaccounts' => 'ID', 'tblpettycash' => 'ID',
            'tbllogs' => 'ID', 'tblbanktransactions' => 'ID', 'tblbanksubaccounts' => 'ID'];
 $max = [];
@@ -417,23 +417,10 @@ try {
     $r = $cr->CreateUpdate($pm()); $pn2 = $newpc();
     chk('petty cash number of a deleted receipt is not reused', (int)q('SELECT ReceiptNo FROM tblpettycash WHERE ID=?', [$pn2])[0]['ReceiptNo'] === $pno + 1, json_encode([$pno]));
 
-    // ---------------- petty cash report routines ignore deleted rows and filter by account
+    // ---------------- Task 9.8: sp_pettycashutilization and getopeningbal are dropped (the petty cash book reads the journal since 9.6)
     $from = '2026-01-01'; $to = '2026-01-31';
-    $rows = function ($acc) use ($pdo, $from, $to) { $st = $pdo->prepare('CALL sp_pettycashutilization(?,?,11,?)'); $st->execute([$from, $to, $acc]); $x = $st->fetchAll(PDO::FETCH_ASSOC); $st->closeCursor(); return $x; };
-    $r98 = $rows(98); $r194 = $rows(194);
-    $narr = function ($rs) { return array_column($rs, 'Narration'); };
-    chk('report 194 lists the 194 receipts (120 and 999), not the deleted ones', in_array('TEST PETTY CASH', $narr($r194), true) || in_array('EDITED NARRATION', $narr($r194), true));
     $deletedCount = (int)q('SELECT COUNT(*) c FROM tblpettycash WHERE ID > ? AND Deleted=1 AND TransactionDate BETWEEN ? AND ?', [$max['tblpettycash'], $from, $to])[0]['c'];
-    $liveRows98 = (int)q('SELECT COUNT(*) c FROM tblpettycash WHERE CongregationId=11 AND Deleted=0 AND PettyCashAccountId=98 AND TransactionDate BETWEEN ? AND ?', [$from, $to])[0]['c'];
-    chk('report 98: one row per live 98 entry plus the opening row; deleted rows excluded', $deletedCount >= 1 && count($r98) === $liveRows98 + 1, json_encode([count($r98), $liveRows98, $deletedCount]));
-    $open98 = (float)q('SELECT getopeningbal(?,11,98) b', [$from])[0]['b'];
-    $manual = (float)q('SELECT IFNULL(SUM(Debit)-SUM(Credit),0) b FROM tblpettycash WHERE CongregationId=11 AND Deleted=0 AND PettyCashAccountId=98 AND TransactionDate < ?', [$from])[0]['b'];
-    chk('getopeningbal(…, 98) = live debits - credits before the date', abs($open98 - $manual) < 0.005, json_encode([$open98, $manual]));
-    chk('getopeningbal for 194 is separate from 98', abs((float)q('SELECT getopeningbal(?,11,194) b', ['2027-01-01'])[0]['b'] - (float)q('SELECT IFNULL(SUM(Debit)-SUM(Credit),0) b FROM tblpettycash WHERE CongregationId=11 AND Deleted=0 AND PettyCashAccountId=194')[0]['b']) < 0.005);
-    $dc = (new Report)->debitcredittotal(['start' => $from, 'end' => $to, 'account' => 194]);
-    $manualDc = q('SELECT IFNULL(SUM(Debit),0) d, IFNULL(SUM(Credit),0) c FROM tblpettycash WHERE CongregationId=11 AND Deleted=0 AND PettyCashAccountId=194 AND TransactionDate BETWEEN ? AND ?', [$from, $to])[0];
-    chk('Report::debitcredittotal (194) matches live rows', abs((float)$dc[0] - (float)$manualDc['d']) < 0.005 && abs((float)$dc[1] - (float)$manualDc['c']) < 0.005, json_encode([$dc, $manualDc]));
-    q('SET @x = 1');
+    chk('deleted petty cash receipts stay soft-deleted rows (the operational table keeps them, no report reads them)', $deletedCount >= 1, json_encode([$deletedCount]));
 
     // ---------------- cleanup of remaining test receipts via the app paths (also exercises delete)
     foreach ([$p98, $p194, $pn2] as $id) { $r = $cr->Delete($id); chk("petty delete $id", $r['success'] && !entry(10, $id) && !brows(10, $id)); }
@@ -457,4 +444,6 @@ foreach ($seqSnapshot as $s) { $ins->execute([$s['congregationId'], $s['kind'], 
 $left = 0;
 foreach ($tables as $t => $k) { $left += (int)$pdo->query("SELECT COUNT(*) FROM $t WHERE $k > {$max[$t]}")->fetchColumn(); }
 $seqNow = $pdo->query('SELECT * FROM receipt_number_seq')->fetchAll(PDO::FETCH_ASSOC);
-echo "\nPASSED $pass FAILED $fail ; leftover rows after cleanup: $left ; sequences restored: " . ($seqNow == $seqSnapshot ? 'yes' : 'NO') . ' ; fiscal years restored: ' . (yearsAreRestored() ? 'yes' : 'NO') . "\n";
+echo "\nleftover rows after cleanup: $left ; sequences restored: " . ($seqNow == $seqSnapshot ? 'yes' : 'NO') . ' ; fiscal years restored: ' . (yearsAreRestored() ? 'yes' : 'NO') . "\n";
+echo "$pass passed, $fail failed\n";
+exit($fail ? 1 : 0);

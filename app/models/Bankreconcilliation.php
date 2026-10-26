@@ -15,251 +15,94 @@ class Bankreconcilliation
             return false;
         }
     }
+    /** Report-safe banks of the session congregation: non-deleted, active or with history (inactive ones labelled). */
     public function getBanks()
     {
-        $this->db->query("SELECT   ID,
-                                   CONCAT(UCASE(accountType),'-',accountNo) As Bank
-                          FROM     tblaccounttypes 
-                          WHERE    (isBank=1) AND (Deleted=0) AND (congregationId=:cid)");
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();
+        return array_map(function($b){ return (object)['ID' => $b['id'],'Bank' => $b['label']]; },
+            FinancialReport::bankOptions($this->db->pdo(),[(int)$_SESSION['congId']]));
     }
+    public function isReportBank($id)
+    {
+        return FinancialReport::bankAllowed($this->db->pdo(),[(int)$_SESSION['congId']],(int)$id);
+    }
+    /**
+     * Cashbook totals of one bank in [from, to] from tblbankpostings (cents). The scope (bank, congregation, not deleted, date range) is
+     * stated once; a deposit is a row with debit > 0 and a withdrawal one with credit > 0, so a zero-amount row is in neither.
+     * Cleared = cleared on or before `to`; uncleared = everything else in the range (never cleared, or cleared after `to`).
+     * @return array{clearedDeposits:int,clearedWithdrawals:int,unclearedDeposits:int,unclearedWithdrawals:int}
+     */
+    private function postingTotals($bank, $from, $to)
+    {
+        $this->db->query('SELECT
+                CAST(ROUND(IFNULL(SUM(CASE WHEN cleared = 1 AND IFNULL(clearedDare, DATE_ADD(:t1, INTERVAL 1 DAY)) <= :t1 AND debit  > 0 THEN debit  END),0) * 100) AS SIGNED) AS cd,
+                CAST(ROUND(IFNULL(SUM(CASE WHEN cleared = 1 AND IFNULL(clearedDare, DATE_ADD(:t2, INTERVAL 1 DAY)) <= :t2 AND credit > 0 THEN credit END),0) * 100) AS SIGNED) AS cw,
+                CAST(ROUND(IFNULL(SUM(CASE WHEN NOT (cleared = 1 AND IFNULL(clearedDare, DATE_ADD(:t3, INTERVAL 1 DAY)) <= :t3) AND debit  > 0 THEN debit  END),0) * 100) AS SIGNED) AS ud,
+                CAST(ROUND(IFNULL(SUM(CASE WHEN NOT (cleared = 1 AND IFNULL(clearedDare, DATE_ADD(:t4, INTERVAL 1 DAY)) <= :t4) AND credit > 0 THEN credit END),0) * 100) AS SIGNED) AS uw
+            FROM tblbankpostings
+            WHERE deleted = 0 AND bankId = :bid AND congregationId = :cid AND transactionDate BETWEEN :tfrom AND :tto');
+        foreach (['t1', 't2', 't3', 't4'] as $p) { $this->db->bind(':' . $p, $to); }
+        $this->db->bind(':bid', $bank);
+        $this->db->bind(':cid', $_SESSION['congId']);
+        $this->db->bind(':tfrom', $from);
+        $this->db->bind(':tto', $to);
+        $r = $this->db->single();
+        return ['clearedDeposits' => (int) $r->cd, 'clearedWithdrawals' => (int) $r->cw, 'unclearedDeposits' => (int) $r->ud, 'unclearedWithdrawals' => (int) $r->uw];
+    }
+
+    /** Book balance of the bank account (debit - credit of its journal lines, active entries, session congregation) up to a date, in cents. */
+    public function bookBalance($bank, $asOf)
+    {
+        return FinancialReport::accountNet($this->db->pdo(), [(int) $_SESSION['congId']], (int) $bank, $asOf);
+    }
+
+    /**
+     * Cashflow statement figures (cents). `opening` = the book balance entering `from` (journal through the previous day), `closing`
+     * = the journal balance at `to`; the movements are the cashbook totals of tblbankpostings for the selected range.
+     */
     public function getAmounts($data)
     {
-        $amounts = [];
-        $deposits = 0;
-        $withdrawals = 0;
-        $unclearedDeposits = 0;
-        $unclearedWithdrawals = 0;
-
-        $this->db->query('SELECT IFNULL(SUM(debit),0) As SumOfDebits
-                          FROM   tblbankpostings
-                          WHERE  (transactionDate BETWEEN :tfrom AND :tto) AND (cleared=1) 
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid) AND (clearedDare <= :tdate)');
-        $this->db->bind(':tfrom',$data['from']);
-        $this->db->bind(':tto',$data['to']);
-        $this->db->bind(':bid',$data['bank']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        $this->db->bind(':tdate',$data['to']);
-        $deposits = $this->db->getValue();
-        array_push($amounts,$deposits);
-
-        $this->db->query('SELECT IFNULL(SUM(credit),0) As SumOfCredits
-                          FROM   tblbankpostings
-                          WHERE  (transactionDate BETWEEN :tfrom AND :tto) AND (cleared=1) 
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid) AND (clearedDare <= :tdate)');
-        $this->db->bind(':tfrom',$data['from']);
-        $this->db->bind(':tto',$data['to']);
-        $this->db->bind(':bid',$data['bank']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        $this->db->bind(':tdate',$data['to']);
-        $withdrawals = $this->db->getValue();
-        array_push($amounts,$withdrawals);
-
-        $this->db->query('SELECT IFNULL(SUM(debit),0) As SumOfDebits
-                          FROM   tblbankpostings
-                          WHERE  ((transactionDate BETWEEN :tfrom AND :tto) AND (cleared=0) 
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid)) 
-                                 OR (cleared=1 AND clearedDare > :tdate AND (transactionDate BETWEEN :tfrom AND :tto) 
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid))');
-        $this->db->bind(':tfrom',$data['from']);
-        $this->db->bind(':tto',$data['to']);
-        $this->db->bind(':bid',$data['bank']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        $this->db->bind(':tdate',$data['to']);
-        $unclearedDeposits = $this->db->getValue();
-        array_push($amounts,$unclearedDeposits);
-
-        $this->db->query('SELECT IFNULL(SUM(credit),0) As SumOfCredits
-                          FROM   tblbankpostings
-                          WHERE  ((transactionDate BETWEEN :tfrom AND :tto) AND (cleared=0) 
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid)) OR 
-                                 (cleared=1 AND clearedDare > :tdate AND (transactionDate BETWEEN :tfrom AND :tto)
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid))');
-        $this->db->bind(':tfrom',$data['from']);
-        $this->db->bind(':tto',$data['to']);
-        $this->db->bind(':bid',$data['bank']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        $this->db->bind(':tdate',$data['to']);
-        $unclearedWithdrawals = $this->db->getValue();
-        array_push($amounts,$unclearedWithdrawals);
-
-        $asofdate = subtractDay($data['from']);
-
-        $this->db->query('CALL sp_balancesheet_assets(:startd,:cong)');
-        // $this->db->bind(':startd',$data['from']);
-        $this->db->bind(':startd',$asofdate);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $results = $this->db->resultSet();
-        foreach($results as $result){
-            if(strtolower($result->account) === 'cash at bank'){
-                array_push($amounts,$result->bal);
-            }
-        }
-        // $this->db->query($sql);
-        // $this->db->bind(':account','cash at bank');
-        // $this->db->bind(':asatdate',$data['from']);
-        // $this->db->bind(':cid',$_SESSION['congId']);
-        // $result = $this->db->single();
-        // array_push($amounts,$result->bal);
-        return $amounts;
+        return $this->postingTotals($data['bank'], $data['from'], $data['to'])
+             + ['opening' => $this->bookBalance($data['bank'], subtractDay($data['from'])),
+                'closing' => $this->bookBalance($data['bank'], $data['to'])];
     }
 
+    /** Reconciliation figures (cents): the cashbook totals plus `book` = the bank's journal balance at `to`. */
     public function getAmountsrecon($data)
     {
-        $amounts = [];
-        $deposits = 0;
-        $withdrawals = 0;
-        $unclearedDeposits = 0;
-        $unclearedWithdrawals = 0;
-        
+        return $this->postingTotals($data['bank'], $data['from'], $data['to'])
+             + ['book' => $this->bookBalance($data['bank'], $data['to'])];
+    }
 
-        $this->db->query('SELECT IFNULL(SUM(debit),0) As SumOfDebits
-                          FROM   tblbankpostings
-                          WHERE  (transactionDate BETWEEN :tfrom AND :tto) AND (cleared=1) 
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid) AND (clearedDare <= :tdate)');
-        $this->db->bind(':tfrom',$data['from']);
-        $this->db->bind(':tto',$data['to']);
-        $this->db->bind(':bid',$data['bank']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        $this->db->bind(':tdate',$data['to']);
-        $deposits = $this->db->getValue();
-        array_push($amounts,$deposits);
-
-        
-        $this->db->query('SELECT IFNULL(SUM(credit),0) As SumOfCredits
-                          FROM   tblbankpostings
-                          WHERE  (transactionDate BETWEEN :tfrom AND :tto) AND (cleared=1) 
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid) AND (clearedDare <= :tdate)');
-        $this->db->bind(':tfrom',$data['from']);
-        $this->db->bind(':tto',$data['to']);
-        $this->db->bind(':bid',$data['bank']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        $this->db->bind(':tdate',$data['to']);
-        $withdrawals = $this->db->getValue();
-        array_push($amounts,$withdrawals);
-        
-        $this->db->query('SELECT IFNULL(SUM(debit),0) As SumOfDebits
-                          FROM   tblbankpostings
-                          WHERE  ((transactionDate BETWEEN :tfrom AND :tto) AND (cleared=0) 
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid)) 
-                                 OR (cleared=1 AND clearedDare > :tdate AND (transactionDate BETWEEN :tfrom AND :tto) 
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid))');
-        $this->db->bind(':tfrom',$data['from']);
-        $this->db->bind(':tto',$data['to']);
-        $this->db->bind(':bid',$data['bank']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        $this->db->bind(':tdate',$data['to']);
-        $unclearedDeposits = $this->db->getValue();
-        array_push($amounts,$unclearedDeposits);
-        
-        $this->db->query('SELECT IFNULL(SUM(credit),0) As SumOfCredits
-                          FROM   tblbankpostings
-                          WHERE  ((transactionDate BETWEEN :tfrom AND :tto) AND (cleared=0) 
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid)) OR 
-                                 (cleared=1 AND clearedDare > :tdate AND (transactionDate BETWEEN :tfrom AND :tto)
-                                 AND (deleted=0) AND (bankId=:bid) AND (congregationId=:cid))');
-        $this->db->bind(':tfrom',$data['from']);
-        $this->db->bind(':tto',$data['to']);
-        $this->db->bind(':bid',$data['bank']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        $this->db->bind(':tdate',$data['to']);
-        $unclearedWithdrawals = $this->db->getValue();
-        array_push($amounts,$unclearedWithdrawals);
-     
-        $asofdate = $data['to'];
-
-        // $this->db->query('SELECT (IFNULL(SUM(debit),0) - IFNULL(SUM(credit),0))
-        //                   FROM tblbankpostings
-        //                   WHERE transactionDate <= :asofdate AND bankId = :bank
-        //                         AND congregationId = :cong AND deleted = 0');
-        // $this->db->bind(':asofdate',$asofdate);
-        // $this->db->bind(':bank',$data['bank']);
-        // $this->db->bind(':cong',$_SESSION['congId']);
-        $this->db->query('SELECT (ifnull(sum(l.debit),0) - ifnull(sum(l.credit),0))
-                          FROM tblledger l 
-                          WHERE transactionDate <= :asofdate AND l.account = :account AND congregationId = :cong AND (deleted = 0);');
-        $this->db->bind(':asofdate',$asofdate);
-        $this->db->bind(':account','cash at bank');
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $result = $this->db->getValue();
-        array_push($amounts,$result);
-        // $results = $this->db->resultSet();
-        // foreach($results as $result){
-        //     if(strtolower($result->account) === 'cash at bank'){
-        //         array_push($amounts,$result->bal);
-        //     }
-        // }
-        // $this->db->query('CALL sp_balancesheet_assets(:startd,:cong)');
-        // // $this->db->bind(':startd',$data['from']);
-        // $this->db->bind(':startd',$asofdate);
-        // $this->db->bind(':cong',$_SESSION['congId']);
-        // $results = $this->db->resultSet();
-        // foreach($results as $result){
-        //     if(strtolower($result->account) === 'cash at bank'){
-        //         array_push($amounts,$result->bal);
-        //     }
-        // }
-        // $this->db->query($sql);
-        // $this->db->bind(':account','cash at bank');
-        // $this->db->bind(':asatdate',$data['from']);
-        // $this->db->bind(':cid',$_SESSION['congId']);
-        // $result = $this->db->single();
-        // array_push($amounts,$result->bal);
-        return $amounts;
+    /**
+     * Rows behind a cashbook total: the same scope and the same cleared / uncleared split as postingTotals(), listed.
+     * $type: 'deposit' (debit > 0) or 'withdraw' (credit > 0); $cleared: true = cleared on or before the end date.
+     */
+    private function postingRows($type, $cleared, $data)
+    {
+        $col = $type === 'withdraw' ? 'credit' : 'debit';
+        $split = $cleared ? '(cleared = 1 AND IFNULL(clearedDare, DATE_ADD(:tdate, INTERVAL 1 DAY)) <= :tdate)' : 'NOT (cleared = 1 AND IFNULL(clearedDare, DATE_ADD(:tdate, INTERVAL 1 DAY)) <= :tdate)';
+        $this->db->query('SELECT transactionDate, CAST(ROUND(' . $col . ' * 100) AS SIGNED) AS cents, ucase(reference) AS reference
+                          FROM tblbankpostings
+                          WHERE deleted = 0 AND bankId = :bid AND congregationId = :cid AND transactionDate BETWEEN :sdate AND :edate
+                                AND ' . $col . ' > 0 AND ' . $split . '
+                          ORDER BY transactionDate, ID');
+        $this->db->bind(':sdate', $data['sdate']);
+        $this->db->bind(':edate', $data['edate']);
+        $this->db->bind(':bid', $data['bankid']);
+        $this->db->bind(':cid', $_SESSION['congId']);
+        $this->db->bind(':tdate', $data['edate']);
+        return array_map(function ($r) {
+            return (object) ['transactionDate' => $r->transactionDate, 'amount' => FinancialReport::decimal((int) $r->cents), 'reference' => $r->reference];
+        }, $this->db->resultSet());
     }
 
     public function UnclearedReport($data)
     {
-        if($data['type'] === 'withdraw'){
-            $this->db->query('SELECT transactionDate,credit As amount,ucase(reference) as reference
-                              FROM tblbankpostings
-                              WHERE ((transactionDate BETWEEN :sdate AND :edate) 
-                                    AND (bankId = :bid) AND (cleared = 0) AND (credit > 0)
-                                    AND (deleted = 0) AND (congregationId = :cid)) OR 
-                                    (cleared = 1 AND clearedDare > :tdate AND (transactionDate BETWEEN :sdate AND :edate)
-                                    AND (bankId = :bid) AND (credit > 0) AND (deleted = 0) AND (congregationId = :cid))
-                              ORDER BY transactionDate');
-        }elseif($data['type'] === 'deposit'){
-            $this->db->query('SELECT transactionDate,debit As amount,ucase(reference) as reference
-                              FROM tblbankpostings
-                              WHERE ((transactionDate BETWEEN :sdate AND :edate) 
-                                    AND (bankId = :bid) AND (cleared = 0) AND (debit > 0) AND
-                                    (deleted = 0) AND (congregationId = :cid)) OR (cleared = 1 AND clearedDare > :tdate AND  
-                                    (transactionDate BETWEEN :sdate AND :edate) AND (bankId = :bid) AND  
-                                    (deleted = 0) AND (congregationId = :cid))
-                              ORDER BY transactionDate');
-        }
-        $this->db->bind(':sdate',$data['sdate']);
-        $this->db->bind(':edate',$data['edate']);
-        $this->db->bind(':bid',$data['bankid']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        $this->db->bind(':tdate',$data['edate']);
-        return $this->db->resultSet();
+        return $this->postingRows($data['type'] === 'withdraw' ? 'withdraw' : 'deposit', false, $data);
     }
 
     public function ClearedReport($data)
     {
-        if($data['type'] === 'withdraw'){
-            $this->db->query('SELECT transactionDate,credit As amount,ucase(reference) as reference
-                              FROM tblbankpostings
-                              WHERE (transactionDate BETWEEN :sdate AND :edate) 
-                                    AND (bankId = :bid) AND (cleared = 1) AND (credit > 0) AND (deleted = 0) 
-                                    AND (congregationId = :cid) AND (clearedDare <= :tdate)
-                              ORDER BY transactionDate');
-        }elseif($data['type'] === 'deposit'){
-            $this->db->query('SELECT transactionDate,debit As amount,ucase(reference) as reference
-                              FROM tblbankpostings
-                              WHERE (transactionDate BETWEEN :sdate AND :edate) 
-                                    AND (bankId = :bid) AND (cleared = 1) AND (debit > 0) 
-                                    AND (deleted = 0) AND (congregationId = :cid) AND (clearedDare <= :tdate)
-                              ORDER BY transactionDate');
-        }
-        $this->db->bind(':sdate',$data['sdate']);
-        $this->db->bind(':edate',$data['edate']);
-        $this->db->bind(':bid',$data['bankid']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        $this->db->bind(':tdate',$data['edate']);
-        return $this->db->resultSet();
+        return $this->postingRows($data['type'] === 'withdraw' ? 'withdraw' : 'deposit', true, $data);
     }
 }

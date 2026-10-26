@@ -233,15 +233,11 @@ try {
     $b = Ledger::post($db, $g, [Ledger::debit($expense, 300), Ledger::credit($cash, 300)]);
     check('re-post after void creates a new entry', $b !== $a, "old $a, new $b");
 
-    // 9. Dev mirror into tblledger
-    if (defined('LEDGER_LEGACY_WRITE') && LEDGER_LEGACY_WRITE === true) {
-        $st = $db->prepare('SELECT COUNT(*) FROM tblledger WHERE congregationId = ? AND transactionType = 2
-                            AND transactionId = ? AND deleted = 0');
-        $st->execute([$cong, $TEST_TXN]);
-        check('legacy mirror wrote 2 active tblledger rows', (int) $st->fetchColumn() === 2);
-    } else {
-        echo '  (legacy mirror off: LEDGER_LEGACY_WRITE not true)' . PHP_EOL;
-    }
+    // 9. The active entry of the re-post has exactly its 2 lines (no mirror: the journal is the only ledger)
+    $st = $db->prepare('SELECT COUNT(*) FROM journal_lines l JOIN journal_entries e ON e.ID = l.journalEntryId
+                        WHERE e.congregationId = ? AND e.transactionTypeId = 2 AND e.transactionId = ? AND e.deleted = 0');
+    $st->execute([$cong, $TEST_TXN]);
+    check('the re-posted entry has 2 active journal lines', (int) $st->fetchColumn() === 2);
 
     // 10. Bank postings (tblbankpostings sync)
     $bank2 = null;

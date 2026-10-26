@@ -61,7 +61,7 @@ class Banktransaction
         }
         $clean = [];
         $seen = [];
-        $total = 0.0;
+        $total = 0;   // exact cents
         foreach ((array)($data['subaccounts'] ?? []) as $row) {
             $id = (int)($row->accountid ?? 0);
             $amount = trim((string)($row->amount ?? ''));
@@ -79,13 +79,13 @@ class Banktransaction
                 throw new LedgerException([$err]);
             }
             $seen[$id] = true;
-            $total += round((float)$amount,2);
+            $total += (int)Ledger::exactCents($amount);   // amountError() above guarantees a plain 2-decimal amount
             $clean[] = (object)['accountid' => $id,'amount' => $amount];
         }
         if (!$clean) {
             throw new LedgerException(['Enter the amounts for the sub accounts']);
         }
-        if (abs(round($total,2) - round((float)$data['amount'],2)) >= 0.005) {
+        if ($total !== Ledger::exactCents($data['amount'])) {
             throw new LedgerException(['Sub account amounts must add up to the deposit amount']);
         }
         return $clean;
@@ -138,7 +138,7 @@ class Banktransaction
     private function postLedger($pdo,$cong,$tid,$data,$bank)
     {
         $type = (int)$data['type'];
-        $amount = round((float)$data['amount'],2);
+        $amount = FinancialReport::decimal((int)Ledger::exactCents($data['amount']));   // exact cents, as a decimal string
         $narr = !empty($data['description']) ? strtolower($data['description']) : 'bank transaction reference ' .$data['reference'];
 
         $bank = Ledger::assertPaymentAccount($pdo,$cong,(int)$bank,Ledger::PAY_BANK);

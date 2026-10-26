@@ -105,4 +105,6 @@ foreach ($tables as $t => $k) { $pdo->prepare("DELETE FROM $t WHERE $k > ?")->ex
 $left = 0;
 foreach ($tables as $t => $k) { $left += (int)$pdo->query("SELECT COUNT(*) FROM $t WHERE $k > {$max[$t]}")->fetchColumn(); }
 $same = md5(json_encode($pdo->query('SELECT * FROM tblfiscalyears ORDER BY ID')->fetchAll(PDO::FETCH_ASSOC))) === $existing;
-echo "\nPASSED $pass FAILED $fail ; leftover rows after cleanup: $left ; existing years unchanged: " . ($same ? 'yes' : 'NO') . "\n";
+echo "\nleftover rows after cleanup: $left ; existing years unchanged: " . ($same ? 'yes' : 'NO') . "\n";
+echo "$pass passed, $fail failed\n";
+exit($fail ? 1 : 0);

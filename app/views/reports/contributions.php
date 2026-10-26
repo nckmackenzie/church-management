@@ -23,7 +23,7 @@
                                 <label for="account">Contribution Acc</label>
                                 <select name="account[]" id="account" class="form-control form-control-sm" multiple disabled>
                                     <?php foreach($data['accounts'] as $accounts) : ?>
-                                        <option value="<?php echo $accounts->ID;?>"><?php echo $accounts->accountType;?></option>
+                                        <option value="<?php echo (int)$accounts->ID;?>"><?php echo htmlspecialchars((string)$accounts->accountType,ENT_QUOTES,'UTF-8');?></option>
                                     <?php endforeach;?>
                                 </select>
                                 <span class="invalid-feedback" id="account_err"></span>
@@ -51,7 +51,8 @@
         <!-- data -->
         <div class="row">
             <div class="col-md-12">
-                <div id="results" class="table-responsive">
+                <div id="listapp" hidden data-endpoint="<?php echo htmlspecialchars(URLROOT . '/reports/contributionsrpt',ENT_QUOTES,'UTF-8');?>" data-account-key="account" data-need-account="type2"></div>
+                <div id="results">
 
                 </div>
             </div>
@@ -62,7 +63,6 @@
 <script>
     $(function(){
         $('#account').selectpicker();
-        //change
         $('#type').change(function(){
             var type = $(this).val();
             if(type == 2 ){
@@ -75,170 +75,8 @@
                 $('.bootstrap-select button').addClass('disabled');
             }
         });
-
-        $('#preview').click(function(){
-            var table = $('#table').DataTable();
-            //validate
-            var start_err = '';
-            var end_err = '';
-            var account_err = '';
-            
-            
-
-            if($('#start').val() == ''){
-                start_err = 'Select Start Date';
-                $('#start_err').text(start_err);
-                $('#start').addClass('is-invalid');
-                
-            }else{
-                start_err = '';
-                $('#start_err').text(start_err);
-                $('#start').removeClass('is-invalid');
-            }
-
-            if($('#end').val() == ''){
-                end_err = 'Select End Date';
-                $('#end_err').text(end_err);
-                $('#end').addClass('is-invalid');
-                end = $('#end').val();
-            }else{
-                end_err = '';
-                $('#end_err').text(end_err);
-                $('#end').removeClass('is-invalid');
-            }
-
-            if(Number($('#type').val()) === 2 && $('#account').val() == '' ){
-                account_err = 'Select at least one account';
-                $('#account_err').text(account_err);
-                $('#account').addClass('is-invalid');
-                $('.bootstrap-select').addClass('is-invalid');
-            }else if(Number($('#type').val()) === 2 && $('#account').val() != ''){
-                account_err = '';
-                $('#account_err').text(account_err);
-                $('#account').removeClass('is-invalid');
-                $('.bootstrap-select').removeClass('is-invalid');
-                account = $('#account').val();
-            }
-
-            if($('#start').val() !== '' && $('#end').val() !== ''){
-                if($('#start').val() > $('#end').val()){
-                    start_err = 'Start Date Cannot Be Greater Than End Date';
-                    $('#start_err').text(start_err);
-                    $('#start').addClass('is-invalid');
-                }else{
-                    start_err = '';
-                    $('#start_err').text(start_err);
-                    $('#start').removeClass('is-invalid');
-                }
-            }
-
-            if(start_err !== '' || end_err !== '' || account_err !== '') return;
-            var type = $('#type').val();
-            var start = $('#start').val();
-            var end = $('#end').val();
-            var account = $('#account').val();
-            
-            $.ajax({
-                url : '<?php echo URLROOT;?>/reports/contributionsrpt',
-                method : 'GET',
-                data : {type : type, start : start,end : end, account : account},
-                success : function(data){
-                    // console.log(data);
-                    $('#results').html(data);
-                    table.destroy();
-                    if(Number(type) !== 3){
-                        table = $('#table').DataTable({
-                        pageLength : 100,
-                        fixedHeader : true,
-                        ordering : false,
-                        "responsive" : true,
-                        'columnDefs' : [
-                            {"width" : "10%" , "targets": 0},
-                            {"width" : "15%" , "targets": 4},
-                            {"width" : "15%" , "targets": 5},
-                        ],
-                        buttons: [
-                            { extend: 'excelHtml5', footer: true },
-                            { extend: 'pdfHtml5', footer: true },
-                            "print"
-                        ],
-                        "footerCallback": function ( row, data, start, end, display ) {
-                            var api = this.api(), data;
-                             // Remove the formatting to get integer data for summation
-                            var intVal = function ( i ) {
-                                return typeof i === 'string' ?
-                                    i.replace(/[\$,]/g, '')*1 :
-                                    typeof i === 'number' ?
-                                        i : 0;
-                            };
-
-                            function updateValues(cl){
-                                total = api
-                                      .column( cl, {search:'applied'} )
-                                      .data()
-                                      .reduce( function (a, b) {
-                                      return intVal(a) + intVal(b);
-                                      },0);
-                                return total;      
-                            }
-
-                            function format_number(n) {
-                              return n.toFixed(2).replace(/(\d)(?=(\d{3})+\.)/g, "$1,");
-                            }
-                            // Update footer
-                            $('#total').html(format_number(updateValues(3)));
-                            
-                        }
-                        }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
-                    }else{
-                        table = $('#table').DataTable({
-                        pageLength : 100,
-                        fixedHeader : true,
-                        ordering : false,
-                        "responsive" : true,
-                        // "buttons": ["excel", "pdf","print"],
-                        buttons: [
-                            { extend: 'excelHtml5', footer: true },
-                            { extend: 'pdfHtml5', footer: true },
-                            "print"
-                        ],
-                        "footerCallback": function ( row, data, start, end, display ) {
-                            var api = this.api(), data;
-                             // Remove the formatting to get integer data for summation
-                            var intVal = function ( i ) {
-                                return typeof i === 'string' ?
-                                    i.replace(/[\$,]/g, '')*1 :
-                                    typeof i === 'number' ?
-                                        i : 0;
-                            };
-
-                            function updateValues(cl){
-                                total = api
-                                      .column( cl, {search:'applied'} )
-                                      .data()
-                                      .reduce( function (a, b) {
-                                      return intVal(a) + intVal(b);
-                                      },0);
-                                return total;      
-                            }
-
-                            function format_number(n) {
-                              return n.toFixed(2).replace(/(\d)(?=(\d{3})+\.)/g, "$1,");
-                            }
-                            // Update footer
-                            $('#total').html(format_number(updateValues(1)));
-                            
-                        }
-                        }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
-                    }
-                    
-                }
-            });
-
-        });
-        
-
     });
 </script>
+<script type="module" src="<?php echo htmlspecialchars(URLROOT . '/dist/js/pages/reports/filter-list-v1.js',ENT_QUOTES,'UTF-8');?>"></script>
 </body>
-</html>  
+</html>

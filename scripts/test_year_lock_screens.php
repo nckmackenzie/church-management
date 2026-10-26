@@ -12,7 +12,7 @@ $_SESSION['congId'] = 11;
 $_SESSION['isParish'] = 0;
 $_SESSION['userId'] = (int)$pdo->query('SELECT ID FROM tblusers ORDER BY ID LIMIT 1')->fetchColumn();
 
-$tables = ['journal_entries' => 'ID', 'tblledger' => 'ID', 'tblbankpostings' => 'ID', 'tblbanktransactions' => 'ID', 'tblpettycash' => 'ID',
+$tables = ['journal_entries' => 'ID', 'tblbankpostings' => 'ID', 'tblbanktransactions' => 'ID', 'tblpettycash' => 'ID',
            'tbllogs' => 'ID', 'tblcontributions_header' => 'ID', 'tblcontributions_details' => 'ID', 'tblaccounttypes' => 'ID'];
 $max = [];
 foreach ($tables as $t => $k) { $max[$t] = (int)$pdo->query("SELECT IFNULL(MAX($k),0) FROM $t")->fetchColumn(); }
@@ -175,4 +175,6 @@ $ins = $pdo->prepare('INSERT INTO receipt_number_seq (congregationId,kind,fiscal
 foreach ($seqSnapshot as $s) { $ins->execute([$s['congregationId'], $s['kind'], $s['fiscalYearId'], $s['lastNo']]); }
 $left = 0;
 foreach ($tables as $t => $k) { $left += (int)$pdo->query("SELECT COUNT(*) FROM $t WHERE $k > {$max[$t]}")->fetchColumn(); }
-echo "\nPASSED $pass FAILED $fail ; leftover rows after cleanup: $left ; fiscal years restored: " . (yearsAreRestored() ? 'yes' : 'NO') . "\n";
+echo "\nleftover rows after cleanup: $left ; fiscal years restored: " . (yearsAreRestored() ? 'yes' : 'NO') . "\n";
+echo "$pass passed, $fail failed\n";
+exit($fail ? 1 : 0);

@@ -1,30 +1,23 @@
 <?php require APPROOT . '/views/inc/header.php';?>
 <?php require APPROOT . '/views/inc/topNav.php';?>
 <?php require APPROOT . '/views/inc/sideNav.php';?>
-  <!-- Content Wrapper. Contains page content -->
+<style>
+@media print {
+  body * { visibility: hidden; }
+  #printarea, #printarea * { visibility: visible; }
+  #printarea { position: absolute; left: 0; top: 0; width: 100%; }
+  .no-print { display: none !important; }
+}
+</style>
   <div class="content-wrapper">
-    <!-- Content Header (Page header) -->
-    <section class="content-header">
-      <div class="container-fluid">
-        <div class="row mb-2">
-            <div class="col-12" id="alertBox"></div>
-          <div class="col-sm-6">
-            <h6 class="text-capitalize"></h6>
-          </div>
-          <div class="col-sm-6"></div>
-        </div>
-      </div><!-- /.container-fluid -->
-    </section>
-
-    <!-- Main content -->
     <section class="content">
-        <div class="spinner-container d-flex justify-content-center"></div>
-        <div class="col-12">
-            <div class="table-responsive"></div>
-        </div>
-    </section><!-- /.content -->
-</div><!-- /.content-wrapper -->
+      <div id="isapp" data-mode="drill" data-base="<?php echo URLROOT;?>/reports" data-parish="0">
+        <div class="row"><div class="col-md-10 mx-auto mt-2" id="isalert"></div></div>
+        <div class="row"><div class="col-md-10 mx-auto"><div id="results"></div></div></div>
+      </div>
+    </section>
+  </div>
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/reports/pl/pl-childaccounts.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/reports/is/income-statement-v2.js"></script>
 </body>
-</html>  
+</html>

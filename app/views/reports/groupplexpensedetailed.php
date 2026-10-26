@@ -1,30 +1,19 @@
 <?php require APPROOT . '/views/inc/header.php';?>
 <?php require APPROOT . '/views/inc/topNav.php';?>
 <?php require APPROOT . '/views/inc/sideNav.php';?>
-  <!-- Content Wrapper. Contains page content -->
-  <div class="content-wrapper">
-    <!-- Content Header (Page header) -->
-    <section class="content-header">
-      <div class="container-fluid">
-        <div class="row mb-2">
-            <div class="col-12" id="alertBox"></div>
-          <div class="col-sm-6">
-            <h6 class="text-capitalize"></h6>
-          </div>
-          <div class="col-sm-6"></div>
-        </div>
-      </div><!-- /.container-fluid -->
-    </section>
-
-    <!-- Main content -->
+<style media="print">
+    .main-header, .main-sidebar, .content-header, .report-controls, .report-actions, .no-print { display: none !important; }
+    .content-wrapper { margin-left: 0 !important; }
+</style>
+<div class="content-wrapper">
     <section class="content">
-        <div class="spinner-container d-flex justify-content-center"></div>
-        <div class="col-12">
-            <div class="table-responsive"></div>
+        <div id="gpldetail" data-endpoint="<?php echo htmlspecialchars(URLROOT . '/reports/groupplexpensedetailedrpt',ENT_QUOTES,'UTF-8');?>">
+            <div id="report-error" class="alert alert-danger mt-2" hidden></div>
+            <div id="results" class="mt-2"></div>
         </div>
-    </section><!-- /.content -->
-</div><!-- /.content-wrapper -->
+    </section>
+</div>
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/reports/pl/grouppl-expense-detailed-v1.js"></script>
+<script type="module" src="<?php echo htmlspecialchars(URLROOT . '/dist/js/pages/reports/pl/grouppl-detail-v2.js',ENT_QUOTES,'UTF-8');?>"></script>
 </body>
-</html>  
+</html>

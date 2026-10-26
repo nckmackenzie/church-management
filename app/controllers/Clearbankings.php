@@ -15,6 +15,18 @@ class Clearbankings extends Controller
         $this->clearmodel = $this->model('Clearbanking');
     }
 
+    /** Strict report-safe bank and Y-m-d range shared by the Clear Banking summaries. */
+    private function summaryData($input)
+    {
+        $input = is_array($input) ? $input : [];
+        $bank = positiveIntParam($input['bank'] ?? null, 'bank');
+        if (!$this->clearmodel->isReportBank($bank)) { badRequest('Invalid bank.'); }
+        $from = strictDateParam($input['from'] ?? null, 'from');
+        $to = strictDateParam($input['to'] ?? null, 'to');
+        if ($from > $to) { badRequest('Invalid dates: from is after to.'); }
+        return ['bank' => $bank, 'from' => $from, 'to' => $to];
+    }
+
     public function index()
     {
         checkrights($this->authmodel,'clear bankings');
@@ -30,20 +42,9 @@ class Clearbankings extends Controller
     public function getbankings()
     {
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [ 
-                'bank' => isset($_GET['bank']) && !empty(trim($_GET['bank'])) ? (int)trim($_GET['bank']) : NULL,
-                'from' => isset($_GET['from']) && !empty(trim($_GET['from'])) ? date('Y-m-d',strtotime(trim($_GET['from']))) : NULL,
-                'to' => isset($_GET['to']) && !empty(trim($_GET['to'])) ? date('Y-m-d',strtotime(trim($_GET['to']))) : NULL,
-                'status' => isset($_GET['status']) && !empty(trim($_GET['status'])) ? trim($_GET['status']) : NULL,
-                'bankings' => []
-            ];
-
-            if(is_null($data['bank']) || is_null($data['from']) || is_null($data['to'])){
-                http_response_code(400);
-                echo json_encode(['message' => 'Please provide all required fields']);
-                exit;
-            }
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW) ?: [];
+            $data = $this->summaryData($_GET) + ['status' => $_GET['status'] ?? null, 'bankings' => []];
+            if (!is_null($data['status']) && $data['status'] !== 'cleared') { badRequest('Invalid status.'); }
 
             if(is_null($data['status'])){
                 foreach($this->clearmodel->getBankings($data) as $banking){
@@ -68,7 +69,7 @@ class Clearbankings extends Controller
                     array_push($data['bankings'],[
                         'id' => $banking->ID,
                         'transactionDate' => date('d-m-Y',strtotime($banking->transactionDate)),
-                        'clearedDate' => date('Y-m-d',strtotime($banking->clearedDare)),
+                        'clearedDate' => is_null($banking->clearedDare) ? null : $banking->clearedDare,
                         'amount' => $banking->Amount,
                         'reference' => $banking->Reference
                     ]);
@@ -87,27 +88,9 @@ class Clearbankings extends Controller
     public function getValues()
     {
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [
-                'bank' => (int)trim($_GET['bank']),
-                'from' => trim($_GET['from']),
-                'to' => trim($_GET['to']),
-                'debits' => '',
-                'credits' => '',
-                'balance' => '',
-                'variance' => ''
-            ];
-            // $values = [];
-            $debits = $this->clearmodel->getAmounts($data)[0];
-            $credits = $this->clearmodel->getAmounts($data)[1];
-            $balance = $this->clearmodel->getAmounts($data)[2];
-            $data['debits'] = $debits;
-            $data['credits'] = $credits;
-            $data['balance'] = $balance;
-            $data['variance'] = floatval($balance) - (floatval($debits) - floatval($credits));
-            // array_push($values,$debits);
-            // array_push($values,$credits);
-
+            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW) ?: [];
+            $data = $this->summaryData($_GET);
+            [$data['debits'], $data['credits']] = $this->clearmodel->getAmounts($data);
             echo json_encode($data);
         }else{
             redirect('users/deniedaccess');

@@ -36,15 +36,15 @@ function appendTable(data) {
     .getElementById('clearedTable')
     .getElementsByTagName('tbody')[0];
 
+  // every server value goes on the page as text (the reference is typed by users)
   data.forEach(dt => {
-    let html = `
-        <tr>
-            <td>${dt.transactionDate}</td>
-            <td>${numberWithCommas(dt.amount)}</td>
-            <td>${dt.reference}</td>
-        </tr>
-    `;
-    tbody.insertAdjacentHTML('beforeend', html);
+    const tr = document.createElement('tr');
+    [dt.transactionDate, numberWithCommas(dt.amount), dt.reference].forEach(v => {
+      const td = document.createElement('td');
+      td.textContent = v === null || v === undefined ? '' : String(v);
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
   });
 }
 

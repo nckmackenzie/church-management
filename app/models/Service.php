@@ -132,8 +132,23 @@ class Service {
             return true;
         }
     }
+    /** envelope pledge / ordinary / special as DECIMAL(18,2) text (blank = NULL), or false when one is not a plain amount (task 9.8) */
+    private function infoMoney($data)
+    {
+        $out = [];
+        foreach(['envelopepledge','ordinary','special'] as $k){
+            $v = trim((string)($data[$k] ?? ''));
+            if($v === ''){ $out[$k] = null; continue; }
+            $c = Ledger::exactCents($v);
+            if($c === null || $c < 0){ return false; }
+            $out[$k] = FinancialReport::decimal($c);
+        }
+        return $out;
+    }
     public function createinfo($data)
     {
+        $money = $this->infoMoney($data);
+        if($money === false){ return false; }
         $this->db->query('INSERT INTO tblserviceinfo (serviceId,serviceDate,headedBy,preacher,attendance
                          ,envelopePledge,ordinary,special,congregationId)
                          VALUES(:seid,:sdate,:headed,:preacher,:attendance,:env,:ordinary,:special,:cid)');
@@ -142,9 +157,9 @@ class Service {
         $this->db->bind(':headed',!empty($data['headedby']) ? $data['headedby'] : NULL);
         $this->db->bind(':preacher',!empty($data['preacher']) ? $data['preacher'] : NULL);
         $this->db->bind(':attendance',!empty($data['attendance']) ? $data['attendance'] : NULL);
-        $this->db->bind(':env',!empty($data['envelopepledge']) ? $data['envelopepledge'] : NULL);
-        $this->db->bind(':ordinary',!empty($data['ordinary']) ? $data['ordinary'] : NULL);
-        $this->db->bind(':special',!empty($data['special']) ? $data['special'] : NULL);
+        $this->db->bind(':env',$money['envelopepledge']);
+        $this->db->bind(':ordinary',$money['ordinary']);
+        $this->db->bind(':special',$money['special']);
         $this->db->bind(':cid',$_SESSION['congId']);
         if ($this->db->execute()) {
             $activity = 'Added Service Info For '.$data['servicename'] . ' For Date '.$data['date'];
@@ -157,18 +172,21 @@ class Service {
     }
     public function updateinfo($data)
     {
+        $money = $this->infoMoney($data);
+        if($money === false){ return false; }
         $this->db->query('UPDATE tblserviceinfo SET serviceId=:seid,serviceDate=:sdate,headedBy=:headed
                          ,preacher=:preacher,attendance=:attendance,envelopePledge=:env,ordinary=:ordinary,
-                         special=:special WHERE (ID=:id)');
+                         special=:special WHERE (ID=:id) AND (congregationId=:cid)');
         $this->db->bind(':seid',$data['service']);
         $this->db->bind(':sdate',$data['date']);
         $this->db->bind(':headed',!empty($data['headedby']) ? $data['headedby'] : NULL);
         $this->db->bind(':preacher',!empty($data['preacher']) ? $data['preacher'] : NULL);
         $this->db->bind(':attendance',!empty($data['attendance']) ? $data['attendance'] : NULL);
-        $this->db->bind(':env',!empty($data['envelopepledge']) ? $data['envelopepledge'] : NULL);
-        $this->db->bind(':ordinary',!empty($data['ordinary']) ? $data['ordinary'] : NULL);
-        $this->db->bind(':special',!empty($data['special']) ? $data['special'] : NULL);
+        $this->db->bind(':env',$money['envelopepledge']);
+        $this->db->bind(':ordinary',$money['ordinary']);
+        $this->db->bind(':special',$money['special']);
         $this->db->bind(':id',$data['id']);
+        $this->db->bind(':cid',$_SESSION['congId']);
         if ($this->db->execute()) {
             $activity = 'Updated Service Info For '.$data['servicename'] . ' For Date '.$data['date'];
             $this->createLog($this->db,$activity);

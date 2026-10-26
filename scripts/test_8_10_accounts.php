@@ -17,7 +17,7 @@ function as_($type, $cong, $parish = 0) {
 }
 as_(1, 11, 0);   // super admin working in congregation 11
 
-$tables = ['tblaccounttypes' => 'ID', 'journal_entries' => 'ID', 'journal_lines' => 'ID', 'tblledger' => 'ID', 'tblbankpostings' => 'ID', 'tbllogs' => 'ID'];
+$tables = ['tblaccounttypes' => 'ID', 'journal_entries' => 'ID', 'journal_lines' => 'ID', 'tblbankpostings' => 'ID', 'tbllogs' => 'ID'];
 $max = [];
 foreach ($tables as $t => $k) { $max[$t] = (int)$pdo->query("SELECT IFNULL(MAX($k),0) FROM $t")->fetchColumn(); }
 $acctSnapshot = $pdo->query('SELECT * FROM tblaccounttypes WHERE ID <= ' . $max['tblaccounttypes'] . ' ORDER BY ID')->fetchAll(PDO::FETCH_ASSOC);
@@ -415,20 +415,16 @@ try {
     $sharedAfter = AccountChart::nameProblem($pdo, 'zz t810 own', 0);
     chk('creating a shared account checks the name against every congregation (own account of 11 blocks a shared one)', $sharedAfter !== null, (string)$sharedAfter);
 
-    // ================================================================ rename: ledger mirror (dev only), keyed on the stored name and scope
+    // ================================================================ rename: the journal holds account ids, so a rename rewrites nothing else (9.9: no mirror text)
     $mn = (int)$mk('zz t810 mirror', 26)['id'];
     $other = (int)$mk('zz t810 mirror other', 26)['id'];
-    $ins = $pdo->prepare("INSERT INTO tblledger (transactionDate, account, parentaccount, debit, credit, narration, reference, accountId, transactionType, transactionId, congregationId)
-                          VALUES ('2026-01-15', ?, ?, 1, 0, 'T810', 'T810', 2, 5, 900820, ?)");
-    $ins->execute(['zz t810 mirror', 'administrative costs', 11]);
-    $ins->execute(['zz t810 mirror', 'administrative costs', 2]);          // same text, other congregation: not this account's
-    $ins->execute(['zz t810 mirror other', 'administrative costs', 11]);
+    $jl0 = (int)q('SELECT COUNT(*) n FROM journal_lines')[0]['n'];
+    $je0 = (int)q('SELECT COUNT(*) n FROM journal_entries')[0]['n'];
     $r = $upd($mn, ['accountname' => 'zz t810 mirror renamed']);
-    $rows = q("SELECT account, congregationId FROM tblledger WHERE transactionId = 900820 ORDER BY ID");
-    chk('rename (dev mirror): own-congregation rows follow, another congregation and other accounts untouched', $r['success'] && $rows[0]['account'] === 'zz t810 mirror renamed' && $rows[1]['account'] === 'zz t810 mirror' && $rows[2]['account'] === 'zz t810 mirror other', json_encode($rows));
+    chk('rename: the account carries the new name, the other account is untouched and no journal row is written', $r['success'] && q('SELECT accountType FROM tblaccounttypes WHERE ID = ?', [$mn])[0]['accountType'] === 'zz t810 mirror renamed' && q('SELECT accountType FROM tblaccounttypes WHERE ID = ?', [$other])[0]['accountType'] === 'zz t810 mirror other' && (int)q('SELECT COUNT(*) n FROM journal_lines')[0]['n'] === $jl0 && (int)q('SELECT COUNT(*) n FROM journal_entries')[0]['n'] === $je0);
     $n0 = (int)q('SELECT COUNT(*) n FROM tbllogs')[0]['n'];
     $r = $upd($mn, ['description' => 'no rename']);
-    chk('a save without a name change does not touch tblledger', $r['success'] && q("SELECT account FROM tblledger WHERE transactionId = 900820 ORDER BY ID")[0]['account'] === 'zz t810 mirror renamed');
+    chk('a save without a name change keeps the name', $r['success'] && q('SELECT accountType FROM tblaccounttypes WHERE ID = ?', [$mn])[0]['accountType'] === 'zz t810 mirror renamed');
     chk('update writes a log row inside the transaction', (int)q('SELECT COUNT(*) n FROM tbllogs')[0]['n'] === $n0 + 1);
     $src = file_get_contents(__DIR__ . '/../app/views/accounts/edit.php');
     chk('the edit form no longer posts initialname or isSubCategory', stripos($src, 'initialname') === false && stripos($src, 'name="check"') === false);
@@ -553,7 +549,7 @@ try {
 }
 
 // ---------------------------------------------------------------- cleanup: everything this run created, then verify the table is as it was
-foreach (['tblledger', 'journal_lines'] as $t) { $pdo->exec("DELETE FROM $t WHERE ID > {$max[$t]}"); }
+$pdo->exec("DELETE FROM journal_lines WHERE ID > {$max['journal_lines']}");
 $pdo->exec('DELETE FROM journal_entries WHERE ID > ' . $max['journal_entries']);
 $pdo->exec('DELETE FROM tblbankpostings WHERE ID > ' . $max['tblbankpostings']);
 $pdo->exec('DELETE FROM tbllogs WHERE ID > ' . $max['tbllogs']);
@@ -564,8 +560,7 @@ $now = $pdo->query('SELECT * FROM tblaccounttypes WHERE ID <= ' . $max['tblaccou
 $diff = [];
 foreach ($acctSnapshot as $i => $r) { if ($r != $now[$i]) { $diff[] = $r['ID']; } }
 chk('cleanup: every pre-existing account row is exactly as before the run', !$diff && count($now) === count($acctSnapshot), json_encode($diff));
-chk('cleanup: no leftover rows in ledger / log / account tables', (int)$pdo->query("SELECT COUNT(*) FROM tblledger WHERE ID > {$max['tblledger']}")->fetchColumn() === 0
-    && (int)$pdo->query("SELECT COUNT(*) FROM journal_entries WHERE ID > {$max['journal_entries']}")->fetchColumn() === 0);
+chk('cleanup: no leftover rows in journal / log / account tables', (int)$pdo->query("SELECT COUNT(*) FROM journal_entries WHERE ID > {$max['journal_entries']}")->fetchColumn() === 0);
 $brandAfter = $pdo->query("SELECT ROUTINE_DEFINITION FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = DATABASE() AND ROUTINE_NAME = 'brand_level'")->fetchColumn();
 chk('cleanup: the routines are untouched', $brandBefore === $brandAfter);
 chk('final: chart_flags_check empty', chartViolations()[0] === 0, json_encode(chartViolations()[1]));

@@ -40,6 +40,14 @@ class Bankbalances extends Controller
         ];
         $this->view('bankbalances/add',$data);
     }
+    /** The posted bank ('' when none): a value must be in the report-safe bank list of the session congregation (task 9.1): 400 otherwise. */
+    private function postedBank()
+    {
+        if (!isset($_POST['bank']) || trim((string)$_POST['bank']) === '') { return ''; }
+        $id = positiveIntParam(is_string($_POST['bank']) ? trim($_POST['bank']) : null,'bank');
+        if (!$this->bankbalanceModel->isReportBank($id)) { badRequest('Invalid bank.'); }
+        return (string)$id;
+    }
     public function create()
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -49,7 +57,7 @@ class Bankbalances extends Controller
                 'id' => '',
                 'banks' => $banks,
                 'date' => trim($_POST['date']),
-                'bank' => !empty($_POST['bank']) ? trim($_POST['bank']) : '',
+                'bank' => $this->postedBank(),
                 'amount' => trim($_POST['amount']),
                 'date_err' => '',
                 'bank_err' => '',
@@ -118,7 +126,7 @@ class Bankbalances extends Controller
                 'banks' => $banks,
                 'id' => trim($_POST['id']),
                 'date' => trim($_POST['date']),
-                'bank' => !empty($_POST['bank']) ? trim($_POST['bank']) : '',
+                'bank' => $this->postedBank(),
                 'amount' => trim($_POST['amount']),
                 'date_err' => '',
                 'bank_err' => '',

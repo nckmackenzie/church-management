@@ -1,156 +1,47 @@
-<?php require APPROOT . '/views/inc/header.php';?>
-<?php require APPROOT . '/views/inc/topNav.php';?>
-<?php require APPROOT . '/views/inc/sideNav.php';?>
-  <!-- Content Wrapper. Contains page content -->
-  <div class="content-wrapper">
-    <!-- Main content -->
+<?php require APPROOT . '/views/inc/header.php'; ?>
+<?php require APPROOT . '/views/inc/topNav.php'; ?>
+<?php require APPROOT . '/views/inc/sideNav.php'; ?>
+<style media="print">
+    .main-header, .main-sidebar, .content-header, .report-controls, .report-actions, .pagination { display: none !important; }
+    .content-wrapper { margin-left: 0 !important; }
+</style>
+<div class="content-wrapper">
+    <section class="content-header">
+        <div class="container-fluid"><h1>Petty Cash Book</h1></div>
+    </section>
     <section class="content">
-        <div class="row">
-            <div class="col-md-6 mx-auto mt-2">
-                <div class="card bg-light">
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="start">Start Date</label>
-                                <input type="date" name="start" id="start" class="form-control form-control-sm">
-                                <span class="invalid-feedback" id="start_err"></span>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="end">End Date</label>
-                                <input type="date" name="end" id="end" class="form-control form-control-sm">
-                                <span class="invalid-feedback" id="end_err"></span>
-                            </div>
+        <div id="pcapp" data-base="<?php echo htmlspecialchars(URLROOT . '/reports', ENT_QUOTES, 'UTF-8'); ?>">
+            <div class="card report-controls">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-2">
+                            <label for="account">Petty cash account</label>
+                            <select id="account" class="form-control form-control-sm">
+                                <?php foreach ($data['accounts'] as $account) : ?>
+                                    <option value="<?php echo (int) $account['id']; ?>"><?php echo htmlspecialchars((string) $account['name'], ENT_QUOTES, 'UTF-8'); ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
-                        <div class="row">
-                            <div class="col-md-12 mb-3">
-                                <label for="account">Petty Cash Account</label>
-                                <select name="account" id="account" class="form-control form-control-sm">
-                                    <?php foreach($data['accounts'] as $account) : ?>
-                                        <option value="<?php echo $account->ID;?>"><?php echo htmlspecialchars($account->Account);?></option>
-                                    <?php endforeach;?>
-                                </select>
-                            </div>
+                        <div class="col-md-3 mb-2">
+                            <label for="start">From</label>
+                            <input type="date" id="start" class="form-control form-control-sm">
                         </div>
-                        <div class="row">
-                            <div class="col-2">
-                                <button class="btn btn-sm btn-primary custom-font" id="preview">Preview</button>
-                            </div>
+                        <div class="col-md-3 mb-2">
+                            <label for="end">To</label>
+                            <input type="date" id="end" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-md-2 mb-2 d-flex align-items-end">
+                            <button type="button" id="preview" class="btn btn-sm btn-primary">Preview</button>
                         </div>
                     </div>
+                    <div id="report-error" class="alert alert-danger mt-2 mb-0" hidden></div>
                 </div>
             </div>
+            <div id="results"></div>
         </div>
-        <!-- data -->
-        <div class="row">
-            <div class="col-md-12">
-                <div id="results" class="table-responsive">
-
-                </div>
-            </div>
-        </div>
-    </section><!-- /.content -->
-</div><!-- /.content-wrapper -->
-<?php require APPROOT . '/views/inc/footer.php'?>
-<script>
-    $(function () {
-        $('#preview').click(function(){
-            var table = $('#table').DataTable();
-            //validate
-            var start_err = '';
-            var end_err = '';
-            
-            if($('#start').val() == ''){
-                start_err = 'Select Start Date';
-                $('#start_err').text(start_err);
-                $('#start').addClass('is-invalid');
-                
-            }else{
-                start_err = '';
-                $('#start_err').text(start_err);
-                $('#start').removeClass('is-invalid');
-            }
-
-            if($('#end').val() == ''){
-                end_err = 'Select End Date';
-                $('#end_err').text(end_err);
-                $('#end').addClass('is-invalid');
-                end = $('#end').val();
-            }else{
-                end_err = '';
-                $('#end_err').text(end_err);
-                $('#end').removeClass('is-invalid');
-            }
-
-            if($('#start').val() !== '' && $('#end').val() !== ''){
-                if($('#start').val() > $('#end').val()){
-                    start_err = 'Start Date Cannot Be Greater Than End Date';
-                    $('#start_err').text(start_err);
-                    $('#start').addClass('is-invalid');
-                }else{
-                    start_err = '';
-                    $('#start_err').text(start_err);
-                    $('#start').removeClass('is-invalid');
-                }
-            }
-
-            if(start_err !== '' || end_err !== '') return;
-            var start = $('#start').val();
-            var end = $('#end').val();
-                        
-            $.ajax({
-                url : '<?php echo URLROOT;?>/reports/pettycashrpt',
-                method : 'GET',
-                data : {start : start,end : end,account : $('#account').val()},
-                success : function(data){
-                    $('#results').html(data);
-                    table.destroy();
-                    table = $('#table').DataTable({
-                        pageLength : 100,
-                        fixedHeader : true,
-                        "responsive" : true,
-                        'columnDefs' : [
-                            {"width" : "10%" , "targets": 0},
-                        ],
-                        // "buttons": ["excel", "pdf","print"],
-                        buttons: [
-                            { extend: 'excelHtml5', footer: true },
-                            { extend: 'pdfHtml5', footer: true },
-                            "print"
-                        ],
-                        "footerCallback": function ( row, data, start, end, display ) {
-                            var api = this.api(), data;
-                             // Remove the formatting to get integer data for summation
-                            var intVal = function ( i ) {
-                                return typeof i === 'string' ?
-                                    i.replace(/[\$,]/g, '')*1 :
-                                    typeof i === 'number' ?
-                                        i : 0;
-                            };
-
-                            function updateValues(cl){
-                                total = api
-                                      .column( cl )
-                                      .data()
-                                      .reduce( function (a, b) {
-                                      return intVal(a) + intVal(b);
-                                      },0);
-                                return total;      
-                            }
-
-                            function format_number(n) {
-                              return n.toFixed(2).replace(/(\d)(?=(\d{3})+\.)/g, "$1,");
-                            }
-                            // Update footer
-                            $('#debittotal').html(format_number(updateValues(2)));
-                            $('#credittotal').html(format_number(updateValues(3)));
-
-                        }
-                    }).buttons().container().appendTo('#table_wrapper .col-md-6:eq(0)');
-                }
-            });
-
-        });
-    });
-</script>
+    </section>
+</div>
+<?php require APPROOT . '/views/inc/footer.php'; ?>
+<script type="module" src="<?php echo htmlspecialchars(URLROOT . '/dist/js/pages/reports/petty-cash-v1.js', ENT_QUOTES, 'UTF-8'); ?>"></script>
 </body>
-</html>  
+</html>

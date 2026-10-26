@@ -26,14 +26,15 @@ class Bankbalance
         $this->db->bind(':cid',$_SESSION['congId']);
         return $this->db->resultSet();
     }
+    /** Report-safe banks of the session congregation: non-deleted, active or with history (inactive ones labelled). */
     public function getBanks()
     {
-        $this->db->query('SELECT   ID,
-                                   UCASE(accountType) As Bank
-                          FROM     tblaccounttypes 
-                          WHERE    (isBank=1) AND (Deleted=0) AND (congregationId=:cid)');
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();
+        return array_map(function($b){ return (object)['ID' => $b['id'],'Bank' => $b['label']]; },
+            FinancialReport::bankOptions($this->db->pdo(),[(int)$_SESSION['congId']]));
+    }
+    public function isReportBank($id)
+    {
+        return FinancialReport::bankAllowed($this->db->pdo(),[(int)$_SESSION['congId']],(int)$id);
     }
     public function checkExists($date,$id,$bank)
     {

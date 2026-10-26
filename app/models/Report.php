@@ -167,81 +167,116 @@ class Report {
         }
         return $this->db->resultSet();
     }
+    /**
+     * Report-safe account list of the session congregation for one root type (task 9.1): shared + own accounts by ID with a
+     * path label, no `active` filter, deleted ones only with history (both labelled). ID and accountType keep the view contract.
+     */
     public function GetAccounts($id)
     {
-        $this->db->query('SELECT ID,
-                                 UCASE(accountType) AS accountType 
-                          FROM   tblaccounttypes 
-                          WHERE  (accountTypeId = :id) AND (deleted = 0)
-                          ORDER BY accountType');
-        $this->db->bind(':id',$id);
-        return $this->db->resultSet();
+        return array_map(function($a){ return (object)['ID' => $a['id'],'accountType' => $a['label']]; },
+            FinancialReport::accountOptions($this->db->pdo(),[(int)$_SESSION['congId']],['roots' => [(int)$id]]));
     }
+    /** IDs of GetAccounts($root): a posted account must be one of them. @return int[] */
+    public function reportAccountIds($root)
+    {
+        return array_map(function($a){ return $a['id']; },
+            FinancialReport::accountOptions($this->db->pdo(),[(int)$_SESSION['congId']],['roots' => [(int)$root]]));
+    }
+    /** "?,?,?" for a list of IDs */
+    private function marks(array $ids)
+    {
+        return implode(',',array_fill(0,count($ids),'?'));
+    }
+    /** Account name as the report screens show it (decision 149), from the report-safe chart of the session congregation. */
+    private function accountLabels()
+    {
+        $labels = [];
+        foreach (FinancialReport::chart($this->db->pdo(),[(int)$_SESSION['congId']])['nodes'] as $id => $n) {
+            $labels[(int)$id] = FinancialReport::title($n['label']);
+        }
+        return $labels;
+    }
+    /**
+     * Contributions of the session congregation (task 9.7, decisions 135-136). Only approved (status = 1), not deleted headers; every
+     * detail line is joined to ITS header (the join key was missing: the filtered query was a cross join and the routine
+     * the old contributions routine still is one). Types: 1 all, 2 the accounts in $data['account'], 3 totals per district (by ID).
+     * Amounts are integer cents (the column is FLOAT; it is rounded to the cent). Rows are arrays for ReportList.
+     * @return array[]
+     */
     public function GetContributions($data)
     {
-        if ($data['type'] == 1) {
-            $this->db->query('CALL sp_contribitions_report_all(:cong,:start,:end)');
-            $this->db->bind(':cong',$_SESSION['congId']);
-            $this->db->bind(':start',$data['start']);
-            $this->db->bind(':end',$data['end']);
-            return $this->db->resultSet();
-        }elseif ($data['type'] == 2) {
-            $sql = "SELECT DISTINCT d.ID,DATE_FORMAT(d.contributionDate,'%d/%m/%Y') AS contdate,
-                           ucase(a.accountType) as conttype,ucase(IF(d.category = 1,m.memberName,IF(d.category=2,g.groupName,
-                           IF(d.category=3,t.districtName,s.serviceName)))) As cont,d.amount,ucase(p.paymentMethod) as paymethod,
-                           UCASE(d.paymentReference) AS paymentReference
-                    FROM   tblcontributions_header h inner join tblcontributions_details d left join tblmember m on d.contributor = m.ID left join tblgroups g
-                           on d.contributotGroup = g.ID left join tbldistricts t on d.contributotDistrict
-                           = t.ID left join tblservices s on d.contributotService = s.ID inner join
-                           tblaccounttypes a on d.contributionTypeId = a.ID left join tblpaymentmethods p on d.paymentMethodId = p.ID
-                    WHERE  (h.Deleted = 0) AND (h.congregationId = :cong) AND (h.status = 1) AND (d.contributionDate BETWEEN :startd AND :endd)
-                           AND (d.contributionTypeId IN (".$data['account'].")) ORDER BY d.contributionDate";
-            $this->db->query($sql);
-            $this->db->bind(':cong',$_SESSION['congId']);
-            $this->db->bind(':startd',$data['start']);
-            $this->db->bind(':endd',$data['end']);
-            return $this->db->resultSet();
-        }elseif ($data['type'] == 3) {
-            $sql = 'SELECT 
-                        d.districtName,
-                        ifnull(sum(amount),0) as total_amount
-                    FROM 
-                        `tblcontributions_details` c left join tbldistricts d 
-                        on c.contributotDistrict = d.ID join tblcontributions_header h on c.HeaderId = h.ID
-                    WHERE (c.category = 3) AND (h.congregationId = :cong) AND (c.contributionDate BETWEEN :startd AND :endd)
-                    group by d.districtName;';
-            $this->db->query($sql);
-            $this->db->bind(':cong',$_SESSION['congId']);
-            $this->db->bind(':startd',$data['start']);
-            $this->db->bind(':endd',$data['end']);
-            return $this->db->resultSet();
+        $pdo = $this->db->pdo();
+        $cong = (int)$_SESSION['congId'];
+        if ($data['type'] == 3) {
+            $st = $pdo->prepare('SELECT c.contributotDistrict AS districtId, t.districtName AS name, SUM(CAST(ROUND(c.amount * 100) AS SIGNED)) AS cents
+                                 FROM tblcontributions_details c
+                                      JOIN tblcontributions_header h ON h.ID = c.HeaderId
+                                      LEFT JOIN tbldistricts t ON t.ID = c.contributotDistrict
+                                 WHERE c.category = 3 AND h.Deleted = 0 AND h.status = 1 AND h.congregationId = ? AND c.contributionDate BETWEEN ? AND ?
+                                 GROUP BY c.contributotDistrict, t.districtName
+                                 ORDER BY t.districtName, c.contributotDistrict');
+            $st->execute([$cong,$data['start'],$data['end']]);
+            return array_map(function($r){
+                return ['district' => $r['name'] === null ? 'NO DISTRICT' : strtoupper($r['name']),'amount' => (int)$r['cents']];
+            },$st->fetchAll(PDO::FETCH_ASSOC));
         }
+        $accounts = $data['type'] == 2 ? array_values(array_map('intval',$data['account'])) : [];
+        $sql = "SELECT d.ID, d.contributionDate AS cdate, d.contributionTypeId AS accountId,
+                       UCASE(IF(d.category = 1,m.memberName,IF(d.category = 2,g.groupName,IF(d.category = 3,t.districtName,s.serviceName)))) AS cont,
+                       CAST(ROUND(d.amount * 100) AS SIGNED) AS cents, UCASE(p.paymentMethod) AS paymethod, UCASE(d.paymentReference) AS paymentReference,
+                       h.ID AS headerId, h.receiptNo
+                FROM   tblcontributions_details d
+                       JOIN tblcontributions_header h ON h.ID = d.HeaderId
+                       LEFT JOIN tblmember m ON d.contributor = m.ID
+                       LEFT JOIN tblgroups g ON d.contributotGroup = g.ID
+                       LEFT JOIN tbldistricts t ON d.contributotDistrict = t.ID
+                       LEFT JOIN tblservices s ON d.contributotService = s.ID
+                       LEFT JOIN tblpaymentmethods p ON d.paymentMethodId = p.ID
+                WHERE  h.Deleted = 0 AND h.status = 1 AND h.congregationId = ? AND d.contributionDate BETWEEN ? AND ?"
+                . ($accounts ? ' AND d.contributionTypeId IN (' . $this->marks($accounts) . ')' : '')
+                . ' ORDER BY d.contributionDate, d.ID';
+        $st = $pdo->prepare($sql);
+        $st->execute(array_merge([$cong,$data['start'],$data['end']],$accounts));
+        $labels = $this->accountLabels();
+        $out = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $out[] = [
+                'date' => $r['cdate'],'receipt' => (string)$r['receiptNo'],'account' => $labels[(int)$r['accountId']] ?? '','cont' => (string)$r['cont'],
+                'amount' => (int)$r['cents'],'method' => (string)$r['paymethod'],'reference' => (string)$r['paymentReference'],
+                'link' => FinancialReport::sourceLink(1,(int)$r['headerId'])
+            ];
+        }
+        return $out;
     }
+    /**
+     * Expenses of the session congregation: approved (status = 1), not deleted. Types: 1 all, 2 the accounts in $data['account'].
+     * Cost centre: LCC (church expense), the group's or the district's name.
+     * @return array[]
+     */
     public function GetExpenses($data)
     {
-        if ($data['type'] == 1) {
-            $this->db->query('CALL sp_expenses_all(:cong,:start,:end)');
-            $this->db->bind(':cong',$_SESSION['congId']);
-            $this->db->bind(':start',$data['start']);
-            $this->db->bind(':end',$data['end']);
-            return $this->db->resultSet();
-        }elseif ($data['type'] == 2) {
-            $sql = "SELECT DATE_FORMAT(e.expenseDate,'%d/%m/%Y') AS expenseDate,voucherNo,ucase(a.accountType) as accountType,
-                           ucase(IF(e.expenseType = 1,'lcc',g.groupName)) As costcenter,
-                           e.amount,ucase(p.paymentMethod) as paymethod,
-                           ucase(e.paymentReference) as payref
-                    FROM   tblexpenses e inner join tblaccounttypes a on e.accountId=a.ID inner join tblpaymentmethods p  
-                           on e.paymethodId = p.ID left join tblgroups g on e.groupId = g.ID
-                    WHERE  (e.congregationId = :cong) AND (e.expenseDate BETWEEN :startd AND :endd) AND (e.status = 1) AND (e.deleted = 0)
-                           AND (e.accountId IN (".$data['account'].") )
-                    ORDER BY e.expenseDate;";
-                    
-            $this->db->query($sql);
-            $this->db->bind(':cong',$_SESSION['congId']);
-            $this->db->bind(':startd',$data['start']);
-            $this->db->bind(':endd',$data['end']);
-            return $this->db->resultSet();
+        $accounts = $data['type'] == 2 ? array_values(array_map('intval',$data['account'])) : [];
+        $sql = "SELECT e.ID, e.expenseDate, e.voucherNo, e.accountId, UCASE(CASE e.expenseType WHEN 1 THEN 'lcc' WHEN 2 THEN g.groupName ELSE d.districtName END) AS costcenter,
+                       CAST(ROUND(e.amount * 100) AS SIGNED) AS cents, UCASE(p.paymentMethod) AS paymethod, UCASE(e.paymentReference) AS payref
+                FROM   tblexpenses e
+                       LEFT JOIN tblpaymentmethods p ON e.paymethodId = p.ID
+                       LEFT JOIN tblgroups g ON e.groupId = g.ID
+                       LEFT JOIN tbldistricts d ON e.districtId = d.ID
+                WHERE  e.congregationId = ? AND e.expenseDate BETWEEN ? AND ? AND e.status = 1 AND e.deleted = 0"
+                . ($accounts ? ' AND e.accountId IN (' . $this->marks($accounts) . ')' : '')
+                . ' ORDER BY e.expenseDate, e.ID';
+        $st = $this->db->pdo()->prepare($sql);
+        $st->execute(array_merge([(int)$_SESSION['congId'],$data['start'],$data['end']],$accounts));
+        $labels = $this->accountLabels();
+        $out = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $out[] = [
+                'date' => $r['expenseDate'],'voucher' => (string)$r['voucherNo'],'account' => $labels[(int)$r['accountId']] ?? '','costcenter' => (string)$r['costcenter'],
+                'amount' => (int)$r['cents'],'method' => (string)$r['paymethod'],'reference' => (string)$r['payref'],
+                'link' => FinancialReport::sourceLink(2,(int)$r['ID'])
+            ];
         }
+        return $out;
     }
     public function GetPledges($data)
     {
@@ -310,180 +345,14 @@ class Report {
         return $this->db->resultSet();
     }
 
-    public function GetRevenues($data)
-    {
-        // before changes
-        $sql = 'SELECT parentaccount,(IFNULL(SUM(credit),0) - IFNULL(SUM(debit),0)) AS credit FROM tblledger 
-                WHERE (deleted = 0) AND (congregationId = ?) AND (transactionDate BETWEEN ? AND ?) AND (accountId=1)
-                GROUP BY parentaccount';
-        return loadresultset($this->db->dbh,$sql,[(int)$_SESSION['congId'],$data['start'],$data['end']]);
-       
-    }
-
-    public function GetRevenuesTotal($data)
-    {
-        // $this->db->query('SELECT IFNULL(SUM(credit),0) AS SumOfTotal 
-        //                   FROM   tblledger
-        //                   WHERE  (transactionDate BETWEEN :startd AND :endd) AND (accountId = 1)
-        //                          AND (deleted = 0) AND (congregationId = :cid)');
-        $this->db->query('SELECT (IFNULL(SUM(credit),0) - IFNULL(SUM(debit),0)) AS SumOfTotal 
-                          FROM   tblledger
-                          WHERE  (transactionDate BETWEEN :startd AND :endd) AND (accountId = 1)
-                                 AND (deleted = 0) AND (congregationId = :cid)');
-        $this->db->bind(':startd',$data['start']);
-        $this->db->bind(':endd',$data['end']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->getValue();
-    }
-    public function GetExpensesPL($data)
-    {
-        $sql = 'SELECT parentaccount,(IFNULL(SUM(debit),0) - IFNULL(SUM(credit),0)) AS debit FROM tblledger 
-                WHERE (deleted = 0) AND (congregationId = ?) AND (transactionDate BETWEEN ? AND ?) AND (accountId=2)
-                GROUP BY parentaccount';
-        return loadresultset($this->db->dbh,$sql,[(int)$_SESSION['congId'],$data['start'],$data['end']]);
-    }
-    
-    public function GetExpensesTotal($data)
-    {
-        $this->db->query('SELECT (IFNULL(SUM(credit),0) + IFNULL(SUM(debit),0)) AS SumOfTotal 
-                          FROM   tblledger
-                          WHERE  (transactionDate BETWEEN :startd AND :endd) AND (accountId = 2)
-                                 AND (deleted = 0) AND (congregationId = :cid)');
-        $this->db->bind(':startd',$data['start']);
-        $this->db->bind(':endd',$data['end']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->getValue();
-    }
-    public function GetChildAccounts($data)
-    {
-        // $sql = '';
-        $accountType = getdbvalue($this->db->dbh,'SELECT accountTypeId FROM tblaccounttypes WHERE LOWER(accountType) = ?',[strtolower($data['account'])]);
-        if((int)$accountType === 1){
-            $sql = 'SELECT account,(IFNULL(SUM(credit),0) - IFNULL(SUM(debit),0)) AS amount FROM tblledger 
-                    WHERE (deleted = 0) AND (congregationId = ?) AND (transactionDate BETWEEN ? AND ?) AND (parentaccount=?)
-                    GROUP BY account';
-        }elseif ((int)$accountType === 2) {
-            $sql = 'SELECT account,(IFNULL(SUM(debit),0) - IFNULL(SUM(credit),0)) AS amount FROM tblledger 
-                    WHERE (deleted = 0) AND (congregationId = ?) AND (transactionDate BETWEEN ? AND ?) AND (parentaccount=?)
-                    GROUP BY account';
-        }
-
-        // $sql = 'SELECT account,(IFNULL(SUM(credit),0) + IFNULL(SUM(debit),0)) AS amount FROM tblledger 
-        //         WHERE (deleted = 0) AND (congregationId = ?) AND (transactionDate BETWEEN ? AND ?) AND (parentaccount=?)
-        //         GROUP BY account';
-        return loadresultset($this->db->dbh,$sql,[(int)$_SESSION['congId'],$data['sdate'],$data['edate'],$data['account']]);
-       
-    }
-    public function GetTrialBalance($data)
-    {
-        $this->db->query('CALL sp_trialbalance(:startdate,:enddate,:cong)');
-        $this->db->bind(':startdate',$data['start']);
-        $this->db->bind(':enddate',$data['end']);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        return $this->db->resultSet();
-    }
-    public function GetAssets($date)
-    {
-        // $this->db->query('CALL sp_balancesheet_assets(:startd,:cong)');
-        $this->db->query('CALL sp_BalanceSheet_Assets(:cong,:startd)');
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $this->db->bind(':startd',$date);
-        return $this->db->resultSet();            
-    }
-    public function GetLiablityEquity($date)
-    {
-        // $this->db->query('CALL sp_balancesheet_liablityequity(:startd,:cong)');
-        // $this->db->query('CALL sp_get_liabilities_equity(:startd,:cong)'); // before v2
-        $this->db->query('CALL sp_BalanceSheet_LiabilitiesEquity(:cong,:startd)');
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $this->db->bind(':startd',$date);
-        return $this->db->resultSet();            
-    }
-    public function GetAssetsTotal($date)
-    {
-        $this->db->query('SELECT IFNULL(SUM(debit),0) as sumofdebits 
-                          FROM   tblledger 
-                          WHERE  (accountId=3) AND (transactionDate <= :sdate)
-                                 AND (congregationId = :cong)');
-        $this->db->bind(':sdate',$date);
-        $this->db->bind(':cong',$_SESSION['congId']);                  
-        $debits = $this->db->getValue();
-
-        $this->db->query('SELECT IFNULL(SUM(credit),0) as sumofcredits 
-                          FROM   tblledger 
-                          WHERE  (accountId=3) AND (transactionDate <= :sdate)
-                                 AND (congregationId = :cong)');
-        $this->db->bind(':sdate',$date);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $credits = $this->db->getValue();
-        return floatval($debits) - floatval($credits);
-    }
-    public function GetLiabilityEquityTotal($date)
-    {
-        $this->db->query('SELECT IFNULL(SUM(debit),0) as sumofdebits 
-                          FROM   tblledger 
-                          WHERE  (accountId=4 OR accountId = 6) AND (transactionDate <= :sdate)
-                                 AND (congregationId = :cong)');
-        $this->db->bind(':sdate',$date);
-        $this->db->bind(':cong',$_SESSION['congId']);                  
-        $debits = $this->db->getValue();
-
-        $this->db->query('SELECT IFNULL(SUM(credit),0) as sumofcredits 
-                          FROM   tblledger 
-                          WHERE  (accountId=4 OR accountId = 6) AND (transactionDate <= :sdate)
-                                 AND (congregationId = :cong)');
-        $this->db->bind(':sdate',$date);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $credits = $this->db->getValue();
-        return (floatval($debits) * -1) - (floatval($credits) * -1);
-    }
-    public function GetNetIncome($date)
-    {
-        $this->db->query('SELECT IFNULL(SUM(debit),0) 
-                          FROM   tblledger 
-                          WHERE  (accountId=1) AND transactionDate <= :sdate
-                                 AND congregationId = :cong');
-        $this->db->bind(':sdate',$date);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $revenueDebit = $this->db->getValue();  
-        //===========================
-        $this->db->query('SELECT IFNULL(SUM(credit),0) 
-                          FROM   tblledger 
-                          WHERE  (accountId=1) AND transactionDate <= :sdate
-                                 AND (congregationId = :cong)');
-        $this->db->bind(':sdate',$date);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $revenueCredit = $this->db->getValue();    
-        //================================================
-        $revenueBalance = (floatval($revenueDebit) - floatval($revenueCredit)) *-1;
-        //=========================================================
-        $this->db->query('SELECT IFNULL(SUM(debit),0) 
-                          FROM   tblledger 
-                          WHERE  (accountId=2) AND transactionDate <= :sdate 
-                                 AND (congregationId = :cong)');
-        $this->db->bind(':sdate',$date);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $expensesDebit = $this->db->getValue();  
-        //===========================
-        $this->db->query('SELECT IFNULL(SUM(credit),0) 
-                          FROM   tblledger 
-                          WHERE  (accountId=2) AND transactionDate <= :sdate 
-                                 AND (congregationId = :cong)');
-        $this->db->bind(':sdate',$date);
-        $this->db->bind(':cong',$_SESSION['congId']);
-        $expensesCredit = $this->db->getValue();    
-        //================================================
-        $expensesBalance = floatval($expensesDebit) - floatval($expensesCredit);
-        return floatval($revenueBalance) - floatval($expensesBalance);
-    }
     public function getBanks()
     {
-        $this->db->query('SELECT   ID,
-                                   UCASE(accountType) As Bank
-                          FROM     tblaccounttypes 
-                          WHERE    (isBank=1) AND (Deleted=0) AND (congregationId=:cid)');
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();
+        return array_map(function($b){ return (object)['ID' => $b['id'],'Bank' => $b['label']]; },
+            FinancialReport::bankOptions($this->db->pdo(),[(int)$_SESSION['congId']]));
+    }
+    public function isReportBank($id)
+    {
+        return FinancialReport::bankAllowed($this->db->pdo(),[(int)$_SESSION['congId']],(int)$id);
     }
     public function bankingrpt($data)
     {
@@ -502,54 +371,6 @@ class Report {
         $this->db->bind(':tend',$data['to']);
         $this->db->bind(':cid',$_SESSION['congId']);
         return $this->db->resultSet();
-    }
-    public function pettycashutil($data)
-    {
-        $this->db->query('CALL sp_pettycashutilization(:sdate,:edate,:congid,:accid)');
-        $this->db->bind(':sdate',$data['start']);
-        $this->db->bind(':edate',$data['end']);
-        $this->db->bind(':congid',$_SESSION['congId']);
-        $this->db->bind(':accid',$data['account']);
-        return $this->db->resultSet();
-    }
-
-    /** Petty cash accounts the congregation may report on (Ledger::PETTY_CASH_ACCOUNTS). */
-    public function pettycashaccounts()
-    {
-        $list = [];
-        foreach (Ledger::listPettyCashAccounts($this->db->pdo(),(int)$_SESSION['congId']) as $a) {
-            $list[] = (object)['ID' => $a['ID'],'Account' => strtoupper($a['accountType'])];
-        }
-        return $list;
-    }
-    public function debitcredittotal($data)
-    {
-        $debitcredit = array();
-        $this->db->query('SELECT IFNULL(SUM(debit),0) As DebitsTotal
-                          FROM tblpettycash WHERE (TransactionDate BETWEEN :startd AND :endd) AND (CongregationId = :congid)
-                                AND (PettyCashAccountId = :accid) AND (Deleted = 0)');
-        $this->db->bind(':startd',$data['start']);
-        $this->db->bind(':endd',$data['end']);
-        $this->db->bind(':congid',$_SESSION['congId']);
-        $this->db->bind(':accid',$data['account']);
-        array_push($debitcredit,$this->db->getValue());
-
-        $this->db->query('SELECT IFNULL(SUM(credit),0) As DebitsTotal
-                          FROM tblpettycash WHERE (TransactionDate BETWEEN :startd AND :endd) AND (CongregationId = :congid)
-                                AND (PettyCashAccountId = :accid) AND (Deleted = 0)');
-        $this->db->bind(':startd',$data['start']);
-        $this->db->bind(':endd',$data['end']);
-        $this->db->bind(':congid',$_SESSION['congId']);
-        $this->db->bind(':accid',$data['account']);
-        array_push($debitcredit,$this->db->getValue());
-
-        $this->db->query('SELECT getopeningbal(:sdate,:congid,:accid) As OpeningBal');
-        $this->db->bind(':sdate',$data['start']);
-        $this->db->bind(':congid',$_SESSION['congId']);
-        $this->db->bind(':accid',$data['account']);
-        array_push($debitcredit,$this->db->getValue());
-
-        return $debitcredit;
     }
     public function getcustomersupplier($type)
     {
@@ -585,261 +406,6 @@ class Report {
     {
        return loadresultset($this->db->dbh,'CALL getgroupstatement(?)',[$reqid]);
     }
-    public function GetAccountType($account)
-    {
-        return getdbvalue($this->db->dbh,'SELECT accountTypeId FROM tblaccounttypes WHERE (accountType = ?)',[$account]);
-    }
-    public function GetPlDetailed($data)
-    {
-        if((int)$data['accounttype'] === 1)
-        {
-            $sql = 'SELECT transactionDate,account,(IFNULL(credit,0) - IFNULL(debit,0)) as amount,narration,t.TransactionType,l.parentaccount
-                    FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID
-                    WHERE (parentaccount = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
-                    ORDER BY transactionDate';
-            return loadresultset($this->db->dbh,$sql,[$data['account'],$data['sdate'],$data['edate']]);
-        }elseif ((int)$data['accounttype'] === 2) {
-            $sql = 'SELECT transactionDate,account,(IFNULL(debit,0) - IFNULL(credit,0)) as amount,narration,t.TransactionType,l.parentaccount
-                    FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID
-                    WHERE (parentaccount = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
-                    ORDER BY transactionDate';
-            return loadresultset($this->db->dbh,$sql,[$data['account'],$data['sdate'],$data['edate']]);
-        }
-        
-    }
-    public function GetPlChildAccountDetailed($data)
-    {
-        if((int)$data['accounttype'] === 1)
-        {
-            $sql = 'SELECT transactionDate,account,(IFNULL(credit,0) - IFNULL(debit,0)) as amount,narration,t.TransactionType,l.parentaccount
-                    FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID
-                    WHERE (account = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
-                    ORDER BY transactionDate';
-            return loadresultset($this->db->dbh,$sql,[$data['account'],$data['sdate'],$data['edate']]);
-        }elseif ((int)$data['accounttype'] === 2) {
-            $sql = 'SELECT transactionDate,account,(IFNULL(debit,0) - IFNULL(credit,0)) as amount,narration,t.TransactionType,l.parentaccount
-                    FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID
-                    WHERE (account = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0)
-                    ORDER BY transactionDate';
-            return loadresultset($this->db->dbh,$sql,[$data['account'],$data['sdate'],$data['edate']]);
-        }
-        
-    }
-    public function GetGroupRevenues($data)
-    {
-        $sql = 'SELECT IFNULL(SUM(AmountApproved),0) AS Amount FROM tblfundrequisition WHERE (Deleted=0) AND (DontDeduct=1) AND (Status=1) AND (GroupId=?) AND (ApprovalDate BETWEEN ? AND ?)';
-        return getdbvalue($this->db->dbh,$sql,[$data['group'],$data['start'],$data['end']]);
-    }
-
-    public function GetGroupCollections($data)
-    {
-        $sql = 'SELECT IFNULL(SUM(Debit),0) AS Amount FROM tblmmf WHERE (Deleted=0) AND (GroupId=?) AND (TransactionDate BETWEEN ? AND ?)';
-        return getdbvalue($this->db->dbh,$sql,[$data['group'],$data['start'],$data['end']]);
-    }
-
-    public function GetGroupExpensesPL($data)
-    {
-        $sql = 'SELECT 
-                    a.accountType,
-                    a.ID,
-                    SUM(`amount`) AS Amount
-                FROM `tblexpenses` e join tblaccounttypes a on e.accountId = a.ID
-                WHERE e.groupId = ? AND (e.expenseDate BETWEEN ? AND ?) AND (e.deleted = 0) AND (e.status=1)
-                GROUP BY a.accountType,a.ID';
-        return loadresultset($this->db->dbh,$sql,[(int)$data['group'],$data['start'],$data['end']]);
-    }
-
-    public function GetGroupPlExpenseDetailed($data)
-    {
-        $sql = 'SELECT 
-                    e.expenseDate,
-                    e.amount,
-                    e.paymentReference,
-                    e.narration
-                FROM `tblexpenses` e 
-                WHERE e.groupId = ? AND (e.expenseDate BETWEEN ? AND ?) AND (e.deleted = 0) AND (e.status=1) AND (e.accountId=?)';
-
-        return loadresultset($this->db->dbh,$sql,[(int)$data['group'],$data['sdate'],$data['edate'],$data['account']]);
-    }
-
-    public function GetGroupPlRevenueDetailed($data)
-    {
-        $sql = '';
-        if($data['type'] === 'collections')
-        {
-            $sql .= 'SELECT TransactionDate,Debit As Amount,Narration 
-                     FROM tblmmf 
-                     WHERE (Deleted=0) AND (GroupId=?) AND (TransactionDate BETWEEN ? AND ?)';
-        }
-        else
-        {
-            $sql .= 'SELECT ApprovalDate As TransactionDate,AmountApproved As Amount,Purpose As Narration 
-                     FROM tblfundrequisition 
-                     WHERE (Deleted=0) AND (GroupId=?) AND (DontDeduct=1) AND (ApprovalDate BETWEEN ? AND ?)';
-        }
-
-        return loadresultset($this->db->dbh,$sql,[$data['group'],$data['sdate'],$data['edate']]);
-    }
-
-    function GetAccountTypeId($account)
-    {
-        return getdbvalue($this->db->dbh,'SELECT accountTypeId 
-        FROM tblaccounttypes 
-        WHERE LOWER(accountType) = ? ',[strtolower($account)]);
-    }
-
-    public function GetBalanceSheetItemOpeningBalance($data)
-    {
-        $accountType = $this->GetAccountType($data['account']);
-
-        $yearStartDate = getdbvalue($this->db->dbh,'SELECT startDate FROM tblfiscalyears 
-                                                              WHERE ? BETWEEN startDate AND endDate',[$data['asdate']]);                                                    
-        $openingBalance = 0;
-        if((int)$accountType === 3){
-            $sql = "SELECT  IFNULL(SUM(debit - credit),0) AS OpeningBalance 
-                    FROM tblledger 
-                    WHERE (transactionDate < ?) AND (LOWER(account) = ?) AND (congregationId = ?) AND (deleted = 0)";
-            $openingBalance = getdbvalue($this->db->dbh,$sql,[$yearStartDate,$data['account'],$_SESSION['congId']]);
-        }else{
-            $sql = 'SELECT  IFNULL(SUM(credit - debit),0) AS OpeningBalance 
-                    FROM tblledger 
-                    WHERE (transactionDate < ?) AND (LOWER(account) = ?) AND (congregationId = ?) AND (deleted = 0)';
-        }
-        
-        $openingBalance = getdbvalue($this->db->dbh,$sql,[$yearStartDate,strtolower($data['account']),$_SESSION['congId']]);
-
-        return ['openingBalance' => $openingBalance,'yearStartDate' => $yearStartDate,'accountTypeId' => $accountType];
-    }
-
-    public function GetDetailedBalanceSheetAccountReport($data)
-    {
-        $accountType = $this->GetAccountType($data['account']);
-        $sql = '';
-        if($accountType == 3){
-            $sql = 'SELECT l.account, SUM(l.debit - l.credit) AS balance 
-                     FROM tblledger l 
-                     WHERE l.transactionDate <= ? AND l.congregationId = ? AND LOWER(l.parentaccount) = ? AND l.deleted = 0  
-                     GROUP BY account;';
-        }else{
-            $sql = 'SELECT l.account, SUM(l.credit - l.debit) AS balance 
-                     FROM tblledger l 
-                     WHERE l.transactionDate <= ? AND l.congregationId = ? AND LOWER(l.parentaccount) = ? AND l.deleted = 0  
-                     GROUP BY account;';
-        }     
-        return loadresultset($this->db->dbh,$sql,[$data['asdate'],$_SESSION['congId'],strtolower($data['account'])]);
-    }
-
-    public function GetChildDetailedBalanceSheetAccountReport($data)
-    {
-        try {
-            $sql = 'CALL sp_BalanceSheet_AccountDrilldown(?,?,?,?)';
-            // if((int)$data['accountTypeId'] === 3){
-            //     $sql = 'SELECT l.transactionDate,l.account,SUM(l.debit - l.credit) AS amount,l.narration,t.TransactionType 
-            //             FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID 
-            //             WHERE (LOWER(account) = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0) AND (l.congregationId=?)
-            //             ORDER BY transactionDate';
-            // }else{
-            //     $sql = 'SELECT l.transactionDate,l.account,SUM(l.credit - l.debit) AS amount,l.narration,t.TransactionType 
-            //             FROM tblledger l left join tbltransactiontypes t on l.transactionType = t.ID 
-            //             WHERE (LOWER(account) = ?) AND (transactionDate BETWEEN ? AND ?) AND (l.deleted = 0) AND (l.congregationId=?)
-            //             ORDER BY transactionDate';
-            // }
-
-            return loadresultset($this->db->dbh,$sql,[$data['account'],$_SESSION['congId'],$data['yearStartDate'],$data['asdate']]);
-        } catch (\Exception $eh) {
-            error_log($eh->getMessage());
-            return false;
-        }
-    }
-
-    public function GetJournalReport($data)
-    {
-        $this->db->query('SELECT journalNo,
-                                 transactionDate,
-                                 account,
-                                 debit,
-                                 credit,
-                                 narration
-                          FROM   tblledger
-                          WHERE  (transactionDate BETWEEN :tstart AND :tend) AND (congregationId = :cid) 
-                                 AND (isJournal=1)
-                          ORDER BY transactionDate');
-        $this->db->bind(':tstart',$data['from']);
-        $this->db->bind(':tend',$data['to']);
-        $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();
-    }
-
-    public function GetSubaccounts()
-    {
-        return loadresultset($this->db->dbh,'SELECT s.ID,ucase(s.AccountName) as AccountName
-                                             FROM `tblbanksubaccounts` s join tblaccounttypes a on s.BankId = a.ID WHERE
-                                             (s.Deleted=0) AND  (a.congregationId = ?);',[$_SESSION['congId']]);
-    }
-
-    public function GetSubAccountReport($data)
-    {
-        if($data['account'] === 'all'){
-            return loadresultset($this->db->dbh,'CALL sp_get_subaccounts_balances(?)',[$data['from']]);
-        }else{
-            $sql = "SELECT IF(GroupId IS NULL,'district','group') As Category, IF(GroupId IS NULL,DistrictId,GroupId) As CategoryId 
-                    FROM `tblbanksubaccounts` 
-                    WHERE ID = ?;";
-            $details = loadsingleset($this->db->dbh,$sql,[$data['account']]);
-            // $sql = "CALL sp_get_subaccount_statement(?,?,?)";
-            if($details->Category === 'group'){
-                $sql = "CALL sp_get_subaccount_statement_with_expense_group(?,?,?,?)";
-            }else{
-                $sql = "CALL sp_get_subaccount_statement_with_expense_district(?,?,?,?)";
-            }
-            return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$data['account'],$details->CategoryId]);
-        }
-        
-    }
-
-    public function GetDetailedSubAccountReport($data)
-    {
-        $sql = 'SELECT GroupDistrict,IF(GroupId IS NULL,DistrictId,GroupId) As CategoryId 
-                FROM `tblbanksubaccounts` 
-                WHERE ID = ?;';
-        $details = loadsingleset($this->db->dbh,$sql,[$data['account']]);
-        
-        // $sql = 'SELECT 
-        //             TransactionDate,
-        //             Amount,
-        //             Narration,
-        //             Reference 
-        //         FROM 
-        //             tblbanktransactions_subaccounts
-        //         WHERE
-        //             (TransactionDate <= ?) AND (SubAccountId = ?)';
-        // return loadresultset($this->db->dbh,$sql,[$data['asdate'],$data['account']]);
-        if($details->GroupDistrict === 'group'){
-            $sql = 'CALL sp_get_subaccounts_balances_breakdown_group(?,?,?)';
-            return loadresultset($this->db->dbh,$sql,[$data['asdate'],$details->CategoryId, $data['account']]);
-        }else{
-            $sql = 'CALL sp_get_subaccounts_balances_breakdown_district(?,?,?)';
-            return loadresultset($this->db->dbh,$sql,[$data['asdate'],$details->CategoryId, $data['account']]);
-        }
-    }
-
-    public function GetAccountStatement($data)
-    {
-        $details = loadsingleset($this->db->dbh,'SELECT LOWER(accountType) as accountType,isSubCategory FROM tblaccounttypes WHERE (ID = ?)',[$data['account']]);
-        $account = $details->accountType;
-        $isSubcategory = converttobool($details->isSubCategory);
-        if($isSubcategory){
-            $sql = "CALL sp_get_account_statement(?,?,?,?)";
-        }else{
-            if($data['subledgers'] == 1){
-                $sql = "CALL sp_get_account_statement_parent(?,?,?,?)";
-            }else{
-                $sql = "CALL sp_get_account_statement(?,?,?,?)";
-            }            
-        }
-        return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$account,(int)$_SESSION['congId']]);
-    }
-
     public function GetUnaccountedReport($data)
     {
         if($data['criteria'] === 'all'){

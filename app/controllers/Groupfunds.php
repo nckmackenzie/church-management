@@ -152,9 +152,9 @@ class Groupfunds extends Controller
                $data['errmsg'] = $problem;
             }
 
-            // AUDIT-FLAG [LEDGER AUDIT / tblledger]: Over-request validation DISABLED on 2026-10-20 at the user's request.
+            // AUDIT-FLAG [LEDGER AUDIT]: Over-request validation DISABLED on 2026-10-20 at the user's request.
             // Requisitions where AmountRequested > available group/district balance can now be saved, so any
-            // ledger audit (tblledger) must check for groups/districts whose funds were overdrawn by these requests.
+            // ledger audit (journal / sub account reports) must check for groups/districts whose funds were overdrawn by these requests.
             // Client-side counterpart also disabled: public/dist/js/pages/groupfunds/add-v4.js (otherValidation).
             // if(($data['amount'] > $data['availableamount']) && !$data['dontdeduct'] && $data['type'] === 'group'){
             //     $data['errmsg'] = 'Requesting more than is available';

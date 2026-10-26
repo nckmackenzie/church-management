@@ -7,15 +7,20 @@ class Reusables
         $this->db = new Database;
     }
 
+    /**
+     * Account list of the Ledger Statement (task 9.1): report-safe, by ID with a path label, visible to the session congregation,
+     * NO `active` filter (inactive accounts are labelled), deleted accounts only with history (labelled), banks included.
+     */
     public function GetAccountsAll()
     {
-        $this->db->query('SELECT ID,UCASE(accountType) AS accountType FROM tblaccounttypes 
-                          WHERE (deleted=0) AND (isBank = 0) AND (parentId <> 0) 
-                          AND (active = 1) AND (congregationId = 0 OR congregationId = :cong) ORDER BY accountType');
-        $this->db->bind(':cong',$_SESSION['congId']);
-        return $this->db->resultSet();                  
+        return array_map(function($a){ return (object)['ID' => $a['id'],'accountType' => $a['label']]; },
+            FinancialReport::accountOptions($this->db->pdo(),[(int)$_SESSION['congId']]));
     }
-
+    /** True when the ID is in GetAccountsAll() (a posted account must be). */
+    public function reportAccountAllowed($id)
+    {
+        return FinancialReport::accountAllowed($this->db->pdo(),[(int)$_SESSION['congId']],(int)$id);
+    }
     public function PaymentMethods()
     {
        return paymentMethods($this->db->dbh);

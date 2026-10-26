@@ -24,7 +24,7 @@
                                     <select name="bank" id="bank" class="form-control form-control-sm mandatory">
                                         <option value="">Select Bank</option>
                                         <?php foreach($data['banks'] as $bank) : ?>
-                                            <option value="<?php echo $bank->ID;?>"><?php echo $bank->Bank;?></option>
+                                            <option value="<?php echo (int)$bank->ID;?>"><?php echo htmlspecialchars((string)$bank->Bank,ENT_QUOTES,'UTF-8');?></option>
                                         <?php endforeach; ?>
                                     </select>
                                     <span class="invalid-feedback" id="bank_err"></span>
@@ -88,4 +88,4 @@
 <?php require APPROOT . '/views/inc/footer.php'?>
 <script type="module" src="<?php echo URLROOT;?>/dist/js/pages/bankings/modify-cleared-v1.js"></script>
 </body>
-</html> 
+</html>
