@@ -233,34 +233,8 @@ try {
     ok('account 20 outside the type 6 tree does not identify it', FinancialReport::fundAccountId($fake3) === null);
     $np = FinancialReport::accumulatedFundParts($pdo, [11], '2026-10-24', $fake);
     ok('not identified: acctBf and acctMove are 0, b/f = the prior years\' surplus only', $np['fundAccountId'] === null && $np['acctBf'] === 0 && $np['acctMove'] === 0 && $np['bf'] === $np['prior']);
-    echo "== parity with the old balance sheet on real dev data (read-only)\n";
-    foreach (['2025-09-30', '2026-10-24'] as $d) {
-        $chart = FinancialReport::chart($pdo, [11]);
-        $top = function ($name) use ($chart) {   // old text name -> top-level account id
-            $rows = q('SELECT ID FROM tblaccounttypes WHERE LOWER(TRIM(accountType)) = ? AND deleted = 0 AND congregationId IN (0, 11) ORDER BY congregationId DESC, ID', [strtolower(trim($name))]);
-            foreach ($rows as $rw) { $nd = $chart['nodes'][(int) $rw['ID']] ?? null; if ($nd && $nd['classified']) { return $nd['depth'] === 1 ? null : (int) $nd['chain'][count($nd['chain']) - 2]; } }
-            return null;
-        };
-        $oldA = []; foreach (q('CALL sp_BalanceSheet_Assets(11, ?)', [$d]) as $o) { $t = $top($o['account']); $oldA[$t ?? $o['account']] = ($oldA[$t ?? $o['account']] ?? 0) + C($o['amount']); }
-        $pdo->query('SELECT 1');
-        $oldLE = []; $oldRE = 0; foreach (q('CALL sp_BalanceSheet_LiabilitiesEquity(11, ?)', [$d]) as $o) { if ($o['account'] === 'Retained Earnings') { $oldRE = C($o['amount']); continue; } $t = $top($o['account']); $oldLE[$t ?? $o['account']] = ($oldLE[$t ?? $o['account']] ?? 0) + C($o['amount']); }
-        $new = BalanceSheetReport::report($pdo, [11], '', $d);
-        $newA = []; foreach ($new['assets']['rows'] as $row) { $newA[$row['id']] = $row['amountRaw']; }
-        $newLE = []; foreach (array_merge($new['liabilities']['rows'], $new['equity']['rows']) as $row) { $newLE[$row['id']] = $row['amountRaw']; }
-        $fund = FinancialReport::balanceSheet($pdo, [11], $d, false)['sections']['fund'];
-        if ($fund['fundAccountId'] !== null) { $newLE[$fund['fundAccountId']] = $fund['acctBf']['cur'] + $fund['acctMove']['cur']; }   // the old 'opening balance equity' line
-        $b188 = FinancialReport::balances($pdo, [11], null, $d)[188] ?? ['idr' => 0, 'icr' => 0];
-        $d188 = $b188['idr'] - $b188['icr'];
-        $diffA = []; foreach (array_unique(array_merge(array_keys($oldA), array_keys($newA))) as $k) { $df = ($newA[$k] ?? 0) - ($oldA[$k] ?? 0); if ($df !== 0) { $diffA[$k] = $df; } }
-        $expA = $d188 === 0 ? [] : [186 => -$d188];
-        ksort($diffA); ksort($expA);
-        ok("$d assets, line by line: the only difference is account 188 (old 'due to parish', new expense): " . json_encode($diffA), $diffA === $expA, json_encode($diffA) . ' vs ' . json_encode($expA));
-        $diffLE = []; foreach (array_unique(array_merge(array_keys($oldLE), array_keys($newLE))) as $k) { $df = ($newLE[$k] ?? 0) - ($oldLE[$k] ?? 0); if ($df !== 0) { $diffLE[$k] = $df; } }
-        ok("$d liabilities and equity, line by line: no difference (old 'opening balance equity' = new accumulated fund account)", !$diffLE, json_encode($diffLE));
-        $newRE = $fund['prior']['cur'] + $fund['surplus']['cur'] + $fund['dividends']['cur'];
-        ok("$d old 'Retained Earnings' = new b/f + surplus + dividends, plus account 188 (" . FinancialReport::money($d188) . ')', $oldRE === $newRE + $d188, FinancialReport::money($oldRE) . ' vs ' . FinancialReport::money($newRE));
-        echo "INFO $d: old assets 188 effect " . FinancialReport::money($d188) . '; new total assets ' . $new['assets']['total'] . "\n";
-    }
+    // Task 9.8: the parity with the old balance sheet routines (sp_BalanceSheet_Assets / _LiabilitiesEquity, which read the dev mirror) was
+    // established in 9.4 (the only difference was account 188) and recorded in the 9.4 report; the routines are dropped in 9.8.
 } catch (Throwable $e) {
     $fail++; echo 'FAIL unexpected exception ' . get_class($e) . ': ' . $e->getMessage() . ' at ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
 } finally {

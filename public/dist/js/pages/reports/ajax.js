@@ -31,8 +31,3 @@ export async function getRequisitions(group) {
   const url = `${HOST_URL}/expenses/getrequisitions?group=${group}`;
   return await getRequest(url);
 }
-
-export async function getSubaccountsReport(account, asdate) {
-  const url = `${HOST_URL}/reports/getsubaccountdetailedrpt?asdate=${asdate}&account=${account}`;
-  return await getRequest(url);
-}

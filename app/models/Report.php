@@ -406,59 +406,6 @@ class Report {
     {
        return loadresultset($this->db->dbh,'CALL getgroupstatement(?)',[$reqid]);
     }
-    public function GetSubaccounts()
-    {
-        return loadresultset($this->db->dbh,'SELECT s.ID,ucase(s.AccountName) as AccountName
-                                             FROM `tblbanksubaccounts` s join tblaccounttypes a on s.BankId = a.ID WHERE
-                                             (s.Deleted=0) AND  (a.congregationId = ?);',[$_SESSION['congId']]);
-    }
-
-    public function GetSubAccountReport($data)
-    {
-        if($data['account'] === 'all'){
-            return loadresultset($this->db->dbh,'CALL sp_get_subaccounts_balances(?)',[$data['from']]);
-        }else{
-            $sql = "SELECT IF(GroupId IS NULL,'district','group') As Category, IF(GroupId IS NULL,DistrictId,GroupId) As CategoryId 
-                    FROM `tblbanksubaccounts` 
-                    WHERE ID = ?;";
-            $details = loadsingleset($this->db->dbh,$sql,[$data['account']]);
-            // $sql = "CALL sp_get_subaccount_statement(?,?,?)";
-            if($details->Category === 'group'){
-                $sql = "CALL sp_get_subaccount_statement_with_expense_group(?,?,?,?)";
-            }else{
-                $sql = "CALL sp_get_subaccount_statement_with_expense_district(?,?,?,?)";
-            }
-            return loadresultset($this->db->dbh,$sql,[$data['from'],$data['to'],$data['account'],$details->CategoryId]);
-        }
-        
-    }
-
-    public function GetDetailedSubAccountReport($data)
-    {
-        $sql = 'SELECT GroupDistrict,IF(GroupId IS NULL,DistrictId,GroupId) As CategoryId 
-                FROM `tblbanksubaccounts` 
-                WHERE ID = ?;';
-        $details = loadsingleset($this->db->dbh,$sql,[$data['account']]);
-        
-        // $sql = 'SELECT 
-        //             TransactionDate,
-        //             Amount,
-        //             Narration,
-        //             Reference 
-        //         FROM 
-        //             tblbanktransactions_subaccounts
-        //         WHERE
-        //             (TransactionDate <= ?) AND (SubAccountId = ?)';
-        // return loadresultset($this->db->dbh,$sql,[$data['asdate'],$data['account']]);
-        if($details->GroupDistrict === 'group'){
-            $sql = 'CALL sp_get_subaccounts_balances_breakdown_group(?,?,?)';
-            return loadresultset($this->db->dbh,$sql,[$data['asdate'],$details->CategoryId, $data['account']]);
-        }else{
-            $sql = 'CALL sp_get_subaccounts_balances_breakdown_district(?,?,?)';
-            return loadresultset($this->db->dbh,$sql,[$data['asdate'],$details->CategoryId, $data['account']]);
-        }
-    }
-
     public function GetUnaccountedReport($data)
     {
         if($data['criteria'] === 'all'){

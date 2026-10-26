@@ -912,168 +912,29 @@ class Reports extends Controller {
     public function subaccounts()
     {
         $data = [
-            'subaccounts' => $this->reportModel->GetSubaccounts(),
+            'subaccounts' => array_values(SubAccountReport::owned((new Database)->pdo(),(int)$_SESSION['congId'])),
         ];
         $this->view('reports/subaccounts',$data);
         exit;
     }
 
+    /** Sub account balances (account = all, as of `from`) or the statement of one sub account (task 9.8): JSON page, search, Excel. */
     public function subaccountsrpt()
     {
-        if($_SERVER['REQUEST_METHOD'] === 'GET'){
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-           $data = [
-                'account' => !empty(trim($_GET['account'])) ? trim($_GET['account']) : NULL,
-                'from' => !empty(trim($_GET['from'])) ? date('Y-m-d',strtotime($_GET['from'])) : NULL,
-                'to' => !empty(trim($_GET['to'])) ? date('Y-m-d',strtotime($_GET['to'])) :NULL,
-            ];
- 
-            $reports = $this->reportModel->GetSubAccountReport($data);
-            $output = '';
-            $totals = 0;
-            if($data['account'] !== 'all'){
-                $output .= '
-                    <table class="table table-bordered table-sm" id="table">
-                        <thead class="bg-lightblue">
-                            <tr>
-                                <th>Transaction Date</th>
-                                <th>Reference</th>
-                                <th>Money In</th>
-                                <th>Money Out</th>
-                                <th>Description</th>
-                                <th>Running Balance</th>
-                            </tr>
-                        </thead>
-                        <tbody>';
-                        $balance = 0;
-                        foreach($reports as $report) {
-                            $moneyIn = $report->AmountIn;
-                            $moneyOut = $report->AmountOut * -1;
-
-                            $formattedIn  = $moneyIn > 0 ? number_format($moneyIn, 2) : null;
-                            $formattedOut = $moneyOut > 0 ? number_format($moneyOut, 2) : null;
-
-                            $balance += ($moneyIn - $moneyOut);
-                            $formattedBalance = number_format($balance, 2);
-
-                            $output .= '
-                                <tr>
-                                    <td>'.date("d-M-Y", strtotime($report->TransactionDate)).'</td>
-                                    <td>'.ucwords($report->Reference).'</td>
-                                    <td>'.$formattedIn.'</td>
-                                    <td>'.$formattedOut.'</td>
-                                    <td>'.ucwords($report->Narration).'</td>
-                                    <td>'.$formattedBalance.'</td>
-                                </tr>
-                            ';
-
-                            // before running balance calculation
-                            // $formattedoin = $report->AmountIn  > 0 ? number_format($report->AmountIn,2) : null;
-                            // $formattedout = ($report->AmountOut * -1) > 0 ? number_format($report->AmountOut * -1,2) : null;
-                            // $output .= '
-                            //     <tr>
-                            //         <td>'.date('d-M-Y',strtotime($report->TransactionDate)).'</td>
-                            //         <td>'.ucwords($report->Reference).'</td>
-                            //         <td>'.$formattedoin.'</td>
-                            //         <td>'.$formattedout.'</td>
-                            //         <td>'.ucwords($report->Narration).'</td>
-                            //     </tr>
-                            // ';
-                        }
-                        $output .= '
-                        </tbody>
-                        <tfoot>
-                                <tr>
-                                    <th colspan="2" style="text-align:center">Total:</th>
-                                    <th id="debits"></th>
-                                    <th id="credits"></th>
-                                    <th></th>
-                                    <th></th>
-                                </tr>
-                        </tfoot>
-                    </table>';
-            }else{
-                $output .= '
-                    <table class="table table-bordered table-sm" id="table">
-                        <thead class="bg-lightblue">
-                            <tr>
-                                <th>Sub Account</th>
-                                <th>Balance</th>
-                            </tr>
-                        </thead>
-                        <tbody>';
-                        foreach($reports as $report) {
-                            $totals = $totals + floatval($report->Balance);
-                            $formatted_amount = number_format($report->Balance,2);
-                            $output .= '
-                                <tr>
-                                    <td>'.ucwords($report->AccountName).'</td>
-                                    <td><a target="_blank" href="'.URLROOT.'/reports/subaccountdetailed?subaccount='.$report->ID.'&asdate='.$data['from'].'">'.$formatted_amount.'</a></td>
-                                </tr>
-                            ';
-                        }
-                        $output .= '
-                        </tbody>
-                        <tfoot>
-                                <tr>
-                                    <th style="text-align:center">Total:</th>
-                                    <th id="totals">'.number_format($totals,2).'</th>
-                                </tr>
-                        </tfoot>
-                    </table>';
-            }
-            
-            echo $output; 
-        }else{
-            redirect('users/deniedaccess');
-            exit();
-        }
+        SubAccountReport::serveReport((new Database)->pdo(),(int)$_SESSION['congId'],$_GET);
     }
+
     public function subaccountdetailed()
     {
         $this->view('reports/subaccountdetailed',[]);
-    } 
-    public function getsubaccountdetailedrpt(){
-        if($_SERVER['REQUEST_METHOD'] === 'GET')
-        {
-            $_GET = filter_input_array(INPUT_GET,FILTER_UNSAFE_RAW);
-            $data = [
-                'account' => isset($_GET['account']) && !empty(trim($_GET['account'])) ? (int)trim($_GET['account']) : null,
-                'asdate' => isset($_GET['asdate']) && !empty(trim($_GET['asdate'])) ? date('Y-m-d',strtotime(trim($_GET['asdate']))) : null,
-                'results' => []
-            ];
-
-            //validate data
-            if(is_null($data['account']) || is_null($data['asdate'])){
-                http_response_code(400);
-                echo json_encode(['message' => 'Provide all required fields']);
-                exit;
-            }
-            
-            $results = $this->reportModel->GetDetailedSubAccountReport($data);
-            if(!$results){
-                http_response_code(500);
-                echo json_encode(['message' => 'Invalid report type']);
-                exit;
-            }
-
-            foreach($results as $result){
-                array_push($data['results'],[
-                    'transactionDate' => date('d-m-Y',strtotime($result->TransactionDate)),
-                    'amount' => floatval($result->Amount),
-                    'narration' => ucwords($result->Narration),
-                    'reference' => ucwords($result->Reference),
-                ]);
-            }
-
-            echo json_encode(['success' => true,'results' => $data['results']]);
-            exit;
-        }
-        else{
-            redirect('users/deniedaccess');
-            exit;
-        }
     }
+
+    /** The rows behind one sub account balance, group or district (account, asdate): JSON page, search, Excel (task 9.8). */
+    public function getsubaccountdetailedrpt()
+    {
+        SubAccountReport::serveBreakdown((new Database)->pdo(),(int)$_SESSION['congId'],$_GET);
+    }
+
     /** A posted bank must be in the report-safe bank list of the session congregation (task 9.1): 400 otherwise. */
     private function reportBank($value)
     {

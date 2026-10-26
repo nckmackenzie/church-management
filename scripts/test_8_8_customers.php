@@ -393,7 +393,7 @@ try {
     ok('vw_invoices carries the congregation and the balance (paid in full: 0)', (int)$v['congregationId'] === 11 && (float)$v['balance'] === 0.0 && (int)$v['status'] === 2);
     $idx = array_map(function($o) { return (int)$o->ID; }, $model->index());
     ok('Invoice::index lists only the session congregation\'s invoices', in_array($pi, $idx) && !in_array($foreignInv, $idx));
-    ok('getAmountPaid keeps the cents (it used to round to whole units)', rows('SELECT getAmountPaid(?) a', [$pi])[0]['a'] === '1000.00' && rows('SELECT getAmountPaid(?) a', [$pj])[0]['a'] === '0.00');
+    ok('getinvoice_paid keeps the cents (getAmountPaid, its twin, is dropped in 9.8)', rows('SELECT getinvoice_paid(?) a', [$pi])[0]['a'] === '1000.00' && rows('SELECT getinvoice_paid(?) a', [$pj])[0]['a'] === '0.00');
     $due = rows('CALL sp_getinvoice_withbalances(?,?,?)', [11, '2000-01-01', '2999-12-31']);
     $dueIds = array_column($due, 'ID');
     ok('sp_getinvoice_withbalances uses its congregation parameter (it ignored it before)', in_array($pj, $dueIds) && !in_array($foreignInv, $dueIds) && count(rows('CALL sp_getinvoice_withbalances(?,?,?)', [2, '2000-01-01', '2999-12-31'])) >= 1 && !in_array($pj, array_column(rows('CALL sp_getinvoice_withbalances(?,?,?)', [2, '2000-01-01', '2999-12-31']), 'ID')));

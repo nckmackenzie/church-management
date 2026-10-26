@@ -172,6 +172,7 @@ try {
     $fail++; echo 'FAIL unexpected exception ' . get_class($e) . ': ' . $e->getMessage() . ' at ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
 } finally {
     $pdo->exec('DROP TABLE IF EXISTS zz_t95_bp');
+    $pdo->exec('DROP PROCEDURE IF EXISTS zz_bankpostings_decimal');   // the script leaves its helper behind when its guard stops it (task 9.8)
     foreach ($created['postings'] as $id) { $pdo->prepare('DELETE FROM tblbankpostings WHERE ID = ?')->execute([$id]); }
     $pdo->prepare("DELETE FROM tblbankpostings WHERE reference LIKE 'zz t95%'")->execute();
     foreach ($created['entries'] as $id) { $pdo->prepare('DELETE FROM journal_lines WHERE journalEntryId = ?')->execute([$id]); $pdo->prepare('DELETE FROM journal_entries WHERE ID = ?')->execute([$id]); }

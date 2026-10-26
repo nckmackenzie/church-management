@@ -260,8 +260,8 @@ try {
     $R = ['type' => 1, 'start' => '2098-08-01', 'end' => '2098-08-31', 'account' => []];
     $rows1 = $report->GetContributions($R);
     ok97('contributions (all): only the approved, undeleted receipts of this congregation (1,000.00 + 250.50 + 75.00 + 25.00); the deleted, unapproved and other-congregation details are out', array_sum(array_column($rows1, 'amount')) === 135050 && count($rows1) === 4, json_encode(array_column($rows1, 'amount')));
-    $def = q97("SELECT ROUTINE_DEFINITION d FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = DATABASE() AND ROUTINE_NAME = 'sp_contribitions_report_all'")[0]['d'];
-    ok97('the old routine sp_contribitions_report_all joins the header table to the detail table with no key (a cross join; on dev it needs minutes) and has no Deleted filter: it is no longer called', stripos($def, 'HeaderId') === false && stripos($def, 'Deleted') === false && strpos(file_get_contents(__DIR__ . '/../app/models/Report.php'), 'CALL sp_contribitions') === false);
+    // Task 9.8: sp_contribitions_report_all and sp_expenses_all are dropped. The old routine was a header x detail cross join with no Deleted filter; its result is reproduced below by an equivalent query.
+    ok97('the report no longer calls the old cross-join routine', strpos(file_get_contents(__DIR__ . '/../app/models/Report.php'), 'CALL sp_contribitions') === false);
     $lgSum = (int) q97("SELECT IFNULL(SUM(CAST(ROUND(d.amount*100) AS SIGNED)),0) s FROM tblcontributions_details d WHERE d.contributionDate BETWEEN '2098-08-01' AND '2098-08-31' AND EXISTS (SELECT 1 FROM tblcontributions_header h WHERE h.congregationId = ? AND h.status = 1)", [$cong])[0]['s'];
     ok97('what that cross join returns (every detail in the range as long as the congregation has one approved receipt): ' . m97($lgSum) . ' instead of 1,350.50 - it includes the deleted, unapproved and other-congregation details', $lgSum === 135050 + 333300 + 444400 + 555500, m97($lgSum));
     $rows2 = $report->GetContributions(['type' => 2, 'start' => '2098-08-01', 'end' => '2098-08-31', 'account' => [$acB]]);
@@ -277,8 +277,8 @@ try {
     ok97('expenses (all): approved and undeleted of this congregation only (100.00 + 800.00)', array_sum(array_column($E1, 'amount')) === 90000 && count($E1) === 2, json_encode(array_column($E1, 'amount')));
     $E2 = $report->GetExpenses(['type' => 2, 'start' => '2098-09-01', 'end' => '2098-09-30', 'account' => [$EXB]]);
     ok97('expenses by account: the filter applies and the cost centre of a church expense is LCC', count($E2) === 1 && $E2[0]['amount'] === 80000 && $E2[0]['costcenter'] === 'LCC' && strpos((string) $E2[0]['link'], 'expenses/print/') === 0);
-    $lgE = $pdo->prepare('CALL sp_expenses_all(?,?,?)'); $lgE->execute([$cong, '2098-09-01', '2098-09-30']); $lge = $lgE->fetchAll(PDO::FETCH_ASSOC); $lgE->closeCursor();
-    ok97('expenses (all) equals the old routine sp_expenses_all for the same range (its filters were already right)', count($lge) === count($E1));
+    $lge = q97("SELECT e.amount FROM tblexpenses e INNER JOIN tblaccounttypes a ON e.accountId = a.ID INNER JOIN tblpaymentmethods p ON e.paymethodId = p.ID LEFT JOIN tblgroups g ON e.groupId = g.ID WHERE e.congregationId = ? AND e.expenseDate BETWEEN ? AND ? AND e.status = 1 AND e.deleted = 0", [$cong, '2098-09-01', '2098-09-30']);
+    ok97('expenses (all) equals the query of the old routine sp_expenses_all (now dropped) for the same range (its filters were already right)', count($lge) === count($E1));
 
     // parish
     $pData = ['congregations' => [$cong, $other], 'accounts' => [$acA, $acB], 'start' => '2098-08-01', 'end' => '2098-08-31'];
@@ -319,7 +319,7 @@ try {
         $o3s = array_sum(array_column($o3, 's')); $n3s = array_sum(array_column($n3, 'amount'));
         ok97("$label contributions by district: old minus new equals the deleted / unapproved details; grouping by ID gives at least as many rows as grouping by name", $o3s - $n3s === (int) $expl3 && count($n3) >= count($o3), m97($o3s - $n3s) . ' vs ' . m97((int) $expl3));
         info97("$label by district: old " . m97((int) $o3s) . ' (' . count($o3) . ' names) new ' . m97($n3s) . ' (' . count($n3) . ' districts)');
-        $oe = $pdo->prepare('CALL sp_expenses_all(?,?,?)'); $oe->execute([$cong, $from, $to]); $oes = 0; foreach ($oe->fetchAll(PDO::FETCH_ASSOC) as $r) { $oes += c97($r['amount']); } $oe->closeCursor();
+        $oes = 0; foreach (q97("SELECT e.amount FROM tblexpenses e INNER JOIN tblaccounttypes a ON e.accountId = a.ID INNER JOIN tblpaymentmethods p ON e.paymethodId = p.ID LEFT JOIN tblgroups g ON e.groupId = g.ID WHERE e.congregationId = ? AND e.expenseDate BETWEEN ? AND ? AND e.status = 1 AND e.deleted = 0", [$cong, $from, $to]) as $r) { $oes += c97($r['amount']); }
         $nes = array_sum(array_column($report->GetExpenses(['type' => 1, 'start' => $from, 'end' => $to, 'account' => []]), 'amount'));
         ok97("$label expenses: old routine and new report agree to the cent (" . m97($nes) . ')', $oes === $nes, m97($oes) . ' vs ' . m97($nes));
         $pd = ['congregations' => FinancialReport::parishScope($pdo), 'accounts' => $parish->reportAccountIds(1), 'start' => $from, 'end' => $to];

@@ -417,23 +417,10 @@ try {
     $r = $cr->CreateUpdate($pm()); $pn2 = $newpc();
     chk('petty cash number of a deleted receipt is not reused', (int)q('SELECT ReceiptNo FROM tblpettycash WHERE ID=?', [$pn2])[0]['ReceiptNo'] === $pno + 1, json_encode([$pno]));
 
-    // ---------------- legacy petty cash routines retained for the 9.8 removal decision
+    // ---------------- Task 9.8: sp_pettycashutilization and getopeningbal are dropped (the petty cash book reads the journal since 9.6)
     $from = '2026-01-01'; $to = '2026-01-31';
-    $rows = function ($acc) use ($pdo, $from, $to) { $st = $pdo->prepare('CALL sp_pettycashutilization(?,?,11,?)'); $st->execute([$from, $to, $acc]); $x = $st->fetchAll(PDO::FETCH_ASSOC); $st->closeCursor(); return $x; };
-    $r98 = $rows(98); $r194 = $rows(194);
-    $narr = function ($rs) { return array_column($rs, 'Narration'); };
-    chk('report 194 lists the 194 receipts (120 and 999), not the deleted ones', in_array('TEST PETTY CASH', $narr($r194), true) || in_array('EDITED NARRATION', $narr($r194), true));
     $deletedCount = (int)q('SELECT COUNT(*) c FROM tblpettycash WHERE ID > ? AND Deleted=1 AND TransactionDate BETWEEN ? AND ?', [$max['tblpettycash'], $from, $to])[0]['c'];
-    $liveRows98 = (int)q('SELECT COUNT(*) c FROM tblpettycash WHERE CongregationId=11 AND Deleted=0 AND PettyCashAccountId=98 AND TransactionDate BETWEEN ? AND ?', [$from, $to])[0]['c'];
-    chk('report 98: one row per live 98 entry plus the opening row; deleted rows excluded', $deletedCount >= 1 && count($r98) === $liveRows98 + 1, json_encode([count($r98), $liveRows98, $deletedCount]));
-    $open98 = (float)q('SELECT getopeningbal(?,11,98) b', [$from])[0]['b'];
-    $manual = (float)q('SELECT IFNULL(SUM(Debit)-SUM(Credit),0) b FROM tblpettycash WHERE CongregationId=11 AND Deleted=0 AND PettyCashAccountId=98 AND TransactionDate < ?', [$from])[0]['b'];
-    chk('getopeningbal(…, 98) = live debits - credits before the date', abs($open98 - $manual) < 0.005, json_encode([$open98, $manual]));
-    chk('getopeningbal for 194 is separate from 98', abs((float)q('SELECT getopeningbal(?,11,194) b', ['2027-01-01'])[0]['b'] - (float)q('SELECT IFNULL(SUM(Debit)-SUM(Credit),0) b FROM tblpettycash WHERE CongregationId=11 AND Deleted=0 AND PettyCashAccountId=194')[0]['b']) < 0.005);
-    $manualDc = q('SELECT IFNULL(SUM(Debit),0) d, IFNULL(SUM(Credit),0) c FROM tblpettycash WHERE CongregationId=11 AND Deleted=0 AND PettyCashAccountId=194 AND TransactionDate BETWEEN ? AND ?', [$from, $to])[0];
-    $procDc = ['d' => 0.0, 'c' => 0.0]; foreach (array_slice($r194, 1) as $row) { $procDc['d'] += (float)$row['Debit']; $procDc['c'] += (float)$row['Credit']; }
-    chk('retained sp_pettycashutilization (194) movement matches live rows', abs($procDc['d'] - (float)$manualDc['d']) < 0.005 && abs($procDc['c'] - (float)$manualDc['c']) < 0.005, json_encode([$procDc, $manualDc]));
-    q('SET @x = 1');
+    chk('deleted petty cash receipts stay soft-deleted rows (the operational table keeps them, no report reads them)', $deletedCount >= 1, json_encode([$deletedCount]));
 
     // ---------------- cleanup of remaining test receipts via the app paths (also exercises delete)
     foreach ([$p98, $p194, $pn2] as $id) { $r = $cr->Delete($id); chk("petty delete $id", $r['success'] && !entry(10, $id) && !brows(10, $id)); }

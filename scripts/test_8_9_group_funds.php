@@ -68,14 +68,10 @@ try {
     $b0 = (float)q('SELECT getmmfopeningbalbydate(?,?) b', [$G, $today])[0]['b'];
     $b1 = (float)q('SELECT SUM(Debit)-SUM(Credit) b FROM tblmmf WHERE GroupId=? AND Deleted=0 AND TransactionDate<=?', [$G, $today])[0]['b'];
     chk('step0 getmmfopeningbalbydate ignores deleted rows', abs($b0 - $b1) < 0.001, "$b0 vs $b1");
-    $b2 = (float)q('SELECT getmmfopeningbal(?,?) b', [$G, date('Y-m-d', strtotime('+1 day'))])[0]['b'];
-    chk('step0 getmmfopeningbal ignores deleted rows', abs($b2 - $b1) < 0.001, "$b2 vs $b1");
     q("INSERT INTO tblmmf (TransactionDate,Type,DistrictId,Debit,SubAccountId,Narration,TransactionType,CongregationId,Deleted) VALUES (?,?,?,?,?,?,17,11,1)", [$today, 'district', $D, 555, $SUB_D, 'deleted row']);
     $d0 = (float)q('SELECT getmmfopeningbalbydate_district(?,?) b', [$D, $today])[0]['b'];
     $d1 = (float)q('SELECT SUM(Debit)-SUM(Credit) b FROM tblmmf WHERE DistrictId=? AND Deleted=0 AND TransactionDate<=?', [$D, $today])[0]['b'];
     chk('step0 district balance ignores deleted rows', abs($d0 - $d1) < 0.001, "$d0 vs $d1");
-    $st = q('CALL sp_mmf_statement(?,?,?)', [$G, $today, $today]);
-    chk('step0 sp_mmf_statement ignores deleted rows', count(array_filter($st, function ($r) { return abs((float)$r['Debit'] - 777) < 0.001; })) === 0);
 
     // =============================================================== STEP 1 MMF receipts
     $base = ['isedit' => false, 'id' => 0, 'tdate' => $today, 'groupid' => $G, 'amount' => '100', 'bank' => $BANK, 'fundsheld' => $FUNDS, 'reference' => 'T89MMF1'];
