@@ -35,6 +35,28 @@ try{
  // Final save is JSON rather than multipart.
  $ch=curl_init($base.'/journals/createupdate');curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_HEADER=>true,CURLOPT_COOKIE=>'PHPSESSID='.$s11,CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode(['date'=>'2026-10-20','isEdit'=>false,'entries'=>[['accountid'=>101,'debit'=>'1','credit'=>'','desc'=>'forged'],['accountid'=>34,'debit'=>'','credit'=>'1','desc'=>'forged']]]),CURLOPT_HTTPHEADER=>['Content-Type: application/json']]);$raw=(string)curl_exec($ch);$code=curl_getinfo($ch,CURLINFO_HTTP_CODE);$hs=curl_getinfo($ch,CURLINFO_HEADER_SIZE);curl_close($ch);$body=substr($raw,$hs);
  h45ok('forged account ID in final save is refused',$code===422&&stripos($body,'journal account list')!==false,"$code $body");
+ // 11a: request input handling (journalno / id / type / POST id)
+ $g=function($path,$sid)use($base,&$phpErrors){$ch=curl_init($base.'/'.$path);curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_HEADER=>true,CURLOPT_COOKIE=>'PHPSESSID='.$sid,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_TIMEOUT=>60]);$raw=(string)curl_exec($ch);$c=curl_getinfo($ch,CURLINFO_HTTP_CODE);$hs=curl_getinfo($ch,CURLINFO_HEADER_SIZE);curl_close($ch);$b=substr($raw,$hs);if(preg_match('~(<b>)?(Warning|Notice|Fatal error|Deprecated|Parse error)(</b>)?:~',$b,$m))$phpErrors[]=$path.' -> '.$m[2];return [$c,$b,json_decode($b,true)];};
+ $jn=(int)q('SELECT MAX(transactionId) m FROM journal_entries WHERE congregationId=11 AND transactionTypeId=5 AND deleted=0')[0]['m'];
+ if($jn>0){[$c,$b,$j]=$g('journals/getjournalentry?journalno='.$jn,$s11);h45ok('valid journalno returns the journal',$c===200&&($j['success']??false)===true,"$c");
+  [$c,$b,$j]=$g('journals/getjournalentry?journalno=%20'.$jn.'%20',$s11);h45ok('journalno with surrounding spaces still works',$c===200,"$c");}
+ foreach(['abc','1.5','1e3','-1','0','','%3Cscript%3Ealert(1)%3C/script%3E','1%27%20OR%20%271%27=%271','99999999999'] as $bad){[$c,$b]=$g('journals/getjournalentry?journalno='.$bad,$s11);h45ok("bad journalno '$bad' is refused with 400",$c===400&&stripos($b,'<script')===false,"$c $b");}
+ [$c,$b]=$g('journals/getjournalentry?journalno[]=1',$s11);h45ok('array journalno is refused with 400',$c===400,"$c $b");
+ [$c,$b]=$g('journals/getjournalentry?journalno=999999999',$s11);h45ok('unknown journalno gives 404',$c===404,"$c $b");
+ [$c,$b]=$g('journals/getJournalDetails?id=abc&type=2',$s11);h45ok('non-numeric details id is refused',$c===400,"$c $b");
+ [$c,$b]=$g('journals/getJournalDetails?id=1&type=3',$s11);h45ok('unknown details type is refused',$c===400,"$c $b");
+ [$c,$b]=$g('journals/getJournalDetails?id=1&type=%3Cscript%3Ealert(1)%3C/script%3E',$s11);h45ok('script in details type is refused and not echoed',$c===400&&stripos($b,'<script')===false,"$c $b");
+ [$c,$b]=$g('journals/getJournalDetails?id=%3Cscript%3E&type=2',$s11);h45ok('script in details id is refused and not echoed',$c===400&&stripos($b,'<script')===false,"$c $b");
+ [$c,$b]=$g('journals/getJournalDetails?id=1%27%20OR%201=1&type=2',$s11);h45ok('quote in details id is refused',$c===400,"$c $b");
+ [$c,$b]=$g('journals/getJournalDetails?id=999999999&type=2',$s11);h45ok('valid but unknown expense id gives 404',$c===404,"$c $b");
+ $exp=q('SELECT ID FROM tblexpenses WHERE congregationId=11 AND deleted=0 ORDER BY ID DESC LIMIT 1');
+ if($exp){[$c,$b]=$g('journals/getJournalDetails?id='.$exp[0]['ID'].'&type=2',$s11);h45ok('valid expense details still render a table',$c===200&&strpos($b,'<table')!==false,"$c");}
+ $before=(int)q('SELECT COUNT(*) n FROM journal_entries WHERE deleted=1')[0]['n'];
+ foreach(['abc','%3Cscript%3E','0','-5',"1'"] as $bad){[$c,$b]=h45('journals/delete',$s11,['id'=>$bad]);h45ok("POST delete with bad id '$bad' redirects without deleting",$c===302,"$c");}
+ [$c,$b]=h45('journals/delete',$s11,['id'=>['1']]);h45ok('POST delete with array id does not error',$c===302,"$c");
+ h45ok('bad delete ids voided nothing',(int)q('SELECT COUNT(*) n FROM journal_entries WHERE deleted=1')[0]['n']===$before);
+ $src=file_get_contents(__DIR__.'/../app/controllers/Journals.php');
+ h45ok('Journals.php has no htmlentities( on request input',!preg_match('/htmlentities\s*\(/i',$src));
  h45ok('HTTP bodies contain no PHP warnings',!$phpErrors,implode(', ',$phpErrors));
 }finally{foreach($tmp as $f)if(is_file($f))@unlink($f);foreach($sessions as $sid)@unlink(session_save_path().DIRECTORY_SEPARATOR.'sess_'.$sid);}
 if(is_file($apache)){$tail=(string)file_get_contents($apache,false,null,$off);h45ok('Apache emitted no T45 PHP warning',!preg_match('/PHP (Warning|Notice|Fatal error|Deprecated|Parse error).*journals/i',$tail),$tail);}
