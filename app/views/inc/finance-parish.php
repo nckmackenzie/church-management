@@ -51,11 +51,6 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo URLROOT;?>/mmfreceipts" class="nav-link">
-                        <p>MMF Receipts</p>
-                    </a>
-                </li>
-                <li class="nav-item">
                     <a href="<?php echo URLROOT;?>/groupfunds" class="nav-link">
                         <p>Group funds requisition</p>
                     </a>
