@@ -40,6 +40,7 @@ class Groupcollection
                     m.Type,
                     IF(Type = 'district',d.districtName,g.groupName) As DistrictGroup,
                     m.Debit,
+                    m.Narration AS Description,
                     -- the collection's own reference; an old collection (saved before task 12) shows its old bank reference (the narration)
                     COALESCE(NULLIF(TRIM(m.Reference),''),(SELECT NULLIF(TRIM(b.reference),'') FROM tblbankpostings b
                               WHERE b.transactionType = 17 AND b.transactionId = m.ID AND b.congregationId = m.CongregationId AND b.deleted = 0
