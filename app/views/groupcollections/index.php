@@ -51,6 +51,7 @@
                         <th>Type</th>
                         <th>Group/District</th>
                         <th>Amount</th>
+                        <th>Description</th>
                         <th>Reference</th>
                         <th>Actions</th>
                     </thead>
@@ -62,6 +63,7 @@
                                 <td><?php echo strtoupper($transaction->Type);?></td>
                                 <td><?php echo strtoupper($transaction->DistrictGroup);?></td>
                                 <td><?php echo number_format($transaction->Debit,2);?></td>
+                                <td><?php echo htmlspecialchars((string)$transaction->Description);?></td>
                                 <td><?php echo htmlspecialchars((string)$transaction->Reference);?></td>
                                 <td>
                                     <?php if($_SESSION['userType'] <=2 || (int)$_SESSION['userType'] > 4) : ?>

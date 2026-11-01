@@ -367,18 +367,28 @@ try {
     chk('collections: missing group -> 400 and ONE JSON body', $r[0] === 400 && jsonOf($r[2]) !== null, $r[2]);
     $r = http('GET', "groupcollections/getsubaccounts?type=group&groupid=$G", $uFund);
     chk('collections AJAX without the group collections right -> 403 JSON', $r[0] === 403 && jsonOf($r[2]) !== null);
-    $cb = ['isedit' => false, 'id' => null, 'tdate' => $today, 'type' => 'group', 'groupid' => $G, 'amount' => '300', 'narration' => 'http test', 'subaccount' => $SUB_G, 'reference' => 'T12HTTP',
+    $mixedDescription = 'Woman Guild – Nov Collection';
+    $cb = ['isedit' => false, 'id' => null, 'tdate' => $today, 'type' => 'group', 'groupid' => $G, 'amount' => '300', 'narration' => $mixedDescription, 'subaccount' => $SUB_G, 'reference' => 'T12HTTP',
            'account' => 'cash at bank', 'accountid' => 3, 'bankid' => 195];
     $r = http('POST', 'groupcollections/createupdate', $uAll, $cb, true);
     $cid = (int)q('SELECT MAX(ID) m FROM tblmmf WHERE TransactionType=17')[0]['m'];
     $e = q('SELECT l.accountId,l.dc FROM journal_lines l JOIN journal_entries e ON e.ID=l.journalEntryId WHERE e.transactionTypeId=17 AND e.transactionId=? AND e.deleted=0 ORDER BY lineNumber', [$cid]);
     chk('collection create (JSON POST) -> 201; accounts from the sub account, not from the tampered fields', $r[0] === 201 && jsonOf($r[2])['success'] === true && $e == [['accountId' => 105, 'dc' => 'DEBIT'], ['accountId' => 125, 'dc' => 'CREDIT']], "status {$r[0]} " . $r[2] . json_encode($e));
+    $caseRows = q('SELECT m.Narration,e.description,l.memo,b.narration bankNarration FROM tblmmf m JOIN journal_entries e ON e.transactionTypeId=17 AND e.transactionId=m.ID AND e.deleted=0 JOIN journal_lines l ON l.journalEntryId=e.ID JOIN tblbankpostings b ON b.transactionType=17 AND b.transactionId=m.ID AND b.deleted=0 WHERE m.ID=? ORDER BY l.lineNumber', [$cid]);
+    chk('collection mixed-case description reaches source, both ledger lines and bank unchanged', count($caseRows) === 2
+        && count(array_filter($caseRows, function ($x) use ($mixedDescription) { return $x['Narration'] !== $mixedDescription || $x['description'] !== $mixedDescription || $x['memo'] !== $mixedDescription || $x['bankNarration'] !== $mixedDescription; })) === 0,
+        json_encode($caseRows));
     $r = http('POST', 'groupcollections/createupdate', $uFund, $cb, true);
     chk('collection create without the right -> 403, nothing saved', $r[0] === 403 && (int)q('SELECT MAX(ID) m FROM tblmmf WHERE TransactionType=17')[0]['m'] === $cid);
     $r = http('POST', 'groupcollections/createupdate', $uAll, ['amount' => '-5'] + $cb, true);
     chk('collection with a bad amount -> 422 with a message', $r[0] === 422 && jsonOf($r[2])['success'] === false && strlen(jsonOf($r[2])['message']) > 0, "status {$r[0]} " . $r[2]);
+    $r = http('POST', 'groupcollections/createupdate', $uAll, ['narration' => ['not scalar']] + $cb, true);
+    chk('collection with a non-scalar description -> 400 without a PHP error', $r[0] === 400 && jsonOf($r[2])['success'] === false, "status {$r[0]} " . $r[2]);
+    $r = http('POST', 'groupcollections/createupdate', $uAll, ['tdate' => 'not-a-date'] + $cb, true);
+    chk('collection with a malformed date -> 422 instead of being normalized to 1970-01-01', $r[0] === 422 && stripos(jsonOf($r[2])['message'], 'valid date') !== false, "status {$r[0]} " . $r[2]);
     $r = http('GET', 'groupcollections', $uAll);
     chk('collection list after a NEW collection: no "saved" flash (the form clears itself and stays for the next one)', stripos($r[2], 'Saved successfully!') === false);
+    chk('collection list shows the mixed-case description unchanged', strpos($r[2], $mixedDescription) !== false);
     $r = http('POST', 'groupcollections/createupdate', $uAll, ['isedit' => '1', 'id' => $cid, 'amount' => '350'] + $cb, true);
     chk('collection EDIT (JSON POST, isedit = 1) -> 201', $r[0] === 201 && jsonOf($r[2])['success'] === true && (float)q('SELECT Debit d FROM tblmmf WHERE ID=?', [$cid])[0]['d'] === 350.0, "status {$r[0]} " . $r[2]);
     $r = http('GET', 'groupcollections', $uAll);
@@ -388,7 +398,12 @@ try {
     $r = http('GET', "groupcollections/edit/$cid", $uAll);
     chk('collection edit page loads index-v2.js', strpos($r[2], 'groupcollections/index-v2.js') !== false);
     $r = http('GET', "groupcollections/edit/$cid", $uAll);
-    chk('collection edit page: group, sub account and the account / bank fill shown', $r[0] === 200 && (selectOptions($r[2], 'subaccount')['1'] ?? false) === true && (int)nodeAttr($r[2], "//input[@id='bankid']", 'value') === 105 && (int)nodeAttr($r[2], "//input[@id='accountid']", 'value') === 125);
+    chk('collection edit page: group, sub account, account / bank and mixed-case description shown', $r[0] === 200 && (selectOptions($r[2], 'subaccount')['1'] ?? false) === true && (int)nodeAttr($r[2], "//input[@id='bankid']", 'value') === 105 && (int)nodeAttr($r[2], "//input[@id='accountid']", 'value') === 125
+        && nodeAttr($r[2], "//input[@id='narration']", 'value') === $mixedDescription);
+    $caseRows = q('SELECT m.Narration,e.description,l.memo,b.narration bankNarration FROM tblmmf m JOIN journal_entries e ON e.transactionTypeId=17 AND e.transactionId=m.ID AND e.deleted=0 JOIN journal_lines l ON l.journalEntryId=e.ID JOIN tblbankpostings b ON b.transactionType=17 AND b.transactionId=m.ID AND b.deleted=0 WHERE m.ID=? ORDER BY l.lineNumber', [$cid]);
+    chk('collection mixed-case description survives HTTP re-save through source, ledger and bank', count($caseRows) === 2
+        && count(array_filter($caseRows, function ($x) use ($mixedDescription) { return $x['Narration'] !== $mixedDescription || $x['description'] !== $mixedDescription || $x['memo'] !== $mixedDescription || $x['bankNarration'] !== $mixedDescription; })) === 0,
+        json_encode($caseRows));
     $r = http('POST', 'groupcollections/delete', $uAll, ['id' => $cid]);
     chk('collection delete through the page = void', redirectsTo($r, 'groupcollections') && (int)q('SELECT Deleted d FROM tblmmf WHERE ID=?', [$cid])[0]['d'] === 1 && !q('SELECT 1 FROM journal_entries WHERE transactionTypeId=17 AND transactionId=? AND deleted=0', [$cid]));
 } catch (Throwable $e) {

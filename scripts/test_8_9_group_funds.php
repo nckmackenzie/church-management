@@ -160,7 +160,8 @@ try {
     $m2 = (int)$r['id'];
 
     // =============================================================== STEP 2 group collections
-    $cb = ['isedit' => false, 'id' => null, 'tdate' => $today, 'type' => 'group', 'groupid' => $G, 'amount' => '300', 'narration' => 'test collection', 'subaccount' => $SUB_G, 'reference' => 'T12GC'];
+    $mixedDescription = 'Woman Guild – Nov Collection';
+    $cb = ['isedit' => false, 'id' => null, 'tdate' => $today, 'type' => 'group', 'groupid' => $G, 'amount' => '300', 'narration' => $mixedDescription, 'subaccount' => $SUB_G, 'reference' => 'T12GC'];
     $r = $gc->CreateUpdate(array_merge($cb, ['account' => 'cash at bank', 'accountid' => 3, 'bankid' => 195]));  // client extras are ignored
     chk('collection create ok (client account / bank fields ignored)', $r['success'] === true, errs($r));
     $c1 = (int)($r['id'] ?? 0);
@@ -172,13 +173,25 @@ try {
         && (int)$e[1]['accountId'] === 125 && $e[1]['dc'] === 'CREDIT', json_encode($e));
     $b = brows(17, $c1);
     chk('collection one bank row: Deposit (1), debit 300, bank 105 (not the tampered 195)', count($b) === 1 && (int)$b[0]['transactionMethod'] === 1 && (float)$b[0]['debit'] === 300.0 && (int)$b[0]['bankId'] === 105, json_encode($b));
+    $listed = array_values(array_filter($gc->GetTransactions(), function ($x) use ($c1) { return (int)$x->ID === $c1; }));
+    $memos = q('SELECT l.memo FROM journal_lines l JOIN journal_entries e ON e.ID=l.journalEntryId WHERE e.transactionTypeId=17 AND e.transactionId=? AND e.deleted=0 ORDER BY l.lineNumber', [$c1]);
+    chk('collection mixed-case description is stored, listed, returned for edit, and posted unchanged', $row['Narration'] === $mixedDescription
+        && count($listed) === 1 && $listed[0]->Description === $mixedDescription && $gc->GetCollection($c1)->Narration === $mixedDescription
+        && q('SELECT description FROM journal_entries WHERE transactionTypeId=17 AND transactionId=? AND deleted=0', [$c1])[0]['description'] === $mixedDescription
+        && count($memos) === 2 && count(array_filter($memos, function ($x) use ($mixedDescription) { return $x['memo'] !== $mixedDescription; })) === 0
+        && $b[0]['narration'] === $mixedDescription, json_encode(['row' => $row, 'list' => $listed, 'entry' => $e, 'bank' => $b]));
     chk('collection does not write tblbanktransactions_subaccounts', (int)q('SELECT COUNT(*) c FROM tblbanktransactions_subaccounts WHERE TransactionType=17')[0]['c'] === 0);
 
-    $r = $gc->CreateUpdate(array_merge($cb, ['isedit' => true, 'id' => $c1, 'amount' => '350', 'narration' => 'edited']));
+    $r = $gc->CreateUpdate(array_merge($cb, ['isedit' => true, 'id' => $c1, 'amount' => '350']));
     chk('collection edit ok', $r['success'] === true, errs($r));
     $e = entry(17, $c1);
     chk('collection edit: entry replaced in place (350)', activeEntries(17, $c1) === 1 && (float)$e[0]['amount'] === 350.0);
     chk('collection edit: one bank row, 350', count($b = brows(17, $c1)) === 1 && (float)$b[0]['debit'] === 350.0);
+    $memos = q('SELECT l.memo FROM journal_lines l JOIN journal_entries e ON e.ID=l.journalEntryId WHERE e.transactionTypeId=17 AND e.transactionId=? AND e.deleted=0 ORDER BY l.lineNumber', [$c1]);
+    chk('collection mixed-case description survives re-save through source, ledger and bank', mmf($c1)['Narration'] === $mixedDescription
+        && q('SELECT description FROM journal_entries WHERE transactionTypeId=17 AND transactionId=? AND deleted=0', [$c1])[0]['description'] === $mixedDescription
+        && count($memos) === 2 && count(array_filter($memos, function ($x) use ($mixedDescription) { return $x['memo'] !== $mixedDescription; })) === 0
+        && $b[0]['narration'] === $mixedDescription);
 
     // district collection, then edit it (the old Update wrote the district ID into GroupId)
     $r = $gc->CreateUpdate(array_merge($cb, ['type' => 'district', 'groupid' => $D, 'subaccount' => $SUB_D, 'narration' => 'district one']));

@@ -130,16 +130,30 @@ class Groupcollections extends Controller
         {
             if(!$this->allowed()) $this->denyJson();
             $fields = json_decode(file_get_contents('php://input'));
+            if(!is_object($fields)){
+                http_response_code(400);
+                echo json_encode(['success' => false,'message' => 'Invalid request']);
+                exit;
+            }
+            // Preserve user text while refusing arrays / objects instead of passing them to trim() and causing a TypeError.
+            $field = function ($name) use ($fields) {
+                if(!isset($fields->$name) || !is_scalar($fields->$name)){
+                    return null;
+                }
+                $value = trim((string)$fields->$name);
+                return $value === '' ? null : $value;
+            };
             // only these fields are read; account, accountid and bankid are ignored (the server reads them from the sub account)
             $data = [
-                'id' => isset($fields->id) && !empty(trim($fields->id)) ? (int)trim($fields->id) : null,
-                'isedit' => converttobool($fields->isedit ?? false),
-                'tdate' => isset($fields->tdate) && !empty(trim($fields->tdate)) ? date('Y-m-d',strtotime(trim($fields->tdate))) : null,
-                'type' => isset($fields->type) && !empty(trim($fields->type)) ? strtolower(trim($fields->type)) : null,
-                'groupid' => isset($fields->groupid) && !empty(trim($fields->groupid)) ? (int)trim($fields->groupid) : null,
-                'amount' => isset($fields->amount) && !empty(trim($fields->amount)) ? trim($fields->amount) : null,
-                'narration' => isset($fields->narration) && !empty(trim($fields->narration)) ? strtolower(trim($fields->narration)) : null,
-                'subaccount' => isset($fields->subaccount) && !empty(trim($fields->subaccount)) ? (int)trim($fields->subaccount) : null,
+                'id' => ($value = $field('id')) !== null ? (int)$value : null,
+                'isedit' => converttobool($field('isedit') ?? false),
+                // The model validates the exact date string; do not normalize malformed input to 1970-01-01.
+                'tdate' => $field('tdate'),
+                'type' => ($value = $field('type')) !== null ? strtolower($value) : null,
+                'groupid' => ($value = $field('groupid')) !== null ? (int)$value : null,
+                'amount' => $field('amount'),
+                'narration' => $field('narration'),
+                'subaccount' => ($value = $field('subaccount')) !== null ? (int)$value : null,
                 // as typed (the model trims, requires it and checks the length: a missing one gets its own message)
                 'reference' => isset($fields->reference) && is_scalar($fields->reference) ? (string)$fields->reference : '',
             ];
@@ -196,7 +210,7 @@ class Groupcollections extends Controller
             'groups' => $this->collectionmodel->GetDistrictOrGroup($type),
             'groupid' => $groupid,
             'amount' => $transaction->Debit,
-            'narration' => strtoupper($transaction->Narration),
+            'narration' => $transaction->Narration,
             'reference' => (string)$transaction->Reference,
             'subaccounts' => $this->collectionmodel->GetSubAccounts($type, $groupid),
             'subaccount' => $transaction->SubAccountId,
