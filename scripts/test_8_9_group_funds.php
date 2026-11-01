@@ -160,7 +160,7 @@ try {
     $m2 = (int)$r['id'];
 
     // =============================================================== STEP 2 group collections
-    $cb = ['isedit' => false, 'id' => null, 'tdate' => $today, 'type' => 'group', 'groupid' => $G, 'amount' => '300', 'narration' => 'test collection', 'subaccount' => $SUB_G];
+    $cb = ['isedit' => false, 'id' => null, 'tdate' => $today, 'type' => 'group', 'groupid' => $G, 'amount' => '300', 'narration' => 'test collection', 'subaccount' => $SUB_G, 'reference' => 'T12GC'];
     $r = $gc->CreateUpdate(array_merge($cb, ['account' => 'cash at bank', 'accountid' => 3, 'bankid' => 195]));  // client extras are ignored
     chk('collection create ok (client account / bank fields ignored)', $r['success'] === true, errs($r));
     $c1 = (int)($r['id'] ?? 0);
@@ -249,6 +249,46 @@ try {
     chk('collection edit of the amount refused: bank row cleared', $r['success'] === false && has($r, 'cleared') && (float)mmf($c1)['Debit'] === 350.0, errs($r));
     $r = $gc->CreateUpdate(array_merge($cb, ['isedit' => true, 'id' => $c1, 'amount' => '350', 'narration' => 'edited again']));
     chk('collection edit of the description only ok (cleared row kept)', $r['success'] === true && (int)brows(17, $c1)[0]['cleared'] === 1, errs($r));
+    // ---- task 12: the collection's own reference (required, <= 25 = tblmmf.Reference); the bank row carries it (it was the narration)
+    $lrefs17 = function ($id) { return q('SELECT l.dc,l.reference FROM journal_lines l JOIN journal_entries e ON e.ID=l.journalEntryId WHERE e.transactionTypeId=17 AND e.transactionId=? AND e.deleted=0 ORDER BY l.lineNumber', [$id]); };
+    chk('T12 collection: tblmmf.Reference = the typed reference', mmf($c1)['Reference'] === 'T12GC', json_encode(mmf($c1)));
+    chk('T12 collection: the bank row reference is the collection reference, not the narration', brows(17, $c1)[0]['reference'] === 'T12GC', json_encode(brows(17, $c1)));
+    chk('T12 collection: both ledger lines and the entry carry the reference', $lrefs17($c1) == [['dc' => 'DEBIT', 'reference' => 'T12GC'], ['dc' => 'CREDIT', 'reference' => 'T12GC']]
+        && q('SELECT reference FROM journal_entries WHERE transactionTypeId=17 AND transactionId=? AND deleted=0', [$c1])[0]['reference'] === 'T12GC');
+    $r = $gc->CreateUpdate(array_merge($cb, ['isedit' => true, 'id' => $c1, 'amount' => '350', 'narration' => 'edited again', 'reference' => 'T12GC-NEW']));
+    chk('T12 collection: reference change on a CLEARED bank row is allowed (same row, still cleared)', $r['success'] === true && brows(17, $c1)[0]['reference'] === 'T12GC-NEW' && (int)brows(17, $c1)[0]['cleared'] === 1 && mmf($c1)['Reference'] === 'T12GC-NEW', errs($r));
+    q('UPDATE tblbankpostings SET cleared=0, clearedDare=NULL WHERE transactionType=17 AND transactionId=?', [$c1]);
+    $n0 = (int)q('SELECT COUNT(*) c FROM tblmmf WHERE TransactionType=17')[0]['c'];
+    $r = $gc->CreateUpdate(array_merge($cb, ['reference' => '']));
+    chk('T12 collection: missing reference refused, nothing written', $r['success'] === false && has($r, 'Enter the reference') && (int)q('SELECT COUNT(*) c FROM tblmmf WHERE TransactionType=17')[0]['c'] === $n0, errs($r));
+    $r = $gc->CreateUpdate(array_merge($cb, ['reference' => '   ']));
+    chk('T12 collection: blank (spaces) reference refused', $r['success'] === false && has($r, 'Enter the reference'), errs($r));
+    $r = $gc->CreateUpdate(array_merge($cb, ['reference' => str_repeat('R', 26)]));
+    chk('T12 collection: 26-character reference refused with the length (25 = tblmmf.Reference)', $r['success'] === false && has($r, 'cannot be longer than 25 characters') && (int)q('SELECT COUNT(*) c FROM tblmmf WHERE TransactionType=17')[0]['c'] === $n0, errs($r));
+    $r = $gc->CreateUpdate(array_merge($cb, ['reference' => 'ab€cd']));
+    chk('T12 collection: a character the latin1 column cannot store is refused', $r['success'] === false && has($r, 'cannot be stored'), errs($r));
+    $r = $gc->CreateUpdate(array_merge($cb, ['reference' => '  ' . str_repeat('Q', 25) . ' ']));
+    $c25 = (int)($r['id'] ?? 0);
+    chk('T12 collection: a 25-character reference (trimmed) is accepted and stored whole in the mmf row, bank row and lines', $r['success'] === true && mmf($c25)['Reference'] === str_repeat('Q', 25) && brows(17, $c25)[0]['reference'] === str_repeat('Q', 25), errs($r));
+    $r = $gc->CreateUpdate(array_merge($cb, ['reference' => str_repeat('Q', 25)]));
+    $cdup = (int)($r['id'] ?? 0);
+    chk('T12 collection: duplicates allowed (same reference on another collection)', $r['success'] === true && $cdup !== $c25, errs($r));
+    $list = array_values(array_filter($gc->GetTransactions(), function ($x) use ($cdup) { return (int)$x->ID === $cdup; }));
+    chk('T12 collection list shows the reference', $list && $list[0]->Reference === str_repeat('Q', 25), json_encode($list));
+    // an old collection (saved before task 12): no tblmmf.Reference; its bank row carries the old reference (the narration)
+    q('UPDATE tblmmf SET Reference=NULL WHERE ID=?', [$cdup]);
+    q('UPDATE tblbankpostings SET reference=? WHERE transactionType=17 AND transactionId=? AND deleted=0', ['old narration of the collection', $cdup]);
+    $old = $gc->GetCollection($cdup);
+    chk('T12 old collection: edit data shows the old bank reference', $old->Reference === 'old narration of the collection', json_encode($old));
+    $list = array_values(array_filter($gc->GetTransactions(), function ($x) use ($cdup) { return (int)$x->ID === $cdup; }));
+    chk('T12 old collection: the list shows the old bank reference', $list && $list[0]->Reference === 'old narration of the collection');
+    $r = $gc->CreateUpdate(array_merge($cb, ['isedit' => true, 'id' => $cdup, 'reference' => 'old narration of the collection']));
+    chk('T12 old collection: saving with the pre-filled 31-character reference is refused with the length message (the user shortens it)', $r['success'] === false && has($r, 'cannot be longer than 25 characters'), errs($r));
+    $r = $gc->CreateUpdate(array_merge($cb, ['isedit' => true, 'id' => $cdup, 'reference' => 'OLD-SHORT']));
+    chk('T12 old collection: saved with a short reference; bank row, mmf row and lines now carry it', $r['success'] === true && mmf($cdup)['Reference'] === 'OLD-SHORT' && brows(17, $cdup)[0]['reference'] === 'OLD-SHORT', errs($r));
+    foreach ([$c25, $cdup] as $id) { $r = $gc->Delete($id); chk("T12 collection cleanup $id", $r['success'] === true, errs($r)); }
+
+
     q('UPDATE tblbankpostings SET cleared=0, clearedDare=NULL WHERE transactionType=17 AND transactionId=?', [$c1]);
 
     // void

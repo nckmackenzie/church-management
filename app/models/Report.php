@@ -223,10 +223,13 @@ class Report {
         $accounts = $data['type'] == 2 ? array_values(array_map('intval',$data['account'])) : [];
         $sql = "SELECT d.ID, d.contributionDate AS cdate, d.contributionTypeId AS accountId,
                        UCASE(IF(d.category = 1,m.memberName,IF(d.category = 2,g.groupName,IF(d.category = 3,t.districtName,s.serviceName)))) AS cont,
-                       CAST(ROUND(d.amount * 100) AS SIGNED) AS cents, UCASE(p.paymentMethod) AS paymethod, UCASE(d.paymentReference) AS paymentReference,
+                       CAST(ROUND(d.amount * 100) AS SIGNED) AS cents, UCASE(p.paymentMethod) AS paymethod,
+                       UCASE(COALESCE(NULLIF(TRIM(d.paymentReference),''),NULLIF(TRIM(je.reference),''),'')) AS paymentReference,
                        h.ID AS headerId, h.receiptNo
                 FROM   tblcontributions_details d
                        JOIN tblcontributions_header h ON h.ID = d.HeaderId
+                       LEFT JOIN journal_entries je ON je.transactionTypeId = 1 AND je.transactionId = h.ID
+                            AND je.congregationId = h.congregationId AND je.deleted = 0
                        LEFT JOIN tblmember m ON d.contributor = m.ID
                        LEFT JOIN tblgroups g ON d.contributotGroup = g.ID
                        LEFT JOIN tbldistricts t ON d.contributotDistrict = t.ID

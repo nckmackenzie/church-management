@@ -11,7 +11,7 @@
 </style>
   <div class="content-wrapper">
     <section class="content">
-      <div id="isapp" data-mode="drill" data-base="<?php echo URLROOT;?>/trialbalance" data-report="getreport" data-drillpage="drill" data-drillrpt="drillrpt" data-top="">
+      <div id="isapp" data-mode="drill" data-base="<?php echo URLROOT;?>/trialbalance" data-report="getreport" data-drillpage="drill" data-drillrpt="drillrpt" data-top="" data-isurl="<?php echo URLROOT;?>/reports/incomestatement">
         <div class="row"><div class="col-md-10 mx-auto mt-2" id="isalert"></div></div>
         <div class="row"><div class="col-md-10 mx-auto"><div id="results"></div></div></div>
       </div>

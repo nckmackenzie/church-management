@@ -28,8 +28,16 @@ class BalanceSheetReport
     private static function b(?int $c): ?string { return IncomeStatementReport::bracket($c); }
     private static function ddmmyyyy(string $d): string { return date('d-m-Y', strtotime($d)); }
 
+    /** one earlier financial year of the accumulated fund b/f (task 12): its surplus / (deficit), opening that year's income statement */
+    private static function yearRow(array $y): array
+    {
+        return ['id' => $y['id'], 'name' => $y['name'], 'amount' => self::b($y['amount']), 'cmp' => null, 'amountRaw' => $y['amount'], 'cmpRaw' => null,
+                'direct' => false, 'fund' => true, 'next' => 'incomestatement', 'start' => $y['start'], 'end' => $y['end']];
+    }
+
     private static function row(array $r): array
     {
+        if (!empty($r['yearRow'])) { return self::yearRow($r); }
         $fund = isset($r['synthetic']);
         $direct = !empty($r['direct']);
         return [
@@ -127,11 +135,10 @@ class BalanceSheetReport
             if ($parts['fundAccountId'] === null) { $account = 'pys'; }   // account not identified: the old presentation
             else {
                 $chart = FinancialReport::chart($db, $scope);
-                $rows = [
-                    self::plainRow((string) $parts['fundAccountId'], self::name($chart['nodes'][$parts['fundAccountId']]['label']) . ' at the start of the year', $parts['acctBf'], 'fa'),
-                    self::plainRow('pys', self::FUND_NAMES['pys'], $parts['prior'], true),
-                ];
+                // task 12 (decision 7, amends 145): the fund account at the year start, then ONE line per earlier financial year
+                $rows = [self::plainRow((string) $parts['fundAccountId'], self::name($chart['nodes'][$parts['fundAccountId']]['label']) . ' at the start of the year', $parts['acctBf'], 'fa')];
                 $rows = array_values(array_filter($rows, function ($r) { return $r['amountRaw'] !== 0; }));
+                foreach (FinancialReport::priorYearResults($db, $scope, $asOf, $chart)['rows'] as $y) { $rows[] = self::yearRow($y); }
                 $sum = 0; foreach ($rows as $r) { $sum += $r['amountRaw']; }
                 $out['fund'] = 'bf';
                 return array_merge($out, ['mode' => 'children', 'crumbs' => [], 'root' => null, 'name' => self::FUND_NAMES['bf'], 'amount' => self::b($parts['bf']), 'cmp' => null,

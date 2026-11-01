@@ -140,7 +140,10 @@ function renderDrill(d, ctx, account) {
     area.appendChild(excelLink(base + '/balancesheetdrillrpt?' + query(Object.assign({}, xlParams, { format: 'xlsx' }))));
     wrap.appendChild(el('h5', d.name + ': ' + d.amount + (d.cmp ? '  (last year-end ' + d.cmp + ')' : '')));
     const rows = d.rows.map(r => {
-      const href = drillUrl(ctx, r, r.fund === 'fa' ? 'fa' : (r.fund === true ? '' : fund));
+      // an earlier financial year of the accumulated fund b/f opens that year's income statement (no transaction list)
+      const href = r.next === 'incomestatement' && r.start
+        ? d0.isurl + '?' + query({ start: r.start, end: r.end, cong: ctx.cong })
+        : drillUrl(ctx, r, r.fund === 'fa' ? 'fa' : (r.fund === true ? '' : fund));
       return { text: r.name, cells: [el('td', r.name), amountCell(r.amount, href), amountCell(r.cmp, r.cmp === null ? null : href)] };
     });
     const footer = [el('td', 'Total of the rows (' + (d.sumsExactly ? 'adds up to the figure above' : 'DOES NOT add up') + ')'), amountCell(d.rowsTotal), amountCell('')];

@@ -57,12 +57,21 @@ try {
     $CLOSED = '2023-11-15';   // fiscal year 10, closed for the refusal tests only and reopened afterwards
 
     $mk = function ($o = []) use ($bank, $member, $OPEN) {
-        return $o + ['id' => '', 'isedit' => false, 'date' => $OPEN, 'paymethod' => '2', 'bank' => $bank, 'cashaccount' => '',
+        $d = $o + ['id' => '', 'isedit' => false, 'date' => $OPEN, 'paymethod' => '2', 'bank' => $bank, 'cashaccount' => '',
                      'reference' => 'T84B', 'description' => 'Test receipt', 'accountsid' => [93], 'accountsname' => ['offerings'],
                      'amounts' => ['100.50'], 'categoriesid' => [1], 'categoriesname' => ['MEMBER'], 'contributorsid' => [$member],
                      'contributorsname' => ['X'], 'subaccount' => ['']];
+        // task 12: every row has its own reference; unless a check passes 'references', every row gets the default 'T84B'
+        if (!isset($d['references'])) { $d['references'] = array_fill(0, count((array)$d['accountsid']), $d['reference']); }
+        return $d;
     };
-    $newhdr = function () { return (int)q('SELECT MAX(ID) m FROM tblcontributions_header')[0]['m']; };
+    // the receipt the test just created. If the creation failed, MAX(ID) is a REAL receipt (dev data): the run stops here instead of editing and
+    // deleting it (task 12: a failed run once voided real receipt 12508 this way).
+    $newhdr = function () use (&$max) {
+        $id = (int)q('SELECT MAX(ID) m FROM tblcontributions_header')[0]['m'];
+        if ($id <= $max['tblcontributions_header']) { throw new RuntimeException('the test receipt was not created (newest receipt ' . $id . ' is not the test\'s): stopping before touching real data'); }
+        return $id;
+    };
     $newpc = function () { return (int)q('SELECT MAX(ID) m FROM tblpettycash')[0]['m']; };
 
     // ---------------- dropdown lists
@@ -98,13 +107,14 @@ try {
     $r = $ct->create($mk(['paymethod' => '3', 'reference' => 'CHQ1'])); chk('cheque receipt saved', $r['success'], json_encode($r));
     $m3 = $newhdr();
 
-    // ---------------- multi-line receipt: one receiving line, one income line per row
+    // ---------------- multi-line receipt: (task 12) one receiving line and one income line per row, one bank row per row
     $r = $ct->create($mk(['accountsid' => [93, 94, 91], 'accountsname' => ['a', 'b', 'c'], 'amounts' => ['10.25', '20', '30.75'], 'categoriesid' => [1, 1, 1],
                           'contributorsid' => [$member, $member, $member], 'subaccount' => ['', '', '']]));
     chk('multi-line receipt saved', $r['success'], json_encode($r));
     $ml = $newhdr();
-    chk('multi-line: 1 debit of 61.00, 3 credits 93/94/91', count(dr(1, $ml)) == 1 && dr(1, $ml)[0]['amount'] == '61.00' && array_column(cr(1, $ml), 'accountId') == [93, 94, 91], json_encode(entry(1, $ml)));
-    chk('multi-line: single bank row of 61', count(brows(1, $ml)) == 1 && abs(brows(1, $ml)[0]['debit'] - 61) < 0.001);
+    // task 12 (was: 1 debit of 61.00 and a single bank row of 61): every row now has its own debit line and its own bank row
+    chk('multi-line: 3 debits 10.25 / 20.00 / 30.75, 3 credits 93/94/91', array_column(dr(1, $ml), 'amount') == ['10.25', '20.00', '30.75'] && array_column(cr(1, $ml), 'accountId') == [93, 94, 91], json_encode(entry(1, $ml)));
+    chk('multi-line: one bank row per row, adding up to 61', count(brows(1, $ml)) == 3 && abs(array_sum(array_column(brows(1, $ml), 'debit')) - 61) < 0.001);
     chk('multi-line: 3 detail rows', (int)q('SELECT COUNT(*) c FROM tblcontributions_details WHERE HeaderId=?', [$ml])[0]['c'] == 3);
 
     // ---------------- ledger account = posted ID, not the posted name
@@ -174,7 +184,7 @@ try {
     chk('edit amount: new uncleared row of 222.25; old row soft-deleted', count($after) == 1 && $after[0]['ID'] != $row['ID'] && $after[0]['cleared'] == 0 && abs($after[0]['debit'] - 222.25) < 0.001
         && q('SELECT deleted FROM tblbankpostings WHERE ID=?', [$row['ID']])[0]['deleted'] == 1, json_encode($after));
     // method change cash <-> bank
-    $r = $ct->create($mk(['id' => $m1, 'isedit' => true, 'paymethod' => '1', 'bank' => '', 'cashaccount' => 34, 'reference' => '']));
+    $r = $ct->create($mk(['id' => $m1, 'isedit' => true, 'paymethod' => '1', 'bank' => '', 'cashaccount' => 34]));
     chk('edit bank receipt into cash: bank row voided, Dr 34', $r['success'] && !brows(1, $m1) && dr(1, $m1)[0]['accountId'] == 34, json_encode($r));
     $r = $ct->create($mk(['id' => $c1, 'isedit' => true, 'paymethod' => '3', 'reference' => 'CHQ9']));
     chk('edit cash receipt into cheque: bank row created, Dr 105', $r['success'] && count(brows(1, $c1)) == 1 && dr(1, $c1)[0]['accountId'] == 105, json_encode($r));
@@ -421,6 +431,197 @@ try {
     $from = '2026-01-01'; $to = '2026-01-31';
     $deletedCount = (int)q('SELECT COUNT(*) c FROM tblpettycash WHERE ID > ? AND Deleted=1 AND TransactionDate BETWEEN ? AND ?', [$max['tblpettycash'], $from, $to])[0]['c'];
     chk('deleted petty cash receipts stay soft-deleted rows (the operational table keeps them, no report reads them)', $deletedCount >= 1, json_encode([$deletedCount]));
+
+    // ================= task 12: every receipt row has its own reference; one bank row per bank row =================
+    $hcount = function () { return (int)q('SELECT COUNT(*) c FROM tblcontributions_header')[0]['c']; };
+    $erefs = function ($id) { return q('SELECT reference FROM journal_entries WHERE congregationId=11 AND transactionTypeId=1 AND transactionId=? AND deleted=0', [$id])[0]['reference']; };
+    $lrefs = function ($id, $dc) { return array_column(q('SELECT l.reference FROM journal_lines l JOIN journal_entries e ON e.ID=l.journalEntryId
+              WHERE e.congregationId=11 AND e.transactionTypeId=1 AND e.transactionId=? AND e.deleted=0 AND l.dc=? ORDER BY l.lineNumber', [$id, $dc]), 'reference'); };
+    $drefs = function ($id) { return array_column(q('SELECT paymentReference FROM tblcontributions_details WHERE HeaderId=? ORDER BY ID', [$id]), 'paymentReference'); };
+    $three = ['accountsid' => [93, 94, 91], 'accountsname' => ['a', 'b', 'c'], 'amounts' => ['10.25', '20', '30.75'], 'categoriesid' => [1, 1, 1],
+              'contributorsid' => [$member, $member, $member], 'subaccount' => ['', '', '']];
+
+    // required, trimmed, length, with the row number in the message; nothing is written on a refusal
+    $n0 = $hcount();
+    $r = $ct->create($mk($three + ['references' => ['A1', '', 'A3']]));
+    chk('T12 missing row reference refused with the row number, nothing written', !$r['success'] && $r['errors'] == ['Line 2: enter the reference'] && $hcount() == $n0, json_encode($r));
+    $r = $ct->create($mk($three + ['references' => ['A1', '   ', 'A3']]));
+    chk('T12 blank (spaces) row reference refused', !$r['success'] && $r['errors'] == ['Line 2: enter the reference'] && $hcount() == $n0, json_encode($r));
+    $r = $ct->create($mk($three + ['references' => ['', 'A2', '']]));
+    chk('T12 two rows without reference: both rows named', !$r['success'] && $r['errors'] == ['Line 1: enter the reference', 'Line 3: enter the reference'], json_encode($r));
+    $r = $ct->create($mk($three + ['references' => ['A1', 'A2']]));
+    chk('T12 reference list shorter than the rows refused as incomplete', !$r['success'] && $hcount() == $n0, json_encode($r));
+    $r = $ct->create($mk(['paymethod' => '1', 'bank' => '', 'cashaccount' => 34, 'references' => ['']]));
+    chk('T12 a cash row needs a reference too', !$r['success'] && $r['errors'] == ['Line 1: enter the reference'], json_encode($r));
+    $r = $ct->create($mk($three + ['references' => ['A1', str_repeat('X', 51), 'A3']]));
+    chk('T12 51-character row reference refused, row named', !$r['success'] && $r['errors'] == ['Line 2: reference cannot be longer than 50 characters'] && $hcount() == $n0, json_encode($r));
+    $r = $ct->create($mk(['references' => [str_repeat('é', 51)]]));
+    chk('T12 length counts characters (51 accented letters refused)', !$r['success'], json_encode($r));
+    $r = $ct->create($mk(['references' => [str_repeat('Y', 50)]]));
+    $h50 = $newhdr();
+    chk('T12 50-character row reference accepted and kept whole in bank row, line and detail', $r['success'] && brows(1, $h50)[0]['reference'] === str_repeat('Y', 50) && $lrefs($h50, 'DEBIT') == [str_repeat('Y', 50)] && $drefs($h50) == [str_repeat('Y', 50)], json_encode($r));
+    $r = $ct->create($mk(['references' => ['  pad1  ']]));
+    $hp = $newhdr();
+    chk('T12 reference is trimmed and stored as typed (case kept)', $r['success'] && $drefs($hp) == ['pad1'] && brows(1, $hp)[0]['reference'] === 'pad1', json_encode($r));
+
+    // one bank row per row, each with its own reference; duplicates allowed
+    $r = $ct->create($mk($three + ['references' => ['MP-A1', 'MP-B2', 'MP-C3'], 'paymethod' => '2']));
+    chk('T12 3-row bank receipt saved', $r['success'], json_encode($r));
+    $h3 = $newhdr();
+    $br = brows(1, $h3);
+    chk('T12 three bank rows: own amount, date, bank, reference, uncleared',
+        count($br) == 3 && array_map(function ($b) { return (string)(float)$b['debit']; }, $br) == ['10.25', '20', '30.75'] && array_column($br, 'reference') == ['MP-A1', 'MP-B2', 'MP-C3']
+        && array_unique(array_column($br, 'bankId')) == [105] && array_unique(array_column($br, 'transactionDate')) == [$OPEN] && array_sum(array_column($br, 'cleared')) == 0, json_encode($br));
+    chk('T12 bank rows add up to the receipt total (61.00)', abs(array_sum(array_column($br, 'debit')) - 61) < 0.001);
+    chk('T12 ledger: one debit line per row and one credit line per row, each with the row reference',
+        count(dr(1, $h3)) == 3 && $lrefs($h3, 'DEBIT') == ['MP-A1', 'MP-B2', 'MP-C3'] && $lrefs($h3, 'CREDIT') == ['MP-A1', 'MP-B2', 'MP-C3'] && array_column(cr(1, $h3), 'accountId') == [93, 94, 91], json_encode(entry(1, $h3)));
+    chk('T12 journal entry reference = the distinct row references, comma-joined', $erefs($h3) === 'MP-A1, MP-B2, MP-C3', (string)$erefs($h3));
+    chk('T12 detail rows keep the row reference as typed', $drefs($h3) == ['MP-A1', 'MP-B2', 'MP-C3']);
+    // drill-down / ledger lists: every line shows ITS reference (the row's), not the entry's joined list
+    $eid = (int)q('SELECT ID FROM journal_entries WHERE congregationId=11 AND transactionTypeId=1 AND transactionId=? AND deleted=0', [$h3])[0]['ID'];
+    $lp = FinancialReport::linesPage($pdo, [11], 94, ['kind' => 'range', 'from' => '2026-01-01', 'to' => '2026-01-31', 'direction' => 'normal'], false, 1, 0, '');
+    $mine = array_values(array_filter($lp['rows'], function ($x) use ($eid) { return $x['entryId'] === $eid; }));
+    chk('T12 account drill-down (journal lines list): the line shows its own row reference (MP-B2), not the joined list', count($mine) === 1 && $mine[0]['reference'] === 'MP-B2', json_encode($mine));
+    $lps = FinancialReport::linesPage($pdo, [11], 94, ['kind' => 'range', 'from' => '2026-01-01', 'to' => '2026-01-31', 'direction' => 'normal'], false, 1, 50, 'MP-B2');
+    chk('T12 the lines search finds a row by its own reference', $lps['matching'] >= 1 && in_array($eid, array_column($lps['rows'], 'entryId'), true));
+    chk('T12 Ledger::getEntry returns the line references', array_column(Ledger::getEntry($pdo, 11, 1, $h3)['lines'], 'reference') == ['MP-A1', 'MP-B2', 'MP-C3', 'MP-A1', 'MP-B2', 'MP-C3']);
+
+    $r = $ct->create($mk($three + ['references' => ['DUP', 'DUP', 'DUP']]));
+    $hd = $newhdr();
+    chk('T12 duplicates allowed: same reference on every row and on another receipt', $r['success'] && count(brows(1, $hd)) == 3 && array_unique(array_column(brows(1, $hd), 'reference')) == ['DUP'] && $erefs($hd) === 'DUP', json_encode($r));
+    $r = $ct->create($mk($three + ['references' => ['DUP', 'MP-A1', 'x']]));
+    $hd2 = $newhdr();
+    chk('T12 a reference already used by another receipt is accepted (no uniqueness check)', $r['success'] && $erefs($hd2) === 'DUP, MP-A1, x', json_encode($r));
+
+    // cash rows: own references on the ledger and the details, no bank row
+    $r = $ct->create($mk($three + ['paymethod' => '1', 'bank' => '', 'cashaccount' => 34, 'references' => ['C1', 'C2', 'C3']]));
+    $hc = $newhdr();
+    chk('T12 cash receipt: no bank row; one cash debit line per row with the row reference; entry reference joined',
+        $r['success'] && !brows(1, $hc) && array_column(dr(1, $hc), 'accountId') == [34, 34, 34] && $lrefs($hc, 'DEBIT') == ['C1', 'C2', 'C3'] && $erefs($hc) === 'C1, C2, C3' && $drefs($hc) == ['C1', 'C2', 'C3'], json_encode($r));
+
+    // group / district collection row inside a receipt: the row reference goes to the sub-account row too
+    $sub = q('SELECT s.ID,s.GroupId FROM tblbanksubaccounts s JOIN tblaccounttypes b ON b.ID=s.BankId WHERE s.Deleted=0 AND s.GroupDistrict=\'group\' AND b.congregationId=11 AND b.deleted=0 LIMIT 1')[0];
+    $r = $ct->create($mk(['accountsid' => [93, 1], 'accountsname' => ['a', 'b'], 'amounts' => ['5', '7.50'], 'categoriesid' => [1, 2], 'contributorsid' => [$member, $sub['GroupId']],
+                          'subaccount' => ['', $sub['ID']], 'references' => ['R-ROW', 'R-COLL']]));
+    $hs = $newhdr();
+    chk('T12 collection row in a receipt: sub-account row carries its own reference', $r['success'] && q('SELECT Reference FROM tblbanktransactions_subaccounts WHERE TransactionType=1 AND TransactionId=?', [$hs])[0]['Reference'] === 'R-COLL' && count(brows(1, $hs)) == 2, json_encode($r));
+
+    // many rows: a long joined reference never errors and never cuts a reference in half
+    $many = []; for ($i = 1; $i <= 30; $i++) { $many[] = sprintf('MPESA-LONG-REFERENCE-%02d-ABCDEFGHIJKL', $i); }
+    $r = $ct->create($mk(['accountsid' => array_fill(0, 30, 93), 'accountsname' => array_fill(0, 30, 'a'), 'amounts' => array_fill(0, 30, '1'), 'categoriesid' => array_fill(0, 30, 1),
+                          'contributorsid' => array_fill(0, 30, $member), 'subaccount' => array_fill(0, 30, ''), 'references' => $many]));
+    $hm = $newhdr();
+    $er = (string)$erefs($hm);
+    $parts = explode(', ', preg_replace('/, …$/u', '', $er));
+    chk('T12 30 rows with long references: saved, entry reference fits 255, ends with ", …", only whole references',
+        $r['success'] && mb_strlen($er) <= 255 && mb_substr($er, -3) === ', …' && count($parts) >= 4 && array_diff($parts, $many) == [] && $parts == array_slice($many, 0, count($parts)), json_encode([$r, $er]));
+    chk('T12 30 rows: 30 bank rows, each with its full reference, none cut', count(brows(1, $hm)) == 30 && array_column(brows(1, $hm), 'reference') == $many);
+    chk('T12 30 rows: 30 detail rows and 60 ledger lines keep their full references', $drefs($hm) == $many && $lrefs($hm, 'CREDIT') == $many && $lrefs($hm, 'DEBIT') == $many);
+
+    // Ledger::joinReferences itself
+    chk('T12 joinReferences: distinct (case-insensitive), trimmed, blanks dropped', Ledger::joinReferences([' a ', 'A', '', 'b', null, 'a']) === 'a, b');
+    chk('T12 joinReferences: none -> null', Ledger::joinReferences(['', '  ']) === null);
+    chk('T12 joinReferences: exactly fits -> no ellipsis', Ledger::joinReferences(['abc', 'def'], 8) === 'abc, def');
+    chk('T12 joinReferences: one character over -> whole references and ", …"', Ledger::joinReferences(['abc', 'def'], 7) === 'abc, …' && mb_strlen(Ledger::joinReferences(['abc', 'def', 'ghi'], 12)) <= 12);
+    chk('T12 joinReferences: a single reference longer than the column is cut with an ellipsis, never an error', mb_strlen(Ledger::joinReferences([str_repeat('z', 80)], 50)) == 50);
+
+    // ---- edit: the references survive; the cleared rule is per row
+    $r = $ct->create($mk($three + ['id' => $h3, 'isedit' => true, 'references' => ['MP-A1', 'MP-B2', 'MP-C3']]));
+    chk('T12 edit with the same data: three bank rows kept (same IDs)', $r['success'] && array_column(brows(1, $h3), 'ID') == array_column($br, 'ID'), json_encode($r));
+    $secondRow = brows(1, $h3)[1];
+    q('UPDATE tblbankpostings SET cleared=1, clearedDare=? WHERE ID=?', ['2026-01-20', $secondRow['ID']]);
+    $r = $ct->create($mk($three + ['id' => $h3, 'isedit' => true, 'references' => ['NEW-A', 'NEW-B', 'NEW-C'], 'description' => 'new narration', 'date' => '2026-01-16']));
+    $after = brows(1, $h3);
+    chk('T12 cleared row 2: reference, date and description may change; same bank row, still cleared; others updated',
+        $r['success'] && array_column($after, 'ID') == array_column($br, 'ID') && array_column($after, 'reference') == ['NEW-A', 'NEW-B', 'NEW-C'] && $after[1]['cleared'] == 1
+        && array_unique(array_column($after, 'transactionDate')) == ['2026-01-16'], json_encode($r));
+    chk('T12 edit keeps row references on lines, details and entry', $lrefs($h3, 'DEBIT') == ['NEW-A', 'NEW-B', 'NEW-C'] && $drefs($h3) == ['NEW-A', 'NEW-B', 'NEW-C'] && $erefs($h3) === 'NEW-A, NEW-B, NEW-C');
+    $r = $ct->create($mk(array_merge($three, ['id' => $h3, 'isedit' => true, 'date' => '2026-01-16', 'amounts' => ['10.25', '21', '30.75'], 'references' => ['NEW-A', 'NEW-B', 'NEW-C']])));
+    chk('T12 amount of the cleared row 2 changed: refused, that row named', !$r['success'] && strpos($r['errors'][0], 'Row 2 (reference NEW-B, amount 20.00)') === 0 && strpos($r['errors'][0], 'already been cleared') !== false, json_encode($r));
+    chk('T12 refusal changed nothing', array_column(brows(1, $h3), 'ID') == array_column($br, 'ID') && (float)brows(1, $h3)[1]['debit'] == 20.0);
+    $r = $ct->create($mk(array_merge($three, ['id' => $h3, 'isedit' => true, 'date' => '2026-01-16', 'amounts' => ['11', '20', '30.75'], 'references' => ['NEW-A', 'NEW-B', 'NEW-C']])));
+    $after = brows(1, $h3);
+    chk('T12 amount of an UNCLEARED row 1 changed while row 2 is cleared: allowed; cleared row untouched',
+        $r['success'] && count($after) == 3 && in_array(11.0, array_map('floatval', array_column($after, 'debit')), true) && in_array($secondRow['ID'], array_column($after, 'ID')) && array_sum(array_column($after, 'cleared')) == 1
+        && q('SELECT cleared FROM tblbankpostings WHERE ID=?', [$secondRow['ID']])[0]['cleared'] == 1, json_encode([$r, $after]));
+    $r = $ct->create($mk(array_merge($three, ['id' => $h3, 'isedit' => true, 'date' => '2026-01-16', 'amounts' => ['11', '20', '30.75'], 'bank' => $bank2, 'paymethod' => '4', 'references' => ['NEW-A', 'NEW-B', 'NEW-C']])));
+    chk('T12 bank changed while row 2 is cleared: refused naming the row', !$r['success'] && strpos($r['errors'][0], 'Row 2') === 0, json_encode($r));
+    $r = $ct->delete(['id' => $h3]);
+    chk('T12 void refused while one row is cleared; nothing voided', !$r['success'] && count(brows(1, $h3)) == 3 && entry(1, $h3), json_encode($r));
+    q('UPDATE tblbankpostings SET cleared=0, clearedDare=NULL WHERE ID=?', [$secondRow['ID']]);
+    $r = $ct->delete(['id' => $h3]);
+    chk('T12 void: every bank row and the entry are voided', $r['success'] && !brows(1, $h3) && !entry(1, $h3) && (int)q('SELECT COUNT(*) c FROM tblbankpostings WHERE transactionType=1 AND transactionId=? AND deleted=0', [$h3])[0]['c'] == 0, json_encode($r));
+
+    // ---- old receipts (saved before task 12): one aggregate bank row, no line references, the reference on the header only
+    $oldify = function ($id, $header) {
+        // reproduce the old shape: one debit line for the total, lines without a reference, one aggregate bank row, rows' stored reference = header (lower case)
+        $e = q('SELECT ID FROM journal_entries WHERE congregationId=11 AND transactionTypeId=1 AND transactionId=? AND deleted=0', [$id])[0]['ID'];
+        $total = q('SELECT SUM(amount) s FROM journal_lines WHERE journalEntryId=? AND dc=\'DEBIT\'', [$e])[0]['s'];
+        $first = q('SELECT ID FROM journal_lines WHERE journalEntryId=? AND dc=\'DEBIT\' ORDER BY lineNumber LIMIT 1', [$e])[0]['ID'];
+        q('DELETE FROM journal_lines WHERE journalEntryId=? AND dc=\'DEBIT\' AND ID<>?', [$e, $first]);
+        q('UPDATE journal_lines SET amount=?, lineNumber=0 WHERE ID=?', [$total, $first]);
+        q('UPDATE journal_lines SET reference=NULL WHERE journalEntryId=?', [$e]);
+        q('UPDATE journal_entries SET reference=? WHERE ID=?', [$header, $e]);
+        $b = q('SELECT ID FROM tblbankpostings WHERE transactionType=1 AND transactionId=? AND deleted=0 ORDER BY ID', [$id]);
+        if ($b) {
+            q('UPDATE tblbankpostings SET debit=?, reference=? WHERE ID=?', [$total, $header, $b[0]['ID']]);
+            for ($i = 1; $i < count($b); $i++) { q('DELETE FROM tblbankpostings WHERE ID=?', [$b[$i]['ID']]); }
+        }
+        q('UPDATE tblcontributions_details SET paymentReference=? WHERE HeaderId=?', [strtolower($header), $id]);
+    };
+    // uncleared aggregate: an edit converts it to one bank row per row
+    $r = $ct->create($mk($three + ['references' => ['O1', 'O2', 'O3']]));
+    $ho = $newhdr();
+    $oldify($ho, 'OLDHDR');
+    chk('T12 old receipt set up: one aggregate bank row of 61.00', count(brows(1, $ho)) == 1 && (float)brows(1, $ho)[0]['debit'] == 61.0 && $lrefs($ho, 'DEBIT') == [null]);
+    $rows = $ct->getContribution($ho);
+    chk('T12 old receipt: every row shows the old header reference on the edit screen data', count($rows) == 3 && array_unique(array_column($rows, 'reference')) == ['oldhdr'] && array_unique(array_column($rows, 'legacy')) == [1], json_encode($rows));
+    q('UPDATE tblcontributions_details SET paymentReference=NULL WHERE HeaderId=?', [$ho]);
+    $rows = $ct->getContribution($ho);
+    chk('T12 old receipt row WITHOUT its own reference shows the header reference', array_unique(array_column($rows, 'reference')) == ['OLDHDR'], json_encode($rows));
+    $rr0 = (new Report())->GetContributions(['type' => 1, 'start' => '2026-01-01', 'end' => '2026-01-31', 'account' => []]);
+    $oldRows = array_values(array_filter($rr0, function ($x) use ($ho) { return strpos((string)$x['link'], '/' . $ho) !== false; }));
+    chk('T12 contributions report: a row of an old receipt without a reference of its own shows the old header reference', count($oldRows) === 3 && array_unique(array_column($oldRows, 'reference')) == ['OLDHDR'], json_encode($oldRows));
+    $r = $ct->create($mk($three + ['id' => $ho, 'isedit' => true, 'references' => ['OLDHDR', 'OLDHDR', 'OLDHDR']]));
+    chk('T12 old receipt saved with the pre-filled references (duplicates)', $r['success'], json_encode($r));
+    chk('T12 old UNCLEARED aggregate converted to one bank row per row; total unchanged', count(brows(1, $ho)) == 3 && abs(array_sum(array_column(brows(1, $ho), 'debit')) - 61) < 0.001 && $lrefs($ho, 'DEBIT') == ['OLDHDR', 'OLDHDR', 'OLDHDR'], json_encode(brows(1, $ho)));
+    // cleared aggregate: stays one row
+    $r = $ct->create($mk($three + ['references' => ['P1', 'P2', 'P3']]));
+    $hq = $newhdr();
+    $oldify($hq, 'OLDQ');
+    $agg = brows(1, $hq)[0];
+    q('UPDATE tblbankpostings SET cleared=1, clearedDare=? WHERE ID=?', ['2026-01-20', $agg['ID']]);
+    $r = $ct->create($mk($three + ['id' => $hq, 'isedit' => true, 'references' => ['Q1', 'Q2', 'Q3'], 'description' => 'edited', 'date' => '2026-01-17']));
+    $after = brows(1, $hq);
+    chk('T12 old CLEARED aggregate: edit succeeds and keeps it as ONE bank row (same ID, cleared); reference = the joined row references, date updated',
+        $r['success'] && count($after) == 1 && $after[0]['ID'] == $agg['ID'] && $after[0]['cleared'] == 1 && $after[0]['reference'] === 'Q1, Q2, Q3' && $after[0]['transactionDate'] == '2026-01-17' && (float)$after[0]['debit'] == 61.0, json_encode([$r, $after]));
+    chk('T12 old cleared: credit lines carry the row references, one debit line for the total', $lrefs($hq, 'CREDIT') == ['Q1', 'Q2', 'Q3'] && count(dr(1, $hq)) == 1 && $drefs($hq) == ['Q1', 'Q2', 'Q3']);
+    $r = $ct->create($mk(array_merge($three, ['id' => $hq, 'isedit' => true, 'date' => '2026-01-17', 'amounts' => ['10.25', '21', '30.75'], 'references' => ['Q1', 'Q2', 'Q3']])));
+    chk('T12 old cleared aggregate: changing the total is refused', !$r['success'] && strpos($r['errors'][0], 'already been cleared') !== false && count(brows(1, $hq)) == 1, json_encode($r));
+    $r = $ct->create($mk($three + ['id' => $hq, 'isedit' => true, 'date' => '2026-01-17', 'references' => ['Q1', 'Q2', 'Q3']]));
+    chk('T12 old cleared aggregate edited again: still one row', $r['success'] && count(brows(1, $hq)) == 1 && brows(1, $hq)[0]['ID'] == $agg['ID'], json_encode($r));
+    $r = $ct->delete(['id' => $hq]);
+    chk('T12 old cleared aggregate: void refused', !$r['success'] && count(brows(1, $hq)) == 1, json_encode($r));
+    q('UPDATE tblbankpostings SET cleared=0, clearedDare=NULL WHERE ID=?', [$agg['ID']]);
+    // old cash receipt: no bank row; editing gives it per-row lines
+    $r = $ct->create($mk($three + ['paymethod' => '1', 'bank' => '', 'cashaccount' => 34, 'references' => ['K1', 'K2', 'K3']]));
+    $hk = $newhdr();
+    $oldify($hk, 'OLDCASH');
+    $r = $ct->create($mk($three + ['id' => $hk, 'isedit' => true, 'paymethod' => '1', 'bank' => '', 'cashaccount' => 34, 'references' => ['OLDCASH', 'OLDCASH', 'OLDCASH']]));
+    chk('T12 old cash receipt edited: per-row cash lines, still no bank row', $r['success'] && !brows(1, $hk) && count(dr(1, $hk)) == 3, json_encode($r));
+
+    // reports: the contribution report shows each ROW's reference
+    $rpt = new Report();
+    $rr = $rpt->GetContributions(['type' => 1, 'start' => '2026-01-01', 'end' => '2026-01-31', 'account' => []]);
+    $mineR = array_values(array_filter($rr, function ($x) use ($hd2) { return strpos((string)$x['link'], '/' . $hd2) !== false; }));
+    chk('T12 contributions report: one reference per row (DUP, MP-A1, X), not one for the receipt', array_column($mineR, 'reference') == ['DUP', 'MP-A1', 'X'], json_encode($mineR));
+    // list: distinct row references
+    $list = $ct->getContributions();
+    $row3 = array_values(array_filter($list, function ($x) use ($hd2) { return (int)$x->ID === $hd2; }));
+    chk('T12 receipt list shows the distinct row references (upper case)', $row3 && $row3[0]->References === 'DUP, MP-A1, X', json_encode($row3));
+
+    foreach ([$h50, $hp, $hd, $hd2, $hc, $hs, $hm, $ho, $hq, $hk] as $id) { $r = $ct->delete(['id' => $id]); chk("T12 cleanup receipt $id", $r['success'], json_encode($r)); }
+    // ================= end task 12 =================
 
     // ---------------- cleanup of remaining test receipts via the app paths (also exercises delete)
     foreach ([$p98, $p194, $pn2] as $id) { $r = $cr->Delete($id); chk("petty delete $id", $r['success'] && !entry(10, $id) && !brows(10, $id)); }

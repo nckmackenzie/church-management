@@ -108,7 +108,9 @@ class TrialBalanceReport
             if ($c['rows'] && !$onlyDirect) { return $out + ['mode' => 'children'] + self::childrenShape($c, false, $bf); }
         }
         $L = FinancialReport::linesPage($db, $scope, $account, $period, !$direct, $page, $pageSize, $search);
-        $net = $bf ? -$L['movement'] : ($L['totals']['debit'] - $L['totals']['credit']);   // the trial-balance figure of the node
+        // the trial-balance figure of the node: for a balance-sheet account the closing balance (Balance b/f + the year's lines, task 12), for an
+        // income / expense account the year's lines (its opening is 0); the prior-years' view (bf) is the movement in the credit direction
+        $net = $bf ? -$L['movement'] : $L['closingNet'];
         $figure = self::cols($bf ? $net : $net);
         return $out + LinesView::shape($L) + ['name' => self::name($node['label']) . ($direct ? ' (postings on this account)' : ''), 'figureDebit' => $figure['debit'], 'figureCredit' => $figure['credit']];
     }
@@ -123,11 +125,17 @@ class TrialBalanceReport
             $net = $bf ? -(int) $x['amount'] : (int) $x['net'];
             $col = self::cols($net);
             $dr += $col['debitRaw']; $cr += $col['creditRaw'];
-            $rows[] = [
+            $row = [
                 'id' => $x['id'], 'name' => self::name((string) $x['name']), 'debit' => $col['debit'], 'credit' => $col['credit'],
                 'debitRaw' => $col['debitRaw'], 'creditRaw' => $col['creditRaw'],
                 'direct' => !empty($x['direct']), 'next' => (empty($x['direct']) && !empty($x['hasChildren'])) ? 'children' : 'lines',
             ];
+            if (!empty($x['yearRow'])) {
+                // an earlier financial year of the accumulated fund b/f (task 12): its surplus / (deficit), opening that year's income statement
+                $row['name'] = (string) $x['name'];
+                $row['next'] = 'incomestatement'; $row['start'] = $x['start']; $row['end'] = $x['end'];
+            }
+            $rows[] = $row;
         }
         $nodeNet = $bf ? -(int) $c['amount'] : (int) $c['amount'];
         $nc = self::cols($nodeNet);

@@ -450,6 +450,57 @@ class FinancialReport
     }
 
     /**
+     * The prior years' result of types 1, 2, 5 (credit - debit) split by financial year (task 12, decision 7): one row per earlier
+     * financial year with a non-zero result, oldest first, "Surplus / (deficit) <year name>". A posting is given to the year that
+     * covers its date by the same rule as the rest of the application (a non-deleted year first, then the newest); one that no
+     * year covers goes to a last row "outside any financial year". The rows add up exactly to accumulatedFundBf() (the same
+     * accounts, the same dates). Each row carries the year's start / end so the screen can open that year's income statement.
+     * @return array{rows: array<int,array>, total:int}
+     */
+    public static function priorYearResults(PDO $db, array $scope, string $date, ?array $chart = null): array
+    {
+        $scope = self::normalizeScope($scope);
+        $chart = $chart ?? self::chart($db, $scope);
+        $start = self::yearStart($db, $date);
+        $ids = [];
+        foreach ($chart['nodes'] as $id => $n) {
+            if ($n['classified'] && in_array($n['root'], [1, 2, 5], true)) { $ids[] = (int) $id; }
+        }
+        if (!$ids) { return ['rows' => [], 'total' => 0]; }
+        $st = $db->prepare("SELECT x.fy, SUM(x.net) AS net FROM (
+                                SELECT (SELECT f.ID FROM tblfiscalyears f WHERE e.entryDate BETWEEN f.startDate AND f.endDate ORDER BY f.deleted ASC, f.ID DESC LIMIT 1) AS fy,
+                                       CASE WHEN l.dc = 'CREDIT' THEN l.amount ELSE -l.amount END AS net
+                                FROM journal_lines l JOIN journal_entries e ON e.ID = l.journalEntryId
+                                WHERE e.deleted = 0 AND e.congregationId IN (" . self::marks($scope) . ') AND e.entryDate < ? AND l.accountId IN (' . self::marks($ids) . ')
+                            ) x GROUP BY x.fy');
+        $st->execute(array_merge($scope, [$start], $ids));
+        $byYear = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) { $byYear[$r['fy'] === null ? 0 : (int) $r['fy']] = self::cents($r['net']); }
+        $rows = [];
+        $total = 0;
+        if ($byYear) {
+            $in = array_values(array_filter(array_keys($byYear)));
+            $years = [];
+            if ($in) {
+                $q = $db->prepare('SELECT ID, yearName, startDate, endDate FROM tblfiscalyears WHERE ID IN (' . self::marks($in) . ') ORDER BY startDate, ID');
+                $q->execute($in);
+                $years = $q->fetchAll(PDO::FETCH_ASSOC);
+            }
+            foreach ($years as $y) {
+                $amount = $byYear[(int) $y['ID']];
+                $total += $amount;
+                if ($amount === 0) { continue; }
+                $rows[] = ['id' => 'fy' . $y['ID'], 'name' => 'Surplus / (deficit) ' . $y['yearName'], 'start' => (string) $y['startDate'], 'end' => (string) $y['endDate'], 'amount' => $amount];
+            }
+            if (isset($byYear[0])) {
+                $total += $byYear[0];
+                if ($byYear[0] !== 0) { $rows[] = ['id' => 'fy0', 'name' => 'Surplus / (deficit) outside any financial year', 'start' => null, 'end' => null, 'amount' => $byYear[0]]; }
+            }
+        }
+        return ['rows' => $rows, 'total' => $total];
+    }
+
+    /**
      * Current year surplus: the same (types 1, 2, 5, credit - debit) from the financial-year start to $date. Cents. The
      * balance sheet shows its two parts apart: the surplus of types 1 and 2, and the dividends of type 5 (decision 120).
      */
@@ -992,6 +1043,20 @@ class FinancialReport
         if ($code === 'bf')     { $range = ['kind' => 'range', 'from' => null,   'to' => $prev->format('Y-m-d'), 'direction' => 'credit', 'fy' => false]; $roots = [1, 2, 5]; $label = "Prior years' surplus b/f"; }
         elseif ($code === 'cy') { $range = ['kind' => 'range', 'from' => $start, 'to' => $asOf,                  'direction' => 'credit']; $roots = [1, 2];    $label = 'Current year surplus'; }
         else                    { $range = ['kind' => 'range', 'from' => $start, 'to' => $asOf,                  'direction' => 'credit']; $roots = [5];       $label = 'Dividends'; }
+        if ($code === 'bf') {
+            // Task 12 (decision 7, amends 145): one line per earlier financial year, no transaction list
+            $res = self::priorYearResults($db, $scope, $asOf);
+            $rows = [];
+            foreach ($res['rows'] as $y) {
+                $rows[] = ['id' => $y['id'], 'synthetic' => true, 'yearRow' => true, 'direct' => false, 'name' => $y['name'], 'path' => $y['name'], 'depth' => 3, 'root' => null,
+                           'posting' => false, 'amount' => $y['amount'], 'comparative' => null, 'hasChildren' => false, 'hasLines' => false, 'period' => $range,
+                           'start' => $y['start'], 'end' => $y['end']];
+            }
+            $rt = self::sum($rows);
+            return ['node' => ['id' => $code, 'name' => $label, 'label' => $label, 'path' => $label, 'depth' => 2, 'root' => null, 'posting' => false],
+                    'amount' => $res['total'], 'comparative' => null, 'rows' => $rows, 'rowsTotal' => $rt, 'sumsExactly' => $rt === $res['total'],
+                    'period' => self::describe($db, $range)['period'], 'direction' => 'credit', 'comparativeError' => null];
+        }
         $ctx = self::context($db, $scope, $range);
         $rows = [];
         $amount = 0;
@@ -1042,8 +1107,13 @@ class FinancialReport
         $d    = self::describe($db, $period);
         $spec = $d['sets'][0];
         // from / to of THIS account under the basis of the report
+        $bf = false;
         if ($spec['mode'] === 'bs' || $spec['mode'] === 'tb') {
-            $from = in_array($root, [3, 4, 6], true) ? null : $spec['yearStart'];
+            // Task 12 (decision 5): the lines of every account start at the start of the financial year containing the as-of date.
+            // For a balance-sheet account (types 3, 4, 6) everything before is ONE "Balance b/f" (the opening balance below, not a
+            // transaction); income, expense and dividend accounts start at zero (decision 144), as before.
+            $from = $spec['yearStart'];
+            $bf   = in_array($root, [3, 4, 6], true);
             $to   = $spec['to'];
             $creditNormal = !self::isDebitNormal($root);
         } else {
@@ -1076,7 +1146,7 @@ class FinancialReport
             $opening = self::cents($st->fetchColumn());
         }
         return ['scope' => $scope, 'node' => $node, 'from' => $from, 'to' => $to, 'creditNormal' => $creditNormal, 'ids' => $ids, 'opening' => $opening,
-                'restart' => $restart, 'firstFy' => $firstFy];
+                'restart' => $restart, 'firstFy' => $firstFy, 'bf' => $bf];
     }
 
     /**
@@ -1097,11 +1167,11 @@ class FinancialReport
     {
         $st0 = self::linesSetup($db, $scope, $accountId, $period, $includeDescendants);
         $scope = $st0['scope']; $node = $st0['node']; $from = $st0['from']; $to = $st0['to']; $creditNormal = $st0['creditNormal']; $ids = $st0['ids'];
-        $opening = $st0['opening']; $restart = $st0['restart']; $firstFy = $st0['firstFy'];
+        $opening = $st0['opening']; $restart = $st0['restart']; $firstFy = $st0['firstFy']; $bfRow = $st0['bf'];
         $pageSize = $pageSize <= 0 ? 0 : min($pageSize, self::MAX_PAGE_SIZE);
         $page = max(1, $page);
 
-        $base = "SELECT e.ID AS entryId, e.entryDate, e.journalNo, COALESCE(e.reference, '') AS reference, COALESCE(NULLIF(l.memo, ''), e.description, '') AS narr,
+        $base = "SELECT e.ID AS entryId, e.entryDate, e.journalNo, COALESCE(NULLIF(l.reference, ''), e.reference, '') AS reference, COALESCE(NULLIF(l.memo, ''), e.description, '') AS narr,
                         e.transactionTypeId, COALESCE(t.transactionType, '') AS typeName, e.transactionId, l.lineNumber, l.accountId, a.accountType AS accountName,
                         CASE WHEN l.dc = 'DEBIT'  THEN l.amount ELSE 0 END AS debit,
                         CASE WHEN l.dc = 'CREDIT' THEN l.amount ELSE 0 END AS credit,
@@ -1178,6 +1248,9 @@ class FinancialReport
             'account' => self::nodeSummary($node), 'from' => $from, 'to' => $to, 'direction' => $creditNormal ? 'CREDIT' : 'DEBIT',
             'includeDescendants' => $includeDescendants, 'restartsEachYear' => $restart, 'firstFy' => $firstFy,
             'opening' => $creditNormal ? -$opening : $opening, 'openingNet' => $opening,
+            // "Balance b/f" of a balance-sheet account (task 12): the opening balance is everything before the financial year; it is
+            // shown as the first row of the list (dated the year start), is not a transaction and is part of the closing balance
+            'bf' => $bfRow ? ['date' => $from, 'amount' => $creditNormal ? -$opening : $opening] : null,
             'rows' => $rows, 'matching' => $matching, 'search' => $search,
             'filtered' => ['debit' => self::cents($agg['dr']), 'credit' => self::cents($agg['cr'])],
             'page' => $page, 'pageSize' => $pageSize, 'pages' => $pageSize > 0 ? max(1, (int) ceil($matching / $pageSize)) : 1,

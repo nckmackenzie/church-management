@@ -141,7 +141,13 @@ export function linesPanel(container, opts) {
     const tb = el('tbody');
     const span = heads.length - 4;   // columns before Debit
     const op = el('tr', null, 'font-italic');
-    op.appendChild(el('td', (opts.openingLabel || 'Opening balance'), '', { colspan: String(span + 2) }));
+    if (d.balanceBf) {
+      // a balance-sheet account: "Balance b/f" dated the financial-year start, always the first row (paging and search never hide it)
+      op.appendChild(el('td', d.balanceBf.date));
+      op.appendChild(el('td', d.balanceBf.label, 'font-weight-bold', { colspan: String(span + 1) }));
+    } else {
+      op.appendChild(el('td', (opts.openingLabel || 'Opening balance'), '', { colspan: String(span + 2) }));
+    }
     op.appendChild(amountCell(d.opening));
     op.appendChild(el('td'));
     tb.appendChild(op);

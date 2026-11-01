@@ -50,6 +50,7 @@ class Groupcollections extends Controller
             'groupid' => '',
             'amount' => '',
             'narration' => '',
+            'reference' => '',
             'accountid' => '',
             'account' => '',
             'bankid' => '',
@@ -139,6 +140,8 @@ class Groupcollections extends Controller
                 'amount' => isset($fields->amount) && !empty(trim($fields->amount)) ? trim($fields->amount) : null,
                 'narration' => isset($fields->narration) && !empty(trim($fields->narration)) ? strtolower(trim($fields->narration)) : null,
                 'subaccount' => isset($fields->subaccount) && !empty(trim($fields->subaccount)) ? (int)trim($fields->subaccount) : null,
+                // as typed (the model trims, requires it and checks the length: a missing one gets its own message)
+                'reference' => isset($fields->reference) && is_scalar($fields->reference) ? (string)$fields->reference : '',
             ];
 
             if(is_null($data['tdate']) || is_null($data['groupid']) || is_null($data['amount'])
@@ -194,6 +197,7 @@ class Groupcollections extends Controller
             'groupid' => $groupid,
             'amount' => $transaction->Debit,
             'narration' => strtoupper($transaction->Narration),
+            'reference' => (string)$transaction->Reference,
             'subaccounts' => $this->collectionmodel->GetSubAccounts($type, $groupid),
             'subaccount' => $transaction->SubAccountId,
             'accountid' => $accountdetails[0],

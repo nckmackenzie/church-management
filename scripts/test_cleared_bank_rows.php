@@ -41,10 +41,12 @@ try {
     // ================================================================ type 1 receipts
     $ct = new Contribution;
     $mk = function ($o = []) use ($bank, $member, $OPEN) {
-        return $o + ['id' => '', 'isedit' => false, 'date' => $OPEN, 'paymethod' => '2', 'bank' => $bank, 'cashaccount' => '',
+        $d = $o + ['id' => '', 'isedit' => false, 'date' => $OPEN, 'paymethod' => '2', 'bank' => $bank, 'cashaccount' => '',
                      'reference' => 'T89CLR', 'description' => 'Test receipt', 'accountsid' => [93], 'accountsname' => ['offerings'],
                      'amounts' => ['100.50'], 'categoriesid' => [1], 'categoriesname' => ['MEMBER'], 'contributorsid' => [$member],
                      'contributorsname' => ['X'], 'subaccount' => ['']];
+        if (!isset($d['references'])) { $d['references'] = array_fill(0, count((array)$d['accountsid']), $d['reference']); }   // task 12: a reference per row
+        return $d;
     };
     $r = $ct->create($mk()); chk('receipt: bank receipt saved', $r['success'], msgs($r));
     $h = (int)$r['id'];

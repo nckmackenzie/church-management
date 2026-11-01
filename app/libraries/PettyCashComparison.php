@@ -36,7 +36,7 @@ class PettyCashComparison
     private static function ledger(PDO $db, int $cong): array
     {
         $s = $db->prepare("SELECT jl.ID AS lineId, je.ID AS entryId, je.entryDate AS txDate, jl.accountId, jl.dc, jl.amount,
-                                 je.transactionTypeId AS typeId, je.transactionId, je.journalNo, je.reference, COALESCE(NULLIF(jl.memo,''),je.description) AS narration,
+                                 je.transactionTypeId AS typeId, je.transactionId, je.journalNo, COALESCE(NULLIF(jl.reference,''), je.reference) AS reference, COALESCE(NULLIF(jl.memo,''),je.description) AS narration,
                                  CASE je.transactionTypeId
                                    WHEN 1 THEN ch.receiptNo WHEN 2 THEN ex.voucherNo WHEN 5 THEN CAST(je.journalNo AS CHAR)
                                    WHEN 10 THEN pc.ReceiptNo WHEN 12 THEN fr.ReqNo WHEN 13 THEN bt.Reference ELSE NULL END AS sourceNo

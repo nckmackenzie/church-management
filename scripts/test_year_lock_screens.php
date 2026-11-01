@@ -111,9 +111,11 @@ try {
     // ---------------- receipts (type 1)
     $cm = new Contribution;
     $rc = function ($o = []) use ($bank, $member, $D) {
-        return $o + ['id' => '', 'isedit' => false, 'date' => $D, 'paymethod' => '2', 'bank' => $bank, 'cashaccount' => '', 'reference' => 'YL1',
+        $d = $o + ['id' => '', 'isedit' => false, 'date' => $D, 'paymethod' => '2', 'bank' => $bank, 'cashaccount' => '', 'reference' => 'YL1',
                      'description' => 'year lock', 'accountsid' => [93], 'accountsname' => ['x'], 'amounts' => ['100'], 'categoriesid' => [1],
                      'categoriesname' => ['M'], 'contributorsid' => [$member], 'contributorsname' => ['X'], 'subaccount' => ['']];
+        if (!isset($d['references'])) { $d['references'] = array_fill(0, count((array)$d['accountsid']), $d['reference']); }   // task 12: a reference per row
+        return $d;
     };
     setYear(1);
     $n = (int)q('SELECT COUNT(*) c FROM tblcontributions_header')[0]['c'];
