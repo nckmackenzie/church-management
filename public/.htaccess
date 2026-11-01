@@ -1,0 +1,10 @@
+<IfModule mod_rewrite.c>
+  Options -Multiviews
+  SetEnvIf Authorization .+ HTTP_AUTHORIZATION=$0
+  RewriteEngine On
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule  ^(.+)$ index.php?url=$1 [B,QSA,L]
+
+  RewriteRule .* - [E=HTTP_CONTENT_TYPE:%{HTTP:Content-Type},L]
+</IfModule>

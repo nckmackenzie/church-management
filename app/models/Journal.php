@@ -84,6 +84,11 @@ class Journal {
                 $credit = isset($entry->credit) ? trim((string)$entry->credit) : '';
                 $memo = isset($entry->desc) && trim((string)$entry->desc) !== '' ? trim((string)$entry->desc) : 'Journal entries #'.$no;
                 $accountid = isset($entry->accountid) ? (int)trim((string)$entry->accountid) : 0;
+                if(mb_strlen($memo,'UTF-8') > 500){
+                    // journal_lines.memo is VARCHAR(500); the connection is not in strict mode, so a longer text would be cut silently
+                    $errors[] = 'line '.($i + 1).': the narration is longer than 500 characters';
+                    continue;
+                }
                 if(!isset($allowed[$accountid])){
                     $errors[] = 'line '.($i + 1).': choose an account from the journal account list';
                     continue;

@@ -159,7 +159,7 @@ try {
     echo "== payment by invoice number\n";
     [$code, $body] = http('GET', 'invoicereports/fetchselectoptions?type=invoiceno', $admin11);
     $opt = options(json_decode($body, true) ?? '');
-    ok('invoice selector: one option per invoice HEADER ID, label "supplier — invoice number"', $code === 200 && isset($opt[$hA], $opt[$hB]) && $opt[$hA][0] === 'ZZ T91H <B>SUPPLIER</B> A — ZZT91-INV' && $opt[$hB][0] === 'ZZ T91H SUPPLIER B — ZZT91-INV');
+    ok('invoice selector: one option per invoice HEADER ID, label "invoice – supplier" (decision 165)', $code === 200 && isset($opt[$hA], $opt[$hB]) && $opt[$hA][0] === 'ZZT91-INV – ZZ T91H <B>SUPPLIER</B> A' && $opt[$hB][0] === 'ZZT91-INV – ZZ T91H SUPPLIER B');
     ok('invoice selector: two suppliers sharing a number give two different values', $hA !== $hB && count(array_filter(array_keys($opt), function ($k) use ($hA, $hB) { return in_array((int) $k, [$hA, $hB], true); })) === 2);
     ok('invoice selector: foreign, deleted and opening-balance invoices not offered', !isset($opt[$hF]) && !isset($opt[$hDel]) && !isset($opt[$hOpen]));
     ok('invoice selector: supplier name is HTML-escaped in the markup', strpos(json_decode($body, true), '&lt;B&gt;SUPPLIER&lt;/B&gt;') !== false && strpos(json_decode($body, true), '<B>SUPPLIER</B>') === false);
