@@ -96,7 +96,16 @@
                                         <label for="narration">Description</label>
                                         <input type="text" name="narration" id="narration" 
                                                class="form-control form-control-sm mandatory"
-                                               value="<?php echo $data['narration'];?>" placeholder="enter brief description of transaction" required>
+                                               value="<?php echo htmlspecialchars((string)$data['narration']);?>" placeholder="enter brief description of transaction" required>
+                                        <span class="invalid-feedback"></span>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="form-group">
+                                        <label for="reference">Reference</label>
+                                        <input type="text" name="reference" id="reference" maxlength="25"
+                                               class="form-control form-control-sm mandatory"
+                                               value="<?php echo htmlspecialchars((string)$data['reference']);?>" placeholder="eg M-Pesa code, cheque no" required>
                                         <span class="invalid-feedback"></span>
                                     </div>
                                 </div>

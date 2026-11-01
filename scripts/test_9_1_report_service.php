@@ -338,7 +338,9 @@ try {
     $ltb = FinancialReport::lines($pdo, [$T], $I4, ['kind' => 'tb', 'asOf' => '2026-03-31'], false);
     $mv = $naive([$I4], '2025-10-01', '2026-03-31', $T);
     ok('lines(): trial-balance basis for income starts at the financial-year start; the movement of the period (not the opening) is the trial-balance figure', $ltb['from'] === '2025-10-01' && $ltb['opening'] === 0 && $ltb['movement'] === $mv[1] - $mv[0] && $ltb['closing'] === $ltb['movement'], m($ltb['opening']) . ' / ' . m($ltb['movement']));
-    ok('lines(): balance-sheet types have no lower bound under a trial-balance period', FinancialReport::lines($pdo, [$T], $A5a, ['kind' => 'tb', 'asOf' => '2026-03-31'], false)['from'] === null);
+    // task 12 (decision 5): was "balance-sheet types have no lower bound" (from === null). The lines start at the financial-year start; the Balance b/f is the opening balance.
+    $bl = FinancialReport::lines($pdo, [$T], $A5a, ['kind' => 'tb', 'asOf' => '2026-03-31'], false);
+    ok('lines(): balance-sheet types start at the financial-year start (2025-10-01) under a trial-balance period; the earlier lines are the Balance b/f', $bl['from'] === '2025-10-01' && $bl['bf'] === ['date' => '2025-10-01', 'amount' => $bl['opening']]);
     ok('lines(): foreign account refused', dies(function () use ($pdo, $T, $Foreign, $per) { FinancialReport::lines($pdo, [$T], $Foreign, $per); }) !== null);
     $lv = FinancialReport::lines($pdo, [$T], $I4, ['kind' => 'range', 'from' => null, 'to' => '2026-12-31', 'direction' => 'normal'], false);
     ok('lines(): the voided entry (9999.00) never appears', !array_filter($lv['rows'], function ($r) { return $r['credit'] === 999900; }));

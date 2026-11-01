@@ -105,8 +105,8 @@ try {
     echo "== drill: every level adds up, on the right basis, down to the lines\n";
     $asOf = '2026-03-31'; $ys = '2025-10-01';
     $rep = TrialBalanceReport::report($pdo, [$T], 'x', $asOf, false);
-    $bad = []; $levels = 0; $lineNodes = 0;
-    $walk = function ($account, $net, $label, $bf) use (&$walk, &$bad, &$levels, &$lineNodes, $pdo, $T, $asOf) {
+    $bad = []; $levels = 0; $lineNodes = 0; $yearLines = 0;
+    $walk = function ($account, $net, $label, $bf) use (&$walk, &$bad, &$levels, &$lineNodes, &$yearLines, $pdo, $T, $asOf) {
         $d = TrialBalanceReport::drill($pdo, [$T], $account, $asOf, 'children', false, $bf);
         $levels++;
         if ($d['mode'] === 'children') {
@@ -114,6 +114,12 @@ try {
             if (!$d['sumsExactly'] || $d['rowsDebitRaw'] - $d['rowsCreditRaw'] !== $nodeNet || $nodeNet !== $net) { $bad[] = "$label level: rows " . ($d['rowsDebitRaw'] - $d['rowsCreditRaw']) . " node $nodeNet clicked $net"; }
             foreach ($d['rows'] as $row) {
                 $rn = $row['debitRaw'] - $row['creditRaw'];
+                if (($row['next'] ?? '') === 'incomestatement') {
+                    // task 12 (decision 7): an earlier financial year of the accumulated fund b/f; no transaction list, it opens that year's income statement
+                    $yearLines++;
+                    if (empty($row['start']) && $row['id'] !== 'fy0') { $bad[] = "$label year row without dates"; }
+                    continue;
+                }
                 if ($row['direct']) {
                     $l = TrialBalanceReport::drill($pdo, [$T], $row['id'], $asOf, 'lines', true, $bf); $levels++; $lineNodes++;
                     if (tcents($l['figureDebit']) - tcents($l['figureCredit']) !== $rn) { $bad[] = "$label direct lines figure vs $rn"; }
@@ -132,7 +138,31 @@ try {
     $l1 = TrialBalanceReport::drill($pdo, [$T], $I4, $asOf, 'lines', false, false);
     ok('an income account lists lines from the year start and starts at zero: no opening balance carried from earlier years (decision 144)', $l1['opening'] === '0.00' && $l1['rows'][0]['date'] === '01-10-2025');
     $l2 = TrialBalanceReport::drill($pdo, [$T], $A5, $asOf, 'lines', false, false);
-    ok('a balance-sheet account lists lines from inception (opening balance 0.00)', $l2['opening'] === '0.00' && $l2['rows'][0]['date'] === '01-12-2024');
+    // task 12 (decision 5): was "lists lines from inception (opening balance 0.00)": a balance-sheet account lists only the lines from the start of the
+    // financial year (01-10-2025); everything before is ONE Balance b/f row dated the year start. Its figure is the net of the earlier lines (not 0.00: the
+    // fixture has lines from 01-12-2024).
+    $bfNet = $naive([$A5], null, '2025-09-30', $T);
+    ok('a balance-sheet account: the list starts at the financial-year start and everything before is one "Balance b/f" dated 01-10-2025',
+        $l2['balanceBf'] === ['date' => '01-10-2025', 'label' => 'Balance b/f'] && date('Y-m-d', strtotime($l2['rows'][0]['date'])) >= '2025-10-01' && $bfNet[0] - $bfNet[1] !== 0
+        && tcents($l2['opening']) === $bfNet[0] - $bfNet[1], json_encode([$l2['balanceBf'], $l2['opening'], $l2['rows'][0]['date'], $bfNet]));
+    $ltot = FinancialReport::linesPage($pdo, [$T], $A5, ['kind' => 'tb', 'asOf' => $asOf], false, 1, 0, '');
+    ok('Balance b/f is not a transaction: not in the period debit / credit totals; the closing balance = Balance b/f + the movement of the period and equals the figure clicked',
+        $ltot['openingNet'] === $bfNet[0] - $bfNet[1] && $ltot['closingNet'] === $ltot['openingNet'] + $ltot['totals']['debit'] - $ltot['totals']['credit']
+        && $ltot['closingNet'] === $naive([$A5], null, $asOf, $T)[0] - $naive([$A5], null, $asOf, $T)[1]
+        && $ltot['totals'] === ['debit' => $naive([$A5], '2025-10-01', $asOf, $T)[0], 'credit' => $naive([$A5], '2025-10-01', $asOf, $T)[1]], json_encode([$ltot['openingNet'], $ltot['closingNet'], $ltot['totals']]));
+    $page2 = LinesView::shape(FinancialReport::linesPage($pdo, [$T], $A5, ['kind' => 'tb', 'asOf' => $asOf], false, 2, 1, ''));
+    $found = LinesView::shape(FinancialReport::linesPage($pdo, [$T], $A5, ['kind' => 'tb', 'asOf' => $asOf], false, 1, 50, 'zzz-no-such-text'));
+    ok('Balance b/f is never hidden by paging or search (carried in every response, shown above the list)', $page2['balanceBf'] !== null && $found['balanceBf'] !== null && $found['matching'] === 0 && $found['opening'] === $l2['opening']);
+    $xl = LinesView::sheetRows(FinancialReport::linesPage($pdo, [$T], $A5, ['kind' => 'tb', 'asOf' => $asOf], false, 1, 0, ''), ['x']);
+    $bfx = array_values(array_filter($xl, function ($r) { return isset($r[4]['v']) && $r[4]['v'] === 'Balance b/f'; }));
+    ok('Excel: the first row of the list is Balance b/f dated 2025-10-01 with the same figure as the screen', count($bfx) === 1 && $bfx[0][0]['v'] === '2025-10-01' && end($bfx[0])['v'] === $ltot['openingNet'], json_encode($bfx));
+    $isl = FinancialReport::linesPage($pdo, [$T], $I4, ['kind' => 'tb', 'asOf' => $asOf], false, 1, 0, '');
+    ok('income account in a trial balance: no Balance b/f, nothing dated before the financial-year start (decision 6 / 144)', $isl['bf'] === null && $isl['openingNet'] === 0 && min(array_column($isl['rows'], 'date')) >= '2025-10-01');
+    $bfd = TrialBalanceReport::drill($pdo, [$T], 'bf', $asOf, 'children', false, true);
+    $names = array_column($bfd['rows'], 'name');
+    ok('accumulated fund b/f drill (trial balance): one line per earlier financial year, no account / transaction list, adding up to the b/f',
+        $bfd['sumsExactly'] && count($bfd['rows']) >= 1 && count(array_filter($bfd['rows'], function ($r) { return $r['next'] === 'incomestatement'; })) === count($bfd['rows'])
+        && in_array('Surplus / (deficit) 2024-2025', $names, true) && ($bfd['rows'][0]['start'] ?? null) !== null, json_encode($bfd['rows']));
     $bfl = TrialBalanceReport::drill($pdo, [$T], $I4, $asOf, 'lines', false, true);
     ok('under the accumulated fund b/f the income account shows only the prior years (credit direction)', $bfl['direction'] === 'Cr' && count($bfl['rows']) === 2 && $bfl['movement'] === '360.00');
     $c = TrialBalanceReport::drill($pdo, [$T], $I2, $asOf, 'children', false, false);

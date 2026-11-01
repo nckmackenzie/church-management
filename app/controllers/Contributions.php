@@ -79,13 +79,11 @@ class Contributions extends Controller {
             'paymethod' => '2',
             'bank' => '',
             'category' => 3,
-            'reference' =>'',
             'description' => '',
             'forgroup' => '',
             'table' => [],
             'errors' => [],
             'receipt_err' => '',
-            'ref_err' => '',
             'bank_err' => ''
         ];
         $this->view('contributions/add',$data);
@@ -128,7 +126,6 @@ class Contributions extends Controller {
                 'cashaccount' => !empty($_POST['cashaccount']) ? trim($_POST['cashaccount']) : '',
                 'categories' => $this->contributionModel->getCategories(),
                 'category' => 3,
-                'reference' => trim($_POST['reference'] ?? ''),
                 'description' => trim($_POST['description'] ?? ''),
                 'table' => [],
                 'accountsid' => (array)($_POST['accountsid'] ?? []),
@@ -139,9 +136,9 @@ class Contributions extends Controller {
                 'contributorsid' => (array)($_POST['contributorsid'] ?? []),
                 'contributorsname' => (array)($_POST['contributorsname'] ?? []),
                 'subaccount' => (array)($_POST['subaccount'] ?? []),
+                'references' => (array)($_POST['references'] ?? []),
                 'errors' => [],
                 'receipt_err' => '',
-                'ref_err' => '',
                 'bank_err' => '',
            ];
 
@@ -155,6 +152,7 @@ class Contributions extends Controller {
                     'categoryname' => $data['categoriesname'][$i] ?? '',
                     'contributorid' => $data['contributorsid'][$i] ?? '',
                     'contributorname' => $data['contributorsname'][$i] ?? '',
+                    'reference' => is_scalar($data['references'][$i] ?? null) ? (string)$data['references'][$i] : '',
                     'subaccount' => isset($data['subaccount'][$i]) && !in_array(trim($data['subaccount'][$i]),['','0'],true) ? $data['subaccount'][$i] : null,
                 ]);
             }
@@ -251,14 +249,12 @@ class Contributions extends Controller {
            'categories' => $this->contributionModel->getCategories(),
            'paymethod' => $header->paymentMethodId,
            'bank' => $header->bankId,
-           'reference' => strtoupper((string)$header->paymentReference),
            'description' => strtoupper((string)$header->narration),
            'category' => 3,
            'table' => [],
            'errors' => [],
            'amount_err' => '',
            'desc_err' => '',
-           'ref_err' => '',
            'bank_err' => '',
            'receipt_err' => '',
        ];
@@ -272,6 +268,8 @@ class Contributions extends Controller {
                 'categoryname' => $detail->categoryname,
                 'contributorid' => $detail->contributorid,
                 'contributorname' => $detail->contributor,
+                // an old receipt row without a reference of its own shows the old header reference, so it can be saved (decision 4)
+                'reference' => (int)$detail->legacy === 1 ? strtoupper((string)$detail->reference) : (string)$detail->reference,
                 'subaccount' => (int)$detail->subaccount > 0 ? $detail->subaccount : null,
             ]);
         }

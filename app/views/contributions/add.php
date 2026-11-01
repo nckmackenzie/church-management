@@ -63,6 +63,15 @@
                                 <span class="invalid-feedback"></span>
                             </div>
                         </div>
+                        <div class="col-sm-6">
+                            <div class="form-group">
+                                <label for="collectionreference">Reference</label>
+                                <input type="text" name="collectionreference" id="collectionreference" maxlength="50"
+                                       class="form-control form-control-sm mandatory"
+                                       placeholder="eg M-Pesa code, cheque no" autocomplete="off">
+                                <span class="invalid-feedback"></span>
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
@@ -151,24 +160,12 @@
                                 </div>
                             </div><!--End Of Row -->
                             <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="reference">Reference</label>
-                                        <input type="text" name="reference" id="reference"
-                                               class="form-control form-control-sm mandatory
-                                               <?php echo (!empty($data['ref_err'])) ? 'is-invalid' : ''?>"
-                                               value="<?php echo $data['reference'];?>"
-                                               placeholder="eg MPESA Reference,cheque No etc"
-                                               autocomplete="off">
-                                        <span class="invalid-feedback"><?php echo $data['ref_err'];?></span>       
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
+                                <div class="col-md-12">
                                     <div class="form-group">
                                         <label for="description">Description</label>
                                         <input type="text" name="description" id="description"
                                                class="form-control form-control-sm"
-                                               value="<?php echo $data['description'];?>"
+                                               value="<?php echo htmlspecialchars((string)$data['description']);?>"
                                                placeholder="Brief Description" autocomplete="off">
                                     </div>
                                 </div>
@@ -190,12 +187,20 @@
                                                 </select>
                                             </div>
                                         </div>
-                                        <div class="col-md-6">
+                                        <div class="col-md-3">
                                             <div class="form-group">
                                                 <label for="amount">Amount</label>
                                                 <input type="number" name="amount" id="amount"
                                                     class="form-control form-control-sm"
                                                     autocomplete="off">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="form-group">
+                                                <label for="rowreference">Reference</label>
+                                                <input type="text" id="rowreference" maxlength="50"
+                                                    class="form-control form-control-sm"
+                                                    placeholder="eg M-Pesa code, cheque no" autocomplete="off">
                                             </div>
                                         </div>
                                     </div><!--End Of Row -->
@@ -241,6 +246,7 @@
                                                         <th class="d-none">ContributorId</th>
                                                         <th>Contributor</th>
                                                         <th class="d-none">Sub Account</th>
+                                                        <th>Reference</th>
                                                         <th>Remove</th>
                                                     </tr>
                                                 </thead>
@@ -248,13 +254,14 @@
                                                     <?php foreach($data['table'] as $table) : ?>
                                                         <tr>
                                                             <td class="d-none"><input type="text" name="accountsid[]" value="<?php echo $table['accountid'];?>"></td>
-                                                            <td><input type="text" class="table-input" name="accountsname[]" value="<?php echo $table['accountname'];?>" readonly></td>
+                                                            <td><input type="text" class="table-input" name="accountsname[]" value="<?php echo htmlspecialchars((string)$table['accountname']);?>" readonly></td>
                                                             <td><input type="text" class="table-input" name="amounts[]" value="<?php echo $table['amount'];?>" readonly></td>
                                                             <td class="d-none"><input type="text" class="table-input" name="categoriesid[]" value="<?php echo $table['categoryid'];?>"></td>
                                                             <td><input type="text" class="table-input" name="categoriesname[]" value="<?php echo $table['categoryname'];?>" readonly></td>
                                                             <td class="d-none"><input type="text" class="table-input" name="contributorsid[]" value="<?php echo $table['contributorid'];?>"></td>
-                                                            <td><input type="text" class="table-input" name="contributorsname[]" value="<?php echo $table['contributorname'];?>" readonly></td>
+                                                            <td><input type="text" class="table-input" name="contributorsname[]" value="<?php echo htmlspecialchars((string)$table['contributorname']);?>" readonly></td>
                                                             <td class="d-none"><input type="text" class="table-input" name="subaccount[]" value="<?php echo $table['subaccount'];?>" readonly></td>
+                                                            <td><input type="text" class="table-input" name="references[]" maxlength="50" value="<?php echo htmlspecialchars((string)($table['reference'] ?? ''));?>"></td>
                                                             <td><button type="button" class="action-icon btn btn-sm text-danger fs-5 btndel">Remove</button></td>
                                                         </tr>
                                                     <?php endforeach; ?>

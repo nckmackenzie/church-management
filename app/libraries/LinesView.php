@@ -56,6 +56,8 @@ class LinesView
             'rows'       => $rows,
             'direction'  => $L['direction'] === 'CREDIT' ? 'Cr' : 'Dr',
             'opening'    => IncomeStatementReport::bracket($L['opening']),
+            // a balance-sheet account (task 12): the opening balance is the "Balance b/f" dated the financial-year start, first row of the list
+            'balanceBf'  => $L['bf'] === null ? null : ['date' => date('d-m-Y', strtotime($L['bf']['date'])), 'label' => 'Balance b/f'],
             'closing'    => IncomeStatementReport::bracket($L['closing']),
             'movement'   => IncomeStatementReport::bracket($L['movement']),
             'debits'     => IncomeStatementReport::bracket($L['totals']['debit']),
@@ -88,7 +90,12 @@ class LinesView
         array_push($head, 'Debit', 'Credit', "Balance ($dir)");
         $rows[] = array_map(function ($t) { return XlsxWriter::s($t, true); }, $head);
         $pad = count($head) - 3;
-        $rows[] = array_merge([XlsxWriter::s('Opening balance', true)], array_fill(0, $pad - 1, null), [null, null, XlsxWriter::m($L['opening'], true)]);
+        if ($L['bf'] !== null) {
+            // "Balance b/f" dated the financial-year start: the first row, a figure not a transaction (no entry no, no link)
+            $rows[] = array_merge([XlsxWriter::d($L['bf']['date']), null, null, null, XlsxWriter::s('Balance b/f', true)], array_fill(0, $pad - 5, null), [null, null, XlsxWriter::m($L['opening'], true)]);
+        } else {
+            $rows[] = array_merge([XlsxWriter::s('Opening balance', true)], array_fill(0, $pad - 1, null), [null, null, XlsxWriter::m($L['opening'], true)]);
+        }
         foreach ($L['rows'] as $x) {
             $r = [XlsxWriter::d($x['date']), XlsxWriter::n($x['entryId']), XlsxWriter::n($x['journalNo']), XlsxWriter::s($x['reference']), XlsxWriter::s($x['memo']), XlsxWriter::s($x['typeName'])];
             if ($withAccount) { $r[] = XlsxWriter::s(self::name($x['accountName'])); }

@@ -6,6 +6,8 @@
  * tblbanksubaccounts, never from the client:
  *   Dr the sub account's bank (BankId, a PAY_BANK account)  /  Cr the sub account's AccountId, both for the amount,
  * plus one tblbankpostings row (method 'Deposit'). A missing or inactive account refuses the save.
+ * Task 12: the collection has ONE reference (required, at most 25 characters = tblmmf.Reference): it is written to tblmmf.Reference, to both
+ * ledger lines and to the bank row's reference (it was the narration before). A collection is one row per save.
  * tblmmf.Debit raises the group's / district's held balance. tblbanktransactions_subaccounts is NOT written (decision).
  *
  * Every action loads the record by ID + TransactionType 17 + session congregation (FOR UPDATE) and returns
@@ -17,7 +19,11 @@ class Groupcollection
     const TYPE = 17;
     const BANK_METHOD = 'Deposit';
     const NARRATION_LEN = 150;      // tblmmf.Narration
-    const REFERENCE_LEN = 50;       // tblbankpostings.reference
+    /**
+     * Longest collection reference: tblmmf.Reference is VARCHAR(25), the smallest column it is written to as a single value
+     * (also tblbankpostings.reference 50 and journal_lines.reference 50). The column is latin1: other characters are refused.
+     */
+    const REFERENCE_LEN = 25;
 
     private $db;
 
@@ -33,7 +39,11 @@ class Groupcollection
                     m.TransactionDate,
                     m.Type,
                     IF(Type = 'district',d.districtName,g.groupName) As DistrictGroup,
-                    m.Debit
+                    m.Debit,
+                    -- the collection's own reference; an old collection (saved before task 12) shows its old bank reference (the narration)
+                    COALESCE(NULLIF(TRIM(m.Reference),''),(SELECT NULLIF(TRIM(b.reference),'') FROM tblbankpostings b
+                              WHERE b.transactionType = 17 AND b.transactionId = m.ID AND b.congregationId = m.CongregationId AND b.deleted = 0
+                              ORDER BY b.ID LIMIT 1),'') AS Reference
                 FROM tblmmf m left join tblgroups g on m.GroupId=g.ID left join tbldistricts d on m.DistrictId = d.ID
                 WHERE (m.Deleted=0) AND (m.CongregationID=?) AND (m.TransactionType=17)
                 ORDER BY TransactionDate DESC;";
@@ -100,15 +110,24 @@ class Groupcollection
         return $st->fetch(PDO::FETCH_OBJ);
     }
 
-    /** The collection (this congregation, type 17, not deleted) or false. */
+    /**
+     * The collection (this congregation, type 17, not deleted) or false. Reference = its own; a collection saved before task 12
+     * has none and shows the reference its bank row carries (the old narration), so the edit form can be saved (decision 4).
+     */
     public function GetCollection($id)
     {
-        return loadsingleset($this->db->dbh,'SELECT * FROM tblmmf WHERE (ID=?) AND (TransactionType=17) AND (CongregationId=?) AND (Deleted=0)',
+        $row = loadsingleset($this->db->dbh,'SELECT * FROM tblmmf WHERE (ID=?) AND (TransactionType=17) AND (CongregationId=?) AND (Deleted=0)',
                              [(int)$id,$_SESSION['congId']]);
+        if($row && trim((string)$row->Reference) === ''){
+            $row->Reference = (string)getdbvalue($this->db->dbh,'SELECT COALESCE(NULLIF(TRIM(reference),\'\'),\'\') FROM tblbankpostings
+                                 WHERE transactionType = 17 AND transactionId = ? AND congregationId = ? AND deleted = 0 ORDER BY ID LIMIT 1',
+                                 [(int)$row->ID,(int)$_SESSION['congId']]);
+        }
+        return $row;
     }
 
     /**
-     * $data: isedit, id, tdate (Y-m-d), type ('group'|'district'), groupid, amount, narration, subaccount.
+     * $data: isedit, id, tdate (Y-m-d), type ('group'|'district'), groupid, amount, narration, subaccount, reference (required, as typed).
      * Anything else the client sent (account, accountid, bankid) is not read. Returns ['success','errors','id'].
      */
     public function CreateUpdate($data)
@@ -143,6 +162,15 @@ class Groupcollection
                 $errors[] = 'Enter a description';
             }elseif(mb_strlen($narration) > self::NARRATION_LEN){
                 $errors[] = 'Description cannot be longer than ' . self::NARRATION_LEN . ' characters';
+            }
+
+            $reference = trim((string)($data['reference'] ?? ''));
+            if($reference === ''){
+                $errors[] = 'Enter the reference';
+            }elseif(mb_strlen($reference) > self::REFERENCE_LEN){
+                $errors[] = 'Reference cannot be longer than ' . self::REFERENCE_LEN . ' characters';
+            }elseif(mb_convert_encoding(mb_convert_encoding($reference,'ISO-8859-1','UTF-8'),'UTF-8','ISO-8859-1') !== $reference){
+                $errors[] = 'Reference contains characters that cannot be stored; use letters, digits and common symbols';
             }
 
             $type = $data['type'];
@@ -192,15 +220,15 @@ class Groupcollection
             }
 
             $amount = number_format((float)$data['amount'],2,'.','');
-            $params = [$data['tdate'],$type,$type === 'district' ? $owner : null,$type === 'group' ? $owner : null,$amount,(int)$sub->ID,$narration];
+            $params = [$data['tdate'],$type,$type === 'district' ? $owner : null,$type === 'group' ? $owner : null,$amount,(int)$sub->ID,$narration,$reference];
             if($current){
-                $pdo->prepare('UPDATE tblmmf SET TransactionDate = ?, `Type` = ?, DistrictId = ?, GroupId = ?, Debit = ?, SubAccountId = ?, Narration = ?
+                $pdo->prepare('UPDATE tblmmf SET TransactionDate = ?, `Type` = ?, DistrictId = ?, GroupId = ?, Debit = ?, SubAccountId = ?, Narration = ?, Reference = ?
                                WHERE ID = ? AND TransactionType = 17 AND CongregationId = ?')
                     ->execute(array_merge($params,[(int)$current->ID,$cong]));
                 $id = (int)$current->ID;
             }else{
-                $pdo->prepare('INSERT INTO tblmmf (TransactionDate,`Type`,DistrictId,GroupId,Debit,SubAccountId,Narration,TransactionType,CongregationId)
-                               VALUES (?,?,?,?,?,?,?,17,?)')
+                $pdo->prepare('INSERT INTO tblmmf (TransactionDate,`Type`,DistrictId,GroupId,Debit,SubAccountId,Narration,Reference,TransactionType,CongregationId)
+                               VALUES (?,?,?,?,?,?,?,?,17,?)')
                     ->execute(array_merge($params,[$cong]));
                 $id = (int)$pdo->lastInsertId();
             }
@@ -208,11 +236,13 @@ class Groupcollection
             Ledger::post($pdo,[
                 'congregationId' => $cong,'entryDate' => $data['tdate'],'transactionTypeId' => self::TYPE,'transactionId' => $id,
                 'description' => $narration,
+                'reference' => $reference,
             ],[
-                Ledger::debit($bank,$amount,$narration),
-                Ledger::credit($income,$amount,$narration),
+                Ledger::debit($bank,$amount,$narration,$reference),
+                Ledger::credit($income,$amount,$narration,$reference),
             ]);
-            Ledger::syncBankPostings($pdo,$cong,self::TYPE,$id,self::BANK_METHOD,mb_substr($narration,0,self::REFERENCE_LEN));
+            // the bank row's reference is the collection's reference (it was the narration before task 12)
+            Ledger::syncBankPostings($pdo,$cong,self::TYPE,$id,self::BANK_METHOD);
 
             saveLog($pdo,($current ? 'Updated' : 'Created') . ' group collection ' . $id . ' for ' . $data['tdate']);
             $pdo->commit();

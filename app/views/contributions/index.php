@@ -84,6 +84,7 @@
                         <th>Receipt No</th>
                         <th>Contribution Date</th>
                         <th>Amount</th>
+                        <th>Reference</th>
                         <th>Action</th>
                     </thead>
                     <tbody>
@@ -93,6 +94,7 @@
                                 <td><?php echo $contribution->receiptNo;?></td>
                                 <td><?php echo date('d-M-Y',strtotime($contribution->contributionDate));?></td>
                                 <td><?php echo $contribution->Total;?></td>
+                                <td><?php echo htmlspecialchars((string)$contribution->References);?></td>
                                 <td>
                                     <?php if((int)$_SESSION['userType'] <3 || (int)$_SESSION['userType'] > 4) : ?>
                                       <div class="btn-group">

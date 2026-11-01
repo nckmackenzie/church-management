@@ -117,7 +117,10 @@ function renderDrill(d, ctx, account) {
     area.appendChild(excelLink(endpoint(d0.drillrpt) + '?' + query(Object.assign({}, xlParams, { format: 'xlsx' }))));
     wrap.appendChild(el('h5', d.name + ': debit ' + (d.debit || '0.00') + ' / credit ' + (d.credit || '0.00')));
     const rows = d.rows.map(r => {
-      const href = drillUrl(ctx, r, bf);
+      // an earlier financial year of the accumulated fund b/f opens that year's income statement (no transaction list)
+      const href = r.next === 'incomestatement' && r.start && d0.isurl
+        ? d0.isurl + '?' + query({ start: r.start, end: r.end, cong: ctx.cong })
+        : drillUrl(ctx, r, bf);
       return { text: r.name, cells: [el('td', r.name), amountCell(r.debit, r.debit ? href : null), amountCell(r.credit, r.credit ? href : null)] };
     });
     const footer = [el('td', 'Total of the rows (' + (d.sumsExactly ? 'adds up to the figure above' : 'DOES NOT add up') + ')'), amountCell(d.rowsDebit), amountCell(d.rowsCredit)];

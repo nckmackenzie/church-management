@@ -179,7 +179,7 @@ try {
     ok('comparative column at the last year-end: b/f 0.00 (nothing before the previous year) and c/f 300.00 = this year\'s b/f', $rows['Accumulated fund b/f']['cmp'] === '0.00' && $r['fund']['cmpTotal'] === '300.00' && $rows['Accumulated fund b/f']['amount'] === $r['fund']['cmpTotal']);
     ok('the fund account was identified (not by name) and no diagnostic is shown', is_int($r['fund']['fundAccountId']) && $r['fund']['diagnostic'] === null);
     [$c, $b] = http("reports/balancesheetdrillrpt?account=bf&asof=$asof", $s3); $d = J($b);
-    ok('b/f opens the prior years\' surplus (300.00); the fund account at the year start is empty here and not listed', $c === 200 && $d['mode'] === 'children' && $d['amount'] === '300.00' && $d['sumsExactly'] && array_column($d['rows'], 'id') === ['pys'], $b);
+    ok('b/f (task 12, decision 7): one line per earlier financial year (2024-2025 = 300.00, opening that year\'s income statement); the fund account at the year start is empty here and not listed', $c === 200 && $d['mode'] === 'children' && $d['amount'] === '300.00' && $d['sumsExactly'] && array_column($d['rows'], 'id') === ['fy11'] && $d['rows'][0]['name'] === 'Surplus / (deficit) 2024-2025' && $d['rows'][0]['next'] === 'incomestatement' && $d['rows'][0]['start'] === '2024-10-01', $b);
     [$c, $b] = http("reports/balancesheetdrillrpt?account=pys&asof=$asof", $s3); $d = J($b);
     ok('prior years\' surplus opens the earlier years\' accounts and adds up', $c === 200 && $d['mode'] === 'children' && $d['sumsExactly'] && $d['rowsTotal'] === '300.00');
     $fa = (int) $r['fund']['fundAccountId'];

@@ -367,7 +367,7 @@ try {
     chk('collections: missing group -> 400 and ONE JSON body', $r[0] === 400 && jsonOf($r[2]) !== null, $r[2]);
     $r = http('GET', "groupcollections/getsubaccounts?type=group&groupid=$G", $uFund);
     chk('collections AJAX without the group collections right -> 403 JSON', $r[0] === 403 && jsonOf($r[2]) !== null);
-    $cb = ['isedit' => false, 'id' => null, 'tdate' => $today, 'type' => 'group', 'groupid' => $G, 'amount' => '300', 'narration' => 'http test', 'subaccount' => $SUB_G,
+    $cb = ['isedit' => false, 'id' => null, 'tdate' => $today, 'type' => 'group', 'groupid' => $G, 'amount' => '300', 'narration' => 'http test', 'subaccount' => $SUB_G, 'reference' => 'T12HTTP',
            'account' => 'cash at bank', 'accountid' => 3, 'bankid' => 195];
     $r = http('POST', 'groupcollections/createupdate', $uAll, $cb, true);
     $cid = (int)q('SELECT MAX(ID) m FROM tblmmf WHERE TransactionType=17')[0]['m'];

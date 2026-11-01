@@ -124,14 +124,53 @@ class Ledger
     // Line builders
     // -----------------------------------------------------------------
 
-    public static function debit(int $accountId, $amount, ?string $memo = null): array
+    /** journal_lines.reference length (task 12); also the length of tblbankpostings.reference. */
+    const LINE_REFERENCE_LEN = 50;
+    /** journal_entries.reference length. */
+    const ENTRY_REFERENCE_LEN = 255;
+
+    /** $reference: the line's own reference (a receipt row's); null = none, reports then show the entry's. */
+    public static function debit(int $accountId, $amount, ?string $memo = null, ?string $reference = null): array
     {
-        return ['accountId' => $accountId, 'dc' => self::DEBIT, 'amount' => $amount, 'memo' => $memo];
+        return ['accountId' => $accountId, 'dc' => self::DEBIT, 'amount' => $amount, 'memo' => $memo, 'reference' => $reference];
     }
 
-    public static function credit(int $accountId, $amount, ?string $memo = null): array
+    public static function credit(int $accountId, $amount, ?string $memo = null, ?string $reference = null): array
     {
-        return ['accountId' => $accountId, 'dc' => self::CREDIT, 'amount' => $amount, 'memo' => $memo];
+        return ['accountId' => $accountId, 'dc' => self::CREDIT, 'amount' => $amount, 'memo' => $memo, 'reference' => $reference];
+    }
+
+    /**
+     * The references of several rows as one value for a single column: distinct (case-insensitive, first spelling kept),
+     * blanks dropped, comma-separated. Never cuts a reference in half: when the whole list does not fit in $max
+     * characters, whole references are kept and the value ends with ", …". Returns null when there is none.
+     * A single reference longer than $max (cannot happen for validated input) is cut to $max with "…" as its last character.
+     */
+    public static function joinReferences(array $refs, int $max = self::ENTRY_REFERENCE_LEN): ?string
+    {
+        $seen = [];
+        $list = [];
+        foreach ($refs as $r) {
+            $r = trim((string) $r);
+            if ($r === '' || isset($seen[mb_strtolower($r)])) { continue; }
+            $seen[mb_strtolower($r)] = true;
+            $list[] = $r;
+        }
+        if (!$list) { return null; }
+        $all = implode(', ', $list);
+        if (mb_strlen($all) <= $max) { return $all; }
+
+        $tail = ', …';
+        $out = '';
+        foreach ($list as $r) {
+            $next = $out === '' ? $r : $out . ', ' . $r;
+            if (mb_strlen($next . $tail) > $max) { break; }
+            $out = $next;
+        }
+        if ($out === '') {
+            return mb_substr($list[0], 0, max(0, $max - 1)) . '…';
+        }
+        return $out . $tail;
     }
 
     // -----------------------------------------------------------------
@@ -207,6 +246,10 @@ class Ledger
         }
 
         $ref  = self::blankToNull($h['reference'] ?? null);
+        if ($ref !== null && mb_strlen($ref) > self::ENTRY_REFERENCE_LEN) {
+            // never cut a reference in half (and never fail on a long joined list): whole references, then ", …"
+            $ref = self::joinReferences(explode(', ', $ref), self::ENTRY_REFERENCE_LEN);
+        }
         $desc = self::blankToNull($h['description'] ?? null);
         if ($desc === null) {
             foreach ($clean as $l) { if ($l['memo'] !== null) { $desc = $l['memo']; break; } }
@@ -233,11 +276,11 @@ class Ledger
             $entryId = (int) $db->lastInsertId();
         }
 
-        $ins = $db->prepare('INSERT INTO journal_lines (journalEntryId, accountId, dc, amount, memo, lineNumber)
-                             VALUES (?, ?, ?, ?, ?, ?)');
+        $ins = $db->prepare('INSERT INTO journal_lines (journalEntryId, accountId, dc, amount, memo, reference, lineNumber)
+                             VALUES (?, ?, ?, ?, ?, ?, ?)');
         $n = 0;
         foreach ($clean as $l) {
-            $ins->execute([$entryId, $l['accountId'], $l['dc'], $l['amount'], $l['memo'], ++$n]);
+            $ins->execute([$entryId, $l['accountId'], $l['dc'], $l['amount'], $l['memo'], $l['reference'], ++$n]);
         }
 
         return $entryId;
@@ -478,14 +521,22 @@ class Ledger
                 'debit'     => $isDebit ? $l['amount'] : '0.00',
                 'credit'    => $isDebit ? '0.00' : $l['amount'],
                 'narration' => self::blankToNull($l['memo']) ?? $entry['description'],
+                // a line with its own reference (task 12: one per receipt row) gives its own bank row that reference
+                'reference' => self::blankToNull($l['reference'] ?? null),
             ];
         }
 
         $date = $entry['entryDate'];
         $ref  = $reference !== null ? self::blankToNull($reference) : null;
         if ($ref === null) { $ref = $entry['reference']; }
+        foreach ($wanted as $i => $w) {
+            // the bank column is 50 long; a value that does not fit keeps whole references (joinReferences) instead of being cut
+            $wr = $w['reference'] ?? $ref;
+            $wanted[$i]['reference'] = $wr !== null && mb_strlen($wr) > self::LINE_REFERENCE_LEN
+                ? self::joinReferences(explode(', ', $wr), self::LINE_REFERENCE_LEN) : $wr;
+        }
 
-        $st = $db->prepare('SELECT ID, bankId, debit, credit, cleared, clearedDare FROM tblbankpostings
+        $st = $db->prepare('SELECT ID, bankId, debit, credit, reference, cleared, clearedDare FROM tblbankpostings
                             WHERE congregationId = ? AND transactionType = ? AND transactionId = ? AND deleted = 0
                             ORDER BY ID FOR UPDATE');
         $st->execute([$cong, $type, $txn]);
@@ -521,9 +572,9 @@ class Ledger
             $hit = self::matchBankRow($existing, $w, $used);
             if ($hit !== null) {
                 $used[$hit] = true;
-                $upd->execute([$date, $ref, $w['narration'], $methodId, $existing[$hit]['ID']]);
+                $upd->execute([$date, $w['reference'], $w['narration'], $methodId, $existing[$hit]['ID']]);
             } else {
-                $ins->execute([$w['bankId'], $date, $w['debit'], $w['credit'], $methodId, $ref,
+                $ins->execute([$w['bankId'], $date, $w['debit'], $w['credit'], $methodId, $w['reference'],
                                $w['narration'], $type, $txn, $cong]);
             }
             $active++;
@@ -539,13 +590,68 @@ class Ledger
     /** Index of the existing bank row (not yet used) with the wanted line's bank, side and amount, or null. */
     private static function matchBankRow(array $existing, array $w, array $used): ?int
     {
+        // Several rows of one source can have the same bank, side and amount (receipt rows, task 12): the one that also
+        // has the wanted reference is taken first, so a cleared row keeps its own reference's row; otherwise the first.
+        $first = null;
         foreach ($existing as $i => $r) {
             if (isset($used[$i]) || (int) $r['bankId'] !== $w['bankId']) { continue; }
             $rd = self::exactCents($r['debit']);  $rc = self::exactCents($r['credit']);
             $wd = self::exactCents($w['debit']);  $wc = self::exactCents($w['credit']);
             if ($rd !== null && $rc !== null && $rd === $wd && $rc === $wc) {
-                return $i;
+                if (self::sameReference($r['reference'] ?? null, $w['reference'] ?? null)) { return $i; }
+                if ($first === null) { $first = $i; }
             }
+        }
+        return $first;
+    }
+
+    private static function sameReference($a, $b): bool
+    {
+        return mb_strtolower(trim((string) $a)) === mb_strtolower(trim((string) $b));
+    }
+
+    /**
+     * Per-row cleared rule for a source whose bank rows follow its rows one to one (receipts, task 12).
+     * $wanted: one entry per bank row the edit will keep, in row order: bankId, amount, reference, row (the row number
+     * for the message). A CLEARED bank row may stay with another date / reference / description, but its bank and amount
+     * must still be carried by one of the wanted rows. Returns the message naming the row, or null.
+     */
+    public static function clearedBankRowProblem(PDO $db, int $cong, int $type, int $txn, array $wanted): ?string
+    {
+        $st = $db->prepare('SELECT ID, bankId, debit, credit, reference, cleared, clearedDare FROM tblbankpostings
+                            WHERE congregationId = ? AND transactionType = ? AND transactionId = ? AND deleted = 0
+                            ORDER BY ID');
+        $st->execute([$cong, $type, $txn]);
+        $existing = $st->fetchAll(PDO::FETCH_ASSOC);
+
+        $w = [];
+        foreach ($wanted as $x) {
+            $c = self::exactCents($x['amount']);
+            $w[] = ['bankId' => (int) $x['bankId'], 'debit' => (string) $c, 'credit' => '0', 'reference' => $x['reference'] ?? null, 'row' => $x['row'] ?? null, 'cents' => $c];
+        }
+        // receipts are debits on the bank; compare in cents on the larger side of the (one-sided) existing row
+        $used = [];
+        $taken = [];
+        foreach ($existing as $i => $r) {
+            if ((int) $r['cleared'] !== 1) { continue; }
+            $cents = max((int) self::exactCents($r['debit']), (int) self::exactCents($r['credit']));
+            $pick = null;
+            foreach ($w as $j => $x) {
+                if (isset($used[$j]) || $x['bankId'] !== (int) $r['bankId'] || $x['cents'] !== $cents) { continue; }
+                if (self::sameReference($r['reference'], $x['reference'])) { $pick = $j; break; }
+                if ($pick === null) { $pick = $j; }
+            }
+            if ($pick !== null) { $used[$pick] = true; $taken[$i] = true; continue; }
+
+            // not carried: name the row. A wanted row that has the same reference and is not matched is "the same row, changed".
+            $label = null;
+            foreach ($w as $j => $x) {
+                if (!isset($used[$j]) && $x['row'] !== null && self::sameReference($r['reference'], $x['reference'])) { $label = 'Row ' . $x['row']; break; }
+            }
+            $amt = number_format($cents / 100, 2);
+            $what = ($label ?? 'The row') . ' (reference ' . ((string) $r['reference'] !== '' ? $r['reference'] : '-') . ', amount ' . $amt . ')';
+            return $what . ': its bank posting has already been cleared in bank reconciliation'
+                 . ($r['clearedDare'] ? ' (on ' . $r['clearedDare'] . ')' : '') . ', so its bank or amount cannot be changed';
         }
         return null;
     }
@@ -952,7 +1058,7 @@ class Ledger
         if (!$h) { return null; }
 
         $st = $db->prepare('SELECT l.lineNumber, l.accountId, a.accountType AS accountName,
-                                   p.accountType AS parentName, l.dc, l.amount, l.memo
+                                   p.accountType AS parentName, l.dc, l.amount, l.memo, l.reference
                             FROM   journal_lines l
                             JOIN   tblaccounttypes a   ON a.ID = l.accountId
                             LEFT JOIN tblaccounttypes p ON p.ID = a.parentId
@@ -1009,11 +1115,17 @@ class Ledger
             if ($dc === self::DEBIT) { $dr += $cents; } elseif ($dc === self::CREDIT) { $cr += $cents; }
             if ($acc > 0) { $ids[$acc] = true; }
 
+            $lineRef = self::blankToNull($l['reference'] ?? null);
+            if ($lineRef !== null && mb_strlen($lineRef) > self::LINE_REFERENCE_LEN) {
+                $errors[] = "line $n: reference cannot be longer than " . self::LINE_REFERENCE_LEN . ' characters';
+            }
+
             $clean[] = [
                 'accountId' => $acc,
                 'dc'        => $dc,
                 'amount'    => number_format($cents / 100, 2, '.', ''),
                 'memo'      => self::blankToNull($l['memo'] ?? null),
+                'reference' => $lineRef,
             ];
         }
 

@@ -6,6 +6,12 @@ class Contribution {
     const BANK_METHOD = 'Deposit';
     /** tblcontributions_details.narration is varchar(50) */
     const NARRATION_LEN = 50;
+    /**
+     * Longest row reference: the smallest column a row reference is written to as a single value, tblbankpostings.reference
+     * (50) and journal_lines.reference (50). Also written: tblcontributions_details.paymentReference (255),
+     * tblbanktransactions_subaccounts.Reference (120).
+     */
+    const REFERENCE_LEN = 50;
 
     public function __construct()
     {
@@ -24,7 +30,26 @@ class Contribution {
                           GROUP BY h.ID,h.receiptNo,d.contributionDate
                           ORDER BY d.contributionDate DESC");
         $this->db->bind(':cid',$_SESSION['congId']);
-        return $this->db->resultSet();
+        $list = $this->db->resultSet();
+
+        // the receipt's references = the distinct row references (a row without one shows the old header reference, the entry's)
+        $refs = [];
+        $st = $this->db->pdo()->prepare("SELECT d.HeaderId, UCASE(COALESCE(NULLIF(TRIM(d.paymentReference),''),NULLIF(TRIM(e.reference),''))) AS ref
+                                         FROM tblcontributions_details d
+                                              JOIN tblcontributions_header h ON h.ID = d.HeaderId
+                                              LEFT JOIN journal_entries e ON e.transactionTypeId = 1 AND e.transactionId = h.ID
+                                                   AND e.congregationId = h.congregationId AND e.deleted = 0
+                                         WHERE h.congregationId = ? AND h.deleted = 0
+                                               AND h.fiscalYearId IN (SELECT ID FROM tblfiscalyears WHERE closed = 0 AND deleted = 0)
+                                         ORDER BY d.HeaderId, d.ID");
+        $st->execute([(int)$_SESSION['congId']]);
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $refs[(int)$r['HeaderId']][] = (string)$r['ref'];
+        }
+        foreach ($list as $row) {
+            $row->References = (string)Ledger::joinReferences($refs[(int)$row->ID] ?? [],100000);
+        }
+        return $list;
     }
 
     /** "2025-2026/005" when the fiscal year prefixes its references, otherwise the plain number. */
@@ -180,11 +205,6 @@ class Contribution {
             }
         }
 
-        $reference = trim((string)($data['reference'] ?? ''));
-        if (strlen($reference) > 50) {
-            $errors[] = 'Reference cannot be longer than 50 characters';
-        }
-
         $paymethod = (int)($data['paymethod'] ?? 0);
         if ($paymethod <= 0 || getdbvalue($pdo,'SELECT COUNT(*) FROM tblpaymentmethods WHERE ID=?',[$paymethod]) < 1) {
             $errors[] = 'Select a valid payment method';
@@ -204,9 +224,6 @@ class Contribution {
                 }
             }
         } elseif ($paymethod > 1) {
-            if ($reference === '') {
-                $errors[] = 'Enter Payment Reference';
-            }
             if (empty($data['bank'])) {
                 $errors[] = 'Select Bank';
             } else {
@@ -224,7 +241,7 @@ class Contribution {
         if ($n === 0) {
             $errors[] = 'No contributions added';
         }
-        foreach (['amounts','categoriesid','contributorsid','subaccount'] as $k) {
+        foreach (['amounts','categoriesid','contributorsid','subaccount','references'] as $k) {
             if (count((array)($data[$k] ?? [])) !== $n) {
                 $errors[] = 'The contribution lines are incomplete; reload the page and try again';
                 $n = 0;
@@ -237,6 +254,13 @@ class Contribution {
         $total = 0;
         for ($i = 0; $i < $n; $i++) {
             $no = $i + 1;
+            // every row has its own reference (task 12): required, trimmed, at most as long as the smallest column it is written to
+            $rowRef = is_scalar($data['references'][$i]) ? trim((string)$data['references'][$i]) : '';   // a forged nested value counts as missing
+            if ($rowRef === '') {
+                $errors[] = "Line $no: enter the reference";
+            } elseif (mb_strlen($rowRef) > self::REFERENCE_LEN) {
+                $errors[] = "Line $no: reference cannot be longer than " . self::REFERENCE_LEN . ' characters';
+            }
             $amount = trim((string)$data['amounts'][$i]);
             if ($err = Ledger::amountError($amount,"Line $no amount")) {
                 $errors[] = $err;
@@ -304,6 +328,7 @@ class Contribution {
                 'amount' => $amount,
                 'category' => $cat,
                 'contributor' => $contributor,
+                'reference' => $rowRef,
                 'sub' => $subId,
                 'forgroup' => (int)getdbvalue($pdo,'SELECT forGroup FROM tblaccounttypes WHERE ID=?',[$account]),
             ];
@@ -316,8 +341,8 @@ class Contribution {
 
         return [
             'yearId' => $yearId,
-            'reference' => $reference,
-            'refLower' => $reference !== '' ? strtolower($reference) : null,
+            // the journal entry's own reference = the distinct row references, whole, comma-joined (", …" when too long)
+            'reference' => Ledger::joinReferences(array_column($lines,'reference'),Ledger::ENTRY_REFERENCE_LEN),
             'receiving' => $receiving,
             'bank' => $bank,
             'lines' => $lines,
@@ -347,24 +372,36 @@ class Contribution {
                 !$isParish && $l['category'] === 3 ? $c : null,
                 !$isParish && $l['category'] === 4 ? $c : null,
                 $isParish ? $c : null,
-                $p['refLower'],$narration,$l['forgroup'],$l['sub']
+                $l['reference'],$narration,$l['forgroup'],$l['sub']
             ]);
 
             if ($l['sub'] !== null) {
                 $mmf->execute([$data['date'],$l['category'] === 2 ? 'group' : 'district',
                                $l['category'] === 3 ? $c : null,$l['category'] === 2 ? $c : null,
                                $l['amount'],$l['sub'],$narration,$id,$cong]);
-                $subrow->execute([$data['date'],$id,$l['sub'],$l['amount'],'Collection',$p['refLower'],$cong]);
+                $subrow->execute([$data['date'],$id,$l['sub'],$l['amount'],'Collection',$l['reference'],$cong]);
             }
         }
     }
 
-    /** Dr the receiving account (total) / Cr one income line per detail row, then the bank row of a bank receipt. */
+    /**
+     * One debit (the receiving account) and one credit (the income account) per detail row, both carrying the row's own
+     * reference, so a bank receipt gets one bank row per row (Ledger::syncBankPostings makes one per bank line).
+     * Exception: an old receipt whose single aggregate bank row is already cleared keeps one debit line for the total
+     * ($p['aggregate']), so that bank row stays exactly as it was reconciled.
+     */
     private function postReceipt($pdo,$cong,$id,$data,$p,$description)
     {
-        $lines = [Ledger::debit($p['receiving'],$p['total'],$description)];
+        $lines = [];
+        if (!empty($p['aggregate'])) {
+            $lines[] = Ledger::debit($p['receiving'],$p['total'],$description,Ledger::joinReferences(array_column($p['lines'],'reference'),Ledger::LINE_REFERENCE_LEN));
+        } else {
+            foreach ($p['lines'] as $l) {
+                $lines[] = Ledger::debit($p['receiving'],$l['amount'],$description,$l['reference']);
+            }
+        }
         foreach ($p['lines'] as $l) {
-            $lines[] = Ledger::credit($l['account'],$l['amount'],$description);
+            $lines[] = Ledger::credit($l['account'],$l['amount'],$description,$l['reference']);
         }
         Ledger::post($pdo,[
             'congregationId' => $cong,
@@ -374,7 +411,8 @@ class Contribution {
             'reference' => $p['reference'],
             'description' => $description
         ],$lines);
-        Ledger::syncBankPostings($pdo,$cong,1,(int)$id,self::BANK_METHOD,$p['reference']);
+        // the bank rows take the reference of their own debit line; none of them is given the entry's joined reference
+        Ledger::syncBankPostings($pdo,$cong,1,(int)$id,self::BANK_METHOD);
     }
 
     private function descriptions($data)
@@ -527,8 +565,20 @@ class Contribution {
 
     public function getContribution($id)
     {
-        $this->db->query('SELECT * FROM vw_contributorspertxn WHERE (HeaderId = :id)');
+        // reference = the row's own; a row without one (old receipts) shows the old header reference (the entry's, task 12)
+        // legacy = the receipt was saved before row references (no ledger line has one): its stored row references are lower case
+        $this->db->query("SELECT v.*,
+                                 COALESCE(NULLIF(TRIM(d.paymentReference),''),NULLIF(TRIM(e.reference),''),'') AS reference,
+                                 IF(e.ID IS NULL OR EXISTS(SELECT 1 FROM journal_lines jl WHERE jl.journalEntryId = e.ID AND jl.reference IS NOT NULL),0,1) AS legacy
+                          FROM vw_contributorspertxn v
+                               JOIN tblcontributions_details d ON d.ID = v.ID
+                               JOIN tblcontributions_header h ON h.ID = v.HeaderId
+                               LEFT JOIN journal_entries e ON e.transactionTypeId = 1 AND e.transactionId = h.ID
+                                    AND e.congregationId = h.congregationId AND e.deleted = 0
+                          WHERE (v.HeaderId = :id) AND (h.congregationId = :cid)
+                          ORDER BY v.ID");
         $this->db->bind(':id',$id);
+        $this->db->bind(':cid',$_SESSION['congId']);
         return $this->db->resultSet();
     }
 
@@ -556,8 +606,26 @@ class Contribution {
             }
             $p = $this->prepare($pdo,$cong,$data,$used);
             [$desc,$narr] = $this->descriptions($data);
-            // a cleared (reconciled) bank row may stay, but not with another bank or total
-            if ($problem = Ledger::clearedBankProblem($pdo,$cong,1,$id,['bankId' => $p['receiving'],'amount' => $p['total']])) {
+
+            // An old receipt (saved before task 12) has ONE aggregate bank row for all its rows. When that row is cleared the
+            // edit keeps it as one row (only reference / date / description may change): the receipt has exactly one active
+            // bank row, it is cleared, it equals the new total, and there are several rows (one row = the same thing).
+            $bankRows = loadresultset($pdo,'SELECT cleared FROM tblbankpostings WHERE congregationId=? AND transactionType=1
+                                            AND transactionId=? AND deleted=0',[$cong,$id]);
+            $aggregate = count($bankRows) === 1 && (int)$bankRows[0]->cleared === 1 && count($p['lines']) > 1
+                && Ledger::clearedBankProblem($pdo,$cong,1,$id,['bankId' => $p['receiving'],'amount' => $p['total']]) === null;
+            if ($aggregate) {
+                $p['aggregate'] = true;
+                $problem = null;
+            } else {
+                // one bank row per receipt row: a cleared row may change reference / date / description, not bank or amount
+                $keep = [];
+                foreach ($p['lines'] as $i => $l) {
+                    $keep[] = ['bankId' => $p['receiving'],'amount' => $l['amount'],'reference' => $l['reference'],'row' => $i + 1];
+                }
+                $problem = Ledger::clearedBankRowProblem($pdo,$cong,1,$id,$keep);
+            }
+            if ($problem) {
                 $pdo->rollBack();
                 return ['success' => false,'errors' => [$problem]];
             }

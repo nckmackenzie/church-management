@@ -119,7 +119,9 @@ try {
     [$c1, $b1] = $dq($A); $d1 = J($b1);
     ok('level 1: rows add up, amount = the asset top figure', $c1 === 200 && $d1['mode'] === 'children' && $d1['sumsExactly'] && $d1['amount'] === '117.00');
     [$c2, $b2] = $dq($AL); $d2 = J($b2);
-    ok('leaf: journal lines from inception with the cumulative running balance and closing = the figure', $c2 === 200 && $d2['mode'] === 'lines' && $d2['opening'] === '0.00' && $d2['matching'] === 6 && $d2['closing'] === '117.00' && $d2['direction'] === 'Dr', $b2);
+    // task 12 (decision 5): was "journal lines from inception, opening 0.00, 6 lines". The list starts at the financial-year start (01-10-2025): the 2 earlier
+    // lines (net 15.00) are ONE Balance b/f row, the running balance starts from it, 4 lines remain, the closing balance is the figure clicked.
+    ok('leaf: Balance b/f 15.00 dated 01-10-2025, then the 4 lines of the year with the running balance, closing = the figure', $c2 === 200 && $d2['mode'] === 'lines' && $d2['opening'] === '15.00' && $d2['balanceBf'] === ['date' => '01-10-2025', 'label' => 'Balance b/f'] && $d2['matching'] === 4 && $d2['rows'][0]['balance'] === '22.00' && $d2['closing'] === '117.00' && $d2['direction'] === 'Dr', $b2);
     [$cb, $bb] = $dq('bf'); $db = J($bb);
     ok('Accumulated fund b/f opens into the earlier years\' income / expense accounts and adds up', $cb === 200 && $db['mode'] === 'children' && $db['sumsExactly'] && $db['amount'] === '15.00' && $db['fund'] === 'bf');
     [$cb2, $bb2] = $dq($IL, '&fund=bf&view=lines'); $db2 = J($bb2);
@@ -128,10 +130,10 @@ try {
     ok('dividends open into the type 5 accounts', $cd === 200 && $dd['mode'] === 'children' && $dd['sumsExactly'] && $dd['amount'] === '(2.00)');
     [$cd2, $bd2] = $dq($DL, '&fund=div&view=lines'); $dd2 = J($bd2);
     ok('the dividend account lines (year to date)', $cd2 === 200 && $dd2['matching'] === 1);
-    [$cp, $bp] = $dq($AL, '&view=lines&pageSize=2&page=3'); $dp = J($bp);
-    ok('paging: page 3 of 2 per page holds lines 5-6 with the true running balance (117.00 at the end)', $cp === 200 && count($dp['rows']) === 2 && $dp['pages'] === 3 && $dp['rows'][1]['balance'] === '117.00');
+    [$cp, $bp] = $dq($AL, '&view=lines&pageSize=2&page=2'); $dp = J($bp);
+    ok('paging: page 2 of 2 per page holds lines 3-4 with the true running balance (117.00 at the end); the Balance b/f is still delivered', $cp === 200 && count($dp['rows']) === 2 && $dp['pages'] === 2 && $dp['rows'][1]['balance'] === '117.00' && $dp['balanceBf']['label'] === 'Balance b/f' && $dp['opening'] === '15.00');
     [$cs, $bs_] = $dq($AL, '&view=lines&search=' . urlencode('100.00')); $ds = J($bs_);
-    ok('search by amount', $cs === 200 && $ds['matching'] === 1 && $ds['closing'] === '117.00');
+    ok('search by amount: one matching row; the Balance b/f is not hidden by the search', $cs === 200 && $ds['matching'] === 1 && $ds['closing'] === '117.00' && $ds['balanceBf'] !== null && $ds['opening'] === '15.00');
     foreach (['another congregation\'s asset' => $Foreign, 'deleted without history' => $DelN, 'a root' => 3, 'non-digit' => 'abc', 'SQL text' => '1 OR 1=1', 'a name' => 'cash and cash equivalents', 'zero' => '0', 'empty' => '', 'an income account without fund' => $IL, 'an expense account without fund' => $EL] as $label => $acc) {
         [$code, $b] = $dq(urlencode((string) $acc)); ok("drill refuses $label with 400", $code === 400 && J($b)['success'] === false, "status $code");
     }
@@ -156,7 +158,9 @@ try {
     [$code, $bin2] = http("reports/balancesheetdrillrpt?account=$A&asof=$asof&format=xlsx", $admin11); $rows2 = xlsx($bin2);
     ok('drill page (children) exports its rows and total', $code === 200 && $rows2 !== null && $find($rows2, 'Total') !== null);
     [$code, $bin3] = http("reports/balancesheetdrillrpt?account=$AL&asof=$asof&view=lines&format=xlsx&page=2&pageSize=2", $admin11); $rows3 = xlsx($bin3);
-    ok('lines export holds all 6 lines whatever the page', $code === 200 && count(array_filter($rows3, function ($r) { return isset($r[1]) && $r[1][0] === 'n' && isset($r[0]) && $r[0][0] === 'n'; })) === 6 && $find($rows3, 'Closing balance') !== null);
+    $bfRow = array_values(array_filter($rows3, function ($r) { return isset($r[4]) && $r[4][0] === 's' && $r[4][1] === 'Balance b/f'; }));
+    ok('lines export (Excel = screen) holds the Balance b/f row (15.00, dated 2025-10-01) and all 4 lines of the year whatever the page', $code === 200 && count(array_filter($rows3, function ($r) { return isset($r[1]) && $r[1][0] === 'n' && isset($r[0]) && $r[0][0] === 'n'; })) === 4 && $find($rows3, 'Closing balance') !== null
+        && count($bfRow) === 1 && $bfRow[0][9][1] == 15 && (int) $bfRow[0][0][1] === (int) (new DateTime('1899-12-30'))->diff(new DateTime('2025-10-01'))->days && $find($rows3, 'Closing balance')[9][1] == 117, json_encode($bfRow));
     [$code, $bin4] = http("reports/balancesheetdrillrpt?account=$AL&asof=$asof&view=lines&format=xlsx&search=" . urlencode('100.00'), $admin11); $rows4 = xlsx($bin4);
     ok('lines export of a search holds only the matching row', count(array_filter($rows4, function ($r) { return isset($r[1]) && $r[1][0] === 'n' && isset($r[0]) && $r[0][0] === 'n'; })) === 1);
     [$code, $bin5] = http("parishreports/balancesheetrpt?asof=$asof&format=xlsx", $admin11); $rows5 = xlsx($bin5);

@@ -85,8 +85,7 @@ try{
  $src=file_get_contents(__DIR__.'/../app/controllers/Journals.php');
  h45ok('Journals.php has no htmlentities( on request input',!preg_match('/htmlentities\s*\(/i',$src));
  // 167: public/.htaccess and utils.js are tracked and carry nothing machine-specific; the page header supplies the base URL
- $tracked=explode("
-",trim((string)shell_exec('git -C '.escapeshellarg(dirname(__DIR__)).' ls-files public/.htaccess public/dist/js/pages/utils/utils.js')));
+ $tracked=preg_split('/\R/',trim((string)shell_exec('git -C '.escapeshellarg(dirname(__DIR__)).' ls-files public/.htaccess public/dist/js/pages/utils/utils.js')));
  h45ok('public/.htaccess and utils.js are tracked in git',count(array_filter(array_map('trim',$tracked)))===2,json_encode($tracked));
  $utils=(string)file_get_contents(__DIR__.'/../public/dist/js/pages/utils/utils.js');
  h45ok('utils.js has no hard-coded host (HOST_URL comes from window.APP_URLROOT)',stripos($utils,'localhost')===false&&strpos($utils,'window.APP_URLROOT')!==false);

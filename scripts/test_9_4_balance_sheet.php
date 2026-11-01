@@ -108,6 +108,7 @@ try {
         if ($d['mode'] === 'children') {
             if (!$d['sumsExactly'] || $d['rowsTotal'] !== $d['amount'] || ($amount !== null && $d['amount'] !== $amount)) { $bad[] = "$label level rows {$d['rowsTotal']} node {$d['amount']} clicked $amount"; }
             foreach ($d['rows'] as $row) {
+                if (($row['next'] ?? '') === 'incomestatement' && !empty($row['start'])) { continue; }   // task 12: an earlier financial year of the b/f: it opens that year's income statement, no list
                 if ($row['direct']) {
                     $l = BalanceSheetReport::drill($pdo, [$T], $row['id'], $asOf, 'lines', true, $fund); $levels++; $lines++;
                     if ($l['closing'] !== $row['amount']) { $bad[] = "$label direct closing {$l['closing']} vs {$row['amount']}"; }
@@ -126,15 +127,22 @@ try {
     ok("drill: all $levels levels (assets, liabilities, equity, b/f, dividends) add up and the $lines line lists close at the figure clicked", $levels >= 10 && $lines >= 5 && !$bad, implode('; ', $bad));
     ok('the surplus line has no drill of its own: it points at the income statement of the year to date', $r['fund']['rows'][1]['id'] === 'cy' && $r['fund']['rows'][1]['next'] === 'incomestatement');
     $dbf = BalanceSheetReport::drill($pdo, [$T], 'bf', $asOf, 'children', false, '');
-    ok('b/f opens into the prior years\' surplus (the fund account holds nothing in this congregation) and adds up to 260.00', $dbf['amount'] === '260.00' && $dbf['sumsExactly'] && count($dbf['rows']) === 1 && $dbf['rows'][0]['id'] === 'pys');
+    // task 12 (decision 7, amends 145): was "b/f opens into the prior years' surplus row" and "prior years' surplus opens into the income / expense accounts"
+    // (a transaction-level list of the earlier years). Now ONE line per earlier financial year, adding up exactly to the b/f figure, no account / transaction list.
+    ok('b/f (the fund account holds nothing in this congregation): one line per earlier financial year, each opening that year\'s income statement, adding up to 260.00',
+        $dbf['amount'] === '260.00' && $dbf['sumsExactly'] && count($dbf['rows']) >= 1 && count(array_filter($dbf['rows'], function ($x) { return $x['next'] === 'incomestatement' && preg_match('/^Surplus \/ \(deficit\) \d{4}[-\/]\d{4}$/', $x['name']) && $x['start'] && $x['end']; })) === count($dbf['rows'])
+        && array_sum(array_column($dbf['rows'], 'amountRaw')) === 26000, json_encode($dbf['rows']));
     $dpys = BalanceSheetReport::drill($pdo, [$T], 'pys', $asOf, 'children', false, '');
-    ok('prior years\' surplus opens into the income / expense accounts of the earlier years (credit direction) and adds up to 260.00', $dpys['amount'] === '260.00' && $dpys['sumsExactly'] && count($dpys['rows']) >= 2 && $dpys['fund'] === 'bf');
+    ok('prior years\' surplus (old link): the same per-year lines, adding up to 260.00', $dpys['amount'] === '260.00' && $dpys['sumsExactly'] && $dpys['rows'] == $dbf['rows'] && $dpys['fund'] === 'bf');
     $dl = BalanceSheetReport::drill($pdo, [$T], $I4, $asOf, 'lines', false, 'bf');
     ok('an income account under b/f lists only the earlier years, cumulative, no restart', $dl['mode'] === 'lines' && $dl['matching'] === 2 && $dl['closing'] === '360.00' && $dl['rows'][1]['balance'] === '360.00');
     $dd = BalanceSheetReport::drill($pdo, [$T], 'div', $asOf, 'children', false, '');
     ok('dividends open into the type-5 accounts and add up', $dd['sumsExactly'] && $dd['amount'] === '(40.00)' && count($dd['rows']) === 1);
     $dl2 = BalanceSheetReport::drill($pdo, [$T], $A5, $asOf, 'lines', false, '');
-    ok('a balance-sheet account lists lines from inception with the cumulative running balance', $dl2['opening'] === '0.00' && $dl2['rows'][0]['date'] === '01-12-2024' && $dl2['closing'] === '6,470.00');
+    // task 12 (decision 5): was "lists lines from inception with the cumulative running balance (opening 0.00, first line 01-12-2024)". Now the list starts at the
+    // start of the financial year and everything before is one Balance b/f row; the running balance starts from it and the closing balance is unchanged.
+    ok('a balance-sheet account lists the lines of the financial year only, after a Balance b/f dated 01-10-2025; the closing balance is unchanged (6,470.00)',
+        $dl2['balanceBf']['date'] === '01-10-2025' && $dl2['opening'] !== '0.00' && date('Y-m-d', strtotime($dl2['rows'][0]['date'])) >= '2025-10-01' && $dl2['closing'] === '6,470.00', json_encode([$dl2['balanceBf'], $dl2['opening'], $dl2['rows'][0]['date'], $dl2['closing']]));
     ok('crumbs run from the top-level account; roots left out', array_column(BalanceSheetReport::drill($pdo, [$T], $A4, $asOf, 'children', false, '')['crumbs'], 'name') === ['Zz T94 Asset Top', 'Zz T94 Asset Mid', 'Zz T94 Asset Low']);
 
     echo "== parish scope: raw sum, deleted congregation with history\n";
@@ -216,7 +224,9 @@ try {
         ok("$d the fund account is no longer a separate type 6 line", !in_array($faId, array_column($bsr['equity']['rows'], 'id'), true) && $bsr['balanced'] === true && $bsr['fund']['diagnostic'] === null);
         $dbf = BalanceSheetReport::drill($pdo, [11], 'bf', $d, 'children', false, '');
         $ids = array_column($dbf['rows'], 'id');
-        ok("$d b/f opens two rows (the fund account at the year start, prior years' surplus) that add up to b/f", $dbf['sumsExactly'] && $dbf['rowsTotalRaw'] === $parts['bf'] && $ids === [(string) $faId, 'pys'], json_encode($ids));
+        // task 12: the prior years' surplus row is replaced by one line per earlier financial year
+        $yr = array_values(array_filter($ids, function ($x) { return strpos((string) $x, 'fy') === 0; }));
+        ok("$d b/f opens the fund account at the year start (when not zero) and one line per earlier financial year; they add up to b/f", $dbf['sumsExactly'] && $dbf['rowsTotalRaw'] === $parts['bf'] && count($yr) >= 1 && count($ids) === count($yr) + ($parts['acctBf'] !== 0 ? 1 : 0) && ($parts['acctBf'] === 0 || $ids[0] === (string) $faId), json_encode($ids));
         $dfa = BalanceSheetReport::drill($pdo, [11], $faId, $d, 'children', false, 'fa');
         ok("$d the fund account at the year start opens its accounts and adds up", $dfa['mode'] === 'children' && $dfa['sumsExactly'] && $dfa['amount'] === IncomeStatementReport::bracket($parts['acctBf']), $dfa['amount']);
         $dp = BalanceSheetReport::drill($pdo, [11], 'pys', $d, 'children', false, '');
