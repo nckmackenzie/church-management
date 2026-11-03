@@ -171,6 +171,10 @@ class Banktransactions extends Controller
                 exit;
             }
 
+            if($data['isedit']){
+                // the edit screen goes back to the list, which shows this message
+                flash('banktransaction_msg','Saved successfully');
+            }
             http_response_code(201);
             echo json_encode(['success' => true,'message' => 'Saved successfully']);
             exit;

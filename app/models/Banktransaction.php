@@ -348,7 +348,8 @@ class Banktransaction
     {
         $sql = 'SELECT s.SubAccountId,ucase(b.AccountName) As Account,s.Amount
                 FROM `tblbanktransactions_subaccounts` s join tblbanksubaccounts b on s.SubAccountId = b.ID
-                WHERE s.TransactionType = 13 AND s.TransactionId = ? AND s.CongregationId = ?';
+                WHERE s.TransactionType = 13 AND s.TransactionId = ? AND s.CongregationId = ?
+                  AND EXISTS (SELECT 1 FROM tblbanktransactions bt WHERE bt.ID = s.TransactionId AND bt.CongregationId = s.CongregationId AND bt.Deleted = 0)';
         return loadresultset($this->db->dbh,$sql,[(int)$id,(int)$_SESSION['congId']]);
     }
 

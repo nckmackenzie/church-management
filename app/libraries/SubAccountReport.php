@@ -13,6 +13,14 @@
  */
 class SubAccountReport
 {
+    /**
+     * Condition on the book (alias s): a type-13 row (bank transaction) counts only while its bank transaction (same congregation, same ID) exists
+     * and is not deleted. Before task 13 deleting a bank transaction left its rows behind; they are ignored, not deleted (owner, task 13b).
+     * Other types (1 receipts, 18 opening balances) are not touched.
+     */
+    const LIVE = ' AND (IFNULL(s.TransactionType,0) <> 13 OR EXISTS (SELECT 1 FROM tblbanktransactions bt
+                    WHERE bt.ID = s.TransactionId AND bt.CongregationId = s.CongregationId AND bt.Deleted = 0))';
+
     /** [id => ['id','name','kind' group|district,'ownerId']] of this congregation's sub accounts */
     public static function owned(PDO $db, int $cong): array
     {
@@ -41,7 +49,7 @@ class SubAccountReport
     public static function balances(PDO $db, int $cong, string $asOf): array
     {
         $out = [];
-        $book = $db->prepare('SELECT IFNULL(SUM(Amount),0) FROM tblbanktransactions_subaccounts WHERE SubAccountId = ? AND TransactionDate <= ?');
+        $book = $db->prepare('SELECT IFNULL(SUM(s.Amount),0) FROM tblbanktransactions_subaccounts s WHERE s.SubAccountId = ? AND s.TransactionDate <= ?' . self::LIVE);
         foreach (self::owned($db, $cong) as $id => $s) {
             $col = self::expenseColumn($s['kind']);
             $exp = $db->prepare("SELECT IFNULL(SUM(amount),0) FROM tblexpenses WHERE deleted = 0 AND status = 1 AND expenseDate <= ? AND $col = ? AND requisitionId IS NOT NULL AND congregationId = ?");
@@ -59,8 +67,8 @@ class SubAccountReport
     public static function breakdown(PDO $db, int $cong, array $sub, string $asOf): array
     {
         $col = self::expenseColumn($sub['kind']);
-        $st = $db->prepare("SELECT TransactionDate AS d, Narration AS narr, Reference AS ref, Amount AS amount, 0 AS ord, ID AS id
-                            FROM tblbanktransactions_subaccounts WHERE SubAccountId = ? AND TransactionDate <= ?
+        $st = $db->prepare("SELECT s.TransactionDate AS d, s.Narration AS narr, s.Reference AS ref, s.Amount AS amount, 0 AS ord, s.ID AS id
+                            FROM tblbanktransactions_subaccounts s WHERE s.SubAccountId = ? AND s.TransactionDate <= ?" . self::LIVE . "
                             UNION ALL
                             SELECT e.expenseDate, e.narration, e.paymentReference, e.amount * -1, 1, e.ID
                             FROM tblexpenses e
@@ -76,14 +84,14 @@ class SubAccountReport
     public static function statement(PDO $db, int $cong, array $sub, string $from, string $to): array
     {
         $col = self::expenseColumn($sub['kind']);
-        $open = $db->prepare('SELECT IFNULL(SUM(Amount),0) FROM tblbanktransactions_subaccounts WHERE SubAccountId = ? AND TransactionDate < ?');
+        $open = $db->prepare('SELECT IFNULL(SUM(s.Amount),0) FROM tblbanktransactions_subaccounts s WHERE s.SubAccountId = ? AND s.TransactionDate < ?' . self::LIVE);
         $open->execute([$sub['id'], $from]);
         $oe = $db->prepare("SELECT IFNULL(SUM(amount),0) FROM tblexpenses WHERE deleted = 0 AND status = 1 AND expenseDate < ? AND $col = ? AND requisitionId IS NOT NULL AND congregationId = ?");
         $oe->execute([$from, $sub['ownerId'], $cong]);
         $balance = FinancialReport::cents($open->fetchColumn()) - FinancialReport::cents($oe->fetchColumn());
         $rows = [['date' => $from, 'reference' => '', 'narr' => 'Opening balance', 'in' => null, 'out' => null, 'balance' => $balance]];
-        $st = $db->prepare("SELECT TransactionDate AS d, Reference AS ref, Narration AS narr, Amount AS amount, 0 AS ord, ID AS id
-                            FROM tblbanktransactions_subaccounts WHERE SubAccountId = ? AND TransactionDate BETWEEN ? AND ?
+        $st = $db->prepare("SELECT s.TransactionDate AS d, s.Reference AS ref, s.Narration AS narr, s.Amount AS amount, 0 AS ord, s.ID AS id
+                            FROM tblbanktransactions_subaccounts s WHERE s.SubAccountId = ? AND s.TransactionDate BETWEEN ? AND ?" . self::LIVE . "
                             UNION ALL
                             SELECT e.expenseDate, e.paymentReference, e.narration, e.amount * -1, 1, e.ID
                             FROM tblexpenses e

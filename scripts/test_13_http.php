@@ -39,7 +39,7 @@ function subrows($type, $tid, $cong = 11) {
 }
 
 $tables = ['journal_entries' => 'ID', 'journal_lines' => 'ID', 'tblbankpostings' => 'ID', 'tblbanktransactions' => 'ID', 'tblpettycash' => 'ID', 'tbllogs' => 'ID',
-           'tblbanktransactions_subaccounts' => 'ID', 'tblcontributions_header' => 'ID', 'tblcontributions_details' => 'ID'];
+           'tblbanktransactions_subaccounts' => 'ID', 'tblcontributions_header' => 'ID', 'tblcontributions_details' => 'ID', 'tblbanksubaccounts' => 'ID'];
 $max = []; foreach ($tables as $t => $k) { $max[$t] = (int) $pdo->query("SELECT IFNULL(MAX($k),0) FROM $t")->fetchColumn(); }
 
 try {
@@ -50,6 +50,16 @@ try {
     $s1 = (int) $sub[0]['ID']; $s2 = (int) $sub[1]['ID'];
     $cType = (int) q('SELECT contributionTypeId c FROM tblcontributions_details WHERE contributionTypeId>0 LIMIT 1')[0]['c'];
     $admin = mkSession(64, 11);
+    // admin-entered names with markup: a sub account and (temporarily) the bank's own name
+    $evil = '<script>alert(1)</script> & Co';
+    $gid = (int)q('SELECT GroupId g FROM tblbanksubaccounts WHERE GroupId IS NOT NULL AND Deleted=0 LIMIT 1')[0]['g'];
+    x("INSERT INTO tblbanksubaccounts (AccountName,BankId,AccountId,GroupDistrict,GroupId,DistrictId,Deleted) VALUES (?,?,33,'group',?,NULL,0)", [$evil, $b1, $gid]);
+    $origBank = q('SELECT accountType FROM tblaccounttypes WHERE ID=?', [$b1])[0]['accountType'];
+    x('UPDATE tblaccounttypes SET accountType=? WHERE ID=?', ['<b>BNK</b> & Co', $b1]);
+    $add = http('GET', 'banktransactions/add', $admin);
+    ok('add screen: sub account name with markup is escaped in both dropdowns (no raw tag)', stripos($add[1], '<script>alert(1)</script>') === false && substr_count($add[1], '&lt;SCRIPT&gt;ALERT(1)&lt;/SCRIPT&gt; &amp; CO') >= 2, $add[0]);
+    ok('add screen: bank name with markup is escaped (optgroup label and transfer list)', stripos($add[1], '<b>BNK</b>') === false && strpos($add[1], '&lt;B&gt;BNK&lt;/B&gt; &amp; CO') !== false);
+    x('UPDATE tblaccounttypes SET accountType=? WHERE ID=?', [$origBank, $b1]);
 
     // a split deposit through the model (as the add form would), ID shared with a receipt, an opening balance and other-congregation rows
     $N = 20011;
@@ -69,6 +79,8 @@ try {
     $r = http('POST', 'banktransactions/createupdate', $admin, $post([['accountid' => (string) $s1, 'amount' => '100'], ['accountid' => (string) $s2, 'amount' => '200']]), true);
     ok('POST edit into a split saved (201)', $r[0] === 201 && json_decode($r[1], true)['success'] === true, $r[0] . ' ' . substr($r[1], 0, 200));
     $own = subrows(13, $N);
+    $r = http('GET', 'banktransactions', $admin);
+    ok('after a successful edit the list shows "Saved successfully" (the edit screen goes back to the list)', $r[0] === 200 && strpos($r[1], 'Saved successfully') !== false);
     ok('own rows = 100 / 200', count($own) === 2 && (float) $own[0]['Amount'] === 100.0 && (float) $own[1]['Amount'] === 200.0);
     ok('receipt row, opening balance and other-congregation rows untouched', $keep() === $kept);
 
@@ -78,9 +90,16 @@ try {
     ok('edit screen: saved split in data-saved (both sub accounts, amounts)', preg_match('~id="subaccountsContainer" data-saved="([^"]*)"~', $r[1], $m)
         && ($j = json_decode(html_entity_decode($m[1]), true)) && count($j) === 2 && (float) $j[0]['amount'] + (float) $j[1]['amount'] === 300.0, $m[1] ?? '');
     ok('edit screen: bank dropdown lists the sub accounts of the bank', strpos($r[1], 'value="' . $s1 . '-sub"') !== false);
-    ok('edit screen loads index-v2.js', strpos($r[1], 'banktransactions/index-v2.js') !== false && is_file(__DIR__ . '/../public/dist/js/pages/banktransactions/index-v2.js'));
-    $r = http('GET', 'dist/js/pages/banktransactions/index-v2.js', $admin);
-    ok('index-v2.js is served and restores the saved split', $r[0] === 200 && strpos($r[1], 'showSavedSplit') !== false);
+    ok('edit screen loads index-v3.js', strpos($r[1], 'banktransactions/index-v3.js') !== false && is_file(__DIR__ . '/../public/dist/js/pages/banktransactions/index-v3.js'));
+    $r = http('GET', 'dist/js/pages/banktransactions/index-v3.js', $admin);
+    ok('index-v3.js is served and restores the saved split', $r[0] === 200 && strpos($r[1], 'showSavedSplit') !== false);
+    ok('index-v3.js: names go in with textContent (no innerHTML), no blocking alert(), inline setError, edit goes back to the list',
+        strpos($r[1], 'innerHTML') === false && strpos($r[1], 'alert(') === false && strpos($r[1], 'setError(') !== false
+        && strpos($r[1], 'item.SubAccount') !== false && strpos($r[1], 'tr.insertCell().textContent = item.SubAccount') !== false
+        && strpos($r[1], 'window.location.href') !== false && strpos($r[1], '/banktransactions`') !== false);
+    $fb = http('GET', 'dist/js/pages/utils/feedback.js', $admin);
+    ok('feedback.js (setError / clearError) is served', $fb[0] === 200 && strpos($fb[1], 'export function setError') !== false);
+    ok('no older bank transaction script is still referenced', strpos($add[1], 'index-v1.js') === false && strpos($add[1], 'index-v2.js') === false);
 
     // saving the edit screen's own form data again (checked box, same amounts) keeps the split
     $r = http('POST', 'banktransactions/createupdate', $admin, $post([['accountid' => (string) $s1, 'amount' => '100'], ['accountid' => (string) $s2, 'amount' => '200']], ['reference' => 'H13B']), true);
@@ -108,6 +127,7 @@ try {
     $fail++; echo "EXCEPTION: " . $e->getMessage() . " @ " . $e->getFile() . ":" . $e->getLine() . "\n";
 }
 
+if (isset($origBank, $b1)) { x('UPDATE tblaccounttypes SET accountType=? WHERE ID=?', [$origBank, $b1]); }
 foreach ($sessions as $sid) { @unlink(session_save_path() . DIRECTORY_SEPARATOR . 'sess_' . $sid); }
 $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
 foreach ($tables as $t => $k) { $pdo->prepare("DELETE FROM $t WHERE $k > ?")->execute([$max[$t]]); }

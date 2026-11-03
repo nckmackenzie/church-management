@@ -41,12 +41,12 @@
                                         <select name="bank" id="bank" class="form-control form-control-sm mandatory">
                                             <option value="" selected disabled>Select bank</option>
                                             <?php foreach($data['banks'] as $bank)  : ?>
-                                                <optgroup label="<?php echo $bank->Bank;?>">
+                                                <optgroup label="<?php echo htmlspecialchars($bank->Bank,ENT_QUOTES);?>">
                                                     <option value="<?php echo $bank->ID;?>" <?php selectdCheck($data['bank'],$bank->ID); ?>>MAIN ACCOUNT</option>
                                                     <?php if(!is_null($data['subaccounts'])) : ?>
                                                         <?php foreach($data['subaccounts'] as $subaccount) : ?>
                                                             <?php if($subaccount->BankId == $bank->ID): ?>
-                                                                <option value="<?php echo $subaccount->ID;?>-sub" <?php selectdCheck($data['bank'],$subaccount->ID); ?>><?php echo $subaccount->SubAccount;?></option>
+                                                                <option value="<?php echo $subaccount->ID;?>-sub" <?php selectdCheck($data['bank'],$subaccount->ID); ?>><?php echo htmlspecialchars($subaccount->SubAccount,ENT_QUOTES);?></option>
                                                             <?php endif; ?>
                                                         <?php endforeach; ?>
                                                     <?php endif; ?>
@@ -78,14 +78,14 @@
                                             <optgroup label="Main accounts">
                                                 <?php if(!is_null($data['accounts']) && count($data['accounts']) > 0) : ?>
                                                     <?php foreach($data['accounts'] as $account)  : ?>
-                                                        <option value="<?php echo $account->ID;?>" <?php selectdCheck($data['transfer'],$account->ID);?>><?php echo $account->Bank;?></option>
+                                                        <option value="<?php echo $account->ID;?>" <?php selectdCheck($data['transfer'],$account->ID);?>><?php echo htmlspecialchars($account->Bank,ENT_QUOTES);?></option>
                                                     <?php endforeach; ?>
                                                 <?php endif; ?>
                                             </optgroup>
                                             <optgroup label="Sub accounts">
                                                 <?php if(!is_null($data['subaccounts']) && count($data['subaccounts']) > 0) : ?>
                                                     <?php foreach($data['subaccounts'] as $subaccount) : ?>
-                                                        <option value="<?php echo $subaccount->ID;?>-sub"><?php echo $subaccount->SubAccount;?></option>
+                                                        <option value="<?php echo $subaccount->ID;?>-sub"><?php echo htmlspecialchars($subaccount->SubAccount,ENT_QUOTES);?></option>
                                                     <?php endforeach; ?>
                                                 <?php endif; ?>
                                             </optgroup>
@@ -100,7 +100,7 @@
                                                 <?php echo in_array((int)$data['type'],[1,2],true) ? '' : 'disabled';?>>
                                             <option value="" selected disabled>Select account</option>
                                             <?php foreach($data['cashaccounts'] as $cashaccount)  : ?>
-                                                <option value="<?php echo $cashaccount->ID;?>" <?php selectdCheck($data['cashaccount'],$cashaccount->ID);?>><?php echo $cashaccount->Account;?></option>
+                                                <option value="<?php echo $cashaccount->ID;?>" <?php selectdCheck($data['cashaccount'],$cashaccount->ID);?>><?php echo htmlspecialchars($cashaccount->Account,ENT_QUOTES);?></option>
                                             <?php endforeach; ?>
                                         </select>
                                         <span class="invalid-feedback"></span>
@@ -164,7 +164,7 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/banktransactions/index-v2.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/banktransactions/index-v3.js"></script>
 </body>
 </html>
 
