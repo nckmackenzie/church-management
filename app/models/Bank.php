@@ -487,10 +487,11 @@ class Bank {
     {
         $this->db->query('UPDATE tblbanktransactions_subaccounts 
                                SET TransactionDate=:tdate,Amount=:amount 
-                               WHERE (ID=:id) AND (TransactionType=18)');
+                               WHERE (ID=:id) AND (TransactionType=18) AND (CongregationId=:cid)');
         $this->db->bind(':tdate',$data['asof']);
         $this->db->bind(':amount',$data['balance']);
         $this->db->bind(':id',$data['id']);
+        $this->db->bind(':cid',(int)$_SESSION['congId']);
         if(!$this->db->execute()){
             return false;
         }
@@ -499,8 +500,9 @@ class Bank {
 
     public function DeleteSubAccountOpeningBalance($data)
     {
-        $this->db->query('DELETE FROM tblbanktransactions_subaccounts WHERE (ID=:id) AND (TransactionType=18)');
+        $this->db->query('DELETE FROM tblbanktransactions_subaccounts WHERE (ID=:id) AND (TransactionType=18) AND (CongregationId=:cid)');
         $this->db->bind(':id',$data['id']);
+        $this->db->bind(':cid',(int)$_SESSION['congId']);
         if(!$this->db->execute()){
             return false;
         }

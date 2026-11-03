@@ -10,6 +10,7 @@ import {
   clearValues,
   displayAlert,
 } from '../utils/utils.js';
+import { setError, clearError } from '../utils/feedback.js';
 const txnDate = document.querySelector('#date');
 const bank = document.querySelector('#bank');
 const type = document.querySelector('#type');
@@ -22,6 +23,7 @@ const subaccounts = document.querySelector('#deposittosubs');
 const form = document.querySelector('#txnform');
 const subaccountsContainer = document.querySelector('#subaccountsContainer');
 const btn = document.querySelector('.save');
+const editing = !!document.querySelector('input[name="isedit"]')?.value;
 
 // the cash account is chosen for deposits (credited) and withdrawals (debited) only
 function toggleCashAccount() {
@@ -47,7 +49,7 @@ cashAccount.addEventListener('change', function () {
 
 type.addEventListener('change', e => {
   toggleCashAccount();
-  subaccountsContainer.innerHTML = '';
+  subaccountsContainer.replaceChildren();
   if (+e.target.value === 5) {
     transfer.disabled = false;
   } else {
@@ -82,31 +84,50 @@ subaccounts.addEventListener('change', async function (e) {
   }
 });
 
-function renderTable(data) {
-  let html = '';
-  html += `
-    <table class="table table-sm" id="subaccounts">
-      <thead>
-        <tr>
-          <th class="d-none">AccountId</th>
-          <th>Sub Account</th>
-          <th>Amount</th>
-        </tr>
-      </thead>
-      <tbody>`;
-  data.forEach(data => {
-    html += `
-      <tr>
-        <td class="d-none subaccountid">${data.ID}</td>
-        <td>${data.SubAccount}</td>
-        <td><input type="number" class="table-input border w-100 payment" /></td>
-      </tr>`;
+function renderTable(data, saved = []) {
+  // sub account names are typed by an administrator: built with DOM nodes and textContent, never as markup
+  const table = document.createElement('table');
+  table.className = 'table table-sm';
+  table.id = 'subaccounts';
+  const head = table.createTHead().insertRow();
+  [['d-none', 'AccountId'], ['', 'Sub Account'], ['', 'Amount']].forEach(([cls, text]) => {
+    const th = document.createElement('th');
+    if (cls) th.className = cls;
+    th.textContent = text;
+    head.appendChild(th);
   });
-  html += `
-      </tbody>
-    </table>`;
-  subaccountsContainer.innerHTML = html;
+  const body = table.createTBody();
+  data.forEach(item => {
+    const tr = body.insertRow();
+    const id = tr.insertCell();
+    id.className = 'd-none subaccountid';
+    id.textContent = item.ID;
+    tr.insertCell().textContent = item.SubAccount;
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.className = 'table-input border w-100 payment';
+    input.value = (saved.find(x => +x.id === +item.ID) || {}).amount ?? '';
+    input.addEventListener('input', () => clearError(amount));
+    tr.insertCell().appendChild(input);
+  });
+  subaccountsContainer.replaceChildren(table);
 }
+
+// editing a deposit that was split over sub accounts: show the saved split again, so that saving keeps it
+async function showSavedSplit() {
+  if (!subaccounts.checked || !bank.value) return;
+  let saved = [];
+  try {
+    saved = JSON.parse(subaccountsContainer.dataset.saved || '[]');
+  } catch (e) {}
+  const response = await sendHttpRequest(
+    `${HOST_URL}/banktransactions/getsubaccounts?bankid=${bank.value}`
+  );
+  if (response && response.success) {
+    renderTable(response.data, saved);
+  }
+}
+showSavedSplit();
 
 function getEnteredTotal(table) {
   let sumVal = 0;
@@ -128,6 +149,7 @@ form.addEventListener('submit', async e => {
     return;
   }
 
+  clearError(amount);
   if (+amount.value <= 0) {
     amount.classList.add('is-invalid');
     amount.nextSibling.nextSibling.textContent = 'Invalid amount';
@@ -148,10 +170,18 @@ form.addEventListener('submit', async e => {
 
   if (subaccounts.checked) {
     const table = document.getElementById('subaccounts');
+    if (!table) {
+      setError(amount, 'Enter the amounts for the sub accounts');
+      return;
+    }
     const amountValue = amount.value;
 
-    if (+amountValue !== getEnteredTotal(table)) {
-      alert("Amounts Don't match");
+    const entered = Math.round(getEnteredTotal(table) * 100);
+    if (Math.round(+amountValue * 100) !== entered) {
+      setError(
+        amount,
+        `Sub account amounts add up to ${(entered / 100).toFixed(2)}, not ${(+amountValue).toFixed(2)}`
+      );
       return;
     }
   }
@@ -159,10 +189,15 @@ form.addEventListener('submit', async e => {
   setLoadingState(btn, 'Saving...');
   const data = await submitHandler();
   resetLoadingState(btn, 'Save');
+  if (data.success && editing) {
+    // the list shows the "Saved successfully" message the controller put in the session
+    window.location.href = `${HOST_URL}/banktransactions`;
+    return;
+  }
   if (data.success) {
     clearValues();
     toggleCashAccount();
-    subaccountsContainer.innerHTML = '';
+    subaccountsContainer.replaceChildren();
     displayAlert(alertBox, 'Saved successfully', 'success');
   }
 });
