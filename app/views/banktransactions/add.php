@@ -111,7 +111,7 @@
                                         <label for="amount">Amount</label>
                                         <input type="number" name="amount" id="amount" step="0.01" min="0"
                                             class="form-control form-control-sm mandatory"
-                                            value="<?php echo $data['amount'];?>" placeholder="eg 45,000" autocomplete="off">
+                                            value="<?php echo htmlspecialchars((string)$data['amount'],ENT_QUOTES);?>" placeholder="eg 45,000" autocomplete="off">
                                         <span class="invalid-feedback"></span>
                                     </div>
                                 </div>
@@ -120,7 +120,7 @@
                                         <label for="reference">Reference No</label>
                                         <input type="text" name="reference" id="reference"
                                         class="form-control form-control-sm mandatory"
-                                        value="<?php echo $data['reference'];?>"
+                                        value="<?php echo htmlspecialchars((string)$data['reference'],ENT_QUOTES);?>"
                                         placeholder="enter reference no"
                                         autocomplete="off">
                                         <span class="invalid-feedback"></span>
@@ -131,7 +131,7 @@
                                         <label for="description">Description</label>
                                         <input type="text" name="description" id="description"
                                         class="form-control form-control-sm"
-                                        value="<?php echo $data['description'];?>"
+                                        value="<?php echo htmlspecialchars((string)$data['description'],ENT_QUOTES);?>"
                                         placeholder="description of deposit eg source of cash etc.."
                                         autocomplete="off">
                                     </div>
@@ -139,13 +139,13 @@
                                 <div class="col-md-12">
                                     <div class="form-group">
                                         <div class="custom-control custom-checkbox">
-                                            <input type="checkbox" class="custom-control-input" id="deposittosubs" name="deposittosubs" <?php echo $data['deposittosubs'] ? 'checked' : '';?> disabled>
+                                            <input type="checkbox" class="custom-control-input" id="deposittosubs" name="deposittosubs" <?php echo $data['deposittosubs'] ? 'checked' : '';?> <?php echo $data['deposittosubs'] || (int)$data['type'] === 1 && $data['isedit'] ? '' : 'disabled';?>>
                                             <label class="custom-control-label" for="deposittosubs">Deposit to sub-accounts</label>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
-                                    <div class="table-responsive" id="subaccountsContainer"></div>
+                                    <div class="table-responsive" id="subaccountsContainer" data-saved="<?php echo htmlspecialchars(json_encode(array_map(function($s){ return ['id' => (int)$s->SubAccountId,'amount' => $s->Amount]; },$data['savedsubs'] ?? [])),ENT_QUOTES);?>"></div>
                                 </div>
                             </div>
                             <div class="row">
@@ -164,7 +164,7 @@
     </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 <?php require APPROOT . '/views/inc/footer.php'?>
-<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/banktransactions/index-v1.js"></script>
+<script type="module" src="<?php echo URLROOT;?>/dist/js/pages/banktransactions/index-v2.js"></script>
 </body>
 </html>
 

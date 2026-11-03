@@ -16,7 +16,7 @@ $admin11=mkSession(64,11);$admin2=mkSession(64,2);
 $pages=[
  ['plans',''],['churchbudgets/add','dist/js/pages/budgets/lcc-budget.js'],['groupbudgets/add','dist/js/pages/budgets/group-budget.js'],
  ['banks','dist/js/pages/bank/balance.js'],['clearbankings','dist/js/pages/bankings/clearbankings-v2.js'],['clearbankings/modify','dist/js/pages/bankings/modify-cleared-v1.js'],
- ['contributions/add','dist/js/pages/contributions-v2.js'],['banktransactions/add','dist/js/pages/banktransactions/index-v1.js'],
+ ['contributions/add','dist/js/pages/contributions-v2.js'],['banktransactions/add','dist/js/pages/banktransactions/index-v2.js'],
  ['expenses/add','dist/js/pages/expenses/add-expense-v9.js'],['groupcollections/add','dist/js/pages/groupcollections/index-v2.js'],
  ['groupfunds/add','dist/js/pages/groupfunds/add-v5.js'],['journals','dist/js/pages/journals/index-v1.js'],
  ['members/transfer','dist/js/pages/members/transfers-v1.js'],['invoicereports','dist/js/pages/reports/invoices/invoicereports-v2.js'],

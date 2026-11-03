@@ -191,6 +191,13 @@ class Banktransactions extends Controller
             exit;
         }
         checkcenter($transaction->CongregationId);
+        // a sub-account to sub-account transfer (type 6) has no type / bank choice on this form: editing it would turn it into
+        // something else and drop its two sub-account rows. It is deleted and entered again instead.
+        if((int)$transaction->IsSubInterTransfer === 1){
+            flash('banktransaction_msg','A sub account transfer cannot be edited. Delete it and enter it again.','alert custom-danger');
+            redirect('banktransactions');
+            exit;
+        }
         $data= [
             'banks' => $this->bankmodel->GetBanks(),
             // 'accounts' => $this->reusemodel->GetAccountsAll(),
@@ -209,7 +216,9 @@ class Banktransactions extends Controller
             'type' => $transaction->TransactionTypeId,
             'transfer' => $transaction->TransferToId,
             'deposittosubs' => $transaction->DepositToSubAccounts,
-            'subaccounts' => (int)$transaction->DepositToSubAccounts === 1 ? $this->bankmodel->GetSavedSubsAccounts($transaction->ID) : null
+            'subaccounts' => $this->bankmodel->GetAllSubaccounts(),   // the bank / transfer dropdowns, as on the add form
+            // the saved split of a deposit to sub accounts: the form shows it again so that an edit keeps (or changes) it
+            'savedsubs' => (int)$transaction->DepositToSubAccounts === 1 ? $this->bankmodel->GetSavedSubsAccounts($transaction->ID) : []
         ];
         $this->view('banktransactions/add',$data);
         exit;

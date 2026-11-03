@@ -82,7 +82,7 @@ subaccounts.addEventListener('change', async function (e) {
   }
 });
 
-function renderTable(data) {
+function renderTable(data, saved = []) {
   let html = '';
   html += `
     <table class="table table-sm" id="subaccounts">
@@ -99,7 +99,9 @@ function renderTable(data) {
       <tr>
         <td class="d-none subaccountid">${data.ID}</td>
         <td>${data.SubAccount}</td>
-        <td><input type="number" class="table-input border w-100 payment" /></td>
+        <td><input type="number" class="table-input border w-100 payment" value="${
+          (saved.find(s => +s.id === +data.ID) || {}).amount ?? ''
+        }" /></td>
       </tr>`;
   });
   html += `
@@ -107,6 +109,22 @@ function renderTable(data) {
     </table>`;
   subaccountsContainer.innerHTML = html;
 }
+
+// editing a deposit that was split over sub accounts: show the saved split again, so that saving keeps it
+async function showSavedSplit() {
+  if (!subaccounts.checked || !bank.value) return;
+  let saved = [];
+  try {
+    saved = JSON.parse(subaccountsContainer.dataset.saved || '[]');
+  } catch (e) {}
+  const response = await sendHttpRequest(
+    `${HOST_URL}/banktransactions/getsubaccounts?bankid=${bank.value}`
+  );
+  if (response && response.success) {
+    renderTable(response.data, saved);
+  }
+}
+showSavedSplit();
 
 function getEnteredTotal(table) {
   let sumVal = 0;

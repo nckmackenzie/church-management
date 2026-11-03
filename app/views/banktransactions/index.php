@@ -59,10 +59,10 @@
                             <tr>
                                 <td class="d-none"><?php echo $transaction->ID;?></td>
                                 <td><?php echo date('d-m-Y',strtotime($transaction->TransactionDate));?></td>
-                                <td><?php echo ucwords($transaction->BankName);?></td>
+                                <td><?php echo htmlspecialchars(ucwords($transaction->BankName));?></td>
                                 <td><?php echo number_format($transaction->Amount,2);?></td>
-                                <td><?php echo ucwords($transaction->TransactionType);?></td>
-                                <td><?php echo strtoupper($transaction->Reference);?></td>
+                                <td><?php echo htmlspecialchars(ucwords($transaction->TransactionType));?></td>
+                                <td><?php echo htmlspecialchars(strtoupper((string)$transaction->Reference));?></td>
                                 <td>
                                     <?php if($_SESSION['userType'] <=2 || (int)$_SESSION['userType'] > 4) : ?>
                                         <div class="btn-group">

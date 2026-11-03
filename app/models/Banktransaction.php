@@ -330,17 +330,26 @@ class Banktransaction
             saveLog($pdo,'Created bank transaction '.$tid);
             $pdo->commit();
             return ['success' => true,'errors' => []];
-        } catch (\Exception $th) {
+        } catch (\Throwable $th) {
             return $this->fail($pdo,$th);
         }
     }
 
+    /** Task 13: a bank transaction's own sub-account rows are type 13 of this congregation with its ID; nothing else (see Update()). */
+    private function deleteOwnSubaccountRows($cong,$id)
+    {
+        $this->db->query('DELETE FROM tblbanktransactions_subaccounts WHERE (TransactionType = 13) AND (TransactionId = :tid) AND (CongregationId = :cid)');
+        $this->db->bind(':tid',$id);
+        $this->db->bind(':cid',(int)$cong);
+        $this->db->execute();
+    }
+
     public function GetSavedSubsAccounts($id)
     {
-        $sql = 'SELECT s.SubAccountId,ucase(b.AccountName) As Account
+        $sql = 'SELECT s.SubAccountId,ucase(b.AccountName) As Account,s.Amount
                 FROM `tblbanktransactions_subaccounts` s join tblbanksubaccounts b on s.SubAccountId = b.ID
-                WHERE s.TransactionId = ?';
-        return loadresultset($this->db->dbh,$sql,[$id]);
+                WHERE s.TransactionType = 13 AND s.TransactionId = ? AND s.CongregationId = ?';
+        return loadresultset($this->db->dbh,$sql,[(int)$id,(int)$_SESSION['congId']]);
     }
 
     /** Returns ['success' => bool, 'errors' => string[]] (empty errors on failure = unexpected error, logged). */
@@ -355,7 +364,8 @@ class Banktransaction
             $to = $data['issubtxn'] ? $this->GetSubaccountName($data['transfer']) : null;
 
             $pdo->beginTransaction();
-            $owner = getdbvalue($pdo,'SELECT CongregationId FROM tblbanktransactions WHERE ID = ? AND Deleted = 0',[(int)$data['id']]);
+            // lock the row so two edits of one transaction run one after the other
+            $owner = getdbvalue($pdo,'SELECT CongregationId FROM tblbanktransactions WHERE ID = ? AND Deleted = 0 FOR UPDATE',[(int)$data['id']]);
             if($owner === false || $owner === null || (int)$owner !== $cong){
                 $pdo->rollBack();
                 return ['success' => false,'errors' => ['Transaction not found for this congregation']];
@@ -365,9 +375,14 @@ class Banktransaction
             if($split = $this->checkSubaccounts($pdo,$cong,$data)){
                 $data['subaccounts'] = $split;
             }
+            // the two flags are saved too: an edit can turn a transaction into / out of a sub-account split
             $this->db->query('UPDATE tblbanktransactions SET TransactionDate=:ddate,TransactionTypeId=:tid,BankId=:bid,Amount=:amount,
-                                                             TransferToId=:trans,CashAccountId=:cash,Reference=:reference,`Description`=:narr
-                              WHERE (ID=:id)');
+                                                             TransferToId=:trans,CashAccountId=:cash,Reference=:reference,`Description`=:narr,
+                                                             DepositToSubAccounts=:subs,IsSubInterTransfer=:subinter
+                              WHERE (ID=:id) AND (CongregationId=:cid)');
+            $this->db->bind(':subs',$data['deposittosubs']);
+            $this->db->bind(':subinter',$data['issubtxn']);
+            $this->db->bind(':cid',$cong);
             $this->db->bind(':cash',$cash);
             $this->db->bind(':ddate',$data['date']);
             $this->db->bind(':tid',$data['type']);
@@ -379,10 +394,9 @@ class Banktransaction
             $this->db->bind(':id',$data['id']);
             $this->db->execute();
 
-            $this->db->query('DELETE FROM tblbanktransactions_subaccounts WHERE (TransactionId = :tid)');
-            $this->db->bind(':tid',$data['id']);
-            $this->db->execute();
-
+            // only THIS transaction's own rows: the table is shared (receipts type 1, opening balances type 18 ...), each with its
+            // own ID space, so TransactionId alone also matches other transactions' and other congregations' rows (task 13)
+            $this->deleteOwnSubaccountRows($cong,(int)$data['id']);
 
             if(!is_null($data['subaccounts'])){
                 for ($i=0; $i < count($data['subaccounts']); $i++) {
@@ -445,7 +459,7 @@ class Banktransaction
             saveLog($pdo,'Updated bank transaction '.(int)$data['id']);
             $pdo->commit();
             return ['success' => true,'errors' => []];
-        } catch (\Exception $th) {
+        } catch (\Throwable $th) {
             return $this->fail($pdo,$th);
         }
     }
@@ -485,9 +499,13 @@ class Banktransaction
             }
 
             $this->db->query('UPDATE tblbanktransactions SET Deleted = 1
-                              WHERE (ID=:id)');
+                              WHERE (ID=:id) AND (CongregationId=:cid)');
             $this->db->bind(':id',$id);
+            $this->db->bind(':cid',$cong);
             $this->db->execute();
+
+            // the sub-account book has no Deleted column and every sub-account balance sums it: a deleted transaction's own rows must go
+            $this->deleteOwnSubaccountRows($cong,(int)$id);
 
             Ledger::void($pdo,$cong,13,(int)$id);
             Ledger::voidBankPostings($pdo,$cong,13,(int)$id);
@@ -500,7 +518,7 @@ class Banktransaction
             saveLog($pdo,'Deleted bank transaction '.(int)$id);
             $pdo->commit();
             return ['success' => true,'errors' => []];
-        } catch (\Exception $th) {
+        } catch (\Throwable $th) {
             return $this->fail($pdo,$th);
         }
     }
